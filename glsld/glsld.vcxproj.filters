@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Parser.cpp" />
+    <ClCompile Include="Sources\Analyzer\SymbolTable.cpp" />
+    <ClCompile Include="Sources\Analyzer\TinyLexer.cpp" />
+    <ClCompile Include="Sources\Base\Config.cpp" />
+    <ClCompile Include="Sources\Base\Logger.cpp" />
+    <ClCompile Include="Sources\Base\ThreadPool.cpp" />
+    <ClCompile Include="Sources\main.cpp" />
+    <ClCompile Include="Sources\Server\JsonResponse.cpp" />
+    <ClCompile Include="Sources\Server\Router.cpp" />
+    <ClCompile Include="Sources\Server\Server.cpp" />
+    <ClCompile Include="Sources\stdafx.cpp" />
+    <ClCompile Include="Sources\Utils\Utils.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Parser.hpp" />
+    <ClInclude Include="Sources\Analyzer\SymbolTable.hpp" />
+    <ClInclude Include="Sources\Analyzer\TinyLexer.hpp" />
+    <ClInclude Include="Sources\Analyzer\Token.hpp" />
+    <ClInclude Include="Sources\Base\Config.hpp" />
+    <ClInclude Include="Sources\Base\ConfigIniter.hpp" />
+    <ClInclude Include="Sources\Base\Logger.hpp" />
+    <ClInclude Include="Sources\Base\ThreadPool.hpp" />
+    <ClInclude Include="Sources\Base\YamlTypes.hpp" />
+    <ClInclude Include="Sources\Server\Context.hpp" />
+    <ClInclude Include="Sources\Server\JsonResponse.hpp" />
+    <ClInclude Include="Sources\Server\Router.hpp" />
+    <ClInclude Include="Sources\Server\Server.hpp" />
+    <ClInclude Include="Sources\stdafx.h" />
+    <ClInclude Include="Sources\Utils\Utils.hpp" />
+    <ClInclude Include="Sources\xstdafx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Sources\Base\Config.inl" />
+    <None Include="Sources\Base\Logger.inl" />
+    <None Include="Sources\Base\ThreadPool.inl" />
+    <None Include="vcpkg.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{204cba37-ca7e-43d6-9a92-f51284ee19e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{d69adafd-6e2c-4924-aecd-7aec521cab30}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

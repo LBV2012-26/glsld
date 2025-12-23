@@ -1,0 +1,36 @@
+#pragma once
+
+#include <cstddef>
+#include <atomic>
+#include <memory>
+#include <thread>
+#include <vector>
+
+namespace glsld {
+    class ThreadPool {
+    public:
+        explicit ThreadPool(int max_thread_count = 0);
+        ThreadPool(const ThreadPool&) = delete;
+        ThreadPool(ThreadPool&&)      = delete;
+        ~ThreadPool();
+
+        ThreadPool& operator=(const ThreadPool&) = delete;
+        ThreadPool& operator=(ThreadPool&&)      = delete;
+
+        template <typename Func, typename... Types>
+        auto Submit(Func&& pred, Types&&... args);
+
+        int max_thread_count() const;
+
+    private:
+        struct Worker;
+
+        std::vector<std::unique_ptr<Worker>> workers_;
+        std::vector<std::jthread>            threads_;
+        std::atomic<std::size_t>             next_thread_index_{};
+        int                                  max_thread_count_;
+        std::atomic<bool>                    terminate_{ false };
+    };
+}
+
+#include "ThreadPool.inl"

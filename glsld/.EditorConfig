@@ -1,0 +1,34 @@
+# 顶层 EditorConfig 文件
+root = true
+
+# 所有文件通用配置
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C++ 文件配置
+[*.{cpp,hpp,h,c,inl,ixx,cppm}]
+indent_style = space
+indent_size = 4
+
+# C++ 特定格式化选项
+cpp_new_line_before_open_brace_namespace = same_line
+cpp_new_line_before_open_brace_type = same_line
+cpp_new_line_before_open_brace_function = same_line
+cpp_new_line_before_open_brace_block = same_line
+cpp_new_line_before_open_brace_lambda = same_line
+cpp_new_line_scope_braces_on_separate_lines = false
+cpp_new_line_close_brace_same_line_empty_type = true
+cpp_new_line_close_brace_same_line_empty_function = true
+cpp_new_line_before_catch = false
+cpp_new_line_before_else = false
+cpp_new_line_before_while_in_do_while = false
+cpp_space_before_function_open_parenthesis = false
+cpp_indent_multi_line_relative_to = innermost_parenthesis
+cpp_indent_within_parentheses = align_to_parenthesis
+cpp_indent_preserve_within_parentheses = true
+cpp_indent_case_contents = true
+cpp_indent_case_labels = false
+cpp_indent_lambda_braces_when_parameter = false

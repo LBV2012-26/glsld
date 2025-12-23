@@ -1,0 +1,15 @@
+core
+define
+defined
+error
+elif
+endif
+extension
+ifdef
+ifndef
+include
+line
+pragma
+shader_stage
+undef
+version

@@ -1,0 +1,134 @@
+vec2 vec3 vec4
+ivec2 ivec3 ivec4
+uvec2 uvec3 uvec4
+dvec2 dvec3 dvec4
+bvec2 bvec3 bvec4
+
+f16vec2 f16vec3 f16vec4
+f32vec2 f32vec3 f32vec4
+f64vec2 f64vec3 f64vec4
+i8vec2 i8vec3 i8vec4
+i16vec2 i16vec3 i16vec4
+i32vec2 i32vec3 i32vec4
+i64vec2 i64vec3 i64vec4
+u8vec2 u8vec3 u8vec4
+u16vec2 u16vec3 u16vec4
+u32vec2 u32vec3 u32vec4
+u64vec2 u64vec3 u64vec4
+hvec2 hvec3 hvec4
+fvec2 fvec3 fvec4
+
+mat2 mat3 mat4
+mat2x2 mat2x3 mat2x4
+mat3x2 mat3x3 mat3x4
+mat4x2 mat4x3 mat4x4
+dmat2 dmat3 dmat4
+dmat2x2 dmat2x3 dmat2x4
+dmat3x2 dmat3x3 dmat3x4
+dmat4x2 dmat4x3 dmat4x4
+
+f16mat2 f16mat3 f16mat4
+f16mat2x2 f16mat2x3 f16mat2x4
+f16mat3x2 f16mat3x3 f16mat3x4
+f16mat4x2 f16mat4x3 f16mat4x4
+f32mat2 f32mat3 f32mat4
+f32mat2x2 f32mat2x3 f32mat2x4
+f32mat3x2 f32mat3x3 f32mat3x4
+f32mat4x2 f32mat4x3 f32mat4x4
+f64mat2 f64mat3 f64mat4
+f64mat2x2 f64mat2x3 f64mat2x4
+f64mat3x2 f64mat3x3 f64mat3x4
+f64mat4x2 f64mat4x3 f64mat4x4
+
+sampler
+sampler1D sampler2D sampler3D samplerCube
+sampler1DShadow sampler2DShadow samplerCubeShadow
+sampler1DArray sampler2DArray
+sampler1DArrayShadow sampler2DArrayShadow
+sampler2DRect sampler2DRectShadow
+samplerBuffer
+sampler2DMS sampler2DMSArray
+samplerCubeArray samplerCubeArrayShadow
+
+isampler1D isampler2D isampler3D isamplerCube
+isampler1DArray isampler2DArray
+isampler2DRect isamplerBuffer
+isampler2DMS isampler2DMSArray
+isamplerCubeArray
+
+usampler1D usampler2D usampler3D usamplerCube
+usampler1DArray usampler2DArray
+usampler2DRect usamplerBuffer
+usampler2DMS usampler2DMSArray
+usamplerCubeArray
+
+image1D image2D image3D imageCube
+image1DArray image2DArray imageCubeArray
+image2DRect imageBuffer
+image2DMS image2DMSArray
+
+iimage1D iimage2D iimage3D iimageCube
+iimage1DArray iimage2DArray iimageCubeArray
+iimage2DRect iimageBuffer
+iimage2DMS iimage2DMSArray
+
+uimage1D uimage2D uimage3D uimageCube
+uimage1DArray uimage2DArray uimageCubeArray
+uimage2DRect uimageBuffer
+uimage2DMS uimage2DMSArray
+
+subpassInput subpassInputMS
+isubpassInput isubpassInputMS
+usubpassInput usubpassInputMS
+
+accelerationStructureNV
+accelerationStructureEXT
+rayQueryEXT
+
+texture1D texture2D texture3D textureCube
+sampler3DRect
+
+sampler1D sampler2D sampler3D samplerCube
+sampler1DShadow sampler2DShadow samplerCubeShadow
+sampler1DArray sampler2DArray
+sampler1DArrayShadow sampler2DArrayShadow
+sampler2DRect sampler2DRectShadow
+samplerBuffer
+sampler2DMS sampler2DMSArray
+samplerCubeArray samplerCubeArrayShadow
+
+isampler1D isampler2D isampler3D isamplerCube
+isampler1DArray isampler2DArray
+isampler2DRect isamplerBuffer
+isampler2DMS isampler2DMSArray
+isamplerCubeArray
+
+usampler1D usampler2D usampler3D usamplerCube
+usampler1DArray usampler2DArray
+usampler2DRect usamplerBuffer
+usampler2DMS usampler2DMSArray
+usamplerCubeArray
+
+image1D image2D image3D imageCube
+image1DArray image2DArray imageCubeArray
+image2DRect imageBuffer
+image2DMS image2DMSArray
+
+iimage1D iimage2D iimage3D iimageCube
+iimage1DArray iimage2DArray iimageCubeArray
+iimage2DRect iimageBuffer
+iimage2DMS iimage2DMSArray
+
+uimage1D uimage2D uimage3D uimageCube
+uimage1DArray uimage2DArray uimageCubeArray
+uimage2DRect uimageBuffer
+uimage2DMS uimage2DMSArray
+
+texture1D texture2D texture3D textureCube
+texture1DProj texture2DProj texture3DProj
+texture1DLod texture2DLod texture3DLod textureCubeLod
+texture1DProjLod texture2DProjLod texture3DProjLod
+shadow1D shadow2D
+shadow1DProj shadow2DProj
+shadow1DLod shadow2DLod
+shadow1DProjLod shadow2DProjLod
