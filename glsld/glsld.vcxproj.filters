@@ -31,6 +31,7 @@
     <ClInclude Include="Sources\stdafx.h" />
     <ClInclude Include="Sources\Utils\Utils.hpp" />
     <ClInclude Include="Sources\xstdafx.h" />
+    <ClInclude Include="Sources\Analyzer\Ast.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

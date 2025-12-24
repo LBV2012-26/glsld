@@ -2,11 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <stack>
 #include <string_view>
 #include <vector>
 
+#include "Analyzer/Ast.hpp"
 #include "Analyzer/SymbolTable.hpp"
 #include "Analyzer/TinyLexer.hpp"
 #include "Analyzer/Token.hpp"

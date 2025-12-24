@@ -114,6 +114,7 @@ namespace glsld {
     }
 
     void Parser::ParseDeclaration() {
+        // current token is qualifier, type or identifier
         auto qualifiers = ParseQualifiersAndType();
 
         auto GetBlockKind = [&qualifiers]() -> SymbolKind {

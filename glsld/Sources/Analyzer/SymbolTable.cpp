@@ -2,6 +2,7 @@
 #include "SymbolTable.hpp"
 
 #include <algorithm>
+#include <format>
 #include <print>
 #include <magic_enum/magic_enum_all.hpp>
 
@@ -19,7 +20,7 @@ namespace glsld {
         case SymbolKind::kPreprocessor:
             return 2;  // Module
         case SymbolKind::kInterface:
-            return 11; // Interface (用来区分普通 struct)
+            return 11; // Interface
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl:
             return 12; // Function
@@ -58,6 +59,27 @@ namespace glsld {
 
         if (parent_ != nullptr) {
             return parent_->FindSymbol(name);
+        }
+
+        return nullptr;
+    }
+
+    const SymbolInfo* Scope::FindSymbolForHighlighting(std::string_view name) const {
+        auto it = symbols_.find(name);
+        if (it != symbols_.end()) {
+            return &it->second;
+        }
+
+        std::string decl_pattern = std::format("__Decl_{}", name);
+        std::string impl_pattern = std::format("__Impl_{}", name);
+        for (const auto& [mangled_name, info] : symbols_) {
+            if (mangled_name.starts_with(decl_pattern) || mangled_name.starts_with(impl_pattern)) {
+                return &info;
+            }
+        }
+
+        if (parent_ != nullptr) {
+            return parent_->FindSymbolForHighlighting(name);
         }
 
         return nullptr;

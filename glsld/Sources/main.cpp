@@ -20,7 +20,7 @@ int main() {
 
     using namespace glsld;
 
-    MessageBox(nullptr, L"Debug Breakpoint", L"GLSL Analyzer", MB_OK);
+    //MessageBox(nullptr, L"Debug Breakpoint", L"GLSL Analyzer", MB_OK);
 
     Config::LoadFromFile(utils::GetFilePath("Win64/config.yml"));
     LoggerManager::GetInstance().Initialize();
@@ -28,7 +28,7 @@ int main() {
     VALKY_LOG_INFO(VALKY_LOG_ROOT(), "GLSL Analyzer started.");
 
     LspServer server;
-    server.Run();
+    //server.Run();
 
     std::ifstream shader_file("Assets/Test.glsl");
     if (!shader_file.is_open()) {

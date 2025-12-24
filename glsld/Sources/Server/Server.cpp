@@ -99,16 +99,21 @@ namespace glsld {
             std::vector<std::uint32_t> data;
             std::uint32_t last_line = 0;
             std::uint32_t last_char = 0;
+            std::uint32_t modifiers = 0;
 
             for (const auto& token : tokens) {
                 int type_index = -1;
 
-                if (token.type == TokenType::kIdentifier) {
-                    auto* scope = symbols.FindScopeAt(token.location);
-                    auto* symbol = scope->FindSymbol(token.text);
+                switch (token.type) {
+                case TokenType::kIdentifier: {
+                    auto* scope  = symbols.FindScopeAt(token.location);
+                    auto* symbol = scope->FindSymbolForHighlighting(token.text);
 
                     if (symbol != nullptr) {
                         switch (symbol->kind) {
+                        case SymbolKind::kInterface:
+                            type_index = 4;
+                            break;
                         case SymbolKind::kStruct:
                             type_index = 5;
                             break;
@@ -125,20 +130,42 @@ namespace glsld {
                         case SymbolKind::kMacro:
                             type_index = 14;
                             break;
+                        case SymbolKind::kPreprocessor:
+                            type_index = 15;
+                            break;
+                        }
+
+                        if (token.location.line   == symbol->location.line &&
+                            token.location.column == symbol->location.column)
+                        {
+                            modifiers |= (1 << 0); // declaration
+                        }
+
+                        if (token.type == TokenType::kIdentifier && scope->kind() == ScopeKind::kTransparent) {
+                            modifiers |= (1 << 3); // static
                         }
                     }
-                } else if (token.type == TokenType::kKeyword) {
+
+                    break;
+                }
+                case TokenType::kKeyword:
+                    type_index = 23;
+                    break;
+                case TokenType::kKeyword_Typed:
                     type_index = 1;
-                } else if (token.type == TokenType::kKeyword_Typed) {
-                    type_index = 2;
-                } else if (token.type == TokenType::kKeyword_Control) {
+                    break;
+                case TokenType::kKeyword_Control:
+                case TokenType::kPreprocessor:
+                case TokenType::kSharp:
                     type_index = 15;
-                } else if (token.type == TokenType::kNumberLiteral) {
+                    break;
+                case TokenType::kNumberLiteral:
                     type_index = 19;
+                    break;
                 }
 
                 if (type_index != -1) {
-                    std::size_t line       = token.location.line - 1;
+                    std::size_t line       = token.location.line   - 1;
                     std::size_t character  = token.location.column - 1;
                     std::size_t length     = token.text.length();
 
@@ -149,7 +176,7 @@ namespace glsld {
                     data.push_back(static_cast<std::uint32_t>(delta_char));
                     data.push_back(static_cast<std::uint32_t>(length));
                     data.push_back(static_cast<std::uint32_t>(type_index));
-                    data.push_back(0); // token modifiers
+                    data.push_back(modifiers);
 
                     last_line = static_cast<std::uint32_t>(line);
                     last_char = static_cast<std::uint32_t>(character);
@@ -316,8 +343,9 @@ namespace glsld {
             "string",       // 18
             "number",       // 19
             "regexp",       // 20
-            "operator"      // 21
-            "decorator"     // 22
+            "operator",     // 21
+            "decorator",    // 22
+            "primitive"     // 23
         };
 
         static const std::vector<std::string> kTokenModifiers{

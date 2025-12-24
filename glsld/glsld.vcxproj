@@ -164,6 +164,7 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Ast.hpp" />
     <ClInclude Include="Sources\Analyzer\Parser.hpp" />
     <ClInclude Include="Sources\Analyzer\SymbolTable.hpp" />
     <ClInclude Include="Sources\Analyzer\TinyLexer.hpp" />
