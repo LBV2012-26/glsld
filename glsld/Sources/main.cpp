@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include "Windows.h"
 
+#include "Analyzer/AstDumper.hpp"
 #include "Analyzer/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
@@ -49,7 +50,9 @@ int main() {
     Parser parser(shader_source, symbols);
 
     auto root = parser.Parse();
-    DumpAst(root.get());
+    AstDumper dumper;
+    dumper.Traverse(root.get());
+    //DumpAst(root.get());
 
     symbols.Dump();
 }

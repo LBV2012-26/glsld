@@ -152,13 +152,13 @@ namespace glsld {
 
         // block
         // current is identifier, and next is '{'
-        if (CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
+        if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
             return ParseBlockBody(type_spec);
         }
 
         // function
         // current is identifier, and next is '('
-        if (CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
+        if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
             return ParseFunction(type_spec);
         }
 
@@ -167,7 +167,7 @@ namespace glsld {
             return ParseVariableDeclarationList(type_spec);
         }
 
-        // expression
+        // expression, including function calling
         if (type_spec.empty() && CurrentToken().type == TokenType::kIdentifier) {
             return ParseExpressionStatement();
         }
@@ -450,7 +450,7 @@ namespace glsld {
         auto node = std::make_unique<ExpressionStatementNode>();
         node->begin = CurrentToken().location;
 
-        node->expression = ParseExpression(TokenType::kSemicolon, TokenType::kUnknown);
+        node->expr = ParseExpression(TokenType::kSemicolon, TokenType::kUnknown);
 
         if (CurrentToken().type == TokenType::kSemicolon) {
             node->end = GetCurrentTokenEnd();
@@ -831,34 +831,6 @@ namespace glsld {
         }
 
         return false;
-    }
-
-    void Parser::SkipUntilToken(TokenType type, auto operate, bool consume_target) {
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != type) {
-            operate();
-        }
-
-        if (consume_target) {
-            MatchAndConsume(type);
-        }
-    }
-
-    void Parser::SkipParenthesesGroup() {
-        if (!MatchAndConsume(TokenType::kOpenParen)) {
-            return;
-        }
-
-        int paren_level = 1;
-        while (paren_level > 0 && CurrentToken().type != TokenType::kEndOfFile) {
-            const auto& current_token = CurrentToken();
-            if (current_token.type == TokenType::kOpenParen) {
-                ++paren_level;
-            } else if (current_token.type == TokenType::kCloseParen) {
-                --paren_level;
-            }
-
-            ConsumeToken();
-        }
     }
 
     Scope* Parser::EnterScope(SourceLocation location, ScopeKind kind) {

@@ -53,9 +53,6 @@ namespace glsld {
         SourceLocation GetCurrentTokenEnd() const;
         SourceLocation GetPreviousTokenEnd() const;
 
-        void SkipUntilToken(TokenType type, auto operate, bool consume_target = true);
-        void SkipParenthesesGroup();
-
         template <typename Ty>
         std::vector<std::unique_ptr<Ty>> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
 

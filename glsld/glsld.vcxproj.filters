@@ -13,7 +13,8 @@
     <ClCompile Include="Sources\Server\Server.cpp" />
     <ClCompile Include="Sources\stdafx.cpp" />
     <ClCompile Include="Sources\Utils\Utils.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast.cpp" />
+    <ClCompile Include="Sources\Analyzer\AstVisitor.cpp" />
+    <ClCompile Include="Sources\Analyzer\AstDumper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Parser.hpp" />
@@ -33,6 +34,8 @@
     <ClInclude Include="Sources\Utils\Utils.hpp" />
     <ClInclude Include="Sources\xstdafx.h" />
     <ClInclude Include="Sources\Analyzer\Ast.hpp" />
+    <ClInclude Include="Sources\Analyzer\AstVisitor.hpp" />
+    <ClInclude Include="Sources\Analyzer\AstDumper.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

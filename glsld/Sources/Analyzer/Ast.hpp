@@ -165,7 +165,7 @@ namespace glsld {
     };
 
     struct ExpressionStatementNode : public StatementNode {
-        std::unique_ptr<ExpressionNode> expression;
+        std::unique_ptr<ExpressionNode> expr;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kExprStmt;
@@ -309,6 +309,4 @@ namespace glsld {
             return AstNodeKind::kTranslationUnit;
         }
     };
-
-    void DumpAst(const AstNode* node, int indent = 2);
 }

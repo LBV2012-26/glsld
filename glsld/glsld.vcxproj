@@ -147,7 +147,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Sources\Analyzer\Ast.cpp" />
+    <ClCompile Include="Sources\Analyzer\AstDumper.cpp" />
+    <ClCompile Include="Sources\Analyzer\AstVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Parser.cpp" />
     <ClCompile Include="Sources\Analyzer\SymbolTable.cpp" />
     <ClCompile Include="Sources\Analyzer\TinyLexer.cpp" />
@@ -165,6 +166,8 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\AstDumper.hpp" />
+    <ClInclude Include="Sources\Analyzer\AstVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast.hpp" />
     <ClInclude Include="Sources\Analyzer\Parser.hpp" />
     <ClInclude Include="Sources\Analyzer\SymbolTable.hpp" />
