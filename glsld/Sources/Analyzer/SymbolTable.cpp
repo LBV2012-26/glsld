@@ -6,15 +6,9 @@
 #include <print>
 #include <magic_enum/magic_enum_all.hpp>
 
-namespace glsld {
-    namespace {
-        void PrintIndent(int level) {
-            for (int i = 0; i < level; ++i) {
-                std::print("  "); // 2 spaces per indent level
-            }
-        }
-    }
+#include "Utils/Utils.hpp"
 
+namespace glsld {
     int ConvertSymbolKind(SymbolKind kind) {
         switch (kind) {
         case SymbolKind::kPreprocessor:
@@ -35,12 +29,6 @@ namespace glsld {
             return 13; // Fallback to Variable
         }
     }
-
-    SymbolInfo::SymbolInfo(std::string_view name, const SourceLocation& location, SymbolKind kind)
-        : name{ name }
-        , location{ location }
-        , kind{ kind }
-    {}
 
     SymbolInfo::operator bool() const {
         return !name.empty();
@@ -94,11 +82,6 @@ namespace glsld {
         return nullptr;
     }
 
-    bool Scope::AddSymbol(SymbolInfo symbol) {
-        auto result = symbols_.try_emplace(symbol.name, std::move(symbol));
-        return result.second;
-    }
-
     SymbolInfo Scope::RemoveSymbol(std::string_view name) {
         auto it = symbols_.find(name);
         if (it != symbols_.end()) {
@@ -114,11 +97,11 @@ namespace glsld {
         : root_scope_{ std::make_unique<Scope>(nullptr) }
     {}
 
-    const Scope* DocumentSymbols::FindScopeAt(const SourceLocation& location) const {
+    const Scope* DocumentSymbols::FindScopeAt(SourceLocation location) const {
         return FindScopeRecursive(root_scope_.get(), location);
     }
 
-    const SymbolInfo* DocumentSymbols::FindSymbolAt(std::string_view name, const SourceLocation& location) const {
+    const SymbolInfo* DocumentSymbols::FindSymbolAt(std::string_view name, SourceLocation location) const {
         const auto* scope = FindScopeAt(location);
         if (scope != nullptr) {
             return scope->FindSymbol(name);
@@ -139,7 +122,7 @@ namespace glsld {
         std::println("==============================================");
     }
 
-    const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, const SourceLocation& location) const {
+    const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, SourceLocation location) const {
         auto Comparer = [](const SourceLocation& source_loc, const SourceLocation& scope_loc) -> bool {
             return source_loc.line <  scope_loc.line ||
                   (source_loc.line == scope_loc.line && source_loc.column < scope_loc.column);
@@ -162,7 +145,7 @@ namespace glsld {
         return current;
     }
 
-    bool DocumentSymbols::IsLocationInScope(const Scope* scope, const SourceLocation& location) const {
+    bool DocumentSymbols::IsLocationInScope(const Scope* scope, SourceLocation location) const {
         if (location.line > scope->interval_.first.line && location.line < scope->interval_.second.line) {
             return true;
         }
@@ -183,7 +166,7 @@ namespace glsld {
             return;
         }
 
-        PrintIndent(indent_level);
+        utils::PrintIndent(indent_level);
         std::println("-> {} Scope index {} @ 0x{:X} (Parent: 0x{:X}) [Lines {}:{}-{}:{}]",
                      magic_enum::enum_name(scope->kind_),
                      scope->index_,
@@ -193,17 +176,17 @@ namespace glsld {
                      scope->interval_.second.line, scope->interval_.second.column);
 
         if (!scope->symbols_.empty()) {
-            PrintIndent(indent_level + 1);
+            utils::PrintIndent(indent_level + 1);
             std::println("Symbols:");
             for (const auto& [name, symbol] : scope->symbols_) {
-                PrintIndent(indent_level + 2);
+                utils::PrintIndent(indent_level + 2);
                 std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name,
                              magic_enum::enum_name(symbol.kind), symbol.location.line);
             }
         }
 
         if (!scope->children_.empty()) {
-            PrintIndent(indent_level + 1);
+            utils::PrintIndent(indent_level + 1);
             std::println("Children Scopes:");
             for (const auto& child : scope->children_) {
                 PrintScopes(child.get(), indent_level + 2);

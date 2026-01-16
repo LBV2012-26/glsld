@@ -18,43 +18,51 @@ namespace glsld {
     public:
         Parser(std::string_view source, DocumentSymbols& symbols);
 
-        void Parse();
+        std::unique_ptr<TranslationUnitNode> Parse();
         const auto& tokens() const;
 
     private:
-        void ParserMainTask();
-        void ParseStatement();
-        void ParsePreprocessor();
-        void ParseDefine();
-        Scope* ParseScope(ScopeKind kind = ScopeKind::kCommon);
-        void ParseDeclaration();
-        void ParseFunction();
-        std::vector<std::string> ParseParameterList();
-        std::vector<Token> ParseQualifiersAndType();
-        void ParseLayoutQualifier();
-        void ParseVariableDeclarationList();
-        void ParseBlockBody(SymbolKind block_kind);
-        void ParseControlFlowStatement();
-        void ParseIfStatement();
-        void ParseForStatement();
-        void ParseDoStatement();
-        void ParseWhileStatement();
-        void ParseSwitchStatement();
-        void ParseCaseLabel();
-        void ParseJumpStatement();
+        std::unique_ptr<TranslationUnitNode> ParserMainTask();
+        std::unique_ptr<StatementNode> ParseStatement();
+        std::unique_ptr<PreprocessorNode> ParsePreprocessor();
+        std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line);
+        std::unique_ptr<CompoundStatementNode> ParseScope(ScopeKind kind = ScopeKind::kCommon);
+        std::unique_ptr<StatementNode> ParseDeclaration();
+        std::unique_ptr<FunctionDeclarationNode> ParseFunction(const TypeSpecifier& type_spec);
+        std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
+        TypeSpecifier ParseQualifiersAndType();
+        std::vector<Token> ParseLayoutQualifier();
+        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(const TypeSpecifier& type_spec);
+        std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
+        std::unique_ptr<ExpressionNode> ParseExpression(TokenType temp_term1, TokenType temp_term2);
+        std::unique_ptr<DeclarationNode> ParseBlockBody(const TypeSpecifier& type_spec);
+        std::unique_ptr<StatementNode> ParseControlFlowStatement();
+        std::unique_ptr<IfStatementNode> ParseIfStatement();
+        std::unique_ptr<ForStatementNode> ParseForStatement();
+        std::unique_ptr<DoStatementNode> ParseDoStatement();
+        std::unique_ptr<WhileStatementNode> ParseWhileStatement();
+        std::unique_ptr<SwitchStatementNode> ParseSwitchStatement();
+        std::unique_ptr<CaseStatementNode> ParseCaseLabel();
+        std::unique_ptr<StatementNode> ParseJumpStatement();
 
-        Token& CurrentToken();
-        Token& PeekToken(std::int64_t offset = 1);
+        const Token& CurrentToken() const;
+        const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::size_t count = 1);
-        void ConsumeToEndOfLine();
+        std::vector<Token> CaptureDirectiveTokens(std::size_t directive_physical_line);
         bool MatchAndConsume(TokenType type);
+        SourceLocation GetCurrentTokenEnd() const;
+        SourceLocation GetPreviousTokenEnd() const;
+
         void SkipUntilToken(TokenType type, auto operate, bool consume_target = true);
         void SkipParenthesesGroup();
 
-        Scope* EnterScope(const SourceLocation& location, ScopeKind kind = ScopeKind::kCommon);
-        void LeaveScope(const SourceLocation& location);
+        template <typename Ty>
+        std::vector<std::unique_ptr<Ty>> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
 
-        std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_types);
+        Scope* EnterScope(SourceLocation location, ScopeKind kind = ScopeKind::kCommon);
+        void LeaveScope(SourceLocation location);
+
+        std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames);
 
         Scope* current_scope();
 
@@ -66,16 +74,4 @@ namespace glsld {
     };
 }
 
-namespace glsld {
-    inline const auto& Parser::tokens() const {
-        return tokens_;
-    }
-
-    inline Token& Parser::CurrentToken() {
-        return tokens_[token_index_];
-    }
-
-    inline Scope* Parser::current_scope() {
-        return scope_stack_.top();
-    }
-}
+#include "Parser.inl"

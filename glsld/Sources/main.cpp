@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <fstream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,25 +31,25 @@ int main() {
     LspServer server;
     //server.Run();
 
-    std::ifstream shader_file("Assets/Test.glsl");
+    std::ifstream shader_file("Assets/Test.glsl", std::ios::ate | std::ios::binary);
     if (!shader_file.is_open()) {
         std::cerr << "Failed to open test GLSL source." << std::endl;
         return EXIT_FAILURE;
     }
 
-    shader_file.seekg(0, std::ios::end);
-    std::size_t size = shader_file.tellg();
+    auto size = shader_file.tellg();
     shader_file.seekg(0);
 
-    std::vector<std::byte> source_buffer(size, {});
-    shader_file.read(reinterpret_cast<char*>(source_buffer.data()), size);
+    std::vector<char> source_buffer(size);
+    shader_file.read(source_buffer.data(), size);
 
-    const char* shader_source = reinterpret_cast<const char*>(source_buffer.data());
+    std::string_view shader_source(source_buffer);
 
     DocumentSymbols symbols;
     Parser parser(shader_source, symbols);
 
-    parser.Parse();
+    auto root = parser.Parse();
+    DumpAst(root.get());
 
     symbols.Dump();
 }

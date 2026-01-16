@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Analyzer/SymbolTable.hpp"
@@ -10,6 +12,8 @@
 namespace glsld {
     enum class AstNodeKind {
         kTranslationUnit,
+        kDeclarationGroup,
+        kPreprocessor,
 
         // Declarations
         kFunctionDecl,
@@ -24,6 +28,7 @@ namespace glsld {
         kWhileStmt,
         kDoStmt,
         kSwitchStmt,
+        kCaseStmt,
         kReturnStmt,
         kBreakStmt,
         kContinueStmt,
@@ -51,12 +56,25 @@ namespace glsld {
     struct StatementNode : public AstNode {};
     struct ExpressionNode : public AstNode {};
 
+    struct PreprocessorNode : public StatementNode {
+        std::string directive;
+        std::vector<Token> tokens;
+        std::vector<std::string> params;
+
+        const SymbolInfo* symbol{ nullptr };
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kPreprocessor;
+        }
+    };
+
     struct DeclarationNode : public StatementNode {
         const SymbolInfo* declared_symbol{ nullptr };
     };
 
     struct CompoundStatementNode : public StatementNode {
         std::vector<std::unique_ptr<StatementNode>> children;
+        Scope* scope{ nullptr };
 
         AstNodeKind kind() const override {
             return AstNodeKind::kCompoundStmt;
@@ -108,6 +126,15 @@ namespace glsld {
 
         AstNodeKind kind() const override {
             return AstNodeKind::kSwitchStmt;
+        }
+    };
+
+    struct CaseStatementNode : public StatementNode {
+        std::unique_ptr<ExpressionNode> condition; // nullptr for "default"
+        std::vector<std::unique_ptr<StatementNode>> body;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kCaseStmt;
         }
     };
 
@@ -206,11 +233,44 @@ namespace glsld {
         }
     };
 
+    struct TypeSpecifier {
+        std::vector<Token> qualifiers;
+        std::vector<Token> layout_params;
+
+        Token typename_token() const {
+            return qualifiers.empty() ? Token{} : qualifiers.back();
+        }
+
+        SourceLocation begin_location() const {
+            return qualifiers.empty() ? SourceLocation{} : qualifiers.front().location;
+        }
+
+        bool has_keyword(std::string_view name) const {
+            return std::ranges::any_of(qualifiers, [name](auto& token) -> bool {
+                return token.text == name;
+            });
+        }
+
+        bool empty() const {
+            return qualifiers.empty();
+        }
+    };
+
     struct VariableDeclarationNode : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
+        std::unique_ptr<ExpressionNode> array_size;
+        TypeSpecifier type_spec;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kVariableDecl;
+        }
+    };
+
+    struct DeclarationGroupNode : public StatementNode {
+        std::vector<std::unique_ptr<VariableDeclarationNode>> decls;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kDeclarationGroup;
         }
     };
 
@@ -225,8 +285,8 @@ namespace glsld {
 
     struct InterfaceDeclarationNode : public DeclarationNode {
         std::vector<Token> qualifiers;
-        std::vector<std::unique_ptr<VariableDeclarationNode>> members;
-        std::vector<std::unique_ptr<VariableDeclarationNode>> instances;
+        std::unique_ptr<CompoundStatementNode> body;
+        std::unique_ptr<DeclarationGroupNode> instances;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kInterfaceDecl;
@@ -234,8 +294,8 @@ namespace glsld {
     };
 
     struct StructDeclarationNode : public DeclarationNode {
-        std::vector<std::unique_ptr<VariableDeclarationNode>> members;
-        std::vector<std::unique_ptr<VariableDeclarationNode>> instances;
+        std::unique_ptr<CompoundStatementNode> body;
+        std::unique_ptr<DeclarationGroupNode> instances;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kStructDecl;
@@ -243,10 +303,12 @@ namespace glsld {
     };
 
     struct TranslationUnitNode : public AstNode {
-        std::vector<std::unique_ptr<DeclarationNode>> decls;
+        std::vector<std::unique_ptr<StatementNode>> stmts;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kTranslationUnit;
         }
     };
+
+    void DumpAst(const AstNode* node, int indent = 2);
 }

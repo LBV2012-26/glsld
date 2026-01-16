@@ -67,10 +67,16 @@ anyInvocationARB
 allInvocationsARB
 allInvocationsEqualARB
 
-traceNV reportIntersectionNV ignoreIntersectionNV terminateRayNV executeCallableNV 
+traceNV
+reportIntersectionNV
+ignoreIntersectionNV
+terminateRayNV
+executeCallableNV 
 
 traceRayEXT
 reportIntersectionEXT
+ignoreIntersectionEXT
+terminateRayEXT
 executeCallableEXT
 rayQueryInitializeEXT
 rayQueryProceedEXT

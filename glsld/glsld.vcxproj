@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Ast.cpp" />
     <ClCompile Include="Sources\Analyzer\Parser.cpp" />
     <ClCompile Include="Sources\Analyzer\SymbolTable.cpp" />
     <ClCompile Include="Sources\Analyzer\TinyLexer.cpp" />
@@ -183,6 +184,8 @@
     <ClInclude Include="Sources\xstdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Sources\Analyzer\Parser.inl" />
+    <None Include="Sources\Analyzer\SymbolTable.inl" />
     <None Include="Sources\Base\Config.inl" />
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />

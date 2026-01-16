@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "Parser.hpp"
 
-#include <algorithm>
 #include <format>
 #include <memory>
+#include <utility>
 
 namespace glsld {
     Parser::Parser(std::string_view source, DocumentSymbols& symbols)
@@ -17,37 +17,42 @@ namespace glsld {
         } while (token.type != TokenType::kEndOfFile);
     }
 
-    void Parser::Parse() {
+    std::unique_ptr<TranslationUnitNode> Parser::Parse() {
         symbols_.root_scope()->kind_ = ScopeKind::kTransparent;
         scope_stack_.push(symbols_.root_scope());
-        ParserMainTask();
+        return ParserMainTask();
     }
 
-    void Parser::ParserMainTask() {
+    std::unique_ptr<TranslationUnitNode> Parser::ParserMainTask() {
+        auto root = std::make_unique<TranslationUnitNode>();
+        root->begin = { 1, 1 };
+
         while (CurrentToken().type != TokenType::kEndOfFile) {
-            ParseStatement();
+            auto statement = ParseStatement();
+            if (statement != nullptr) {
+                root->stmts.push_back(std::move(statement));
+            }
         }
+
+        root->end = GetPreviousTokenEnd();
+        return root;
     }
 
-    void Parser::ParseStatement() {
+    std::unique_ptr<StatementNode> Parser::ParseStatement() {
         switch (CurrentToken().type) {
-        case TokenType::kKeyword:
-        case TokenType::kKeyword_Typed:
+        case TokenType::kPrimitive:
+        case TokenType::kBuiltInType:
         case TokenType::kIdentifier:
-            ParseDeclaration();
+            return ParseDeclaration();
             break;
-        case TokenType::kKeyword_Control:
-            ParseControlFlowStatement();
+        case TokenType::kKeyword:
+            return ParseControlFlowStatement();
             break;
         case TokenType::kOpenBrace:
-            ParseScope();
-            break;
-        case TokenType::kCloseBrace: // may syntax error but we allow this
-            LeaveScope(CurrentToken().location);
-            ConsumeToken();
+            return ParseScope();
             break;
         case TokenType::kSharp:
-            ParsePreprocessor();
+            return ParsePreprocessor();
             break;
         default:
             while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kSemicolon &&
@@ -57,113 +62,124 @@ namespace glsld {
             }
 
             MatchAndConsume(TokenType::kSemicolon);
+            return std::make_unique<NullStatementNode>();
         }
     }
 
-    void Parser::ParsePreprocessor() {
+    std::unique_ptr<PreprocessorNode> Parser::ParsePreprocessor() {
         // current token is '#'
+        auto node = std::make_unique<PreprocessorNode>();
+        node->begin = CurrentToken().location;
         MatchAndConsume(TokenType::kSharp);
 
         if (CurrentToken().type == TokenType::kEndOfFile) {
-            return;
+            return nullptr;
         }
 
-        auto& current_token = CurrentToken();
-        if (current_token.type == TokenType::kKeyword_Control) {
+        auto& directive_token = CurrentToken();
+        node->directive = std::string(directive_token.text);
+        if (directive_token.type == TokenType::kKeyword) {
             // #if defined, #else
-            if (current_token.text == "if" || current_token.text == "else") {
+            if (directive_token.text == "if" || directive_token.text == "else") {
                 tokens_[token_index_].type = TokenType::kPreprocessor;
             }
         }
-
-        const auto& directive_token = CurrentToken();
+        ConsumeToken();
 
         if (directive_token.text == "define") {
-            ConsumeToken();
-            ParseDefine();
+            return ParseDefine(std::move(node), directive_token.location.line);
         } else {
-            ConsumeToEndOfLine();
+            node->tokens = CaptureDirectiveTokens(directive_token.location.line);
+            node->end    = GetPreviousTokenEnd();
+            return node;
         }
     }
 
-    void Parser::ParseDefine() {
-        if (CurrentToken().type != TokenType::kIdentifier) {
-            ConsumeToEndOfLine();
-            return;
+    std::unique_ptr<PreprocessorNode> Parser::ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line) {
+        // current token is macro name after "define"
+        if (CurrentToken().type == TokenType::kIdentifier) {
+            const auto& macro_token = CurrentToken();
+
+            node->symbol = current_scope()->AddSymbol(macro_token.text, macro_token.location, SymbolKind::kMacro);
+            ConsumeToken();
+
+            auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
+                return first.location.line == second.location.line &&
+                      (first.location.column + first.text.length() == second.location.column);
+            };
+
+            if (CurrentToken().type == TokenType::kOpenParen && IsAdjacent(macro_token, CurrentToken())) {
+                ConsumeToken();
+                while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
+                    if (CurrentToken().type == TokenType::kIdentifier) {
+                        node->params.push_back(CurrentToken().text);
+                        ConsumeToken();
+                    }
+                    if (!MatchAndConsume(TokenType::kComma)) {
+                        break;
+                    }
+                }
+
+                MatchAndConsume(TokenType::kCloseParen);
+            }
         }
 
-        const auto& macro_token = CurrentToken();
-        SymbolInfo symbol(macro_token.text, macro_token.location, SymbolKind::kMacro);
-        current_scope()->AddSymbol(symbol);
-
-        ConsumeToEndOfLine();
+        node->tokens = CaptureDirectiveTokens(directive_physical_line);
+        node->end    = GetPreviousTokenEnd();
+        return node;
     }
 
-    Scope* Parser::ParseScope(ScopeKind kind) {
-        const auto& begin_location = CurrentToken().location;
+    std::unique_ptr<CompoundStatementNode> Parser::ParseScope(ScopeKind kind) {
+        auto node = std::make_unique<CompoundStatementNode>();
+        node->begin = CurrentToken().location;
         MatchAndConsume(TokenType::kOpenBrace);
 
-        Scope* entered_scope = EnterScope(begin_location, kind);
-        SkipUntilToken(TokenType::kCloseBrace, [this]() -> void { ParseStatement(); }, false);
+        node->scope = EnterScope(node->begin, kind);
+        node->children = ParseSequence<StatementNode>(TokenType::kCloseBrace, [this]() -> std::unique_ptr<StatementNode> {
+            return ParseStatement();
+        }, false);
 
-        const auto& end_location = CurrentToken().location;
+        node->end = GetCurrentTokenEnd();
         MatchAndConsume(TokenType::kCloseBrace);
 
-        LeaveScope(end_location);
-        return entered_scope;
+        LeaveScope(node->end);
+        return node;
     }
 
-    void Parser::ParseDeclaration() {
+    std::unique_ptr<StatementNode> Parser::ParseDeclaration() {
         // current token is qualifier, type or identifier
-        auto qualifiers = ParseQualifiersAndType();
+        auto type_spec = ParseQualifiersAndType();
 
-        auto GetBlockKind = [&qualifiers]() -> SymbolKind {
-            for (const auto& qualifier : qualifiers) {
-                if (qualifier.text == "uniform" || qualifier.text == "buffer") {
-                    return SymbolKind::kInterface;
-                }
-
-                if (qualifier.text == "struct") {
-                    return SymbolKind::kStruct;
-                }
-            }
-
-            return SymbolKind::kVariable;
-        };
-
+        // block
+        // current is identifier, and next is '{'
         if (CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
-            SymbolKind kind = GetBlockKind();
-
-            if (kind != SymbolKind::kVariable) {
-                ParseBlockBody(kind);
-                return;
-            }
+            return ParseBlockBody(type_spec);
         }
 
-        if (qualifiers.empty()) {
-            if (CurrentToken().type == TokenType::kIdentifier) {
-                SkipUntilToken(TokenType::kSemicolon, [this]() -> void { ConsumeToken(); });
-                return;
-            }
+        // function
+        // current is identifier, and next is '('
+        if (CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
+            return ParseFunction(type_spec);
         }
 
-        if (CurrentToken().type != TokenType::kIdentifier) {
-            // layout(early_fragment_tests) in;
-            // precision highp float;
-            // current token is ';'
-            SkipUntilToken(TokenType::kSemicolon, [this]() -> void { ConsumeToken(); });
-            return;
+        // common variable
+        if (!type_spec.empty()) {
+            return ParseVariableDeclarationList(type_spec);
         }
 
-        if (PeekToken().type == TokenType::kOpenParen) {
-            ParseFunction();
-        } else {
-            ParseVariableDeclarationList();
+        // expression
+        if (type_spec.empty() && CurrentToken().type == TokenType::kIdentifier) {
+            return ParseExpressionStatement();
         }
+
+        return nullptr;
     }
 
-    void Parser::ParseFunction() {
+    std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(const TypeSpecifier& type_spec) {
         // current token is function name
+        auto node = std::make_unique<FunctionDeclarationNode>();
+        node->begin = type_spec.begin_location();
+
         const auto& name_token = CurrentToken();
         ConsumeToken();
 
@@ -171,14 +187,21 @@ namespace glsld {
         MatchAndConsume(TokenType::kOpenParen);
         EnterScope(begin_location);
 
-        std::vector<std::string> param_list;
-        if (CurrentToken().type != TokenType::kCloseParen) {
-            param_list = ParseParameterList();
-        } else {
-            param_list.push_back("void");
+        node->params = ParseParameterList();
+        std::vector<std::string> param_typenames;
+        for (const auto& param : node->params) {
+            std::string param_typename;
+            const std::size_t qualifier_size = param->type_spec.qualifiers.size();
+            for (std::size_t i = 0; i != qualifier_size; ++i) {
+                const auto& qualifier = param->type_spec.qualifiers[i];
+                param_typename += qualifier.text;
+                param_typename += i == qualifier_size - 1 ? "" : " ";
+            }
+
+            param_typenames.push_back(param_typename);
         }
 
-        std::string function_name = MangleFunctionName(name_token.text, param_list);
+        std::string function_name = MangleFunctionName(name_token.text, param_typenames);
 
         // current token is ')'
         MatchAndConsume(TokenType::kCloseParen);
@@ -187,97 +210,118 @@ namespace glsld {
             // function body
             function_name = std::format("__Impl_{}", function_name);
             kind = SymbolKind::kFunctionImpl;
-            MatchAndConsume(TokenType::kOpenBrace);
-            SkipUntilToken(TokenType::kCloseBrace, [this]() -> void { ParseStatement(); }, false);
 
-            const auto& end_location = CurrentToken().location;
+            auto body_node   = std::make_unique<CompoundStatementNode>();
+            body_node->scope = current_scope();
+            body_node->begin = CurrentToken().location;
+
+            MatchAndConsume(TokenType::kOpenBrace);
+
+            body_node->children = ParseSequence<StatementNode>(TokenType::kCloseBrace, [this]() -> std::unique_ptr<StatementNode> {
+                return ParseStatement();
+            }, false);
+
+            body_node->end = GetCurrentTokenEnd();
+            node->body = std::move(body_node);
             MatchAndConsume(TokenType::kCloseBrace);
-            LeaveScope(end_location);
         } else {
             function_name = std::format("__Decl_{}", function_name);
             kind = SymbolKind::kFunctionDecl;
             MatchAndConsume(TokenType::kSemicolon);
-            LeaveScope(CurrentToken().location);
         }
 
-        SymbolInfo symbol(function_name, name_token.location, kind);
-        current_scope()->AddSymbol(symbol);
+        node->end = GetPreviousTokenEnd();
+        LeaveScope(node->end);
+        node->declared_symbol = current_scope()->AddSymbol(function_name, name_token.location, kind);
+
+        return node;
     }
 
-    std::vector<std::string> Parser::ParseParameterList() {
+    std::vector<std::unique_ptr<VariableDeclarationNode>> Parser::ParseParameterList() {
         // current token is first parameter or "void"
-        std::vector<std::string> param_list;
+        std::vector<std::unique_ptr<VariableDeclarationNode>> param_list;
 
         // Function(void)
-        if (CurrentToken().type == TokenType::kKeyword &&
+        if (CurrentToken().type == TokenType::kPrimitive &&
             CurrentToken().text == "void" &&
             PeekToken().type == TokenType::kCloseParen)
         {
+            const auto& current_token = CurrentToken();
+            auto node = std::make_unique<VariableDeclarationNode>();
+
+            node->type_spec.qualifiers.push_back(current_token);
+            node->begin = current_token.location;
+            node->end   = GetCurrentTokenEnd();
+
             ConsumeToken();
-            param_list.push_back("void");
+            param_list.push_back(std::move(node));
             return param_list;
         }
 
         while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
-            auto qualifiers = ParseQualifiersAndType();
-
-            std::string parameter;
-            for (std::size_t i = 0; i != qualifiers.size(); ++i) {
-                parameter += qualifiers[i].text;
-                parameter += (i + 1 != qualifiers.size()) ? " " : "";
-            }
-
-            param_list.push_back(parameter);
+            auto type_spec  = ParseQualifiersAndType();
+            auto node       = std::make_unique<VariableDeclarationNode>();
+            node->begin     = type_spec.begin_location();
+            node->type_spec = type_spec;
 
             if (CurrentToken().type == TokenType::kIdentifier) {
-                const auto& param_name_token = CurrentToken();
-                SymbolInfo param_symbol(param_name_token.text, param_name_token.location, SymbolKind::kParameter);
-                current_scope()->AddSymbol(param_symbol);
+                const auto& name_token = CurrentToken();
+                node->declared_symbol = current_scope()->AddSymbol(
+                    name_token.text, name_token.location, SymbolKind::kParameter);
 
                 ConsumeToken();
 
                 if (MatchAndConsume(TokenType::kOpenBracket)) {
-                    SkipUntilToken(TokenType::kCloseBracket, [this]() -> void { ConsumeToken(); });
+                    node->array_size = ParseExpression(TokenType::kCloseBracket, TokenType::kUnknown);
+                    MatchAndConsume(TokenType::kCloseBracket);
                 }
             }
 
-            if (MatchAndConsume(TokenType::kComma)) {
-                continue;
-            } else {
+            node->end = GetPreviousTokenEnd();
+            param_list.push_back(std::move(node));
+
+            if (!MatchAndConsume(TokenType::kComma)) {
                 break;
             }
+        }
+
+        if (param_list.empty()) { // void main() -> void main(void)
+            auto virtual_void_node    = std::make_unique<VariableDeclarationNode>();
+            const auto& current_token = CurrentToken();
+
+            virtual_void_node->type_spec.qualifiers.emplace_back("void", current_token.location, TokenType::kPrimitive);
+            virtual_void_node->begin = current_token.location;
+            virtual_void_node->end   = current_token.location;
+
+            param_list.push_back(std::move(virtual_void_node));
         }
 
         return param_list;
     }
 
-    std::vector<Token> Parser::ParseQualifiersAndType() {
+    TypeSpecifier Parser::ParseQualifiersAndType() {
         // current token is qualifier or type such as: Func("const" int input)
-        std::vector<Token> qualifiers;
+        TypeSpecifier type_spec;
 
         while (true) {
             const auto& current_token = CurrentToken();
 
-            // layout(...)
-            if (current_token.type == TokenType::kKeyword && current_token.text == "layout") {
-                qualifiers.push_back(current_token);
-                ParseLayoutQualifier();
+            if (current_token.type == TokenType::kPrimitive && current_token.text == "layout") {
+                // layout(...)
+                type_spec.qualifiers.push_back(current_token);
+                type_spec.layout_params = ParseLayoutQualifier();
                 continue;
-            }
-
-            // (in, out, uniform, const, struct, ...)
-            // (vec3, mat4, float, ...)
-            if (current_token.type == TokenType::kKeyword || current_token.type == TokenType::kKeyword_Typed) {
-                qualifiers.push_back(current_token);
+            } else if (current_token.type == TokenType::kPrimitive || current_token.type == TokenType::kBuiltInType) {
+                // (in, out, uniform, const, struct, ...)
+                // (vec3, mat4, float, ...)
+                type_spec.qualifiers.push_back(current_token);
                 ConsumeToken();
                 continue;
-            }
-
-            // MyStruct s
-            if (current_token.type == TokenType::kIdentifier) {
+            } else if (current_token.type == TokenType::kIdentifier) {
+                // MyStruct s
                 const auto& next_token = PeekToken();
                 if (next_token.type == TokenType::kIdentifier) {
-                    qualifiers.push_back(current_token);
+                    type_spec.qualifiers.push_back(current_token);
                     ConsumeToken();
                     continue;
                 } else {
@@ -288,262 +332,496 @@ namespace glsld {
             break;
         }
 
-        return qualifiers;
+        return type_spec;
     }
 
-    void Parser::ParseLayoutQualifier() {
+    std::vector<Token> Parser::ParseLayoutQualifier() {
         // current token is "layout"
         ConsumeToken();
 
+        std::vector<Token> tokens;
         if (!MatchAndConsume(TokenType::kOpenParen)) {
-            return;
+            return tokens;
         }
 
         while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
-            if (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kKeyword) {
+            if (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kPrimitive) {
+                tokens.push_back(CurrentToken());
                 ConsumeToken();
-                if (MatchAndConsume(TokenType::kEqual)) {
+
+                if (CurrentToken().type == TokenType::kEqual) {
+                    tokens.push_back(CurrentToken());
+                    ConsumeToken();
+
                     if (CurrentToken().type == TokenType::kNumberLiteral || CurrentToken().type == TokenType::kIdentifier) {
+                        tokens.push_back(CurrentToken());
                         ConsumeToken();
                     }
                 }
 
-                MatchAndConsume(TokenType::kComma);
+                if (CurrentToken().type == TokenType::kComma) {
+                    tokens.push_back(CurrentToken());
+                    ConsumeToken();
+                } else {
+                }
             } else {
+                tokens.push_back(CurrentToken());
                 ConsumeToken();
             }
         }
 
         MatchAndConsume(TokenType::kCloseParen);
+        return tokens;
     }
 
-    void Parser::ParseVariableDeclarationList() {
-        // current token is variable name
-        const auto& name_token = CurrentToken();
-        ConsumeToken();
+    std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(const TypeSpecifier& type_spec) {
+        // current token is variable name or semicolon
+        if (CurrentToken().type == TokenType::kSemicolon) {
+            auto node   = std::make_unique<DeclarationGroupNode>();
+            node->begin = type_spec.begin_location();
+            node->end   = GetCurrentTokenEnd();
 
-        SymbolInfo first_var_symbol(name_token.text, name_token.location, SymbolKind::kVariable);
-        current_scope()->AddSymbol(first_var_symbol);
+            ConsumeToken();
+            return node;
+        }
 
-        auto SkipArrayAndInitialize = [this]() -> void {
-            if (MatchAndConsume(TokenType::kOpenBracket)) { // skip array
-                SkipUntilToken(TokenType::kCloseBracket, [this]() -> void { ConsumeToken(); });
+        auto ParseSingleDeclarer = [&]() -> std::unique_ptr<VariableDeclarationNode> {
+            if (CurrentToken().type != TokenType::kIdentifier) {
+                return nullptr;
             }
 
-            if (MatchAndConsume(TokenType::kEqual)) { // skip initialize
-                int paren_level = 0;
-                while (CurrentToken().type != TokenType::kEndOfFile) {
-                    const auto& current_token = CurrentToken();
-                    if (current_token.type == TokenType::kOpenParen) {
-                        ++paren_level;
-                    } else if (current_token.type == TokenType::kCloseParen) {
-                        --paren_level;
-                    }
+            const auto& name_token = CurrentToken();
+            auto node = std::make_unique<VariableDeclarationNode>();
 
-                    if (paren_level == 0 && (current_token.type == TokenType::kSemicolon ||
-                                             current_token.type == TokenType::kComma))
-                    {
-                        break;
-                    }
+            node->begin           = type_spec.begin_location();
+            node->type_spec       = type_spec;
+            node->declared_symbol = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kVariable);
 
-                    ConsumeToken();
-                }
+            ConsumeToken();
+
+            // array
+            if (MatchAndConsume(TokenType::kOpenBracket)) {
+                node->array_size = ParseExpression(TokenType::kCloseBracket, TokenType::kUnknown);
+                MatchAndConsume(TokenType::kCloseBracket);
             }
+
+            // Type name = expr;
+            if (MatchAndConsume(TokenType::kEqual)) {
+                node->init = ParseExpression(TokenType::kComma, TokenType::kSemicolon);
+            }
+
+            node->end = GetPreviousTokenEnd();
+            return node;
         };
 
-        SkipArrayAndInitialize();
+        auto node = std::make_unique<DeclarationGroupNode>();
+        node->begin = type_spec.begin_location();
 
-        while (MatchAndConsume(TokenType::kComma)) {
-            if (CurrentToken().type != TokenType::kIdentifier) {
+        if (auto first_node = ParseSingleDeclarer()) {
+            node->decls.push_back(std::move(first_node));
+        }
+
+        while (CurrentToken().type == TokenType::kComma) {
+            ConsumeToken();
+            if (auto next_node = ParseSingleDeclarer()) {
+                node->decls.push_back(std::move(next_node));
+            } else {
+                break;
+            }
+        }
+
+        // terminate with semicolon
+        if (CurrentToken().type == TokenType::kSemicolon) {
+            auto end_loc = GetCurrentTokenEnd();
+            if (!node->decls.empty()) {
+                node->decls.back()->end = end_loc;
+            }
+
+            node->end = end_loc;
+            ConsumeToken();
+        } else if (!node->decls.empty()) {
+            node->end = node->decls.back()->end;
+        }
+
+        return node;
+    }
+
+    std::unique_ptr<ExpressionStatementNode> Parser::ParseExpressionStatement() {
+        auto node = std::make_unique<ExpressionStatementNode>();
+        node->begin = CurrentToken().location;
+
+        node->expression = ParseExpression(TokenType::kSemicolon, TokenType::kUnknown);
+
+        if (CurrentToken().type == TokenType::kSemicolon) {
+            node->end = GetCurrentTokenEnd();
+            MatchAndConsume(TokenType::kSemicolon);
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
+        return node;
+    }
+
+    std::unique_ptr<ExpressionNode> Parser::ParseExpression(TokenType temp_term1, TokenType temp_term2) {
+        // temporary implementation
+        // current token is the beginning of expression
+        auto node   = std::make_unique<RawExpressionNode>();
+        node->begin = CurrentToken().location;
+
+        int paren_level   = 0;
+        int bracket_level = 0;
+        int brace_level   = 0;
+
+        while (CurrentToken().type != TokenType::kEndOfFile) {
+            const auto& current_token = CurrentToken();
+
+            if (paren_level == 0 && bracket_level == 0 && brace_level == 0) {
+                if (current_token.type == TokenType::kCloseParen   ||
+                    current_token.type == TokenType::kCloseBracket ||
+                    current_token.type == TokenType::kCloseBrace)
+                {
+                    break;
+                }
+
+                if (current_token.type == temp_term1 || (temp_term2 != TokenType::kUnknown && current_token.type == temp_term2)) {
+                    break;
+                }
+            }
+
+            switch (current_token.type) {
+            case TokenType::kOpenParen:
+                ++paren_level;
+                break;
+            case TokenType::kCloseParen:
+                --paren_level;
+                break;
+            case TokenType::kOpenBracket:
+                ++bracket_level;
+                break;
+            case TokenType::kCloseBracket:
+                --bracket_level;
+                break;
+            case TokenType::kOpenBrace:
+                ++brace_level;
+                break;
+            case TokenType::kCloseBrace:
+                --brace_level;
+                break;
+            default:
                 break;
             }
 
-            const auto& next_name_token = CurrentToken();
-            SymbolInfo next_var_symbol(next_name_token.text, next_name_token.location, SymbolKind::kVariable);
-            current_scope()->AddSymbol(next_var_symbol);
+            node->tokens.push_back(current_token);
             ConsumeToken();
-
-            SkipArrayAndInitialize();
         }
 
-        MatchAndConsume(TokenType::kSemicolon);
+        if (!node->tokens.empty()) {
+            const auto& token = node->tokens.back();
+            node->end = { token.location.line, token.location.column + token.text.length() };
+        } else {
+            node->end = node->begin;
+        }
+
+        return node;
     }
 
-    void Parser::ParseBlockBody(SymbolKind block_kind) {
+    std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(const TypeSpecifier& type_spec) {
         // current token is block name
         const auto& block_name = CurrentToken();
         ConsumeToken();
 
-        SymbolInfo block_symbol(block_name.text, block_name.location, block_kind);
-        current_scope()->AddSymbol(block_symbol);
+        bool is_struct  = type_spec.has_keyword("struct");
+        auto block_kind = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
 
-        auto* entered_scope = ParseScope(ScopeKind::kStruct);
-        bool  has_instance  = false;
+        auto ParseBody = [&](auto& node) -> void {
+            node->begin           = type_spec.begin_location();
+            node->declared_symbol = current_scope()->AddSymbol(block_name.text, block_name.location, block_kind);
+            node->body            = ParseScope(ScopeKind::kBlock);
 
-        while (CurrentToken().type != TokenType::kEndOfFile) {
-            if (CurrentToken().type != TokenType::kIdentifier) {
-                break;
-            }
-
-            const auto& instance_token = CurrentToken();
-            SymbolInfo instance_symbol(instance_token.text, instance_token.location, SymbolKind::kVariable);
-            current_scope()->AddSymbol(instance_symbol);
-            has_instance = true;
-            ConsumeToken();
-
-            if (MatchAndConsume(TokenType::kOpenBracket)) {
-                SkipUntilToken(TokenType::kCloseBracket, [this]() -> void { ConsumeToken(); });
-            }
-
-            if (MatchAndConsume(TokenType::kComma)) {
-                continue;
+            if (CurrentToken().type != TokenType::kSemicolon) {
+                node->instances = ParseVariableDeclarationList(type_spec);
             } else {
-                break;
+                MatchAndConsume(TokenType::kSemicolon);
             }
-        }
 
-        if (!has_instance && block_kind != SymbolKind::kStruct) {
-            entered_scope->kind_ = ScopeKind::kTransparent;
-        }
-
-        MatchAndConsume(TokenType::kSemicolon);
-    }
-
-    void Parser::ParseControlFlowStatement() {
-        const auto& keyword = CurrentToken().text;
-
-        if (keyword == "if") {
-            ParseIfStatement();
-        } else if (keyword == "else") {
-            ConsumeToken();
-            ParseStatement();
-        } else if (keyword == "for") {
-            ParseForStatement();
-        } else if (keyword == "do") {
-            ParseDoStatement();
-        } else if (keyword == "while") {
-            ParseWhileStatement();
-        } else if (keyword == "switch") {
-            ParseSwitchStatement();
-        } else if (keyword == "case" || keyword == "default") {
-            ParseCaseLabel();
-        } else if (keyword == "return" || keyword == "break" || keyword == "continue" || keyword == "discard") {
-            ParseJumpStatement();
-        } else {
-            ConsumeToken();
-        }
-    }
-
-    void Parser::ParseIfStatement() {
-        // current token is "if"
-        ConsumeToken();
-
-        SkipParenthesesGroup();
-        ParseStatement();
-
-        if (CurrentToken().type == TokenType::kKeyword_Control && CurrentToken().text == "else") {
-            ConsumeToken(); // else
-            ParseStatement();
-        }
-    }
-
-    void Parser::ParseForStatement() {
-        // current token is "for"
-        ConsumeToken();
-
-        const auto& begin_location = CurrentToken().location;
-        MatchAndConsume(TokenType::kOpenParen);
-
-        EnterScope(begin_location);
-
-        if (CurrentToken().type == TokenType::kSemicolon) {
-            // for (; ...
-            ConsumeToken();
-        } else {
-            bool looks_like_declaration = false;
-            const auto& current_token = CurrentToken();
-            if (current_token.type == TokenType::kKeyword || current_token.type == TokenType::kKeyword_Typed) {
-                looks_like_declaration = true;
-            } else if (current_token.type == TokenType::kIdentifier) {
-                if (PeekToken().type == TokenType::kIdentifier) {
-                    looks_like_declaration = true;
+            if (!is_struct && node->instances == nullptr) {
+                if (node->body && node->body->scope) {
+                    node->body->scope->kind_ = ScopeKind::kTransparent;
                 }
             }
 
-            if (looks_like_declaration) {
-                ParseDeclaration();
-            } else {
-                SkipUntilToken(TokenType::kSemicolon, [this]() -> void { ConsumeToken(); });
+            node->end = GetPreviousTokenEnd();
+        };
+
+        if (is_struct) {
+            auto node = std::make_unique<StructDeclarationNode>();
+            ParseBody(node);
+            return node;
+        } else {
+            auto node = std::make_unique<InterfaceDeclarationNode>();
+            ParseBody(node);
+            return node;
+        }
+    }
+
+    std::unique_ptr<StatementNode> Parser::ParseControlFlowStatement() {
+        const auto& keyword = CurrentToken().text;
+
+        if (keyword == "if") {
+            return ParseIfStatement();
+        } else if (keyword == "for") {
+            return ParseForStatement();
+        } else if (keyword == "do") {
+            return ParseDoStatement();
+        } else if (keyword == "while") {
+            return ParseWhileStatement();
+        } else if (keyword == "switch") {
+            return ParseSwitchStatement();
+        } else if (keyword == "return" || keyword == "break" || keyword == "continue" || keyword == "discard") {
+            return ParseJumpStatement();
+        }
+
+        // error
+        ConsumeToken();
+        return nullptr;
+    }
+
+    std::unique_ptr<IfStatementNode> Parser::ParseIfStatement() {
+        // current token is "if"
+        auto node = std::make_unique<IfStatementNode>();
+        node->begin = CurrentToken().location;
+        ConsumeToken();
+
+        EnterScope(node->begin);
+
+        MatchAndConsume(TokenType::kOpenParen);
+        node->condition = ParseExpression(TokenType::kCloseParen, TokenType::kUnknown);
+        MatchAndConsume(TokenType::kCloseParen);
+
+        node->then_branch = ParseStatement();
+
+        if (CurrentToken().type == TokenType::kKeyword && CurrentToken().text == "else") {
+            ConsumeToken(); // else
+            node->else_branch = ParseStatement();
+        }
+
+        if (node->else_branch != nullptr) {
+            node->end = node->else_branch->end;
+        } else if (node->then_branch != nullptr) {
+            node->end = node->then_branch->end;
+        }
+
+        LeaveScope(node->end);
+        return node;
+    }
+
+    std::unique_ptr<ForStatementNode> Parser::ParseForStatement() {
+        // current token is "for"
+        auto node = std::make_unique<ForStatementNode>();
+        node->begin = CurrentToken().location;
+        ConsumeToken();
+
+        EnterScope(node->begin);
+        MatchAndConsume(TokenType::kOpenParen);
+
+        if (CurrentToken().type == TokenType::kSemicolon) {
+            // for (; ...
+            node->init = std::make_unique<NullStatementNode>();
+            ConsumeToken();
+        } else {
+            node->init = ParseStatement();
+        }
+
+        if (CurrentToken().type != TokenType::kSemicolon) {
+            node->condition = ParseExpression(TokenType::kSemicolon, TokenType::kUnknown);
+        }
+        MatchAndConsume(TokenType::kSemicolon);
+
+        if (CurrentToken().type != TokenType::kCloseParen) {
+            node->iteration = ParseExpression(TokenType::kCloseParen, TokenType::kUnknown);
+        }
+        MatchAndConsume(TokenType::kCloseParen);
+
+        node->body = ParseStatement();
+        if (node->body != nullptr) {
+            node->end = node->body->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
+        LeaveScope(node->end);
+        return node;
+    }
+
+    std::unique_ptr<DoStatementNode> Parser::ParseDoStatement() {
+        // current token is "do"
+        auto node = std::make_unique<DoStatementNode>();
+        node->begin = CurrentToken().location;
+        ConsumeToken();
+
+        EnterScope(node->begin);
+        node->body = ParseStatement();
+
+        if (CurrentToken().text == "while") {
+            ConsumeToken();
+            MatchAndConsume(TokenType::kOpenParen);
+            node->condition = ParseExpression(TokenType::kCloseParen, TokenType::kUnknown);
+            MatchAndConsume(TokenType::kCloseParen);
+        }
+
+        node->end = GetCurrentTokenEnd();
+        MatchAndConsume(TokenType::kSemicolon);
+
+        LeaveScope(node->end);
+        return node;
+    }
+
+    std::unique_ptr<WhileStatementNode> Parser::ParseWhileStatement() {
+        // current token is "while"
+        auto node = std::make_unique<WhileStatementNode>();
+        node->begin = CurrentToken().location;
+        ConsumeToken();
+
+        EnterScope(node->begin);
+
+        MatchAndConsume(TokenType::kOpenParen);
+        node->condition = ParseExpression(TokenType::kCloseParen, TokenType::kUnknown);
+        MatchAndConsume(TokenType::kCloseParen);
+
+        node->body = ParseStatement();
+
+        if (node->body != nullptr) {
+            node->end = node->body->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
+        LeaveScope(node->end);
+        return node;
+    }
+
+    std::unique_ptr<SwitchStatementNode> Parser::ParseSwitchStatement() {
+        // current token is "switch"
+        auto node = std::make_unique<SwitchStatementNode>();
+        node->begin = CurrentToken().location;
+        ConsumeToken();
+
+        MatchAndConsume(TokenType::kOpenParen);
+        node->condition = ParseExpression(TokenType::kCloseParen, TokenType::kUnknown);
+        MatchAndConsume(TokenType::kCloseParen);
+
+        if (MatchAndConsume(TokenType::kOpenBrace)) {
+            EnterScope(node->begin);
+
+            while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseBrace) {
+                if (CurrentToken().text == "case" || CurrentToken().text == "default") {
+                    node->cases.push_back(ParseCaseLabel());
+                } else {
+                    // statements outside case/default labels
+                    // syntax error, discard them
+                    ParseStatement();
+                }
+            }
+
+            node->end = GetCurrentTokenEnd();
+            MatchAndConsume(TokenType::kCloseBrace);
+            LeaveScope(node->end);
+        }
+
+        return node;
+    }
+
+    std::unique_ptr<CaseStatementNode> Parser::ParseCaseLabel() {
+        // current token is "case" or "default"
+        auto node = std::make_unique<CaseStatementNode>();
+        const auto& current_token = CurrentToken();
+        node->begin = current_token.location;
+
+        ConsumeToken();
+        if (current_token.text == "case") {
+            node->condition = ParseExpression(TokenType::kColon, TokenType::kUnknown);
+        } else if (current_token.text == "default") {
+            node->condition = nullptr;
+        }
+        MatchAndConsume(TokenType::kColon);
+
+        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseBrace &&
+               CurrentToken().text != "case" && CurrentToken().text != "default")
+        {
+            auto statement = ParseStatement();
+            if (statement != nullptr) {
+                node->body.push_back(std::move(statement));
             }
         }
 
-        SkipUntilToken(TokenType::kSemicolon,  [this]() -> void { ConsumeToken(); });
-        SkipUntilToken(TokenType::kCloseParen, [this]() -> void { ConsumeToken(); });
-
-        ParseStatement();
-        LeaveScope(PeekToken(-1).location);
-    }
-
-    void Parser::ParseDoStatement() {
-        // current token is "do"
-        ConsumeToken();
-        ParseStatement();
-
-        const auto& current_token = CurrentToken();
-        if (current_token.type == TokenType::kKeyword_Control && current_token.text == "while") {
-            ConsumeToken();
-            SkipParenthesesGroup();
-            MatchAndConsume(TokenType::kSemicolon);
+        if (!node->body.empty()) {
+            node->end = node->body.back()->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
         }
+
+        return node;
     }
 
-    void Parser::ParseWhileStatement() {
-        // current token is "while"
-        ConsumeToken();
-        SkipParenthesesGroup();
-        ParseStatement();
-    }
-
-    void Parser::ParseSwitchStatement() {
-        // current token is "switch"
-        ConsumeToken();
-        SkipParenthesesGroup();
-        ParseStatement();
-    }
-
-    void Parser::ParseCaseLabel() {
-        // current token is "case" or "default"
-        ConsumeToken();
-        SkipUntilToken(TokenType::kColon, [this]() -> void { ConsumeToken(); });
-    }
-
-    void Parser::ParseJumpStatement() {
+    std::unique_ptr<StatementNode> Parser::ParseJumpStatement() {
         // current token is "return", "break", "continue" or "discard"
-        ConsumeToken();
-        SkipUntilToken(TokenType::kSemicolon, [this]() -> void { ConsumeToken(); });
-    }
+        const auto& keyword_token = CurrentToken();
 
-    Token& Parser::PeekToken(std::int64_t offset) {
-        if (token_index_ + offset >= tokens_.size()) {
-            return tokens_.back();
+        if (keyword_token.text == "return") {
+            auto node = std::make_unique<ReturnStatementNode>();
+            node->begin = keyword_token.location;
+            ConsumeToken();
+
+            if (CurrentToken().type != TokenType::kSemicolon) {
+                node->return_value = ParseExpression(TokenType::kSemicolon, TokenType::kUnknown);
+            }
+
+            node->end = GetCurrentTokenEnd();
+            MatchAndConsume(TokenType::kSemicolon);
+            return node;
         }
 
-        return tokens_[token_index_ + offset];
+        std::unique_ptr<StatementNode> node;
+        if (keyword_token.text == "break") {
+            node = std::make_unique<BreakStatementNode>();
+        } else if (keyword_token.text == "continue") {
+            node = std::make_unique<ContinueStatementNode>();
+        } else if (keyword_token.text == "discard") {
+            node = std::make_unique<DiscardStatementNode>();
+        }
+
+        if (node != nullptr) {
+            node->begin = keyword_token.location;
+            ConsumeToken();
+            node->end = GetCurrentTokenEnd();
+            MatchAndConsume(TokenType::kSemicolon);
+            return node;
+        }
+
+        return nullptr;
     }
 
-    void Parser::ConsumeToken(std::size_t count) {
-        token_index_ = std::min(token_index_ + count, tokens_.size() - 1);
-    }
-
-    void Parser::ConsumeToEndOfLine() {
+    std::vector<Token> Parser::CaptureDirectiveTokens(std::size_t directive_physical_line) {
+        std::vector<Token> collected;
         if (CurrentToken().type == TokenType::kEndOfFile) {
-            return;
+            return collected;
         }
 
-        const auto start_line = CurrentToken().location.line;
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().location.line == start_line) {
+        while (CurrentToken().type != TokenType::kEndOfFile) {
+            const auto& current_token = CurrentToken();
+            if (current_token.location.line > directive_physical_line) {
+                if (!collected.empty() && collected.back().type == TokenType::kBackslash) {
+                    directive_physical_line = current_token.location.line;
+                } else {
+                    break;
+                }
+            }
+
+            collected.push_back(current_token);
             ConsumeToken();
         }
+
+        return collected;
     }
 
     bool Parser::MatchAndConsume(TokenType type) {
@@ -583,7 +861,7 @@ namespace glsld {
         }
     }
 
-    Scope* Parser::EnterScope(const SourceLocation& location, ScopeKind kind) {
+    Scope* Parser::EnterScope(SourceLocation location, ScopeKind kind) {
         auto new_scope = std::make_unique<Scope>(current_scope());
 
         Scope* new_scope_ptr           = new_scope.get();
@@ -596,22 +874,23 @@ namespace glsld {
         return new_scope_ptr;
     }
 
-    void Parser::LeaveScope(const SourceLocation& location) {
+    void Parser::LeaveScope(SourceLocation location) {
         if (scope_stack_.size() > 1) {
             current_scope()->interval_.second = location;
             scope_stack_.pop();
         }
     }
 
-    std::string Parser::MangleFunctionName(std::string_view base_name, std::span<const std::string> param_types) {
-        std::string mangled(base_name);
-        mangled += "(";
+    std::string Parser::MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames) {
+        std::string mangled_name(base_name);
+        mangled_name += "(";
 
-        for (std::size_t i = 0; i != param_types.size(); ++i) {
-            mangled += param_types[i];
-            mangled += i == param_types.size() - 1 ? ")" : ", ";
+        const std::size_t typename_size = param_typenames.size();
+        for (std::size_t i = 0; i != typename_size; ++i) {
+            mangled_name += param_typenames[i];
+            mangled_name += i == typename_size - 1 ? ")" : ", ";
         }
 
-        return mangled;
+        return mangled_name;
     }
 }

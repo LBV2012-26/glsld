@@ -15,4 +15,10 @@ namespace glsld::utils {
 
         return file_path.string();
     }
+
+    void PrintIndent(int level) {
+        for (int i = 0; i < level; ++i) {
+            std::print("  "); // 2 spaces per indent level
+        }
+    }
 }

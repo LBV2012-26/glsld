@@ -148,13 +148,13 @@ namespace glsld {
 
                     break;
                 }
-                case TokenType::kKeyword:
+                case TokenType::kPrimitive:
                     type_index = 23;
                     break;
-                case TokenType::kKeyword_Typed:
+                case TokenType::kBuiltInType:
                     type_index = 1;
                     break;
-                case TokenType::kKeyword_Control:
+                case TokenType::kKeyword:
                 case TokenType::kPreprocessor:
                 case TokenType::kSharp:
                     type_index = 15;

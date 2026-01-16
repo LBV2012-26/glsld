@@ -31,15 +31,12 @@ namespace glsld {
         SourceLocation location;
         SymbolKind     kind{};
 
-        SymbolInfo() = default;
-        SymbolInfo(std::string_view name, const SourceLocation& location, SymbolKind kind);
-
         operator bool() const;
     };
 
     enum class ScopeKind {
+        kBlock,
         kCommon,
-        kStruct,
         kTransparent
     };
 
@@ -66,7 +63,8 @@ namespace glsld {
         friend class DocumentSymbols;
         friend class Parser;
 
-        bool AddSymbol(SymbolInfo symbol);
+        const SymbolInfo* AddSymbol(SymbolInfo symbol);
+        const SymbolInfo* AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind);
         SymbolInfo RemoveSymbol(std::string_view name);
 
         Scope* parent_;
@@ -81,15 +79,15 @@ namespace glsld {
     public:
         DocumentSymbols();
 
-        const Scope* FindScopeAt(const SourceLocation& location) const;
-        const SymbolInfo* FindSymbolAt(std::string_view name, const SourceLocation& location) const;
+        const Scope* FindScopeAt(SourceLocation location) const;
+        const SymbolInfo* FindSymbolAt(std::string_view name, SourceLocation location) const;
         void Dump() const;
 
         Scope* const root_scope();
 
     private:
-        const Scope* FindScopeRecursive(const Scope* current, const SourceLocation& location) const;
-        bool IsLocationInScope(const Scope* scope, const SourceLocation& location) const;
+        const Scope* FindScopeRecursive(const Scope* current, SourceLocation location) const;
+        bool IsLocationInScope(const Scope* scope, SourceLocation location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
         std::unordered_set<std::int64_t> visited_symbol_ids_;
@@ -97,24 +95,4 @@ namespace glsld {
     };
 }
 
-namespace glsld {
-    inline const auto& Scope::interval() const {
-        return interval_;
-    }
-
-    inline const auto& Scope::children() const {
-        return children_;
-    }
-
-    inline const auto& Scope::symbols() const {
-        return symbols_;
-    }
-
-    inline ScopeKind Scope::kind() const {
-        return kind_;
-    }
-
-    inline Scope* const DocumentSymbols::root_scope() {
-        return root_scope_.get();
-    }
-}
+#include "SymbolTable.inl"

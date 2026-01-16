@@ -10,6 +10,15 @@
     #define HAS_LIGHTS 0
 #endif
 
+void ffffffffffffffffffffffffff(int ppppppppppp) {
+    int a[5];
+
+    if (true)
+    {
+        int b, c, d, e, f;
+    }
+}
+
 // 2. 结构体定义
 struct LightData {
     vec3 position;
@@ -52,7 +61,7 @@ layout(location = 2) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
 
 // 简单全局变量
-const float epsilon = 0.001;
+const float epsilon = 0.001, aaaaaaaaaaaaaaaaaaaaaaaaaaaa = 0.0;
 layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 // 5. 函数原型 (前向声明)
@@ -125,7 +134,9 @@ void main() {
         case 0:
             outColor.a = 1.0;
             break;
-        case 1:
+        case 1: {
+            int testswitch;
+        }
         case 2:
             outColor.a = 0.5;
             break;
@@ -148,5 +159,16 @@ float calculateShadow(in vec3 pos, vec3 normal) {
 // 测试 void 参数的定义
 void weird_func(void) {
     int a = 0;
+
+    if (true) {
+        int b;
+    } else if (true) {
+        int c;
+    } else if (true) {
+        int d;
+    } else {
+        int e;
+    }
+
     return;
 }

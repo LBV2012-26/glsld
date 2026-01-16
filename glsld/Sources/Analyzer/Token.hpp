@@ -5,11 +5,11 @@
 
 namespace glsld {
     enum class TokenType {
+        kPrimitive,
         kKeyword,
-        kKeyword_Control,
-        kKeyword_Typed,
         kBuiltInFunction,
         kBuiltInVariable,
+        kBuiltInType,
         kPreprocessor,
 
         kOpenBrace,    // {

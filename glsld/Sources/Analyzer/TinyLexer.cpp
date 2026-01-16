@@ -5,7 +5,6 @@
 #include <format>
 #include <fstream>
 #include <ios>
-#include <iosfwd>
 #include <ranges>
 #include <span>
 #include <stdexcept>
@@ -114,7 +113,7 @@ namespace glsld {
         if (std::isdigit(current_char)) {
             std::size_t begin = position_;
             Advance();
-            while (position_ < source_.length() && std::isalnum(source_[position_]) || source_[position_] == '.') {
+            while (position_ < source_.length() && (std::isalnum(static_cast<unsigned char>(source_[position_])) || source_[position_] == '.')) {
                 Advance();
             }
 
@@ -147,11 +146,11 @@ namespace glsld {
             return;
         }
 
-        LoadLexicalFile(utils::GetFilePath("Assets/glslControlKeywords.txt"), TokenType::kKeyword_Control);
         LoadLexicalFile(utils::GetFilePath("Assets/glslFunctions.txt"), TokenType::kBuiltInFunction);
         LoadLexicalFile(utils::GetFilePath("Assets/glslKeywords.txt"), TokenType::kKeyword);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslPreprocessorDirectives.txt"), TokenType::kPreprocessor);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslTypes.txt"), TokenType::kKeyword_Typed);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslPreprocessors.txt"), TokenType::kPreprocessor);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslPrimitives.txt"), TokenType::kPrimitive);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslTypes.txt"), TokenType::kBuiltInType);
         LoadLexicalFile(utils::GetFilePath("Assets/glslVariables.txt"), TokenType::kBuiltInVariable);
     }
 
@@ -162,38 +161,39 @@ namespace glsld {
         }
 
         stream.seekg(0, std::ios::end);
-        std::streampos size = stream.tellg();
+        auto size = stream.tellg();
         stream.seekg(0);
 
         std::vector<char> buffer(size);
         stream.read(buffer.data(), size);
 
-        auto ExtractWords = [](std::span<const char> text) -> std::vector<std::string> {
+        auto ExtractWords = [](std::span<const char> text) -> std::vector<std::string_view> {
             auto words_range = text | std::views::chunk_by([](auto cha, auto chb) -> bool {
                 return (std::isspace(static_cast<unsigned char>(cha)) ==
                         std::isspace(static_cast<unsigned char>(chb)));
             }) | std::views::filter([](auto chunk) -> bool {
                 return !std::isspace(static_cast<unsigned char>(chunk.front()));
-            }) | std::views::transform([](auto word_view) -> std::string {
-                return std::string(word_view.begin(), word_view.end());
+            }) | std::views::transform([](auto word_view) -> std::string_view {
+                return std::string_view(word_view);
             });
 
-            return std::vector<std::string>(words_range.begin(), words_range.end());
+            return std::ranges::to<std::vector<std::string_view>>(words_range);
         };
 
         auto words = ExtractWords(buffer);
         InsertTable(words, type);
     }
 
-    void TinyLexer::InsertTable(std::span<const std::string> words, TokenType type) {
+    void TinyLexer::InsertTable(std::span<const std::string_view> words, TokenType type) {
         for (auto& word : words) {
-            lexical_table_.try_emplace(word, type);
+            lexical_table_.try_emplace(std::string(word), type);
         }
     }
 
     void TinyLexer::SkipWhitespaceAndComments() {
         while (position_ < source_.length()) {
-            if (std::isspace(static_cast<unsigned char>(source_[position_]))) {
+            unsigned char ch = static_cast<unsigned char>(source_[position_]);
+            if (std::isspace(ch) || ch == '\0') {
                 Advance();
                 continue;
             }

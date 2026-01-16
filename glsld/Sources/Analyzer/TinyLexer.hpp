@@ -17,7 +17,7 @@ namespace glsld {
     private:
         void BuildLexicalTable();
         void LoadLexicalFile(std::string_view filename, TokenType type);
-        void InsertTable(std::span<const std::string> words, TokenType type);
+        void InsertTable(std::span<const std::string_view> words, TokenType type);
         void SkipWhitespaceAndComments();
         void Advance(std::size_t count = 1);
 

@@ -13,6 +13,7 @@
     <ClCompile Include="Sources\Server\Server.cpp" />
     <ClCompile Include="Sources\stdafx.cpp" />
     <ClCompile Include="Sources\Utils\Utils.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Parser.hpp" />
@@ -38,6 +39,8 @@
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="vcpkg.json" />
+    <None Include="Sources\Analyzer\Parser.inl" />
+    <None Include="Sources\Analyzer\SymbolTable.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">
