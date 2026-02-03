@@ -15,6 +15,9 @@ namespace glsld {
         Token AcquireNextToken();
 
     private:
+        Token DetectToken(unsigned char current_char);
+        unsigned char Peek(std::size_t offset = 1) const;
+        Token Capture(TokenType type, std::size_t length = 1);
         void BuildLexicalTable();
         void LoadLexicalFile(std::string_view filename, TokenType type);
         void InsertTable(std::span<const std::string_view> words, TokenType type);

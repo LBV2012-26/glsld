@@ -77,6 +77,9 @@ namespace glsld {
         case AstNodeKind::kCallExpr:
             VisitCallExpression(static_cast<CallExpressionNode*>(node));
             break;
+        case AstNodeKind::kIndexExpr:
+            VisitIndexExpression(static_cast<IndexExpressionNode*>(node));
+            break;
         case AstNodeKind::kVariableExpr:
             VisitVariableExpression(static_cast<VariableExpressionNode*>(node));
             break;
@@ -262,6 +265,16 @@ namespace glsld {
 
         for (auto& arg : node->args) {
             Traverse(arg.get());
+        }
+    }
+
+    void AstVisitor::VisitIndexExpression(IndexExpressionNode* node) {
+        if (node->base != nullptr) {
+            Traverse(node->base.get());
+        }
+
+        if (node->index != nullptr) {
+            Traverse(node->index.get());
         }
     }
 

@@ -33,6 +33,7 @@ namespace glsld {
         virtual void VisitBinaryExpression(BinaryExpressionNode* node);
         virtual void VisitUnaryExpression(UnaryExpressionNode* node);
         virtual void VisitCallExpression(CallExpressionNode* node);
+        virtual void VisitIndexExpression(IndexExpressionNode* node);
         virtual void VisitVariableExpression(VariableExpressionNode* node);
         virtual void VisitRawExpression(RawExpressionNode* node);
         virtual void VisitMemberAccessExpression(MemberAccessExpressionNode* node);

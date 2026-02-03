@@ -22,68 +22,16 @@ namespace glsld {
     Token TinyLexer::AcquireNextToken() {
         SkipWhitespaceAndComments();
 
-        const SourceLocation location = { line_, column_ };
+        const SourceLocation location{ line_, column_ };
 
         if (position_ >= source_.length()) {
             return { {}, location, TokenType::kEndOfFile };
         }
 
-        auto ConstructToken = [this, &location](TokenType type) -> Token {
-            return { std::string(source_.substr(position_ - 1, 1)), location, type };
-        };
-
         unsigned char current_char = static_cast<unsigned char>(source_[position_]);
-        switch (current_char) {
-        case '{':
-            Advance();
-            return ConstructToken(TokenType::kOpenBrace);
-        case '}':
-            Advance();
-            return ConstructToken(TokenType::kCloseBrace);
-        case '[':
-            Advance();
-            return ConstructToken(TokenType::kOpenBracket);
-        case ']':
-            Advance();
-            return ConstructToken(TokenType::kCloseBracket);
-        case '(':
-            Advance();
-            return ConstructToken(TokenType::kOpenParen);
-        case ')':
-            Advance();
-            return ConstructToken(TokenType::kCloseParen);
-        case ',':
-            Advance();
-            return ConstructToken(TokenType::kComma);
-        case ':':
-            Advance();
-            return ConstructToken(TokenType::kColon);
-        case ';':
-            Advance();
-            return ConstructToken(TokenType::kSemicolon);
-        case '+':
-            Advance();
-            return ConstructToken(TokenType::kPlus);
-        case '-':
-            Advance();
-            return ConstructToken(TokenType::kMinus);
-        case '*':
-            Advance();
-            return ConstructToken(TokenType::kStar);
-        case '=':
-            Advance();
-            return ConstructToken(TokenType::kEqual);
-        case '#':
-            Advance();
-            return ConstructToken(TokenType::kSharp);
-        case '/':
-            Advance();
-            return ConstructToken(TokenType::kSlash);
-        case '\\':
-            Advance();
-            return ConstructToken(TokenType::kBackslash);
-        default:
-            break;
+        auto token = DetectToken(current_char);
+        if (token.type != TokenType::kUnknown) {
+            return token;
         }
 
         auto IsIdentifierStart = [](unsigned char ch) -> bool {
@@ -97,7 +45,7 @@ namespace glsld {
         if (IsIdentifierStart(current_char)) {
             std::size_t begin = position_;
             Advance();
-            while (position_ < source_.length() && IsIdentifierChar(source_[position_])) {
+            while (position_ < source_.length() && IsIdentifierChar(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
             }
             std::string_view word = source_.substr(begin, position_ - begin);
@@ -110,10 +58,14 @@ namespace glsld {
             return { std::string(word), location, TokenType::kIdentifier };
         }
 
+        auto IsIdentifierAlnum = [](unsigned char ch) -> bool {
+            return std::isalnum(ch) || ch == '.' || ch == '_';
+        };
+
         if (std::isdigit(current_char)) {
             std::size_t begin = position_;
             Advance();
-            while (position_ < source_.length() && (std::isalnum(static_cast<unsigned char>(source_[position_])) || source_[position_] == '.')) {
+            while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
             }
 
@@ -122,23 +74,94 @@ namespace glsld {
 
         if (current_char == '"') {
             std::size_t begin = position_;
-            Advance(); // Consume opening quote
+            Advance(); // consume opening quote
             while (position_ < source_.length() && source_[position_] != '"') {
-                if (source_[position_] == '\\') { // Handle escaped quotes
+                if (source_[position_] == '\\') { // handle escaped quotes
                     Advance();
                 }
                 Advance();
             }
 
             if (position_ < source_.length()) {
-                Advance(); // Consume closing quote
+                Advance(); // consume closing quote
             }
 
             return { std::string(source_.substr(begin, position_ - begin)), location, TokenType::kStringLiteral };
         }
 
         Advance();
-        return ConstructToken(TokenType::kUnknown);
+        return { std::string(source_.substr(position_ - 1, 1)), location, TokenType::kUnknown };
+    }
+
+    Token TinyLexer::DetectToken(unsigned char current_char) {
+        switch (current_char) {
+        case '{':  return Capture(TokenType::kOpenBrace);
+        case '}':  return Capture(TokenType::kCloseBrace);
+        case '[':  return Capture(TokenType::kOpenBracket);
+        case ']':  return Capture(TokenType::kCloseBracket);
+        case '(':  return Capture(TokenType::kOpenParen);
+        case ')':  return Capture(TokenType::kCloseParen);
+        case ',':  return Capture(TokenType::kComma);
+        case ':':  return Capture(TokenType::kColon);
+        case ';':  return Capture(TokenType::kSemicolon);
+        case '.':  return Capture(TokenType::kDot);
+        case '#':  return Capture(TokenType::kSharp);
+        case '~':  return Capture(TokenType::kTilde);
+        case '?':  return Capture(TokenType::kQuestion);
+        case '\\': return Capture(TokenType::kBackslash);
+        // X, XE
+        case '*': return Peek() == '=' ? Capture(TokenType::kStarEqual,    2) : Capture(TokenType::kStar);
+        case '/': return Peek() == '=' ? Capture(TokenType::kSlashEqual,   2) : Capture(TokenType::kSlash);
+        case '%': return Peek() == '=' ? Capture(TokenType::kPercentEqual, 2) : Capture(TokenType::kPercent);
+        case '!': return Peek() == '=' ? Capture(TokenType::kNotEqual,     2) : Capture(TokenType::kExclamation);
+        case '=': return Peek() == '=' ? Capture(TokenType::kEqualEqual,   2) : Capture(TokenType::kEqual);
+        // X, XX, XE
+        case '+':
+            if (Peek() == '+') return Capture(TokenType::kPlusPlus,  2);
+            if (Peek() == '=') return Capture(TokenType::kPlusEqual, 2);
+            return Capture(TokenType::kPlus);
+        case '-':
+            if (Peek() == '-') return Capture(TokenType::kMinusMinus, 2);
+            if (Peek() == '=') return Capture(TokenType::kMinusEqual, 2);
+            return Capture(TokenType::kMinus);
+        case '&':
+            if (Peek() == '&') return Capture(TokenType::kAmpersandAmpersand, 2);
+            if (Peek() == '=') return Capture(TokenType::kAmpersandEqual,     2);
+            return Capture(TokenType::kAmpersand);
+        case '^':
+            if (Peek() == '^') return Capture(TokenType::kCaretCaret, 2);
+            if (Peek() == '=') return Capture(TokenType::kCaretEqual, 2);
+            return Capture(TokenType::kCaret);
+        case '|':
+            if (Peek() == '|') return Capture(TokenType::kVerticalBarVerticalBar, 2);
+            if (Peek() == '=') return Capture(TokenType::kVerticalBarEqual,       2);
+            return Capture(TokenType::kVerticalBar);
+        // X, XE, XX, XXE
+        case '<':
+            if (Peek() == '<')
+                return Peek(2) == '=' ? Capture(TokenType::kLeftShiftEqual, 3) : Capture(TokenType::kLeftShift, 2);
+            return Peek() == '=' ? Capture(TokenType::kLessEqual, 2) : Capture(TokenType::kLessThan);
+        case '>':
+            if (Peek() == '>')
+                return Peek(2) == '=' ? Capture(TokenType::kRightShiftEqual, 3) : Capture(TokenType::kRightShift, 2);
+            return Peek() == '=' ? Capture(TokenType::kGreaterEqual, 2) : Capture(TokenType::kGreaterThan);
+        default:
+            return {};
+        }
+    }
+
+    unsigned char TinyLexer::Peek(std::size_t offset) const {
+        if (position_ + offset >= source_.length()) {
+            return '\0';
+        }
+        return source_[position_ + offset];
+    }
+
+    Token TinyLexer::Capture(TokenType type, std::size_t length) {
+        const SourceLocation location{ line_, column_ };
+        std::string text(source_.substr(position_, length));
+        Advance(length);
+        return { text, location, type };
     }
 
     void TinyLexer::BuildLexicalTable() {

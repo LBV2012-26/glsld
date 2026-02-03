@@ -34,24 +34,17 @@ namespace glsld {
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;
+        void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitRawExpression(RawExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         std::string FormatRange(AstNode* node) const;
         std::string TypeToString(TypeSpecifier& spec) const;
-        void PrintIndent() const;
+        void PrintIndent();
         void TraverseWithoutIndent(auto* node);
 
         int indent_level_{};
+        bool suspend_indent_{ false };
     };
-}
-
-namespace glsld {
-    void AstDumper::TraverseWithoutIndent(auto* node) {
-        int old_indent = indent_level_;
-        indent_level_ = 0;
-        Traverse(node);
-        indent_level_ = old_indent;
-    }
 }

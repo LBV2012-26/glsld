@@ -22,19 +22,45 @@ namespace glsld {
         const auto& tokens() const;
 
     private:
+        enum class Precedence : int {
+            kLowest = 0,
+            kComma,          // ,
+            kAssignment,     // = += -= *= /= %= <<= >>= &= ^= |=
+            kTernary,        // ?:
+            kLogicalOr,      // ||
+            kLogicalXor,     // ^^
+            kLogicalAnd,     // &&
+            kBitwiseOr,      // |
+            kBitwiseXor,     // ^
+            kBitwiseAnd,     // &
+            kEquality,       // == !=
+            kRelational,     // < > <= >=
+            kShift,          // << >>
+            kAdditive,       // + -
+            kMultiplicative, // * / %
+            kPrefix,         // ! ~ - + ++ --
+            kPostfix,        // . [ ] ( ) ++ --
+            kHighest
+        };
+
+        Precedence GetInfixPrecedence(TokenType type);
+        bool IsRightAssociative(TokenType type);
+
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
         std::unique_ptr<StatementNode> ParseStatement();
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
         std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line);
         std::unique_ptr<CompoundStatementNode> ParseScope(ScopeKind kind = ScopeKind::kCommon);
-        std::unique_ptr<StatementNode> ParseDeclaration();
+        std::unique_ptr<StatementNode> ParseCodeStatement();
         std::unique_ptr<FunctionDeclarationNode> ParseFunction(const TypeSpecifier& type_spec);
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
         TypeSpecifier ParseQualifiersAndType();
         std::vector<Token> ParseLayoutQualifier();
         std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(const TypeSpecifier& type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
-        std::unique_ptr<ExpressionNode> ParseExpression(TokenType temp_term1, TokenType temp_term2);
+        std::unique_ptr<ExpressionNode> ParsePrefixExpression();
+        std::unique_ptr<ExpressionNode> ParseInfixExpression(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
+        std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);
         std::unique_ptr<DeclarationNode> ParseBlockBody(const TypeSpecifier& type_spec);
         std::unique_ptr<StatementNode> ParseControlFlowStatement();
         std::unique_ptr<IfStatementNode> ParseIfStatement();

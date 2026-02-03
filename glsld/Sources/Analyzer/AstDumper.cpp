@@ -40,14 +40,18 @@ namespace glsld {
 
         PrintIndent();
         std::println("Parameters:");
+        ++indent_level_;
         for (const auto& param : node->params) {
             Traverse(param.get());
         }
+        --indent_level_;
 
         if (node->body != nullptr) {
             PrintIndent();
             std::println("Body:");
+            ++indent_level_;
             Traverse(node->body.get());
+            --indent_level_;
         }
 
         --indent_level_;
@@ -62,6 +66,7 @@ namespace glsld {
 
         if (node->array_size != nullptr) {
             PrintIndent();
+            std::print("ArraySize: ");
             TraverseWithoutIndent(node->array_size.get());
         }
 
@@ -84,13 +89,17 @@ namespace glsld {
         if (node->body != nullptr) {
             PrintIndent();
             std::println("Body:");
+            ++indent_level_;
             Traverse(node->body.get());
+            --indent_level_;
         }
 
         if (node->instances != nullptr) {
             PrintIndent();
             std::println("Instances:");
+            ++indent_level_;
             Traverse(node->instances.get());
+            --indent_level_;
         }
 
         --indent_level_;
@@ -106,13 +115,17 @@ namespace glsld {
         if (node->body != nullptr) {
             PrintIndent();
             std::println("Body:");
+            ++indent_level_;
             Traverse(node->body.get());
+            --indent_level_;
         }
 
         if (node->instances != nullptr) {
             PrintIndent();
             std::println("Instances:");
+            ++indent_level_;
             Traverse(node->instances.get());
+            --indent_level_;
         }
 
         --indent_level_;
@@ -333,7 +346,13 @@ namespace glsld {
 
     void AstDumper::VisitUnaryExpression(UnaryExpressionNode* node) {
         PrintIndent();
-        std::println("UnaryExpression '{}' {}", magic_enum::enum_name(node->op), FormatRange(node));
+
+        auto op_name = magic_enum::enum_name(node->op);
+        if (node->is_postfix) {
+            std::println("UnaryExpression (Postfix) '{}' {}", op_name, FormatRange(node));
+        } else {
+            std::println("UnaryExpression (Prefix) '{}' {}", op_name, FormatRange(node));
+        }
 
         ++indent_level_;
 
@@ -371,9 +390,26 @@ namespace glsld {
         --indent_level_;
     }
 
+    void AstDumper::VisitIndexExpression(IndexExpressionNode* node) {
+        PrintIndent();
+        std::println("IndexExpression {}", FormatRange(node));
+
+        ++indent_level_;
+
+        PrintIndent();
+        std::print("Base: ");
+        TraverseWithoutIndent(node->base.get());
+
+        PrintIndent();
+        std::print("Index: ");
+        TraverseWithoutIndent(node->index.get());
+
+        --indent_level_;
+    }
+
     void AstDumper::VisitVariableExpression(VariableExpressionNode* node) {
         PrintIndent();
-        std::println("VariableExpression '{}' Type: {} {}", node->name, node->type_name.text, FormatRange(node));
+        std::println("VariableExpression '{}' Type: {} {}", node->name, magic_enum::enum_name(node->type), FormatRange(node));
     }
 
     void AstDumper::VisitRawExpression(RawExpressionNode* node) {
@@ -414,7 +450,17 @@ namespace glsld {
         return result.empty() ? "void" : result;
     }
 
-    void AstDumper::PrintIndent() const {
+    void AstDumper::PrintIndent() {
+        if (suspend_indent_) {
+            suspend_indent_ = false;
+            return;
+        }
+
         utils::PrintIndent(indent_level_);
+    }
+
+    void AstDumper::TraverseWithoutIndent(auto* node) {
+        suspend_indent_ = true;
+        Traverse(node);
     }
 }

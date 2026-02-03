@@ -40,6 +40,7 @@ namespace glsld {
         kBinaryExpr,
         kUnaryExpr,
         kCallExpr,
+        kIndexExpr,
         kVariableExpr, // 变量引用
         kLiteralExpr,
         kMemberAccessExpr // struct.member
@@ -190,6 +191,7 @@ namespace glsld {
 
     struct UnaryExpressionNode : public ExpressionNode {
         TokenType op;
+        bool is_postfix{ false };
         std::unique_ptr<ExpressionNode> operand;
 
         AstNodeKind kind() const override {
@@ -206,9 +208,18 @@ namespace glsld {
         }
     };
 
+    struct IndexExpressionNode : public ExpressionNode {
+        std::unique_ptr<ExpressionNode> base;
+        std::unique_ptr<ExpressionNode> index;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kIndexExpr;
+        }
+    };
+
     struct VariableExpressionNode : public ExpressionNode {
         std::string name;
-        Token type_name;
+        TokenType type;
         const SymbolInfo* referenced_symbol{ nullptr };
 
         AstNodeKind kind() const override {
