@@ -14,7 +14,7 @@ void bbbbbbbbbb();
 
 void ffffffffffffffffffffffffff(int ppppppppppp) {
     bbbbbbbbbb();
-    int a[5];
+    int a[5] = {0, 0, 0, 0, 0};
 
     if (true)
     {

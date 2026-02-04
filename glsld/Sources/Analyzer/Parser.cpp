@@ -570,36 +570,6 @@ namespace glsld {
     }
 
     std::unique_ptr<ExpressionNode> Parser::ParsePrefixExpression() {
-        const auto& current_token = CurrentToken();
-
-        // 字面量
-        if (current_token.type == TokenType::kNumberLiteral ||
-            current_token.type == TokenType::kStringLiteral)
-        {
-            auto node = std::make_unique<RawExpressionNode>();
-            node->begin = current_token.location;
-            node->tokens.push_back(current_token);
-            ConsumeToken();
-            node->end = GetPreviousTokenEnd();
-            return node;
-        }
-
-        // 标识符/内置类型/内置函数/Primitive (函数本来应该算标识符，但问题是内置函数无需声明)
-        if (current_token.type == TokenType::kIdentifier      ||
-            current_token.type == TokenType::kBuiltInType     ||
-            current_token.type == TokenType::kBuiltInFunction ||
-            current_token.type == TokenType::kPrimitive)
-        {
-            auto node = std::make_unique<VariableExpressionNode>();
-            node->begin = current_token.location;
-            node->name = current_token.text;
-            node->type = current_token.type;
-            node->referenced_symbol = current_scope()->FindSymbol(current_token.text);
-            ConsumeToken();
-            node->end = GetPreviousTokenEnd();
-            return node;
-        }
-
         // ( expr )
         if (MatchAndConsume(TokenType::kOpenParen)) {
             auto expr_node = ParseExpression(Precedence::kLowest);
@@ -607,103 +577,202 @@ namespace glsld {
             return expr_node;
         }
 
+        const auto& current_token = CurrentToken();
+
+        switch (current_token.type) {
+        // 字面量
+        case TokenType::kNumberLiteral:
+        case TokenType::kStringLiteral:
+            return ParseLiteral();
+
+        // 标识符/内置类型/内置函数/Primitive (函数本来应该算标识符，但问题是内置函数无需声明)
+        case TokenType::kIdentifier:
+        case TokenType::kBuiltInType:
+        case TokenType::kBuiltInFunction:
+        case TokenType::kPrimitive:
+            return ParseVariableReference();
+
         // 前缀一元运算符 (!b, -x, ++i, --j, ~mask)
-        if (current_token.type == TokenType::kExclamation ||
-            current_token.type == TokenType::kMinus       ||
-            current_token.type == TokenType::kPlusPlus    ||
-            current_token.type == TokenType::kMinusMinus  ||
-            current_token.type == TokenType::kTilde)
-        {
-            auto node = std::make_unique<UnaryExpressionNode>();
-            node->begin = current_token.location;
-            node->op = current_token.type;
-            node->is_postfix = false;
-            ConsumeToken();
-            node->operand = ParseExpression(Precedence::kPrefix);
+        case TokenType::kExclamation:
+        case TokenType::kMinus:
+        case TokenType::kPlusPlus:
+        case TokenType::kMinusMinus:
+        case TokenType::kTilde:
+            return ParsePrefixUnary();
 
-            if (node->operand != nullptr) {
-                node->end = node->operand->end;
-            } else {
-                node->end = GetPreviousTokenEnd();
-            }
+        // 初始化列表 { ... }
+        case TokenType::kOpenBrace:
+            return ParseInitializerList();
 
-            return node;
+        default:
+            return nullptr;
+        }
+    }
+
+    std::unique_ptr<RawExpressionNode> Parser::ParseLiteral() {
+        // current token is raw literal
+        auto node = std::make_unique<RawExpressionNode>();
+        const auto& current_token = CurrentToken();
+
+        node->begin = current_token.location;
+        node->tokens.push_back(current_token);
+        ConsumeToken();
+        node->end = GetPreviousTokenEnd();
+
+        return node;
+    }
+
+    std::unique_ptr<VariableExpressionNode> Parser::ParseVariableReference() {
+        auto node = std::make_unique<VariableExpressionNode>();
+        const auto& current_token = CurrentToken();
+
+        node->begin             = current_token.location;
+        node->name              = current_token.text;
+        node->type              = current_token.type;
+        node->referenced_symbol = current_scope()->FindSymbol(current_token.text);
+        ConsumeToken();
+        node->end               = GetPreviousTokenEnd();
+
+        return node;
+    }
+
+    std::unique_ptr<UnaryExpressionNode> Parser::ParsePrefixUnary() {
+        auto node = std::make_unique<UnaryExpressionNode>();
+        const auto& current_token = CurrentToken();
+
+        node->begin      = current_token.location;
+        node->op         = current_token.type;
+        node->is_postfix = false;
+        ConsumeToken();
+        node->operand    = ParseExpression(Precedence::kPrefix);
+
+        if (node->operand != nullptr) {
+            node->end = node->operand->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
         }
 
-        return nullptr;
+        return node;
+    }
+
+    std::unique_ptr<InitializerListExpressionNode> Parser::ParseInitializerList() {
+        // current token is {
+        auto node = std::make_unique<InitializerListExpressionNode>();
+        node->begin = CurrentToken().location;
+        MatchAndConsume(TokenType::kOpenBrace);
+
+        if (CurrentToken().type != TokenType::kCloseBrace) {
+            while (true) {
+                node->elements.push_back(ParseExpression(Precedence::kAssignment));
+                if (!MatchAndConsume(TokenType::kComma)) {
+                    break;
+                }
+            }
+        }
+
+        node->end = GetCurrentTokenEnd();
+        MatchAndConsume(TokenType::kCloseBrace);
+        return node;
     }
 
     std::unique_ptr<ExpressionNode> Parser::ParseInfixExpression(std::unique_ptr<ExpressionNode> left,
                                                                  TokenType op_type, Precedence precedence) {
-        // 成员访问 (obj.number)
-        if (op_type == TokenType::kDot) {
-            auto node = std::make_unique<MemberAccessExpressionNode>();
-            node->begin = left->begin;
-            node->object = std::move(left);
-
-            if (CurrentToken().type == TokenType::kIdentifier) {
-                const auto& member_token = CurrentToken();
-                node->member_name = member_token.text;
-                ConsumeToken();
-            }
-
-            node->end = GetPreviousTokenEnd();
-            return node;
-        }
+        switch (op_type) {
+        // 成员访问 (object.number)
+        case TokenType::kDot:
+            return ParseMemberAccess(std::move(left));
 
         // 数组下标 (array[index])
-        if (op_type == TokenType::kOpenBracket) {
-            auto node = std::make_unique<IndexExpressionNode>();
-            node->begin = left->begin;
-            node->base = std::move(left);
-            node->index = ParseExpression(Precedence::kLowest);
-
-            if (CurrentToken().type == TokenType::kCloseBracket) {
-                node->end = GetCurrentTokenEnd();
-                ConsumeToken();
-            } else {
-                node->end = GetPreviousTokenEnd();
-            }
-
-            return node;
-        }
+        case TokenType::kOpenBracket:
+            return ParseArrayIndex(std::move(left));
 
         // 函数调用 (func(args...))
-        if (op_type == TokenType::kOpenParen) {
-            auto node = std::make_unique<CallExpressionNode>();
-            node->begin = left->begin;
-            node->callee = std::move(left);
-
-            if (CurrentToken().type != TokenType::kCloseParen) {
-                while (true) {
-                    node->args.push_back(ParseExpression(Precedence::kAssignment));
-                    if (!MatchAndConsume(TokenType::kComma)) {
-                        break;
-                    }
-                }
-            }
-
-            MatchAndConsume(TokenType::kCloseParen);
-            node->end = GetPreviousTokenEnd();
-            return node;
-        }
+        case TokenType::kOpenParen:
+            return ParseFunctionCall(std::move(left));
 
         // 后缀运算符
-        if (op_type == TokenType::kPlusPlus || op_type == TokenType::kMinusMinus) {
-            auto node = std::make_unique<UnaryExpressionNode>();
-            node->begin = left->begin;
-            node->operand = std::move(left);
-            node->op = op_type;
-            node->is_postfix = true;
-            node->end = GetPreviousTokenEnd();
-            return node;
-        }
+        case TokenType::kPlusPlus:
+        case TokenType::kMinusMinus:
+            return ParsePostfixUnary(std::move(left), op_type);
 
         // 标准二元运算符 (+, -, *, /, &&, =, etc.)
+        default:
+            return ParseStandardBinary(std::move(left), op_type, precedence);
+        }
+    }
+
+    std::unique_ptr<MemberAccessExpressionNode> Parser::ParseMemberAccess(std::unique_ptr<ExpressionNode> object) {
+        auto node = std::make_unique<MemberAccessExpressionNode>();
+
+        node->begin  = object->begin;
+        node->object = std::move(object);
+
+        if (CurrentToken().type == TokenType::kIdentifier) {
+            const auto& member_token = CurrentToken();
+            node->member_name = member_token.text;
+            ConsumeToken();
+        }
+
+        node->end = GetPreviousTokenEnd();
+        return node;
+    }
+
+    std::unique_ptr<IndexExpressionNode> Parser::ParseArrayIndex(std::unique_ptr<ExpressionNode> base) {
+        auto node = std::make_unique<IndexExpressionNode>();
+
+        node->begin = base->begin;
+        node->base  = std::move(base);
+        node->index = ParseExpression(Precedence::kLowest);
+
+        if (CurrentToken().type == TokenType::kCloseBracket) {
+            node->end = GetCurrentTokenEnd();
+            ConsumeToken();
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
+        return node;
+    }
+
+    std::unique_ptr<CallExpressionNode> Parser::ParseFunctionCall(std::unique_ptr<ExpressionNode> callee) {
+        auto node = std::make_unique<CallExpressionNode>();
+
+        node->begin  = callee->begin;
+        node->callee = std::move(callee);
+
+        if (CurrentToken().type != TokenType::kCloseParen) {
+            while (true) {
+                node->args.push_back(ParseExpression(Precedence::kAssignment));
+                if (!MatchAndConsume(TokenType::kComma)) {
+                    break;
+                }
+            }
+        }
+
+        MatchAndConsume(TokenType::kCloseParen);
+        node->end = GetPreviousTokenEnd();
+        return node;
+    }
+
+    std::unique_ptr<UnaryExpressionNode> Parser::ParsePostfixUnary(std::unique_ptr<ExpressionNode> operand, TokenType op_type) {
+        auto node = std::make_unique<UnaryExpressionNode>();
+
+        node->begin      = operand->begin;
+        node->operand    = std::move(operand);
+        node->op         = op_type;
+        node->is_postfix = true;
+        node->end        = GetPreviousTokenEnd();
+
+        return node;
+    }
+
+    std::unique_ptr<BinaryExpressionNode> Parser::ParseStandardBinary(std::unique_ptr<ExpressionNode> left,
+                                                                      TokenType op_type, Precedence precedence) {
         auto node = std::make_unique<BinaryExpressionNode>();
+
         node->begin = left->begin;
-        node->left = std::move(left);
-        node->op = op_type;
+        node->left  = std::move(left);
+        node->op    = op_type;
 
         Precedence next_min_prec =
             IsRightAssociative(op_type) ? precedence : static_cast<Precedence>(static_cast<int>(precedence) + 1);
@@ -950,8 +1019,8 @@ namespace glsld {
         auto node = std::make_unique<CaseStatementNode>();
         const auto& current_token = CurrentToken();
         node->begin = current_token.location;
-
         ConsumeToken();
+
         if (current_token.text == "case") {
             node->condition = ParseExpression(Precedence::kLowest);
         } else if (current_token.text == "default") {

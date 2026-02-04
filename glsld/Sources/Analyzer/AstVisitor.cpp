@@ -68,6 +68,9 @@ namespace glsld {
         case AstNodeKind::kNullStmt:
             VisitNullStatement(static_cast<NullStatementNode*>(node));
             break;
+        case AstNodeKind::kInitListExpr:
+            VisitInitializerListExpression(static_cast<InitializerListExpressionNode*>(node));
+            break;
         case AstNodeKind::kBinaryExpr:
             VisitBinaryExpression(static_cast<BinaryExpressionNode*>(node));
             break;
@@ -241,6 +244,12 @@ namespace glsld {
     }
 
     void AstVisitor::VisitNullStatement(NullStatementNode* node) {}
+
+    void AstVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+        for (auto& element : node->elements) {
+            Traverse(element.get());
+        }
+    }
 
     void AstVisitor::VisitBinaryExpression(BinaryExpressionNode* node) {
         if (node->left != nullptr) {

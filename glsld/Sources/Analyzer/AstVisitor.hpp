@@ -30,6 +30,7 @@ namespace glsld {
         virtual void VisitDiscardStatement(DiscardStatementNode* node);
         virtual void VisitExpressionStatement(ExpressionStatementNode* node);
         virtual void VisitNullStatement(NullStatementNode* node);
+        virtual void VisitInitializerListExpression(InitializerListExpressionNode* node);
         virtual void VisitBinaryExpression(BinaryExpressionNode* node);
         virtual void VisitUnaryExpression(UnaryExpressionNode* node);
         virtual void VisitCallExpression(CallExpressionNode* node);

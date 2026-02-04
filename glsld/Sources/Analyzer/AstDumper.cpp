@@ -323,6 +323,17 @@ namespace glsld {
         std::println("NullStatement {}", FormatRange(node));
     }
 
+    void AstDumper::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+        PrintIndent();
+        std::println("InitListExpression (Elements: {}) {}", node->elements.size(), FormatRange(node));
+
+        ++indent_level_;
+        for (const auto& element : node->elements) {
+            Traverse(element.get());
+        }
+        --indent_level_;
+    }
+
     void AstDumper::VisitBinaryExpression(BinaryExpressionNode* node) {
         PrintIndent();
         std::println("BinaryExpression '{}' {}", magic_enum::enum_name(node->op), FormatRange(node));

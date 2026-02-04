@@ -58,9 +58,21 @@ namespace glsld {
         std::vector<Token> ParseLayoutQualifier();
         std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(const TypeSpecifier& type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
+
         std::unique_ptr<ExpressionNode> ParsePrefixExpression();
+        std::unique_ptr<RawExpressionNode> ParseLiteral();
+        std::unique_ptr<VariableExpressionNode> ParseVariableReference();
+        std::unique_ptr<UnaryExpressionNode> ParsePrefixUnary();
+        std::unique_ptr<InitializerListExpressionNode> ParseInitializerList();
+
         std::unique_ptr<ExpressionNode> ParseInfixExpression(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
+        std::unique_ptr<MemberAccessExpressionNode> ParseMemberAccess(std::unique_ptr<ExpressionNode> object);
+        std::unique_ptr<IndexExpressionNode> ParseArrayIndex(std::unique_ptr<ExpressionNode> base);
+        std::unique_ptr<CallExpressionNode> ParseFunctionCall(std::unique_ptr<ExpressionNode> callee);
+        std::unique_ptr<UnaryExpressionNode> ParsePostfixUnary(std::unique_ptr<ExpressionNode> operand, TokenType op_type);
+        std::unique_ptr<BinaryExpressionNode> ParseStandardBinary(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
         std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);
+
         std::unique_ptr<DeclarationNode> ParseBlockBody(const TypeSpecifier& type_spec);
         std::unique_ptr<StatementNode> ParseControlFlowStatement();
         std::unique_ptr<IfStatementNode> ParseIfStatement();

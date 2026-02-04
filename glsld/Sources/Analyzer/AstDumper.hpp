@@ -31,6 +31,7 @@ namespace glsld {
         void VisitDiscardStatement(DiscardStatementNode* node) override;
         void VisitExpressionStatement(ExpressionStatementNode* node) override;
         void VisitNullStatement(NullStatementNode* node) override;
+        void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;

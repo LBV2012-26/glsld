@@ -37,6 +37,7 @@ namespace glsld {
         kNullStmt, // empty statement ";"
 
         // Expressions
+        kInitListExpr,
         kBinaryExpr,
         kUnaryExpr,
         kCallExpr,
@@ -176,6 +177,14 @@ namespace glsld {
     struct NullStatementNode : public StatementNode {
         AstNodeKind kind() const override {
             return AstNodeKind::kNullStmt;
+        }
+    };
+
+    struct InitializerListExpressionNode : public ExpressionNode {
+        std::vector<std::unique_ptr<ExpressionNode>> elements;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kInitListExpr;
         }
     };
 
