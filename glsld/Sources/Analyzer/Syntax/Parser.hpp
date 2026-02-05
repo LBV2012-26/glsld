@@ -8,10 +8,10 @@
 #include <string_view>
 #include <vector>
 
-#include "Analyzer/Ast.hpp"
-#include "Analyzer/SymbolTable.hpp"
-#include "Analyzer/TinyLexer.hpp"
-#include "Analyzer/Token.hpp"
+#include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/TinyLexer.hpp"
+#include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
     class Parser {

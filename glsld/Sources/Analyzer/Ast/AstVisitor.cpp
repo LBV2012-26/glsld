@@ -7,6 +7,8 @@ namespace glsld {
             return;
         }
 
+        Scope* previous_scope = current_scope_;
+
         switch (node->kind()) {
         case AstNodeKind::kTranslationUnit:
             VisitTranslationUnit(static_cast<TranslationUnitNode*>(node));
@@ -30,6 +32,7 @@ namespace glsld {
             VisitStructDeclaration(static_cast<StructDeclarationNode*>(node));
             break;
         case AstNodeKind::kCompoundStmt:
+            current_scope_ = static_cast<CompoundStatementNode*>(node)->scope;
             VisitCompoundStatement(static_cast<CompoundStatementNode*>(node));
             break;
         case AstNodeKind::kIfStmt:
@@ -93,6 +96,8 @@ namespace glsld {
             VisitMemberAccessExpression(static_cast<MemberAccessExpressionNode*>(node));
             break;
         }
+
+        current_scope_ = previous_scope;
     }
 
     void AstVisitor::VisitTranslationUnit(TranslationUnitNode* node) {
@@ -293,6 +298,10 @@ namespace glsld {
     void AstVisitor::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         if (node->object != nullptr) {
             Traverse(node->object.get());
+        }
+
+        if (node->member != nullptr) {
+            Traverse(node->member.get());
         }
     }
 }

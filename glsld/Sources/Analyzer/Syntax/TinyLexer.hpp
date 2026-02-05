@@ -4,8 +4,8 @@
 #include <string>
 #include <string_view>
 
-#include "Analyzer/Token.hpp"
-#include "Utils/Utils.hpp"
+#include "Analyzer/Syntax/Token.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     class TinyLexer {

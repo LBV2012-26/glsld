@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "Utils/Utils.hpp"
+
 namespace glsld {
     utils::StringHeteroHashTable<std::string, TokenType> TinyLexer::lexical_table_;
 

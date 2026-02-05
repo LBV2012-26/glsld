@@ -9,8 +9,8 @@
 #include <utility>
 #include <vector>
 
-#include "Analyzer/Token.hpp"
-#include "Utils/Utils.hpp"
+#include "Analyzer/Syntax/Token.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     enum class SymbolKind {
@@ -26,10 +26,24 @@ namespace glsld {
 
     int ConvertSymbolKind(SymbolKind kind);
 
+    struct SymbolInfo;
+    struct TypeInfo {
+        Token typename_token;
+        const SymbolInfo* block_symbol{ nullptr };
+        bool is_array{ false };
+
+        bool is_builtin() const;
+        bool is_valid() const;
+    };
+
+    class Scope;
     struct SymbolInfo {
-        std::string    name;
+        std::string name;
         SourceLocation location;
-        SymbolKind     kind{};
+        SymbolKind kind{};
+        TypeInfo type_info{};
+        Scope* parent_scope{ nullptr };
+        Scope* body_scope{ nullptr };
 
         operator bool() const;
     };
@@ -63,8 +77,8 @@ namespace glsld {
         friend class DocumentSymbols;
         friend class Parser;
 
-        const SymbolInfo* AddSymbol(SymbolInfo symbol);
-        const SymbolInfo* AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind);
+        SymbolInfo* AddSymbol(SymbolInfo symbol);
+        SymbolInfo* AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind);
         SymbolInfo RemoveSymbol(std::string_view name);
 
         Scope* parent_;
@@ -81,9 +95,10 @@ namespace glsld {
 
         const Scope* FindScopeAt(SourceLocation location) const;
         const SymbolInfo* FindSymbolAt(std::string_view name, SourceLocation location) const;
+        std::vector<const SymbolInfo*> FindFunctionsByOriginalName(std::string_view base_name) const;
         void Dump() const;
 
-        Scope* const root_scope();
+        Scope* const root_scope() const;
 
     private:
         const Scope* FindScopeRecursive(const Scope* current, SourceLocation location) const;

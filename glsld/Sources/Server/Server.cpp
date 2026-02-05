@@ -10,183 +10,12 @@
 #include <unordered_set>
 #include <utility>
 
-#include "Analyzer/Parser.hpp"
+#include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Logger.hpp"
 #include "Server/JsonResponse.hpp"
+#include "Server/LspConverter.hpp"
 
 namespace glsld {
-    namespace {
-        nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
-            nlohmann::json symbols = nlohmann::json::array();
-
-            if (scope == nullptr) {
-                return symbols;
-            }
-
-            auto ConvertToLspRange = [](const auto& begin, const auto& end) -> nlohmann::json {
-                return {
-                    { "start", { { "line", begin.line - 1 }, { "character", begin.column - 1 } } },
-                    { "end",   { { "line", end.line   - 1 }, { "character", end.column   - 1 } } }
-                };
-            };
-
-            auto ConvertToSelectionRange = [](const auto& location, std::string_view name) -> nlohmann::json {
-                return {
-                    { "start", { { "line", location.line - 1 }, { "character", location.column - 1 } } },
-                    { "end",   { { "line", location.line - 1 }, { "character", location.column + name.length() - 1 } } }
-                };
-            };
-
-            // split __Decl_ or __Impl_ on function
-            auto SplitSymbolName = [](std::string_view mangled_name) -> std::string_view {
-                return mangled_name.starts_with("__Decl_") ? mangled_name.substr(7) :
-                       mangled_name.starts_with("__Impl_") ? mangled_name.substr(7) :
-                       mangled_name; // common token
-            };
-
-            std::unordered_set<const Scope*> handled_scopes;
-
-            for (const auto& [name, info] : scope->symbols()) {
-                nlohmann::json symbol_node;
-                symbol_node["name"] = SplitSymbolName(info.name);
-                symbol_node["kind"] = ConvertSymbolKind(info.kind);
-                symbol_node["selectionRange"] = ConvertToSelectionRange(info.location, info.name);
-
-                const Scope* child_scope = nullptr;
-                if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
-                    for (const auto& child : scope->children()) {
-                        if (child->interval().first.line == info.location.line) {
-                            child_scope = child.get();
-                            handled_scopes.emplace(child_scope);
-                            break;
-                        }
-                    }
-
-                    if (info.kind == SymbolKind::kFunctionDecl) {
-                        symbol_node["detail"] = "(decl)";
-                    }
-                }
-
-                if (child_scope != nullptr) {
-                    symbol_node["range"] = ConvertToLspRange(info.location, child_scope->interval().second);
-                    if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
-                        auto children = ConvertScopeToDocumentSymbols(child_scope);
-                        if (!children.empty()) {
-                            symbol_node["children"] = children;
-                        }
-                    }
-                } else {
-                    symbol_node["range"] = symbol_node["selectionRange"];
-                }
-
-                symbols.push_back(symbol_node);
-            }
-
-            // Transparent scope
-            for (const auto& child_scope : scope->children()) {
-                if (child_scope->kind() == ScopeKind::kTransparent && !handled_scopes.contains(child_scope.get())) {
-                    auto transparent_children = ConvertScopeToDocumentSymbols(child_scope.get());
-                    for (const auto& child : transparent_children) {
-                        symbols.push_back(child);
-                    }
-                }
-            }
-
-            return symbols;
-        }
-
-        std::vector<std::uint32_t> SemanticData(const DocumentSymbols& symbols, std::span<const Token> tokens) {
-            std::vector<std::uint32_t> data;
-            std::uint32_t last_line = 0;
-            std::uint32_t last_char = 0;
-            std::uint32_t modifiers = 0;
-
-            for (const auto& token : tokens) {
-                int type_index = -1;
-
-                switch (token.type) {
-                case TokenType::kIdentifier: {
-                    auto* scope  = symbols.FindScopeAt(token.location);
-                    auto* symbol = scope->FindSymbolForHighlighting(token.text);
-
-                    if (symbol != nullptr) {
-                        switch (symbol->kind) {
-                        case SymbolKind::kInterface:
-                            type_index = 4;
-                            break;
-                        case SymbolKind::kStruct:
-                            type_index = 5;
-                            break;
-                        case SymbolKind::kParameter:
-                            type_index = 7;
-                            break;
-                        case SymbolKind::kVariable:
-                            type_index = 8;
-                            break;
-                        case SymbolKind::kFunctionDecl:
-                        case SymbolKind::kFunctionImpl:
-                            type_index = 12;
-                            break;
-                        case SymbolKind::kMacro:
-                            type_index = 14;
-                            break;
-                        case SymbolKind::kPreprocessor:
-                            type_index = 15;
-                            break;
-                        }
-
-                        if (token.location.line   == symbol->location.line &&
-                            token.location.column == symbol->location.column)
-                        {
-                            modifiers |= (1 << 0); // declaration
-                        }
-
-                        if (token.type == TokenType::kIdentifier && scope->kind() == ScopeKind::kTransparent) {
-                            modifiers |= (1 << 3); // static
-                        }
-                    }
-
-                    break;
-                }
-                case TokenType::kPrimitive:
-                    type_index = 23;
-                    break;
-                case TokenType::kBuiltInType:
-                    type_index = 1;
-                    break;
-                case TokenType::kKeyword:
-                case TokenType::kPreprocessor:
-                case TokenType::kSharp:
-                    type_index = 15;
-                    break;
-                case TokenType::kNumberLiteral:
-                    type_index = 19;
-                    break;
-                }
-
-                if (type_index != -1) {
-                    std::size_t line       = token.location.line   - 1;
-                    std::size_t character  = token.location.column - 1;
-                    std::size_t length     = token.text.length();
-
-                    std::size_t delta_line = line - last_line;
-                    std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
-
-                    data.push_back(static_cast<std::uint32_t>(delta_line));
-                    data.push_back(static_cast<std::uint32_t>(delta_char));
-                    data.push_back(static_cast<std::uint32_t>(length));
-                    data.push_back(static_cast<std::uint32_t>(type_index));
-                    data.push_back(modifiers);
-
-                    last_line = static_cast<std::uint32_t>(line);
-                    last_char = static_cast<std::uint32_t>(character);
-                }
-            }
-
-            return data;
-        }
-    }
-
     LspServer::LspServer() {
         RegisterHandlers();
     }
@@ -250,6 +79,10 @@ namespace glsld {
 
         router_.RegisterRequest("textDocument/semanticTokens/full", [this](Context& context) -> nlohmann::json {
             return HandleSemanticTokens(context);
+        });
+
+        router_.RegisterRequest("textDocument/definition", [this](Context& context) -> nlohmann::json {
+            return HandleDefinition(context);
         });
 
         router_.RegisterNotification("textDocument/didOpen", [this](Context& context) -> void {
@@ -371,8 +204,7 @@ namespace glsld {
             { "full", true }
         };
 
-        // 3. 支持跳转定义 (未来实现)
-        // capabilities["definitionProvider"] = true;
+        capabilities["definitionProvider"] = true;
 
         // 4. 支持补全 (未来实现)
         // capabilities["completionProvider"] = {
@@ -396,52 +228,71 @@ namespace glsld {
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
         std::string uri = context.params["textDocument"]["uri"];
 
-        auto it = documents_.find(uri);
-        if (it == documents_.end()) {
+        const auto* symbols = workspace_.GetDocumentSymbols(uri);
+        if (symbols == nullptr) {
             return nlohmann::json::array();
         }
 
-        auto& symbols = it->second;
-        return ConvertScopeToDocumentSymbols(symbols.root_scope());
+        return ConvertScopeToDocumentSymbols(symbols->root_scope());
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
         std::string uri = context.params["textDocument"]["uri"];
 
-        auto symbol_it = documents_.find(uri);
-        if (symbol_it == documents_.end()) {
-            return nlohmann::json::array();
-        }
-
-        const auto& symbols = symbol_it->second;
-
-        auto token_it = tokens_.find(uri);
-        if (token_it == tokens_.end()) {
-            return nlohmann::json::array();
-        }
-
-        const auto& tokens = token_it->second;
-
-        auto data = SemanticData(symbols, tokens);
+        const auto* symbols = workspace_.GetDocumentSymbols(uri);
+        auto tokens = workspace_.GetDocumentTokens(uri);
+        auto data   = SemanticData(*symbols, tokens);
 
         return { { "data", data } };
     }
 
+    nlohmann::json LspServer::HandleDefinition(Context& context) {
+        std::string_view uri = context.params["textDocument"]["uri"];
+        const auto& position = context.params["position"];
+        std::size_t line = position["line"];
+        std::size_t character = position["character"];
+
+        SourceLocation target{
+            .line   = line + 1,
+            .column = character + 1
+        };
+
+        auto response_array = nlohmann::json::array();
+
+        auto symbols = workspace_.GetDefinitionSymbols(uri, target);
+        if (symbols.empty()) {
+            return response_array;
+        }
+
+        for (const auto& symbol : symbols) {
+            std::size_t start_line  = symbol->location.line - 1;
+            std::size_t start_char  = symbol->location.column - 1;
+            std::size_t name_length = symbol->name.length();
+
+            nlohmann::json result;
+
+            result["uri"]                         = uri;
+            result["range"]["start"]["line"]      = start_line;
+            result["range"]["start"]["character"] = start_char;
+            result["range"]["end"]["line"]        = start_line;
+            result["range"]["end"]["character"]   = start_char + name_length;
+
+            response_array.push_back(result);
+        }
+
+        return response_array;
+    }
+
     void LspServer::HandleDidOpen(Context& context) {
         const auto& document  = context.params["textDocument"];
-        std::string uri       = document["uri"];
+        std::string_view uri  = document["uri"];
         std::string_view text = document["text"];
 
-        DocumentSymbols symbols;
-        Parser parser(text, symbols);
-        parser.Parse();
-
-        documents_[uri] = std::move(symbols);
-        tokens_[uri]    = parser.tokens();
+        workspace_.UpdateDocument(uri, text);
     }
 
     void LspServer::HandleDidChange(Context& context) {
-        std::string uri = context.params["textDocument"]["uri"];
+        std::string_view uri = context.params["textDocument"]["uri"];
 
         const auto& changes = context.params["contentChanges"];
         if (changes.empty() || !changes[0].contains("text")) {
@@ -453,7 +304,7 @@ namespace glsld {
 
     void LspServer::HandleDidClose(Context& context) {
         std::string_view uri = context.params["textDocument"]["uri"];
-        documents_.erase(uri);
+        workspace_.RemoveDocument(uri);
 
         SendNotification("textDocument/publishDiagnostics", {
             { "uri", uri },

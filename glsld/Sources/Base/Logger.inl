@@ -1,5 +1,5 @@
 #include <utility>
-#include "Utils/Utils.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     inline bool LogSinkConfig::operator==(const LogSinkConfig& other) const {

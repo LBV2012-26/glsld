@@ -13,7 +13,7 @@
 #include <utility>
 
 #include <yaml-cpp/yaml.h>
-#include "Utils/Utils.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     template <typename Ty>

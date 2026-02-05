@@ -420,7 +420,7 @@ namespace glsld {
 
     void AstDumper::VisitVariableExpression(VariableExpressionNode* node) {
         PrintIndent();
-        std::println("VariableExpression '{}' Type: {} {}", node->name, magic_enum::enum_name(node->type), FormatRange(node));
+        std::println("VariableExpression '{}' Type: {} {}", node->name, node->evaluated_type.typename_token.text, FormatRange(node));
     }
 
     void AstDumper::VisitRawExpression(RawExpressionNode* node) {
@@ -435,7 +435,7 @@ namespace glsld {
 
     void AstDumper::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         PrintIndent();
-        std::println("MemberAccessExpression '[object].{}' {}", node->member_name, FormatRange(node));
+        std::println("MemberAccessExpression '[object].[member]' {}", FormatRange(node));
 
         ++indent_level_;
 
@@ -443,6 +443,12 @@ namespace glsld {
             PrintIndent();
             std::print("Object: ");
             TraverseWithoutIndent(node->object.get());
+        }
+
+        if (node->member != nullptr) {
+            PrintIndent();
+            std::print("Member: ");
+            TraverseWithoutIndent(node->member.get());
         }
 
         --indent_level_;

@@ -9,8 +9,10 @@
 #include <fcntl.h>
 #include "Windows.h"
 
-#include "Analyzer/AstDumper.hpp"
-#include "Analyzer/Parser.hpp"
+#include "Analyzer/Ast/AstDumper.hpp"
+#include "Analyzer/Ast/SymbolLinker.hpp"
+#include "Analyzer/Ast/TypeResolver.hpp"
+#include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
 #include "Server/Server.hpp"
@@ -22,37 +24,44 @@ int main() {
 
     using namespace glsld;
 
-    //MessageBox(nullptr, L"Debug Breakpoint", L"GLSL Analyzer", MB_OK);
+    int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
+    if (result == IDOK) {
+        Config::LoadFromFile(utils::GetFilePath("Win64/config.yml"));
+        LoggerManager::GetInstance().Initialize();
 
-    Config::LoadFromFile(utils::GetFilePath("Win64/config.yml"));
-    LoggerManager::GetInstance().Initialize();
+        VALKY_LOG_INFO(VALKY_LOG_ROOT(), "GLSL Analyzer started.");
 
-    VALKY_LOG_INFO(VALKY_LOG_ROOT(), "GLSL Analyzer started.");
+        LspServer server;
+        server.Run();
+    } else {
+        std::ifstream shader_file("Assets/Test.glsl", std::ios::ate | std::ios::binary);
+        if (!shader_file.is_open()) {
+            std::cerr << "Failed to open test GLSL source." << std::endl;
+            return EXIT_FAILURE;
+        }
 
-    LspServer server;
-    //server.Run();
+        auto size = shader_file.tellg();
+        shader_file.seekg(0);
 
-    std::ifstream shader_file("Assets/Test.glsl", std::ios::ate | std::ios::binary);
-    if (!shader_file.is_open()) {
-        std::cerr << "Failed to open test GLSL source." << std::endl;
-        return EXIT_FAILURE;
+        std::vector<char> source_buffer(size);
+        shader_file.read(source_buffer.data(), size);
+
+        std::string_view shader_source(source_buffer);
+
+        DocumentSymbols symbols;
+        Parser parser(shader_source, symbols);
+        auto root = parser.Parse();
+
+        SymbolLinker linker(symbols);
+        linker.Traverse(root.get());
+
+        TypeResolver resolver(symbols);
+        resolver.Traverse(root.get());
+
+        AstDumper dumper;
+        dumper.Traverse(root.get());
+        //DumpAst(root.get());
+
+        symbols.Dump();
     }
-
-    auto size = shader_file.tellg();
-    shader_file.seekg(0);
-
-    std::vector<char> source_buffer(size);
-    shader_file.read(source_buffer.data(), size);
-
-    std::string_view shader_source(source_buffer);
-
-    DocumentSymbols symbols;
-    Parser parser(shader_source, symbols);
-
-    auto root = parser.Parse();
-    AstDumper dumper;
-    dumper.Traverse(root.get());
-    //DumpAst(root.get());
-
-    symbols.Dump();
 }

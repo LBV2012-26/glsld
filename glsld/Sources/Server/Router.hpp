@@ -7,7 +7,7 @@
 
 #include <nlohmann/json.hpp>
 #include "Server/Context.hpp"
-#include "Utils/Utils.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     using RequestHandler      = std::function<nlohmann::json(Context&)>;

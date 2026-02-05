@@ -41,38 +41,6 @@ namespace glsld {
         };
     }
 
-    template <typename Ty>
-    concept IsVector = requires {
-        typename Ty::value_type;
-    } && std::same_as<Ty, std::vector<typename Ty::value_type>>;
-
-    template <typename Ty>
-    std::vector<std::unique_ptr<Ty>> Parser::ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator) {
-        std::vector<std::unique_ptr<Ty>> nodes;
-
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != terminator) {
-            auto result = parse_func();
-
-            if constexpr (IsVector<decltype(result)>) {
-                for (auto& node : result) {
-                    if (node != nullptr) {
-                        nodes.push_back(std::move(node));
-                    }
-                }
-            } else {
-                if (result != nullptr) {
-                    nodes.push_back(std::move(result));
-                }
-            }
-        }
-
-        if (consume_terminator) {
-            MatchAndConsume(terminator);
-        }
-
-        return nodes;
-    }
-
     inline Scope* Parser::current_scope() {
         return scope_stack_.top();
     }

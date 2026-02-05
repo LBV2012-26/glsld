@@ -6,11 +6,11 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Analyzer/SymbolTable.hpp"
-#include "Analyzer/Token.hpp"
+#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Token.hpp"
 #include "Server/Context.hpp"
 #include "Server/Router.hpp"
-#include "Utils/Utils.hpp"
+#include "Server/Workspace.hpp"
 
 namespace glsld {
     class LspServer {
@@ -29,6 +29,7 @@ namespace glsld {
         nlohmann::json HandleShutdown(Context& context);
         nlohmann::json HandleDocumentSymbol(Context& context);
         nlohmann::json HandleSemanticTokens(Context& context);
+        nlohmann::json HandleDefinition(Context& context);
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);
@@ -36,9 +37,8 @@ namespace glsld {
         void HandleInitialized(Context& context); // 客户端确认初始化完成
         void HandleExit(Context& context);
 
-        utils::StringHeteroHashTable<std::string, DocumentSymbols> documents_;
-        utils::StringHeteroHashTable<std::string, std::vector<Token>> tokens_;
         Router router_;
+        Workspace workspace_;
         bool running_{ true };
     };
 }

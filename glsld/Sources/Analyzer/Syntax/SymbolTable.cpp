@@ -40,9 +40,8 @@ namespace glsld {
     {}
 
     const SymbolInfo* Scope::FindSymbol(std::string_view name) const {
-        auto it = symbols_.find(name);
-        if (it != symbols_.end()) {
-            return &it->second;
+        if (auto symbol = FindSymbolInCurrentScope(name)) {
+            return symbol;
         }
 
         if (parent_ != nullptr) {
@@ -53,9 +52,8 @@ namespace glsld {
     }
 
     const SymbolInfo* Scope::FindSymbolForHighlighting(std::string_view name) const {
-        auto it = symbols_.find(name);
-        if (it != symbols_.end()) {
-            return &it->second;
+        if (auto symbol = FindSymbolInCurrentScope(name)) {
+            return symbol;
         }
 
         std::string decl_pattern = std::format("__Decl_{}", name);
@@ -77,6 +75,14 @@ namespace glsld {
         auto it = symbols_.find(name);
         if (it != symbols_.end()) {
             return &it->second;
+        }
+
+        for (const auto& child : children_) {
+            if (child->kind_ == ScopeKind::kTransparent) {
+                if (auto symbol = child->FindSymbolInCurrentScope(name)) {
+                    return symbol;
+                }
+            }
         }
 
         return nullptr;
@@ -108,6 +114,20 @@ namespace glsld {
         }
 
         return nullptr;
+    }
+
+    std::vector<const SymbolInfo*> DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
+        std::vector<const SymbolInfo*> results;
+
+        for (const auto& [mangled_name, symbol] : root_scope_->symbols_) {
+            if (mangled_name.starts_with("__Decl_") || mangled_name.starts_with("__Impl_")) {
+                if (mangled_name.contains(base_name)) {
+                    results.push_back(&symbol);
+                }
+            }
+        }
+
+        return results;
     }
 
     void DocumentSymbols::Dump() const {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Analyzer/Ast.hpp"
+#include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/SymbolTable.hpp"
 
 namespace glsld {
     class AstVisitor {
@@ -38,5 +39,7 @@ namespace glsld {
         virtual void VisitVariableExpression(VariableExpressionNode* node);
         virtual void VisitRawExpression(RawExpressionNode* node);
         virtual void VisitMemberAccessExpression(MemberAccessExpressionNode* node);
+
+        Scope* current_scope_{ nullptr };
     };
 }

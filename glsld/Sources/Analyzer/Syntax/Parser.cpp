@@ -292,7 +292,7 @@ namespace glsld {
 
         const auto& begin_location = CurrentToken().location;
         MatchAndConsume(TokenType::kOpenParen);
-        EnterScope(begin_location);
+        auto* body_scope = EnterScope(begin_location);
 
         node->params = ParseParameterList();
         std::vector<std::string> param_typenames;
@@ -340,6 +340,7 @@ namespace glsld {
         node->end = GetPreviousTokenEnd();
         LeaveScope(node->end);
         node->declared_symbol = current_scope()->AddSymbol(function_name, name_token.location, kind);
+        node->declared_symbol->body_scope = body_scope;
 
         return node;
     }
@@ -626,12 +627,19 @@ namespace glsld {
         auto node = std::make_unique<VariableExpressionNode>();
         const auto& current_token = CurrentToken();
 
-        node->begin             = current_token.location;
-        node->name              = current_token.text;
-        node->type              = current_token.type;
-        node->referenced_symbol = current_scope()->FindSymbol(current_token.text);
+        node->begin      = current_token.location;
+        node->token_type = current_token.type;
+        node->name       = current_token.text;
+        node->scope      = current_scope();
+
+        if (PeekToken().type != TokenType::kOpenParen) {
+            node->node_type = VariableExpressionNode::NodeType::kCommonVariable;
+        } else {
+            node->node_type = VariableExpressionNode::NodeType::kFuncCallee;
+        }
+
         ConsumeToken();
-        node->end               = GetPreviousTokenEnd();
+        node->end = GetPreviousTokenEnd();
 
         return node;
     }
@@ -709,7 +717,17 @@ namespace glsld {
 
         if (CurrentToken().type == TokenType::kIdentifier) {
             const auto& member_token = CurrentToken();
-            node->member_name = member_token.text;
+
+            auto member_node        = std::make_unique<VariableExpressionNode>();
+            member_node->begin      = member_token.location;
+            member_node->token_type = member_token.type;
+            member_node->node_type  = VariableExpressionNode::NodeType::kBlockMember;
+            member_node->name       = member_token.text;
+            member_node->scope      = current_scope();
+            member_node->end        = GetCurrentTokenEnd();
+
+            node->member = std::move(member_node);
+
             ConsumeToken();
         }
 
@@ -828,9 +846,13 @@ namespace glsld {
             }
 
             if (!is_struct && node->instances == nullptr) {
-                if (node->body && node->body->scope) {
+                if (node->body != nullptr && node->body->scope != nullptr) {
                     node->body->scope->kind_ = ScopeKind::kTransparent;
                 }
+            }
+
+            if (node->declared_symbol != nullptr && node->body != nullptr) {
+                node->declared_symbol->body_scope = node->body->scope;
             }
 
             node->end = GetPreviousTokenEnd();
@@ -1114,6 +1136,38 @@ namespace glsld {
         }
 
         return false;
+    }
+
+    template <typename Ty>
+    concept IsVector = requires {
+        typename Ty::value_type;
+    } && std::same_as<Ty, std::vector<typename Ty::value_type>>;
+
+    template <typename Ty>
+    std::vector<std::unique_ptr<Ty>> Parser::ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator) {
+        std::vector<std::unique_ptr<Ty>> nodes;
+
+        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != terminator) {
+            auto result = parse_func();
+
+            if constexpr (IsVector<decltype(result)>) {
+                for (auto& node : result) {
+                    if (node != nullptr) {
+                        nodes.push_back(std::move(node));
+                    }
+                }
+            } else {
+                if (result != nullptr) {
+                    nodes.push_back(std::move(result));
+                }
+            }
+        }
+
+        if (consume_terminator) {
+            MatchAndConsume(terminator);
+        }
+
+        return nodes;
     }
 
     Scope* Parser::EnterScope(SourceLocation location, ScopeKind kind) {

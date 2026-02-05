@@ -1,7 +1,7 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
 #include <string_view>
+#include <nlohmann/json.hpp>
 
 namespace glsld {
     void SendResponse(int id, const nlohmann::json& result);

@@ -4,10 +4,11 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
-#include "Analyzer/SymbolTable.hpp"
-#include "Analyzer/Token.hpp"
+#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
     enum class AstNodeKind {
@@ -50,13 +51,17 @@ namespace glsld {
     struct AstNode {
         SourceLocation begin;
         SourceLocation end;
+        Scope* scope{ nullptr };
 
         virtual ~AstNode() = default;
         virtual AstNodeKind kind() const = 0;
     };
 
     struct StatementNode : public AstNode {};
-    struct ExpressionNode : public AstNode {};
+
+    struct ExpressionNode : public AstNode {
+        TypeInfo evaluated_type;
+    };
 
     struct PreprocessorNode : public StatementNode {
         std::string directive;
@@ -71,12 +76,11 @@ namespace glsld {
     };
 
     struct DeclarationNode : public StatementNode {
-        const SymbolInfo* declared_symbol{ nullptr };
+        SymbolInfo* declared_symbol{ nullptr };
     };
 
     struct CompoundStatementNode : public StatementNode {
         std::vector<std::unique_ptr<StatementNode>> children;
-        Scope* scope{ nullptr };
 
         AstNodeKind kind() const override {
             return AstNodeKind::kCompoundStmt;
@@ -227,9 +231,18 @@ namespace glsld {
     };
 
     struct VariableExpressionNode : public ExpressionNode {
+        enum class NodeType {
+            kCommonVariable,
+            kFuncCallee,
+            kBlockMember
+        };
+
+        TokenType token_type;
+        NodeType node_type;
         std::string name;
-        TokenType type;
-        const SymbolInfo* referenced_symbol{ nullptr };
+
+        using SymbolRef = std::variant<const SymbolInfo*, std::vector<const SymbolInfo*>>;
+        SymbolRef linked_symbols{ nullptr };
 
         AstNodeKind kind() const override {
             return AstNodeKind::kVariableExpr;
@@ -246,7 +259,7 @@ namespace glsld {
 
     struct MemberAccessExpressionNode : public ExpressionNode {
         std::unique_ptr<ExpressionNode> object;
-        std::string member_name;
+        std::unique_ptr<VariableExpressionNode> member;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kMemberAccessExpr;

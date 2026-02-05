@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Sources\Analyzer\Parser.cpp" />
-    <ClCompile Include="Sources\Analyzer\SymbolTable.cpp" />
-    <ClCompile Include="Sources\Analyzer\TinyLexer.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\SymbolTable.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\TinyLexer.cpp" />
     <ClCompile Include="Sources\Base\Config.cpp" />
     <ClCompile Include="Sources\Base\Logger.cpp" />
     <ClCompile Include="Sources\Base\ThreadPool.cpp" />
@@ -13,14 +13,19 @@
     <ClCompile Include="Sources\Server\Server.cpp" />
     <ClCompile Include="Sources\stdafx.cpp" />
     <ClCompile Include="Sources\Utils\Utils.cpp" />
-    <ClCompile Include="Sources\Analyzer\AstVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\AstDumper.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\NodeLocator.cpp" />
+    <ClCompile Include="Sources\Server\LspConverter.cpp" />
+    <ClCompile Include="Sources\Server\Workspace.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\SymbolLinker.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\TypeResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\Analyzer\Parser.hpp" />
-    <ClInclude Include="Sources\Analyzer\SymbolTable.hpp" />
-    <ClInclude Include="Sources\Analyzer\TinyLexer.hpp" />
-    <ClInclude Include="Sources\Analyzer\Token.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\SymbolTable.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\TinyLexer.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
     <ClInclude Include="Sources\Base\Config.hpp" />
     <ClInclude Include="Sources\Base\ConfigIniter.hpp" />
     <ClInclude Include="Sources\Base\Logger.hpp" />
@@ -33,17 +38,23 @@
     <ClInclude Include="Sources\stdafx.h" />
     <ClInclude Include="Sources\Utils\Utils.hpp" />
     <ClInclude Include="Sources\xstdafx.h" />
-    <ClInclude Include="Sources\Analyzer\Ast.hpp" />
-    <ClInclude Include="Sources\Analyzer\AstVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\AstDumper.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\NodeLocator.hpp" />
+    <ClInclude Include="Sources\Server\LspConverter.hpp" />
+    <ClInclude Include="Sources\Server\Workspace.hpp" />
+    <ClInclude Include="Sources\Base\Hash.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\SymbolLinker.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\TypeResolver.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="vcpkg.json" />
-    <None Include="Sources\Analyzer\Parser.inl" />
-    <None Include="Sources\Analyzer\SymbolTable.inl" />
+    <None Include="Sources\Analyzer\Syntax\Parser.inl" />
+    <None Include="Sources\Analyzer\Syntax\SymbolTable.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">
