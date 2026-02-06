@@ -60,7 +60,9 @@ namespace glsld {
     void AstDumper::VisitVariableDeclaration(VariableDeclarationNode* node) {
         PrintIndent();
         std::string name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
-        std::println("Variable '{}' Type: {} {}", name, TypeToString(node->type_spec), FormatRange(node));
+        std::string type = node->declared_symbol ? node->declared_symbol->type_info.typename_token.text : TypeToString(node->type_spec);
+
+        std::println("Variable '{}' Type: {} {}", name, type, FormatRange(node));
 
         ++indent_level_;
 
@@ -133,7 +135,7 @@ namespace glsld {
 
     void AstDumper::VisitCompoundStatement(CompoundStatementNode* node) {
         PrintIndent();
-        std::println("CompoundStatement (Scope: 0x{:X}) {}", reinterpret_cast<std::uintptr_t>(node->scope), FormatRange(node));
+        std::println("CompoundStatement (Scope: 0x{:X}) {}", reinterpret_cast<std::uintptr_t>(node->internal_scope), FormatRange(node));
 
         ++indent_level_;
         Base::VisitCompoundStatement(node);
@@ -420,7 +422,13 @@ namespace glsld {
 
     void AstDumper::VisitVariableExpression(VariableExpressionNode* node) {
         PrintIndent();
-        std::println("VariableExpression '{}' Type: {} {}", node->name, node->evaluated_type.typename_token.text, FormatRange(node));
+
+        auto type = node->evaluated_type.typename_token.text;
+        if (type.empty()) {
+            type = magic_enum::enum_name(node->token_type);
+        }
+
+        std::println("VariableExpression '{}' Type: {} {}", node->name, type, FormatRange(node));
     }
 
     void AstDumper::VisitRawExpression(RawExpressionNode* node) {

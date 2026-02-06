@@ -42,8 +42,8 @@ namespace glsld {
         SourceLocation location;
         SymbolKind kind{};
         TypeInfo type_info{};
-        Scope* parent_scope{ nullptr };
-        Scope* body_scope{ nullptr };
+        Scope* located_scope{ nullptr };
+        Scope* internal_scope{ nullptr };
 
         operator bool() const;
     };

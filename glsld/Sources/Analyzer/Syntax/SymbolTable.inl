@@ -32,10 +32,10 @@ namespace glsld {
 
     inline SymbolInfo* Scope::AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind) {
         SymbolInfo symbol{
-            .name         = std::string(name),
-            .location     = location,
-            .kind         = kind,
-            .parent_scope = this
+            .name          = std::string(name),
+            .location      = location,
+            .kind          = kind,
+            .located_scope = this
         };
 
         return AddSymbol(std::move(symbol));

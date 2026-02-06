@@ -171,6 +171,7 @@
     <ClCompile Include="Sources\Analyzer\Ast\TypeResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Server\LspConverter.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\NodeLocator.hpp" />

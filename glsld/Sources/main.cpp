@@ -49,13 +49,14 @@ int main() {
         std::string_view shader_source(source_buffer);
 
         DocumentSymbols symbols;
+        BindingMap bindings;
         Parser parser(shader_source, symbols);
         auto root = parser.Parse();
 
-        SymbolLinker linker(symbols);
+        SymbolLinker linker(symbols, bindings);
         linker.Traverse(root.get());
 
-        TypeResolver resolver(symbols);
+        TypeResolver resolver(symbols, bindings);
         resolver.Traverse(root.get());
 
         AstDumper dumper;

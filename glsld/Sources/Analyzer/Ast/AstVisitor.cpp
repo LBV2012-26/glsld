@@ -7,7 +7,12 @@ namespace glsld {
             return;
         }
 
-        Scope* previous_scope = current_scope_;
+        auto* previous_scope = current_scope_;
+        if (node->internal_scope != nullptr) {
+            current_scope_ = node->internal_scope;
+        } else {
+            current_scope_ = node->located_scope;
+        }
 
         switch (node->kind()) {
         case AstNodeKind::kTranslationUnit:
@@ -32,7 +37,6 @@ namespace glsld {
             VisitStructDeclaration(static_cast<StructDeclarationNode*>(node));
             break;
         case AstNodeKind::kCompoundStmt:
-            current_scope_ = static_cast<CompoundStatementNode*>(node)->scope;
             VisitCompoundStatement(static_cast<CompoundStatementNode*>(node));
             break;
         case AstNodeKind::kIfStmt:

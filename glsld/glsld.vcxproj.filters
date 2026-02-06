@@ -47,6 +47,7 @@
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\SymbolLinker.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\TypeResolver.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

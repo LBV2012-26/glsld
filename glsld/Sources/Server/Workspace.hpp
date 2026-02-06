@@ -6,18 +6,10 @@
 #include <string_view>
 #include <vector>
 
-#include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Syntax/SymbolTable.hpp"
-#include "Analyzer/Syntax/Token.hpp"
+#include "Analyzer/Syntax/Document.hpp"
 #include "Base/Hash.hpp"
 
 namespace glsld {
-    struct Document {
-        DocumentSymbols symbols;
-        std::vector<Token> tokens;
-        std::unique_ptr<TranslationUnitNode> ast;
-    };
-
     class Workspace {
     public:
         void UpdateDocument(std::string_view uri, std::string_view context);

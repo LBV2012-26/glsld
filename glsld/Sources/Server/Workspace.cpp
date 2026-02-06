@@ -15,10 +15,10 @@ namespace glsld {
         document->ast = parser.Parse();
         document->tokens = parser.tokens();
 
-        SymbolLinker linker(document->symbols);
+        SymbolLinker linker(document->symbols, document->bindings);
         linker.Traverse(document->ast.get());
 
-        TypeResolver resolver(document->symbols);
+        TypeResolver resolver(document->symbols, document->bindings);
         resolver.Traverse(document->ast.get());
 
         documents_[std::string(uri)] = std::move(document);

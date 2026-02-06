@@ -84,6 +84,10 @@ namespace glsld {
     struct SourceLocation {
         std::size_t line{};
         std::size_t column{};
+
+        bool operator==(const SourceLocation& other) const {
+            return line == other.line && column == other.column;
+        }
     };
 
     struct Token {
