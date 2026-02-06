@@ -17,6 +17,7 @@ namespace glsld {
 
         std::vector<const SymbolInfo*> GetDefinitionSymbols(std::string_view uri, SourceLocation location) const;
 
+        const Document* GetDocument(std::string_view uri) const;
         const DocumentSymbols* GetDocumentSymbols(std::string_view uri) const;
         std::span<const Token> GetDocumentTokens(std::string_view uri) const;
 

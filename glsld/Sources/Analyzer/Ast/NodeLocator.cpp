@@ -22,13 +22,13 @@ namespace glsld {
         return deepest_node_;
     }
 
-    bool NodeLocator::IsPositionInNode(AstNode* node) const {
+    bool NodeLocator::IsPositionInNode(const AstNode* node) const {
         // [begin.line, begin.col] <= target_ < [end.line, end.col]
-        if (target_.line <  node->begin.line || target_.line   >  node->end.line)
+        if (target_.line <  node->begin.line || target_.line   > node->end.line)
             return false;
-        if (target_.line == node->begin.line && target_.column <  node->begin.column)
+        if (target_.line == node->begin.line && target_.column < node->begin.column)
             return false;
-        if (target_.line == node->end.line   && target_.column >= node->end.column)
+        if (target_.line == node->end.line   && target_.column > node->end.column)
             return false;
         return true;
     }

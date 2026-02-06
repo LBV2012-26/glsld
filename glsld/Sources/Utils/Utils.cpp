@@ -21,4 +21,16 @@ namespace glsld::utils {
             std::print("  "); // 2 spaces per indent level
         }
     }
+
+    bool IsPositionInToken(const Token& token, SourceLocation position) {
+        if (token.location.line != position.line) {
+            return false;
+        }
+
+        std::size_t start_col = token.location.column;
+        std::size_t end_col   = start_col + token.text.length();
+
+        // [start_col, end_col]
+        return position.column >= start_col && position.column <= end_col;
+    }
 }

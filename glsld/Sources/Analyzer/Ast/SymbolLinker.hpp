@@ -10,7 +10,6 @@ namespace glsld {
         SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings);
 
     private:
-        void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
 
         const DocumentSymbols& symbols_;

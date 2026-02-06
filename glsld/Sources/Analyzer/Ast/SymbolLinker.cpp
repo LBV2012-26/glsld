@@ -7,21 +7,16 @@ namespace glsld {
         , bindings_{ bindings }
     {}
 
-    void SymbolLinker::VisitVariableDeclaration(VariableDeclarationNode* node) {
-        if (node->declared_symbol != nullptr) {
-            auto location_pair = std::make_pair(node->begin, node->end);
-            bindings_.emplace(location_pair, node->declared_symbol);
-        }
-
-        AstVisitor::VisitVariableDeclaration(node);
-    }
-
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode * node) {
         Scope* scope = nullptr;
         if (node->internal_scope != nullptr) {
             scope = node->internal_scope;
         } else {
             scope = node->located_scope;
+        }
+
+        if (node->token_type != TokenType::kIdentifier || scope == nullptr) {
+            return;
         }
 
         switch (node->node_type) {
@@ -37,8 +32,7 @@ namespace glsld {
         }
 
         if (!std::holds_alternative<std::monostate>(node->linked_symbols)) {
-            auto location_pair = std::make_pair(node->begin, node->end);
-            bindings_.emplace(location_pair, node->linked_symbols);
+            bindings_.emplace(node->begin, node->linked_symbols);
         }
     }
 }

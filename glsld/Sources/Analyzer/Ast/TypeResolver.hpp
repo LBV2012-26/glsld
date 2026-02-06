@@ -10,7 +10,10 @@ namespace glsld {
         TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings);
 
     private:
+        void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
+        void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;
+        void VisitStructDeclaration(StructDeclarationNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;

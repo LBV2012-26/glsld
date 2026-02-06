@@ -1,13 +1,17 @@
 #include "stdafx.h"
 #include "Workspace.hpp"
 
+#include <variant>
+
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Ast/NodeLocator.hpp"
 #include "Analyzer/Ast/SymbolLinker.hpp"
 #include "Analyzer/Ast/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
+
     void Workspace::UpdateDocument(std::string_view uri, std::string_view context) {
         auto document = std::make_unique<Document>();
 
@@ -52,7 +56,7 @@ namespace glsld {
                 if (linked_symbol != nullptr) {
                     results.push_back(linked_symbol);
                 }
-            } else {
+            } else if (std::holds_alternative<std::vector<const SymbolInfo*>>(var_expr->linked_symbols)) {
                 const auto& linked_symbols = std::get<std::vector<const SymbolInfo*>>(var_expr->linked_symbols);
                 if (!linked_symbols.empty()) {
                     results.append_range(linked_symbols);
@@ -62,7 +66,42 @@ namespace glsld {
             return results;
         }
 
+        if (node->kind() == AstNodeKind::kVariableDecl) {
+            const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
+
+            const auto& typename_token = var_decl->type_spec.typename_token();
+            if (typename_token.type != TokenType::kIdentifier) {
+                return results;
+            }
+
+            if (utils::IsPositionInToken(typename_token, location)) {
+                const auto& type_symbol = document->bindings.at(typename_token.location);
+                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
+                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
+                    if (linked_symbol != nullptr) {
+                        results.push_back(linked_symbol);
+                    }
+                } else if (std::holds_alternative<std::vector<const SymbolInfo*>>(type_symbol)) {
+                    const auto& linked_symbols = std::get<std::vector<const SymbolInfo*>>(type_symbol);
+                    if (!linked_symbols.empty()) {
+                        results.append_range(linked_symbols);
+                    }
+                }
+            }
+
+            return results;
+        }
+
         return results;
+    }
+
+    const Document* Workspace::GetDocument(std::string_view uri) const {
+        auto it = documents_.find(uri);
+        if (it != documents_.end()) {
+            return it->second.get();
+        }
+
+        return nullptr;
     }
 
     const DocumentSymbols* Workspace::GetDocumentSymbols(std::string_view uri) const {

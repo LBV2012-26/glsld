@@ -367,6 +367,7 @@ namespace glsld {
     struct FunctionDeclarationNode : public DeclarationNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> params;
         std::unique_ptr<CompoundStatementNode> body;
+        TypeSpecifier type_spec;
 
         using DeclarationNode::DeclarationNode;
 

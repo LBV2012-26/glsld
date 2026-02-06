@@ -1,7 +1,69 @@
 #include "stdafx.h"
 #include "LspConverter.hpp"
 
+#include <variant>
+
 namespace glsld {
+    namespace {
+        int GetSymbolSemanticHighlight(SymbolKind kind) {
+            int type_index = -1;
+
+            switch (kind) {
+            case SymbolKind::kInterface:
+                type_index = 4;
+                break;
+            case SymbolKind::kStruct:
+                type_index = 5;
+                break;
+            case SymbolKind::kParameter:
+                type_index = 7;
+                break;
+            case SymbolKind::kVariable:
+                type_index = 8;
+                break;
+            case SymbolKind::kFunctionDecl:
+            case SymbolKind::kFunctionImpl:
+                type_index = 12;
+                break;
+            case SymbolKind::kMacro:
+                type_index = 14;
+                break;
+            case SymbolKind::kPreprocessor:
+                type_index = 15;
+                break;
+            default:
+                break;
+            }
+
+            return type_index;
+        }
+
+        int GetTokenSemanticHighlight(TokenType type) {
+            int type_index = -1;
+
+            switch (type) {
+            case TokenType::kPrimitive:
+                type_index = 23;
+                break;
+            case TokenType::kBuiltInType:
+                type_index = 1;
+                break;
+            case TokenType::kKeyword:
+            case TokenType::kPreprocessor:
+            case TokenType::kSharp:
+                type_index = 15;
+                break;
+            case TokenType::kNumberLiteral:
+                type_index = 19;
+                break;
+            default:
+                break;
+            }
+
+            return type_index;
+        }
+    }
+
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
         nlohmann::json symbols = nlohmann::json::array();
 
@@ -85,45 +147,33 @@ namespace glsld {
         return symbols;
     }
 
-    std::vector<std::uint32_t> SemanticData(const DocumentSymbols& symbols, std::span<const Token> tokens) {
+    std::vector<std::uint32_t> SemanticData(const Document& document) {
         std::vector<std::uint32_t> data;
         std::uint32_t last_line = 0;
         std::uint32_t last_char = 0;
-        std::uint32_t modifiers = 0;
 
-        for (const auto& token : tokens) {
+        for (const auto& token : document.tokens) {
+            std::uint32_t modifiers = 0;
             int type_index = -1;
 
-            switch (token.type) {
-            case TokenType::kIdentifier: {
-                auto* scope = symbols.FindScopeAt(token.location);
-                auto* symbol = scope->FindSymbolForHighlighting(token.text);
-
-                if (symbol != nullptr) {
-                    switch (symbol->kind) {
-                    case SymbolKind::kInterface:
-                        type_index = 4;
-                        break;
-                    case SymbolKind::kStruct:
-                        type_index = 5;
-                        break;
-                    case SymbolKind::kParameter:
-                        type_index = 7;
-                        break;
-                    case SymbolKind::kVariable:
-                        type_index = 8;
-                        break;
-                    case SymbolKind::kFunctionDecl:
-                    case SymbolKind::kFunctionImpl:
-                        type_index = 12;
-                        break;
-                    case SymbolKind::kMacro:
-                        type_index = 14;
-                        break;
-                    case SymbolKind::kPreprocessor:
-                        type_index = 15;
-                        break;
+            if (token.type == TokenType::kIdentifier) {
+                auto it = document.bindings.find(token.location);
+                if (it != document.bindings.end()) {
+                    const SymbolInfo* symbol = nullptr;
+                    if (std::holds_alternative<std::vector<const SymbolInfo*>>(it->second)) {
+                        const auto& symbols = std::get<std::vector<const SymbolInfo*>>(it->second);
+                        if (!symbols.empty()) {
+                            symbol = symbols.front();
+                        }
+                    } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
+                        symbol = std::get<const SymbolInfo*>(it->second);
                     }
+
+                    if (symbol == nullptr) {
+                        continue;
+                    }
+
+                    type_index = GetSymbolSemanticHighlight(symbol->kind);
 
                     if (token.location.line   == symbol->location.line &&
                         token.location.column == symbol->location.column)
@@ -131,27 +181,14 @@ namespace glsld {
                         modifiers |= (1 << 0); // declaration
                     }
 
-                    if (token.type == TokenType::kIdentifier && scope->kind() == ScopeKind::kTransparent) {
+                    if (token.type == TokenType::kIdentifier &&
+                        symbol->located_scope->kind() == ScopeKind::kTransparent)
+                    {
                         modifiers |= (1 << 3); // static
                     }
                 }
-
-                break;
-            }
-            case TokenType::kPrimitive:
-                type_index = 23;
-                break;
-            case TokenType::kBuiltInType:
-                type_index = 1;
-                break;
-            case TokenType::kKeyword:
-            case TokenType::kPreprocessor:
-            case TokenType::kSharp:
-                type_index = 15;
-                break;
-            case TokenType::kNumberLiteral:
-                type_index = 19;
-                break;
+            } else {
+                type_index = GetTokenSemanticHighlight(token.type);
             }
 
             if (type_index != -1) {

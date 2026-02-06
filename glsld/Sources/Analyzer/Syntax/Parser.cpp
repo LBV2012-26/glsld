@@ -283,7 +283,8 @@ namespace glsld {
     std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(const TypeSpecifier& type_spec) {
         // current token is function name
         auto node = std::make_unique<FunctionDeclarationNode>(current_scope());
-        node->begin = type_spec.begin_location();
+        node->begin     = type_spec.begin_location();
+        node->type_spec = type_spec;
 
         const auto& name_token = CurrentToken();
         ConsumeToken();
@@ -374,8 +375,7 @@ namespace glsld {
 
             if (CurrentToken().type == TokenType::kIdentifier) {
                 const auto& name_token = CurrentToken();
-                node->declared_symbol = current_scope()->AddSymbol(
-                    name_token.text, name_token.location, SymbolKind::kParameter);
+                node->declared_symbol  = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kParameter);
 
                 ConsumeToken();
 

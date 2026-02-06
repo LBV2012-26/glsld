@@ -9,20 +9,57 @@ namespace glsld {
         , bindings_{ bindings }
     {}
 
+    void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+        if (node->declared_symbol != nullptr) {
+            bindings_.emplace(node->declared_symbol->location, node->declared_symbol);
+
+            const auto& return_typename_token = node->type_spec.typename_token();
+            node->declared_symbol->type_info.typename_token = return_typename_token;
+
+            if (return_typename_token.type == TokenType::kIdentifier) {
+                auto* type_symbol = current_scope_->FindSymbol(return_typename_token.text);
+                if (type_symbol != nullptr && (type_symbol->kind == SymbolKind::kInterface || type_symbol->kind == SymbolKind::kStruct)) {
+                    bindings_.emplace(return_typename_token.location, type_symbol);
+                }
+            }
+        }
+
+        AstVisitor::VisitFunctionDeclaration(node);
+    }
+
     void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
         if (node->declared_symbol != nullptr) {
-            node->declared_symbol->type_info.typename_token = node->type_spec.typename_token();
+            bindings_.emplace(node->declared_symbol->location, node->declared_symbol);
 
-            const auto& typename_token = node->declared_symbol->type_info.typename_token;
+            const auto& typename_token = node->type_spec.typename_token();
+            node->declared_symbol->type_info.typename_token = typename_token;
+
             if (typename_token.type == TokenType::kIdentifier) {
                 auto* type_symbol = current_scope_->FindSymbol(typename_token.text);
                 if (type_symbol != nullptr && (type_symbol->kind == SymbolKind::kInterface || type_symbol->kind == SymbolKind::kStruct)) {
+                    bindings_.emplace(typename_token.location, type_symbol);
                     node->declared_symbol->type_info.block_symbol = type_symbol;
                 }
             }
         }
 
         AstVisitor::VisitVariableDeclaration(node);
+    }
+
+    void TypeResolver::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
+        if (node->declared_symbol != nullptr) {
+            bindings_.emplace(node->declared_symbol->location, node->declared_symbol);
+        }
+
+        AstVisitor::VisitInterfaceDeclaration(node);
+    }
+
+    void TypeResolver::VisitStructDeclaration(StructDeclarationNode* node) {
+        if (node->declared_symbol != nullptr) {
+            bindings_.emplace(node->declared_symbol->location, node->declared_symbol);
+        }
+
+        AstVisitor::VisitStructDeclaration(node);
     }
 
     void TypeResolver::VisitVariableExpression(VariableExpressionNode* node) {
@@ -52,8 +89,7 @@ namespace glsld {
                 node->member->linked_symbols = member_symbol;
                 node->evaluated_type = member_symbol->type_info;
 
-                auto location_pair = std::make_pair(node->member->begin, node->member->end);
-                bindings_.emplace(location_pair, member_symbol);
+                bindings_.emplace(node->member->begin, member_symbol);
             }
         }
     }

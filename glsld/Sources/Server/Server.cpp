@@ -241,7 +241,7 @@ namespace glsld {
 
         const auto* symbols = workspace_.GetDocumentSymbols(uri);
         auto tokens = workspace_.GetDocumentTokens(uri);
-        auto data   = SemanticData(*symbols, tokens);
+        auto data   = SemanticData(*workspace_.GetDocument(uri));
 
         return { { "data", data } };
     }
