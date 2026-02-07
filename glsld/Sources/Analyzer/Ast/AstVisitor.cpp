@@ -119,10 +119,8 @@ namespace glsld {
     void AstVisitor::VisitPreprocessor(PreprocessorNode* node) {}
 
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
-        if (!node->type_spec.array_sizes.empty()) {
-            for (auto& size_expr : node->type_spec.array_sizes) {
-                Traverse(size_expr.get());
-            }
+        for (auto& size_expr : node->type_spec.array_sizes) {
+            Traverse(size_expr.get());
         }
 
         for (auto& param : node->params) {
@@ -135,10 +133,8 @@ namespace glsld {
     }
 
     void AstVisitor::VisitVariableDeclaration(VariableDeclarationNode* node) {
-        if (!node->type_spec.array_sizes.empty()) {
-            for (auto& size_expr : node->type_spec.array_sizes) {
-                Traverse(size_expr.get());
-            }
+        for (auto& size_expr : node->type_spec.array_sizes) {
+            Traverse(size_expr.get());
         }
 
         if (node->init != nullptr) {

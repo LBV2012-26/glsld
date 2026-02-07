@@ -48,7 +48,8 @@ namespace glsld {
         kMemberAccessExpression // struct.member
     };
 
-    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, std::vector<const SymbolInfo*>>;
+    using SymbolList      = std::vector<const SymbolInfo*>;
+    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
 
     struct AstNode {
         SourceLocation begin;

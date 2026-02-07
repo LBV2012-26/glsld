@@ -56,8 +56,8 @@ namespace glsld {
                 if (linked_symbol != nullptr) {
                     results.push_back(linked_symbol);
                 }
-            } else if (std::holds_alternative<std::vector<const SymbolInfo*>>(var_expr->linked_symbols)) {
-                const auto& linked_symbols = std::get<std::vector<const SymbolInfo*>>(var_expr->linked_symbols);
+            } else if (std::holds_alternative<SymbolList>(var_expr->linked_symbols)) {
+                const auto& linked_symbols = std::get<SymbolList>(var_expr->linked_symbols);
                 if (!linked_symbols.empty()) {
                     results.append_range(linked_symbols);
                 }
@@ -81,8 +81,8 @@ namespace glsld {
                     if (linked_symbol != nullptr) {
                         results.push_back(linked_symbol);
                     }
-                } else if (std::holds_alternative<std::vector<const SymbolInfo*>>(type_symbol)) {
-                    const auto& linked_symbols = std::get<std::vector<const SymbolInfo*>>(type_symbol);
+                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
+                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
                     if (!linked_symbols.empty()) {
                         results.append_range(linked_symbols);
                     }

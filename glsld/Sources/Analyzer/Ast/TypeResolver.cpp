@@ -18,6 +18,8 @@ namespace glsld {
             if (from.block_symbol != nullptr || to.block_symbol != nullptr) {
                 return false;
             }
+
+            return false;
         }
     }
 
@@ -27,12 +29,42 @@ namespace glsld {
     {}
 
     void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
-        InitializeTypeInfo(node);
-        AstVisitor::VisitFunctionDeclaration(node);
+        if (node->declared_symbol == nullptr) {
+            return;
+        }
+
+        auto* function_symbol = node->declared_symbol;
+        bindings_.try_emplace(function_symbol->location, function_symbol);
+        ExtractTypeInfo(function_symbol->type_info, node->type_spec);
+
+        function_symbol->param_typeinfos.clear();
+        for (auto& param_node : node->params) {
+            VisitVariableDeclaration(param_node.get());
+
+            TypeInfo param_typeinfo;
+            if (param_node->declared_symbol != nullptr) {
+                param_typeinfo = param_node->declared_symbol->type_info;
+            } else {
+                ExtractTypeInfo(param_typeinfo, param_node->type_spec);
+            }
+
+            function_symbol->param_typeinfos.push_back(param_typeinfo);
+        }
+
+        if (node->body != nullptr) {
+            Traverse(node->body.get());
+        }
     }
 
     void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
-        InitializeTypeInfo(node);
+        if (node->declared_symbol == nullptr) {
+            return;
+        }
+
+        auto* variable_symbol = node->declared_symbol;
+        bindings_.try_emplace(variable_symbol->location, variable_symbol);
+        ExtractTypeInfo(variable_symbol->type_info, node->type_spec);
+
         AstVisitor::VisitVariableDeclaration(node);
     }
 
@@ -53,17 +85,29 @@ namespace glsld {
     }
 
     void TypeResolver::VisitCallExpression(CallExpressionNode* node) {
-        Traverse(node->callee.get());
-
-        std::vector<std::string> arg_types;
+        std::vector<TypeInfo> call_arg_types;
         for (const auto& arg : node->args) {
             Traverse(arg.get());
-            arg_types.push_back(arg->evaluated_type.typename_token.text);
+            call_arg_types.push_back(arg->evaluated_type);
         }
 
-        if (node->callee->kind() == AstNodeKind::kVariableExpression) {
-            auto* callee_expr = static_cast<VariableExpressionNode*>(node->callee.get());
-            node->evaluated_type = ResolveOverload(callee_expr, arg_types);
+        Traverse(node->callee.get()); // 如果是函数列表（未确定重载），不会进行任何操作
+
+        auto* callee_node = static_cast<VariableExpressionNode*>(node->callee.get());
+        if (std::holds_alternative<SymbolList>(callee_node->linked_symbols)) {
+            const auto& candidates = std::get<SymbolList>(callee_node->linked_symbols);
+
+            const auto* best_match = ResolveOverload(candidates, call_arg_types);
+            if (best_match != nullptr) {
+                callee_node->linked_symbols   = best_match;
+                callee_node->evaluated_type   = best_match->type_info;
+                bindings_[callee_node->begin] = best_match;
+            }
+        } else if (std::holds_alternative<const SymbolInfo*>(callee_node->linked_symbols)) {
+            if (const auto* symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols)) {
+                callee_node->evaluated_type = symbol->type_info;
+                node->evaluated_type = symbol->type_info;
+            }
         }
     }
 
@@ -98,34 +142,28 @@ namespace glsld {
         }
     }
 
-    void TypeResolver::InitializeTypeInfo(auto* node) {
-        if (node->declared_symbol == nullptr) {
-            return;
-        }
+    void TypeResolver::ExtractTypeInfo(TypeInfo& target, const TypeSpecifier& type_spec) {
+        const auto& typename_token = type_spec.typename_token();
+        target.typename_token = typename_token;
 
-        bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
+        target.array_sizes.clear();
+        for (const auto& size : type_spec.array_sizes) {
+            if (size == nullptr) {
+                continue;
+            }
 
-        const auto& typename_token = node->type_spec.typename_token();
-        node->declared_symbol->type_info.typename_token = typename_token;
-
-        if (!node->type_spec.array_sizes.empty()) {
-            for (const auto& size : node->type_spec.array_sizes) {
-                if (size == nullptr) {
-                    continue;
+            if (size->kind() == AstNodeKind::kLiteralExpression) {
+                const auto* raw_node = static_cast<const RawExpressionNode*>(size.get());
+                for (const auto& token : raw_node->tokens) {
+                    target.array_sizes.push_back(token);
                 }
+            } else {
+                const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
+                target.array_sizes.push_back(var_expr->evaluated_type.typename_token);
 
-                if (size->kind() == AstNodeKind::kLiteralExpression) {
-                    const auto* raw_node = static_cast<const RawExpressionNode*>(size.get());
-                    for (const auto& token : raw_node->tokens) {
-                        node->declared_symbol->type_info.array_sizes.push_back(token);
-                    }
-                } else {
-                    const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
-                    node->declared_symbol->type_info.array_sizes.push_back(var_expr->evaluated_type.typename_token);
-                    if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
-                        const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
-                        bindings_.try_emplace(var_expr->begin, size_symbol);
-                    }
+                if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
+                    const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
+                    bindings_.try_emplace(var_expr->begin, size_symbol);
                 }
             }
         }
@@ -136,62 +174,61 @@ namespace glsld {
                              || type_symbol->kind == SymbolKind::kStruct;
 
             if (type_symbol != nullptr && is_block) {
+                target.block_symbol = type_symbol;
                 bindings_.try_emplace(typename_token.location, type_symbol);
-                node->declared_symbol->type_info.block_symbol = type_symbol;
             }
         }
     }
 
-    TypeInfo TypeResolver::ResolveOverload(VariableExpressionNode* callee, std::span<const std::string> arg_types) {
-        const auto& linked_symbols = callee->linked_symbols;
-        if (!std::holds_alternative<std::vector<const SymbolInfo*>>(linked_symbols)) {
-            return {};
-        }
-
-        const auto& candidates = std::get<std::vector<const SymbolInfo*>>(linked_symbols);
-
-        std::string target_signature;
-        for (auto i = 0uz; i != arg_types.size(); ++i) {
-            target_signature += arg_types[i] + (i == arg_types.size() - 1 ? "" : ", ");
-        }
-
+    const SymbolInfo* TypeResolver::ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types) {
         const SymbolInfo* best_match = nullptr;
+        int highest_score = -1;
+
+        std::vector<TypeInfo> normalized_call_args(call_arg_types.begin(), call_arg_types.end());
+        if (normalized_call_args.empty()) {
+            normalized_call_args.push_back(TypeInfo{
+                .typename_token = Token{
+                    .text = "void",
+                    .type = TokenType::kPrimitive
+                }
+            });
+        }
+
         for (const auto* symbol : candidates) {
-            if (symbol->name.find("(" + target_signature + ")") != std::string::npos) {
-                if (best_match == nullptr || symbol->kind == SymbolKind::kFunctionImpl) {
+            const auto& param_typeinfos = symbol->param_typeinfos;
+            if (param_typeinfos.size() != normalized_call_args.size()) {
+                continue;
+            }
+
+            int current_score = 0;
+            bool match_failed = false;
+
+            for (auto i = 0uz; i != normalized_call_args.size(); ++i) {
+                const auto& call_type   = normalized_call_args[i];
+                const auto& target_type = param_typeinfos[i];
+
+                if (call_type == target_type) {
+                    current_score += 2;
+                } else if (CanImplicityConvert(call_type, target_type)) {
+                    current_score += 1;
+                } else {
+                    match_failed = true;
+                    break;
+                }
+            }
+
+            if (!match_failed) {
+                if (symbol->kind == SymbolKind::kFunctionImpl) {
+                    current_score += 1;
+                }
+
+                if (current_score > highest_score) {
+                    highest_score = current_score;
                     best_match = symbol;
                 }
             }
         }
 
-        if (best_match != nullptr) {
-            callee->linked_symbols = best_match;
-            bindings_[callee->begin] = best_match;
-            return best_match->type_info;
-        }
-
-        return {};
-    }
-
-    const SymbolInfo* TypeResolver::ResolveOverload(std::span<const SymbolInfo*> candidates, std::span<const TypeInfo> arg_types) {
-        //const SymbolInfo* best_match = nullptr;
-        //int highest_score = -1;
-
-        //for (const auto* symbol : candidates) {
-        //    std::span<const Token> param_typename_tokens = symbol->param_typename_tokens;
-        //    if (param_typename_tokens.empty()) {
-        //        continue;
-        //    }
-
-        //    int current_score = 0;
-        //    bool match_failed = false;
-        //    for (auto i = 0uz; i != arg_types.size(); ++i) {
-        //        if (arg_types[i].typename_token.text == param_typename_tokens[i].text) {
-        //            current_score += 2;
-        //        } else if (CanImplicityConvert(arg_types[i], param_typename_tokens[i]))
-        //    }
-        //}
-
-        return nullptr;
+        return best_match;
     }
 }

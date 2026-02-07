@@ -24,10 +24,24 @@ LightData ReturnLightData() {
     return data;
 }
 
+LightData ReturnLightData(int) {
+    LightData data;
+    return data;
+}
+
+LightData ReturnLightData(uint) {
+    LightData data;
+    return data;
+}
+
 void main() {
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
     vec3 light = normalize(lights[0].position - InPosition);
-    vec3 light = vec3(0.0);
+    
+    int arg = 0;
+    LightData result1 = ReturnLightData();
+    LightData result2 = ReturnLightData(arg);
+
     FragColor = vec4(light, 1.0);
 }

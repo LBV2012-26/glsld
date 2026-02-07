@@ -34,6 +34,8 @@ namespace glsld {
         bool is_builtin() const;
         bool is_valid() const;
         bool is_array() const;
+
+        bool operator==(const TypeInfo& other) const;
     };
 
     class Scope;

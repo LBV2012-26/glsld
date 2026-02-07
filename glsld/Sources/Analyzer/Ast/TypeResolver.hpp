@@ -21,9 +21,8 @@ namespace glsld {
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
-        void InitializeTypeInfo(auto* node);
-        TypeInfo ResolveOverload(VariableExpressionNode* callee, std::span<const std::string> arg_types);
-        const SymbolInfo* ResolveOverload(std::span<const SymbolInfo*> candidates, std::span<const TypeInfo> arg_types);
+        void ExtractTypeInfo(TypeInfo& target, const TypeSpecifier& type_spec);
+        const SymbolInfo* ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
         const DocumentSymbols& symbols_;
         BindingMap&            bindings_;

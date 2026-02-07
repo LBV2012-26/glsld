@@ -30,6 +30,32 @@ namespace glsld {
         }
     }
 
+    bool TypeInfo::operator==(const TypeInfo& other) const {
+        if (typename_token.text != other.typename_token.text ||
+            typename_token.type != other.typename_token.type)
+        {
+            return false;
+        }
+
+        if (block_symbol != other.block_symbol) {
+            return false;
+        }
+
+        if (array_sizes.size() != other.array_sizes.size()) {
+            return false;
+        }
+
+        for (auto i = 0uz; i != array_sizes.size(); ++i) {
+            if (array_sizes[i].text != other.array_sizes[i].text ||
+                array_sizes[i].type != other.array_sizes[i].type)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     SymbolInfo::operator bool() const {
         return !name.empty();
     }

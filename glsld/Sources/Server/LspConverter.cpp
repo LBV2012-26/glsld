@@ -160,8 +160,8 @@ namespace glsld {
                 auto it = document.bindings.find(token.location);
                 if (it != document.bindings.end()) {
                     const SymbolInfo* symbol = nullptr;
-                    if (std::holds_alternative<std::vector<const SymbolInfo*>>(it->second)) {
-                        const auto& symbols = std::get<std::vector<const SymbolInfo*>>(it->second);
+                    if (std::holds_alternative<SymbolList>(it->second)) {
+                        const auto& symbols = std::get<SymbolList>(it->second);
                         if (!symbols.empty()) {
                             symbol = symbols.front();
                         }
