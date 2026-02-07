@@ -321,6 +321,7 @@ namespace glsld {
     struct TypeSpecifier {
         std::vector<Token> specifiers;
         std::vector<Token> layout_params;
+        std::vector<std::shared_ptr<ExpressionNode>> array_sizes;
 
         Token typename_token() const {
             return specifiers.empty() ? Token{} : specifiers.back();
@@ -343,7 +344,6 @@ namespace glsld {
 
     struct VariableDeclarationNode : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
-        std::unique_ptr<ExpressionNode> array_size;
         TypeSpecifier                   type_spec;
 
         using DeclarationNode::DeclarationNode;

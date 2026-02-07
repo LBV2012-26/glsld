@@ -66,10 +66,14 @@ namespace glsld {
 
         ++indent_level_;
 
-        if (node->array_size != nullptr) {
+        if (!node->type_spec.array_sizes.empty()) {
             PrintIndent();
-            std::print("ArraySize: ");
-            TraverseWithoutIndent(node->array_size.get());
+            std::println("ArraySize:");
+            ++indent_level_;
+            for (const auto& array_size : node->type_spec.array_sizes) {
+                Traverse(array_size.get());
+            }
+            --indent_level_;
         }
 
         if (node->init != nullptr) {

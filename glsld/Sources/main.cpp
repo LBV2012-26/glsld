@@ -34,7 +34,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        std::ifstream shader_file("Assets/Test.glsl", std::ios::ate | std::ios::binary);
+        std::ifstream shader_file("Assets/SyntaxTest.glsl", std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::cerr << "Failed to open test GLSL source." << std::endl;
             return EXIT_FAILURE;

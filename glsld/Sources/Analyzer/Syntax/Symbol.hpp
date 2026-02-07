@@ -27,24 +27,24 @@ namespace glsld {
 
     struct SymbolInfo;
     struct TypeInfo {
-        Token             typename_token;
-        const SymbolInfo* block_symbol{ nullptr };
-        int               array_size{ 0 };
-        bool              is_array{ false };
+        Token              typename_token;
+        const SymbolInfo*  block_symbol{ nullptr };
+        std::vector<Token> array_sizes;
 
         bool is_builtin() const;
         bool is_valid() const;
+        bool is_array() const;
     };
 
     class Scope;
     struct SymbolInfo {
-        std::string        name;
-        std::vector<Token> param_typename_tokens;
-        SourceLocation     location;
-        SymbolKind         kind{};
-        TypeInfo           type_info{};
-        Scope*             located_scope{ nullptr };
-        Scope*             internal_scope{ nullptr };
+        std::string           name;
+        SourceLocation        location;
+        SymbolKind            kind{};
+        TypeInfo              type_info{};
+        std::vector<TypeInfo> param_typeinfos;
+        Scope*                located_scope{ nullptr };
+        Scope*                internal_scope{ nullptr };
 
         operator bool() const;
     };

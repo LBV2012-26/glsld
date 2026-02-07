@@ -9,6 +9,10 @@ namespace glsld {
         return !typename_token.text.empty();
     }
 
+    inline bool TypeInfo::is_array() const {
+        return !array_sizes.empty();
+    }
+
     inline const auto& Scope::interval() const {
         return interval_;
     }

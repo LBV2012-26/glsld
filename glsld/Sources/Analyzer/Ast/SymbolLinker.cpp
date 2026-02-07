@@ -13,8 +13,8 @@ namespace glsld {
         }
     }
 
-    void SymbolLinker::VisitVariableExpression(VariableExpressionNode * node) {
-        Scope* scope = nullptr;
+    void SymbolLinker::VisitVariableExpression(VariableExpressionNode* node) {
+        const Scope* scope = nullptr;
         if (node->internal_scope != nullptr) {
             scope = node->internal_scope;
         } else {

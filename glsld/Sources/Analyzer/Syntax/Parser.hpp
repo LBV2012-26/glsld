@@ -52,11 +52,11 @@ namespace glsld {
         std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line);
         std::unique_ptr<CompoundStatementNode> ParseScope(ScopeKind kind = ScopeKind::kCommon);
         std::unique_ptr<StatementNode> ParseCodeStatement();
-        std::unique_ptr<FunctionDeclarationNode> ParseFunction(const TypeSpecifier& type_spec);
+        std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpecifier type_spec);
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
         TypeSpecifier ParseQualifiersAndType();
         std::vector<Token> ParseLayoutQualifier();
-        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(const TypeSpecifier& type_spec);
+        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpecifier type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
 
         std::unique_ptr<ExpressionNode> ParsePrefixExpression();
@@ -73,7 +73,7 @@ namespace glsld {
         std::unique_ptr<BinaryExpressionNode> ParseStandardBinary(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
         std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);
 
-        std::unique_ptr<DeclarationNode> ParseBlockBody(const TypeSpecifier& type_spec);
+        std::unique_ptr<DeclarationNode> ParseBlockBody(TypeSpecifier type_spec);
         std::unique_ptr<StatementNode> ParseControlFlowStatement();
         std::unique_ptr<IfStatementNode> ParseIfStatement();
         std::unique_ptr<ForStatementNode> ParseForStatement();

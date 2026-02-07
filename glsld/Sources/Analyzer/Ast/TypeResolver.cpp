@@ -11,7 +11,7 @@ namespace glsld {
                 return true;
             }
 
-            if (from.is_array != to.is_array) {
+            if (from.is_array() != to.is_array()) {
                 return false;
             }
 
@@ -27,39 +27,12 @@ namespace glsld {
     {}
 
     void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
-        if (node->declared_symbol != nullptr) {
-            bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
-
-            const auto& return_typename_token = node->type_spec.typename_token();
-            node->declared_symbol->type_info.typename_token = return_typename_token;
-
-            if (return_typename_token.type == TokenType::kIdentifier) {
-                auto* type_symbol = current_scope_->FindSymbol(return_typename_token.text);
-                if (type_symbol != nullptr && (type_symbol->kind == SymbolKind::kInterface || type_symbol->kind == SymbolKind::kStruct)) {
-                    bindings_.try_emplace(return_typename_token.location, type_symbol);
-                }
-            }
-        }
-
+        InitializeTypeInfo(node);
         AstVisitor::VisitFunctionDeclaration(node);
     }
 
     void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
-        if (node->declared_symbol != nullptr) {
-            bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
-
-            const auto& typename_token = node->type_spec.typename_token();
-            node->declared_symbol->type_info.typename_token = typename_token;
-
-            if (typename_token.type == TokenType::kIdentifier) {
-                auto* type_symbol = current_scope_->FindSymbol(typename_token.text);
-                if (type_symbol != nullptr && (type_symbol->kind == SymbolKind::kInterface || type_symbol->kind == SymbolKind::kStruct)) {
-                    bindings_.try_emplace(typename_token.location, type_symbol);
-                    node->declared_symbol->type_info.block_symbol = type_symbol;
-                }
-            }
-        }
-
+        InitializeTypeInfo(node);
         AstVisitor::VisitVariableDeclaration(node);
     }
 
@@ -77,14 +50,6 @@ namespace glsld {
         }
 
         AstVisitor::VisitStructDeclaration(node);
-    }
-
-    void TypeResolver::VisitVariableExpression(VariableExpressionNode* node) {
-        if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
-            if (const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols)) {
-                node->evaluated_type = symbol->type_info;
-            }
-        }
     }
 
     void TypeResolver::VisitCallExpression(CallExpressionNode* node) {
@@ -105,23 +70,74 @@ namespace glsld {
     void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
         Traverse(node->base.get());
         node->evaluated_type = node->base->evaluated_type;
-        node->evaluated_type.is_array = false;
+    }
+
+    void TypeResolver::VisitVariableExpression(VariableExpressionNode* node) {
+        if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
+            if (const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols)) {
+                node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
+            }
+        }
     }
 
     void TypeResolver::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         // object.member
         Traverse(node->object.get()); // 递归推导对象类型
 
-        TypeInfo object_type = node->object->evaluated_type;
-        const auto* struct_symbol = object_type.block_symbol;
-        if (struct_symbol != nullptr && struct_symbol->internal_scope != nullptr) {
-            auto* member_symbol = struct_symbol->internal_scope->FindSymbol(node->member->name);
+        auto object_type = node->object->evaluated_type;
+        const auto* block_symbol = object_type.block_symbol;
+        if (block_symbol != nullptr  && block_symbol->internal_scope != nullptr) {
+            const auto* member_symbol = block_symbol->internal_scope->FindSymbol(node->member->name);
 
             if (member_symbol != nullptr) {
                 node->member->linked_symbols = member_symbol;
                 node->evaluated_type = member_symbol->type_info;
 
                 bindings_.try_emplace(node->member->begin, member_symbol);
+            }
+        }
+    }
+
+    void TypeResolver::InitializeTypeInfo(auto* node) {
+        if (node->declared_symbol == nullptr) {
+            return;
+        }
+
+        bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
+
+        const auto& typename_token = node->type_spec.typename_token();
+        node->declared_symbol->type_info.typename_token = typename_token;
+
+        if (!node->type_spec.array_sizes.empty()) {
+            for (const auto& size : node->type_spec.array_sizes) {
+                if (size == nullptr) {
+                    continue;
+                }
+
+                if (size->kind() == AstNodeKind::kLiteralExpression) {
+                    const auto* raw_node = static_cast<const RawExpressionNode*>(size.get());
+                    for (const auto& token : raw_node->tokens) {
+                        node->declared_symbol->type_info.array_sizes.push_back(token);
+                    }
+                } else {
+                    const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
+                    node->declared_symbol->type_info.array_sizes.push_back(var_expr->evaluated_type.typename_token);
+                    if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
+                        const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
+                        bindings_.try_emplace(var_expr->begin, size_symbol);
+                    }
+                }
+            }
+        }
+
+        if (typename_token.type == TokenType::kIdentifier) {
+            auto* type_symbol = current_scope_->FindSymbol(typename_token.text);
+            bool  is_block    = type_symbol->kind == SymbolKind::kInterface
+                             || type_symbol->kind == SymbolKind::kStruct;
+
+            if (type_symbol != nullptr && is_block) {
+                bindings_.try_emplace(typename_token.location, type_symbol);
+                node->declared_symbol->type_info.block_symbol = type_symbol;
             }
         }
     }

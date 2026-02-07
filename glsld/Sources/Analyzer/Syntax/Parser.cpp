@@ -260,17 +260,17 @@ namespace glsld {
 
         // block, current is identifier, and next is '{'
         if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
-            return ParseBlockBody(type_spec);
+            return ParseBlockBody(std::move(type_spec));
         }
 
         // function, current is identifier, and next is '('
         if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
-            return ParseFunction(type_spec);
+            return ParseFunction(std::move(type_spec));
         }
 
         // common variable
         if (!type_spec.empty()) {
-            return ParseVariableDeclarationList(type_spec);
+            return ParseVariableDeclarationList(std::move(type_spec));
         }
 
         // expression, including function calling
@@ -281,11 +281,11 @@ namespace glsld {
         return nullptr;
     }
 
-    std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(const TypeSpecifier& type_spec) {
+    std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(TypeSpecifier type_spec) {
         // current token is function name
         auto node = std::make_unique<FunctionDeclarationNode>(current_scope());
         node->begin     = type_spec.begin_location();
-        node->type_spec = type_spec;
+        node->type_spec = std::move(type_spec);
 
         const auto& name_token = CurrentToken();
         ConsumeToken();
@@ -298,7 +298,25 @@ namespace glsld {
         node->params = ParseParameterList();
         std::vector<std::string> param_typenames;
         for (const auto& param : node->params) {
-            param_typenames.push_back(param->type_spec.typename_token().text);
+            auto param_typename = param->type_spec.typename_token().text;
+
+            for (const auto& array_size : param->type_spec.array_sizes) {
+                std::string array_dimension;
+
+                if (array_size->kind() == AstNodeKind::kLiteralExpression) {
+                    const auto* raw_node = static_cast<const RawExpressionNode*>(array_size.get());
+                    for (const auto& token : raw_node->tokens) {
+                        array_dimension += token.text;
+                    }
+                } else {
+                    const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
+                    array_dimension = var_expr->name;
+                }
+
+                param_typename = std::format("{}[{}]", param_typename, array_dimension);
+            }
+
+            param_typenames.push_back(std::move(param_typename));
         }
 
         std::string function_name = MangleFunctionName(name_token.text, param_typenames);
@@ -364,17 +382,16 @@ namespace glsld {
             auto type_spec  = ParseQualifiersAndType();
             auto node       = std::make_unique<VariableDeclarationNode>(current_scope());
             node->begin     = type_spec.begin_location();
-            node->type_spec = type_spec;
+            node->type_spec = std::move(type_spec);
 
             if (CurrentToken().type == TokenType::kIdentifier) {
                 const auto& name_token = CurrentToken();
                 node->declared_symbol  = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kParameter);
-                node->declared_symbol->param_typename_tokens.push_back(type_spec.typename_token());
 
                 ConsumeToken();
 
-                if (MatchAndConsume(TokenType::kOpenBracket)) {
-                    node->array_size = ParseExpression(Precedence::kLowest);
+                while (MatchAndConsume(TokenType::kOpenBracket)) {
+                    node->type_spec.array_sizes.push_back(ParseExpression(Precedence::kLowest));
                     MatchAndConsume(TokenType::kCloseBracket);
                 }
             }
@@ -434,6 +451,14 @@ namespace glsld {
             break;
         }
 
+        while (MatchAndConsume(TokenType::kOpenBracket)) {
+            // current token is array index
+            auto node = ParseExpression(Precedence::kLowest);
+            type_spec.array_sizes.push_back(std::move(node));
+
+            MatchAndConsume(TokenType::kCloseBracket);
+        }
+
         return type_spec;
     }
 
@@ -475,7 +500,7 @@ namespace glsld {
         return tokens;
     }
 
-    std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(const TypeSpecifier& type_spec) {
+    std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpecifier type_spec) {
         // current token is variable name or semicolon
         if (CurrentToken().type == TokenType::kSemicolon) {
             auto node   = std::make_unique<DeclarationGroupNode>(current_scope());
@@ -501,8 +526,8 @@ namespace glsld {
             ConsumeToken();
 
             // array
-            if (MatchAndConsume(TokenType::kOpenBracket)) {
-                node->array_size = ParseExpression(Precedence::kLowest);
+            while (MatchAndConsume(TokenType::kOpenBracket)) {
+                node->type_spec.array_sizes.push_back(ParseExpression(Precedence::kLowest));
                 MatchAndConsume(TokenType::kCloseBracket);
             }
 
@@ -817,7 +842,7 @@ namespace glsld {
         return left;
     }
 
-    std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(const TypeSpecifier& type_spec) {
+    std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(TypeSpecifier type_spec) {
         // current token is block name
         const auto& block_name = CurrentToken();
         ConsumeToken();
@@ -831,9 +856,8 @@ namespace glsld {
             node->body            = ParseScope(ScopeKind::kBlock);
 
             if (CurrentToken().type != TokenType::kSemicolon) {
-                auto instance_spec = type_spec;
-                instance_spec.specifiers.push_back(block_name);
-                node->instances = ParseVariableDeclarationList(instance_spec);
+                type_spec.specifiers.push_back(block_name);
+                node->instances = ParseVariableDeclarationList(std::move(type_spec));
             } else {
                 MatchAndConsume(TokenType::kSemicolon);
             }

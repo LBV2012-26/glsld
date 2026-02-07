@@ -14,6 +14,6 @@ namespace glsld {
         void VisitVariableExpression(VariableExpressionNode* node) override;
 
         const DocumentSymbols& symbols_;
-        BindingMap& bindings_;
+        BindingMap&            bindings_;
     };
 }
