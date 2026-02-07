@@ -7,6 +7,12 @@ namespace glsld {
         , bindings_{ bindings }
     {}
 
+    void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
+        if (node->directive == "define" && node->symbol != nullptr) {
+            bindings_.try_emplace(node->symbol->location, node->symbol);
+        }
+    }
+
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode * node) {
         Scope* scope = nullptr;
         if (node->internal_scope != nullptr) {
@@ -32,7 +38,7 @@ namespace glsld {
         }
 
         if (!std::holds_alternative<std::monostate>(node->linked_symbols)) {
-            bindings_.emplace(node->begin, node->linked_symbols);
+            bindings_.try_emplace(node->begin, node->linked_symbols);
         }
     }
 }

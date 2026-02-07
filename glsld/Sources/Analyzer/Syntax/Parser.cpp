@@ -297,15 +297,7 @@ namespace glsld {
         node->params = ParseParameterList();
         std::vector<std::string> param_typenames;
         for (const auto& param : node->params) {
-            std::string param_typename;
-            const std::size_t qualifier_size = param->type_spec.qualifiers.size();
-            for (std::size_t i = 0; i != qualifier_size; ++i) {
-                const auto& qualifier = param->type_spec.qualifiers[i];
-                param_typename += qualifier.text;
-                param_typename += i == qualifier_size - 1 ? "" : " ";
-            }
-
-            param_typenames.push_back(param_typename);
+            param_typenames.push_back(param->type_spec.typename_token().text);
         }
 
         std::string function_name = MangleFunctionName(name_token.text, param_typenames);
@@ -376,6 +368,7 @@ namespace glsld {
             if (CurrentToken().type == TokenType::kIdentifier) {
                 const auto& name_token = CurrentToken();
                 node->declared_symbol  = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kParameter);
+                node->declared_symbol->param_typename_tokens.push_back(type_spec.typename_token());
 
                 ConsumeToken();
 

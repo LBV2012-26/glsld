@@ -5,7 +5,7 @@ atomic_uint
 layout quads equal_spacing fractional_even_spacing fractional_odd_spacing cw ccw points
 centroid flat smooth noperspective
 patch sample
-offset buffer_reference scalar std140 std430 row_major column_major packed
+offset buffer_reference scalar std140 std430 row_major column_major packed descriptor_heap
 
 float float16_t float32_t float64_t
 int int8_t int16_t int32_t int64_t

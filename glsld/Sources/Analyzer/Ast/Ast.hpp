@@ -34,7 +34,7 @@ namespace glsld {
         kBreakStmt,
         kContinueStmt,
         kDiscardStmt,
-        kExprStmt, // (e.g. "index = 1;")
+        kExprStmt, // e.g. "index = 1;"
         kNullStmt, // empty statement ";"
 
         // Expressions
