@@ -10,7 +10,7 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/SymbolTable.hpp"
-#include "Analyzer/Syntax/TinyLexer.hpp"
+#include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
@@ -101,7 +101,7 @@ namespace glsld {
 
         Scope* current_scope();
 
-        TinyLexer                               lexer_;
+        Lexer                                   lexer_;
         DocumentSymbols&                        symbols_;
         std::vector<Token>                      tokens_;
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;

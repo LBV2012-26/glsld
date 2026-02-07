@@ -27,10 +27,10 @@ namespace glsld::utils {
             return false;
         }
 
-        std::size_t start_col = token.location.column;
-        std::size_t end_col   = start_col + token.text.length();
+        std::size_t start_column = token.location.column;
+        std::size_t end_column   = start_column + token.text.length();
 
-        // [start_col, end_col]
-        return position.column >= start_col && position.column <= end_col;
+        // [start_column, end_column]
+        return position.column >= start_column && position.column <= end_column;
     }
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -8,9 +9,9 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
-    class TinyLexer {
+    class Lexer {
     public:
-        TinyLexer(std::string_view source);
+        Lexer(std::string_view source);
 
         Token AcquireNextToken();
 
@@ -25,9 +26,9 @@ namespace glsld {
         void Advance(std::size_t count = 1);
 
         std::string_view source_;
-        std::size_t position_{};
-        std::size_t line_{ 1 };
-        std::size_t column_{ 1 };
+        std::size_t      position_{};
+        std::size_t      line_{ 1 };
+        std::size_t      column_{ 1 };
 
         static utils::StringHeteroHashTable<std::string, TokenType> lexical_table_;
     };

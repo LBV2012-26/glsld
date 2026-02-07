@@ -3,7 +3,7 @@
   <ItemGroup>
     <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\SymbolTable.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\TinyLexer.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Lexer.cpp" />
     <ClCompile Include="Sources\Base\Config.cpp" />
     <ClCompile Include="Sources\Base\Logger.cpp" />
     <ClCompile Include="Sources\Base\ThreadPool.cpp" />
@@ -24,7 +24,7 @@
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\SymbolTable.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\TinyLexer.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Lexer.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
     <ClInclude Include="Sources\Base\Config.hpp" />
     <ClInclude Include="Sources\Base\ConfigIniter.hpp" />

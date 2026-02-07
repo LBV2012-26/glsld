@@ -1,27 +1,26 @@
 #include "stdafx.h"
-#include "TinyLexer.hpp"
+#include "Lexer.hpp"
 
 #include <cctype>
 #include <format>
 #include <fstream>
 #include <ios>
 #include <ranges>
-#include <span>
 #include <stdexcept>
 #include <vector>
 
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    utils::StringHeteroHashTable<std::string, TokenType> TinyLexer::lexical_table_;
+    utils::StringHeteroHashTable<std::string, TokenType> Lexer::lexical_table_;
 
-    TinyLexer::TinyLexer(std::string_view source)
+    Lexer::Lexer(std::string_view source)
         : source_{ source }
     {
         BuildLexicalTable();
     }
 
-    Token TinyLexer::AcquireNextToken() {
+    Token Lexer::AcquireNextToken() {
         SkipWhitespaceAndComments();
 
         const SourceLocation location{ line_, column_ };
@@ -95,7 +94,7 @@ namespace glsld {
         return { std::string(source_.substr(position_ - 1, 1)), location, TokenType::kUnknown };
     }
 
-    Token TinyLexer::DetectToken(unsigned char current_char) {
+    Token Lexer::DetectToken(unsigned char current_char) {
         switch (current_char) {
         case '{':  return Capture(TokenType::kOpenBrace);
         case '}':  return Capture(TokenType::kCloseBrace);
@@ -152,21 +151,21 @@ namespace glsld {
         }
     }
 
-    unsigned char TinyLexer::Peek(std::size_t offset) const {
+    unsigned char Lexer::Peek(std::size_t offset) const {
         if (position_ + offset >= source_.length()) {
             return '\0';
         }
         return source_[position_ + offset];
     }
 
-    Token TinyLexer::Capture(TokenType type, std::size_t length) {
+    Token Lexer::Capture(TokenType type, std::size_t length) {
         const SourceLocation location{ line_, column_ };
         std::string text(source_.substr(position_, length));
         Advance(length);
         return { text, location, type };
     }
 
-    void TinyLexer::BuildLexicalTable() {
+    void Lexer::BuildLexicalTable() {
         if (!lexical_table_.empty()) {
             return;
         }
@@ -179,7 +178,7 @@ namespace glsld {
         LoadLexicalFile(utils::GetFilePath("Assets/glslVariables.txt"), TokenType::kBuiltInVariable);
     }
 
-    void TinyLexer::LoadLexicalFile(std::string_view filename, TokenType type) {
+    void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {
         std::ifstream stream(filename.data());
         if (!stream.is_open()) {
             throw std::runtime_error(std::format("Failed to open {}: No such file or directory.", filename));
@@ -209,13 +208,13 @@ namespace glsld {
         InsertTable(words, type);
     }
 
-    void TinyLexer::InsertTable(std::span<const std::string_view> words, TokenType type) {
+    void Lexer::InsertTable(std::span<const std::string_view> words, TokenType type) {
         for (auto& word : words) {
             lexical_table_.try_emplace(std::string(word), type);
         }
     }
 
-    void TinyLexer::SkipWhitespaceAndComments() {
+    void Lexer::SkipWhitespaceAndComments() {
         while (position_ < source_.length()) {
             unsigned char ch = static_cast<unsigned char>(source_[position_]);
             if (std::isspace(ch) || ch == '\0') {
@@ -248,7 +247,7 @@ namespace glsld {
         }
     }
 
-    void TinyLexer::Advance(std::size_t count) {
+    void Lexer::Advance(std::size_t count) {
         for (std::size_t i = 0; i != count; ++i) {
             if (position_ >= source_.length()) {
                 return;
