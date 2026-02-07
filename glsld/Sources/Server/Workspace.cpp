@@ -48,7 +48,7 @@ namespace glsld {
             return {};
         }
 
-        if (node->kind() == AstNodeKind::kVariableExpr) {
+        if (node->kind() == AstNodeKind::kVariableExpression) {
             const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
 
             if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
@@ -66,7 +66,7 @@ namespace glsld {
             return results;
         }
 
-        if (node->kind() == AstNodeKind::kVariableDecl) {
+        if (node->kind() == AstNodeKind::kVariableDeclaration) {
             const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
 
             const auto& typename_token = var_decl->type_spec.typename_token();

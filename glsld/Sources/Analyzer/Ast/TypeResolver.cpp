@@ -96,7 +96,7 @@ namespace glsld {
             arg_types.push_back(arg->evaluated_type.typename_token.text);
         }
 
-        if (node->callee->kind() == AstNodeKind::kVariableExpr) {
+        if (node->callee->kind() == AstNodeKind::kVariableExpression) {
             auto* callee_expr = static_cast<VariableExpressionNode*>(node->callee.get());
             node->evaluated_type = ResolveOverload(callee_expr, arg_types);
         }

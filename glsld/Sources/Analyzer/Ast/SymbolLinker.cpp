@@ -30,7 +30,7 @@ namespace glsld {
         case kCommonVariable:
             node->linked_symbols = scope->FindSymbol(node->name);
             break;
-        case kFuncCallee:
+        case kFunctionCallee:
             node->linked_symbols = symbols_.FindFunctionsByOriginalName(node->name);
             break;
         default:

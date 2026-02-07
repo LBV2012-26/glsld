@@ -24,79 +24,79 @@ namespace glsld {
         case AstNodeKind::kPreprocessor:
             VisitPreprocessor(static_cast<PreprocessorNode*>(node));
             break;
-        case AstNodeKind::kFunctionDecl:
+        case AstNodeKind::kFunctionDeclaration:
             VisitFunctionDeclaration(static_cast<FunctionDeclarationNode*>(node));
             break;
-        case AstNodeKind::kVariableDecl:
+        case AstNodeKind::kVariableDeclaration:
             VisitVariableDeclaration(static_cast<VariableDeclarationNode*>(node));
             break;
-        case AstNodeKind::kInterfaceDecl:
+        case AstNodeKind::kInterfaceDeclaration:
             VisitInterfaceDeclaration(static_cast<InterfaceDeclarationNode*>(node));
             break;
-        case AstNodeKind::kStructDecl:
+        case AstNodeKind::kStructDeclaration:
             VisitStructDeclaration(static_cast<StructDeclarationNode*>(node));
             break;
-        case AstNodeKind::kCompoundStmt:
+        case AstNodeKind::kCompoundStatement:
             VisitCompoundStatement(static_cast<CompoundStatementNode*>(node));
             break;
-        case AstNodeKind::kIfStmt:
+        case AstNodeKind::kIfStatement:
             VisitIfStatement(static_cast<IfStatementNode*>(node));
             break;
-        case AstNodeKind::kForStmt:
+        case AstNodeKind::kForStatement:
             VisitForStatement(static_cast<ForStatementNode*>(node));
             break;
-        case AstNodeKind::kWhileStmt:
+        case AstNodeKind::kWhileStatement:
             VisitWhileStatement(static_cast<WhileStatementNode*>(node));
             break;
-        case AstNodeKind::kDoStmt:
+        case AstNodeKind::kDoStatement:
             VisitDoStatement(static_cast<DoStatementNode*>(node));
             break;
-        case AstNodeKind::kSwitchStmt:
+        case AstNodeKind::kSwitchStatement:
             VisitSwitchStatement(static_cast<SwitchStatementNode*>(node));
             break;
-        case AstNodeKind::kCaseStmt:
+        case AstNodeKind::kCaseStatement:
             VisitCaseStatement(static_cast<CaseStatementNode*>(node));
             break;
-        case AstNodeKind::kReturnStmt:
+        case AstNodeKind::kReturnStatement:
             VisitReturnStatement(static_cast<ReturnStatementNode*>(node));
             break;
-        case AstNodeKind::kBreakStmt:
+        case AstNodeKind::kBreakStatement:
             VisitBreakStatement(static_cast<BreakStatementNode*>(node));
             break;
-        case AstNodeKind::kContinueStmt:
+        case AstNodeKind::kContinueStatement:
             VisitContinueStatement(static_cast<ContinueStatementNode*>(node));
             break;
-        case AstNodeKind::kDiscardStmt:
+        case AstNodeKind::kDiscardStatement:
             VisitDiscardStatement(static_cast<DiscardStatementNode*>(node));
             break;
-        case AstNodeKind::kExprStmt:
+        case AstNodeKind::kExpressionStatement:
             VisitExpressionStatement(static_cast<ExpressionStatementNode*>(node));
             break;
-        case AstNodeKind::kNullStmt:
+        case AstNodeKind::kNullStatement:
             VisitNullStatement(static_cast<NullStatementNode*>(node));
             break;
-        case AstNodeKind::kInitListExpr:
+        case AstNodeKind::kInitializerListExpression:
             VisitInitializerListExpression(static_cast<InitializerListExpressionNode*>(node));
             break;
-        case AstNodeKind::kBinaryExpr:
+        case AstNodeKind::kBinaryExpression:
             VisitBinaryExpression(static_cast<BinaryExpressionNode*>(node));
             break;
-        case AstNodeKind::kUnaryExpr:
+        case AstNodeKind::kUnaryExpression:
             VisitUnaryExpression(static_cast<UnaryExpressionNode*>(node));
             break;
-        case AstNodeKind::kCallExpr:
+        case AstNodeKind::kCallExpression:
             VisitCallExpression(static_cast<CallExpressionNode*>(node));
             break;
-        case AstNodeKind::kIndexExpr:
+        case AstNodeKind::kIndexExpression:
             VisitIndexExpression(static_cast<IndexExpressionNode*>(node));
             break;
-        case AstNodeKind::kVariableExpr:
+        case AstNodeKind::kVariableExpression:
             VisitVariableExpression(static_cast<VariableExpressionNode*>(node));
             break;
-        case AstNodeKind::kLiteralExpr:
+        case AstNodeKind::kLiteralExpression:
             VisitRawExpression(static_cast<RawExpressionNode*>(node));
             break;
-        case AstNodeKind::kMemberAccessExpr:
+        case AstNodeKind::kMemberAccessExpression:
             VisitMemberAccessExpression(static_cast<MemberAccessExpressionNode*>(node));
             break;
         }
@@ -105,14 +105,14 @@ namespace glsld {
     }
 
     void AstVisitor::VisitTranslationUnit(TranslationUnitNode* node) {
-        for (auto& stmt : node->stmts) {
-            Traverse(stmt.get());
+        for (auto& statement : node->statements) {
+            Traverse(statement.get());
         }
     }
 
     void AstVisitor::VisitDeclarationGroup(DeclarationGroupNode* node) {
-        for (auto& decl : node->decls) {
-            Traverse(decl.get());
+        for (auto& declaration : node->declarations) {
+            Traverse(declaration.get());
         }
     }
 
@@ -231,8 +231,8 @@ namespace glsld {
             Traverse(node->condition.get());
         }
 
-        for (auto& stmt : node->body) {
-            Traverse(stmt.get());
+        for (auto& statement : node->body) {
+            Traverse(statement.get());
         }
     }
 

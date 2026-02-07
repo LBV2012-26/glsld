@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Parser.hpp"
 
+#include <concepts>
 #include <format>
 #include <memory>
 #include <utility>
@@ -10,7 +11,7 @@ namespace glsld {
         : lexer_{ source }
         , symbols_{ symbols }
     {
-        Token token{};
+        Token token;
         do {
             token = lexer_.AcquireNextToken();
             tokens_.push_back(token);
@@ -137,7 +138,7 @@ namespace glsld {
         while (CurrentToken().type != TokenType::kEndOfFile) {
             auto statement = ParseStatement();
             if (statement != nullptr) {
-                root->stmts.push_back(std::move(statement));
+                root->statements.push_back(std::move(statement));
             }
         }
 
@@ -350,7 +351,7 @@ namespace glsld {
             const auto& current_token = CurrentToken();
             auto node = std::make_unique<VariableDeclarationNode>(current_scope());
 
-            node->type_spec.qualifiers.push_back(current_token);
+            node->type_spec.specifiers.push_back(current_token);
             node->begin = current_token.location;
             node->end   = GetCurrentTokenEnd();
 
@@ -390,7 +391,7 @@ namespace glsld {
             auto virtual_void_node    = std::make_unique<VariableDeclarationNode>(current_scope());
             const auto& current_token = CurrentToken();
 
-            virtual_void_node->type_spec.qualifiers.emplace_back("void", current_token.location, TokenType::kPrimitive);
+            virtual_void_node->type_spec.specifiers.emplace_back("void", current_token.location, TokenType::kPrimitive);
             virtual_void_node->begin = current_token.location;
             virtual_void_node->end   = current_token.location;
 
@@ -409,20 +410,20 @@ namespace glsld {
 
             if (current_token.type == TokenType::kPrimitive && current_token.text == "layout") {
                 // layout(...)
-                type_spec.qualifiers.push_back(current_token);
+                type_spec.specifiers.push_back(current_token);
                 type_spec.layout_params = ParseLayoutQualifier();
                 continue;
             } else if (current_token.type == TokenType::kPrimitive || current_token.type == TokenType::kBuiltInType) {
                 // (in, out, uniform, const, struct, ...)
                 // (vec3, mat4, float, ...)
-                type_spec.qualifiers.push_back(current_token);
+                type_spec.specifiers.push_back(current_token);
                 ConsumeToken();
                 continue;
             } else if (current_token.type == TokenType::kIdentifier) {
                 // MyStruct s
                 const auto& next_token = PeekToken();
                 if (next_token.type == TokenType::kIdentifier) {
-                    type_spec.qualifiers.push_back(current_token);
+                    type_spec.specifiers.push_back(current_token);
                     ConsumeToken();
                     continue;
                 } else {
@@ -518,13 +519,13 @@ namespace glsld {
         node->begin = type_spec.begin_location();
 
         if (auto first_node = ParseSingleDeclarer()) {
-            node->decls.push_back(std::move(first_node));
+            node->declarations.push_back(std::move(first_node));
         }
 
         while (CurrentToken().type == TokenType::kComma) {
             ConsumeToken();
             if (auto next_node = ParseSingleDeclarer()) {
-                node->decls.push_back(std::move(next_node));
+                node->declarations.push_back(std::move(next_node));
             } else {
                 break;
             }
@@ -532,15 +533,15 @@ namespace glsld {
 
         // terminate with semicolon
         if (CurrentToken().type == TokenType::kSemicolon) {
-            auto end_loc = GetCurrentTokenEnd();
-            if (!node->decls.empty()) {
-                node->decls.back()->end = end_loc;
+            auto end_location = GetCurrentTokenEnd();
+            if (!node->declarations.empty()) {
+                node->declarations.back()->end = end_location;
             }
 
-            node->end = end_loc;
+            node->end = end_location;
             ConsumeToken();
-        } else if (!node->decls.empty()) {
-            node->end = node->decls.back()->end;
+        } else if (!node->declarations.empty()) {
+            node->end = node->declarations.back()->end;
         }
 
         return node;
@@ -626,7 +627,7 @@ namespace glsld {
         if (PeekToken().type != TokenType::kOpenParen) {
             node->node_type = VariableExpressionNode::NodeType::kCommonVariable;
         } else {
-            node->node_type = VariableExpressionNode::NodeType::kFuncCallee;
+            node->node_type = VariableExpressionNode::NodeType::kFunctionCallee;
         }
 
         ConsumeToken();
@@ -831,7 +832,7 @@ namespace glsld {
 
             if (CurrentToken().type != TokenType::kSemicolon) {
                 auto instance_spec = type_spec;
-                instance_spec.qualifiers.push_back(block_name);
+                instance_spec.specifiers.push_back(block_name);
                 node->instances = ParseVariableDeclarationList(instance_spec);
             } else {
                 MatchAndConsume(TokenType::kSemicolon);

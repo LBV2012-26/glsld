@@ -1,8 +1,6 @@
 #include "Parser.hpp"
 
 #include <algorithm>
-#include <concepts>
-#include <utility>
 
 namespace glsld {
     inline const auto& Parser::tokens() const {

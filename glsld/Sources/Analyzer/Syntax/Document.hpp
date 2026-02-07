@@ -24,7 +24,7 @@ namespace glsld {
         }
     };
 
-    using BindingMap = std::unordered_map<SourceLocation, SymbolRef, BindingHash>;
+    using BindingMap = std::unordered_map<SourceLocation, SymbolReference, BindingHash>;
 
     struct Document {
         DocumentSymbols                      symbols;

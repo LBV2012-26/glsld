@@ -101,11 +101,11 @@ namespace glsld {
 
         Scope* current_scope();
 
-        TinyLexer lexer_;
-        DocumentSymbols& symbols_;
-        std::vector<Token> tokens_;
+        TinyLexer                               lexer_;
+        DocumentSymbols&                        symbols_;
+        std::vector<Token>                      tokens_;
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
-        std::size_t token_index_{};
+        std::size_t                             token_index_{};
     };
 }
 

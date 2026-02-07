@@ -17,38 +17,38 @@ namespace glsld {
         kPreprocessor,
 
         // Declarations
-        kFunctionDecl,
-        kVariableDecl,
-        kInterfaceDecl,
-        kStructDecl,
+        kFunctionDeclaration,
+        kVariableDeclaration,
+        kInterfaceDeclaration,
+        kStructDeclaration,
 
         // Statements
-        kCompoundStmt, // { ... }
-        kIfStmt,
-        kForStmt,
-        kWhileStmt,
-        kDoStmt,
-        kSwitchStmt,
-        kCaseStmt,
-        kReturnStmt,
-        kBreakStmt,
-        kContinueStmt,
-        kDiscardStmt,
-        kExprStmt, // e.g. "index = 1;"
-        kNullStmt, // empty statement ";"
+        kCompoundStatement,     // { ... }
+        kIfStatement,
+        kForStatement,
+        kWhileStatement,
+        kDoStatement,
+        kSwitchStatement,
+        kCaseStatement,
+        kReturnStatement,
+        kBreakStatement,
+        kContinueStatement,
+        kDiscardStatement,
+        kExpressionStatement,   // index = 1;
+        kNullStatement,         // empty statement ";"
 
         // Expressions
-        kInitListExpr,
-        kBinaryExpr,
-        kUnaryExpr,
-        kCallExpr,
-        kIndexExpr,
-        kVariableExpr, // 变量引用
-        kLiteralExpr,
-        kMemberAccessExpr // struct.member
+        kInitializerListExpression,
+        kBinaryExpression,
+        kUnaryExpression,
+        kCallExpression,
+        kIndexExpression,
+        kVariableExpression,    // 变量引用
+        kLiteralExpression,
+        kMemberAccessExpression // struct.member
     };
 
-    using SymbolRef = std::variant<std::monostate, const SymbolInfo*, std::vector<const SymbolInfo*>>;
+    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, std::vector<const SymbolInfo*>>;
 
     struct AstNode {
         SourceLocation begin;
@@ -74,11 +74,10 @@ namespace glsld {
     };
 
     struct PreprocessorNode : public StatementNode {
-        std::string directive;
-        std::vector<Token> tokens;
+        std::string              directive;
+        std::vector<Token>       tokens;
         std::vector<std::string> params;
-
-        const SymbolInfo* symbol{ nullptr };
+        const SymbolInfo*        symbol{ nullptr };
 
         using StatementNode::StatementNode;
 
@@ -98,7 +97,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kCompoundStmt;
+            return AstNodeKind::kCompoundStatement;
         }
     };
 
@@ -110,7 +109,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kIfStmt;
+            return AstNodeKind::kIfStatement;
         }
     };
 
@@ -123,7 +122,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kForStmt;
+            return AstNodeKind::kForStatement;
         }
     };
 
@@ -134,7 +133,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kWhileStmt;
+            return AstNodeKind::kWhileStatement;
         }
     };
 
@@ -145,7 +144,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kDoStmt;
+            return AstNodeKind::kDoStatement;
         }
     };
 
@@ -156,7 +155,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kSwitchStmt;
+            return AstNodeKind::kSwitchStatement;
         }
     };
 
@@ -167,7 +166,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kCaseStmt;
+            return AstNodeKind::kCaseStatement;
         }
     };
 
@@ -177,7 +176,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kReturnStmt;
+            return AstNodeKind::kReturnStatement;
         }
     };
 
@@ -185,7 +184,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kBreakStmt;
+            return AstNodeKind::kBreakStatement;
         }
     };
 
@@ -193,7 +192,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kContinueStmt;
+            return AstNodeKind::kContinueStatement;
         }
     };
 
@@ -201,7 +200,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kDiscardStmt;
+            return AstNodeKind::kDiscardStatement;
         }
     };
 
@@ -211,7 +210,7 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> expr;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kExprStmt;
+            return AstNodeKind::kExpressionStatement;
         }
     };
 
@@ -219,7 +218,7 @@ namespace glsld {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kNullStmt;
+            return AstNodeKind::kNullStatement;
         }
     };
 
@@ -229,42 +228,42 @@ namespace glsld {
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kInitListExpr;
+            return AstNodeKind::kInitializerListExpression;
         }
     };
 
     struct BinaryExpressionNode : public ExpressionNode {
-        TokenType op{};
+        TokenType                       op{};
         std::unique_ptr<ExpressionNode> left;
         std::unique_ptr<ExpressionNode> right;
 
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kBinaryExpr;
+            return AstNodeKind::kBinaryExpression;
         }
     };
 
     struct UnaryExpressionNode : public ExpressionNode {
-        TokenType op{};
-        bool is_postfix{ false };
+        TokenType                       op{};
+        bool                            is_postfix{ false };
         std::unique_ptr<ExpressionNode> operand;
 
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kUnaryExpr;
+            return AstNodeKind::kUnaryExpression;
         }
     };
 
     struct CallExpressionNode : public ExpressionNode {
-        std::unique_ptr<ExpressionNode> callee;
+        std::unique_ptr<ExpressionNode>              callee;
         std::vector<std::unique_ptr<ExpressionNode>> args;
 
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kCallExpr;
+            return AstNodeKind::kCallExpression;
         }
     };
 
@@ -275,26 +274,26 @@ namespace glsld {
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kIndexExpr;
+            return AstNodeKind::kIndexExpression;
         }
     };
 
     struct VariableExpressionNode : public ExpressionNode {
         enum class NodeType {
             kCommonVariable,
-            kFuncCallee,
+            kFunctionCallee,
             kBlockMember
         };
 
-        TokenType token_type;
-        NodeType node_type;
-        std::string name;
-        SymbolRef linked_symbols{ std::monostate{} };
+        TokenType       token_type;
+        NodeType        node_type;
+        std::string     name;
+        SymbolReference linked_symbols{ std::monostate{} };
 
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kVariableExpr;
+            return AstNodeKind::kVariableExpression;
         }
     };
 
@@ -304,58 +303,58 @@ namespace glsld {
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kLiteralExpr;
+            return AstNodeKind::kLiteralExpression;
         }
     };
 
     struct MemberAccessExpressionNode : public ExpressionNode {
-        std::unique_ptr<ExpressionNode> object;
+        std::unique_ptr<ExpressionNode>         object;
         std::unique_ptr<VariableExpressionNode> member;
 
         using ExpressionNode::ExpressionNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kMemberAccessExpr;
+            return AstNodeKind::kMemberAccessExpression;
         }
     };
 
     struct TypeSpecifier {
-        std::vector<Token> qualifiers;
+        std::vector<Token> specifiers;
         std::vector<Token> layout_params;
 
         Token typename_token() const {
-            return qualifiers.empty() ? Token{} : qualifiers.back();
+            return specifiers.empty() ? Token{} : specifiers.back();
         }
 
         SourceLocation begin_location() const {
-            return qualifiers.empty() ? SourceLocation{} : qualifiers.front().location;
+            return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
         }
 
         bool has_keyword(std::string_view name) const {
-            return std::ranges::any_of(qualifiers, [name](auto& token) -> bool {
+            return std::ranges::any_of(specifiers, [name](auto& token) -> bool {
                 return token.text == name;
             });
         }
 
         bool empty() const {
-            return qualifiers.empty();
+            return specifiers.empty();
         }
     };
 
     struct VariableDeclarationNode : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
         std::unique_ptr<ExpressionNode> array_size;
-        TypeSpecifier type_spec;
+        TypeSpecifier                   type_spec;
 
         using DeclarationNode::DeclarationNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kVariableDecl;
+            return AstNodeKind::kVariableDeclaration;
         }
     };
 
     struct DeclarationGroupNode : public StatementNode {
-        std::vector<std::unique_ptr<VariableDeclarationNode>> decls;
+        std::vector<std::unique_ptr<VariableDeclarationNode>> declarations;
 
         using StatementNode::StatementNode;
 
@@ -366,41 +365,41 @@ namespace glsld {
 
     struct FunctionDeclarationNode : public DeclarationNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> params;
-        std::unique_ptr<CompoundStatementNode> body;
-        TypeSpecifier type_spec;
+        std::unique_ptr<CompoundStatementNode>                body;
+        TypeSpecifier                                         type_spec;
 
         using DeclarationNode::DeclarationNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kFunctionDecl;
+            return AstNodeKind::kFunctionDeclaration;
         }
     };
 
     struct InterfaceDeclarationNode : public DeclarationNode {
-        std::vector<Token> qualifiers;
+        std::vector<Token>                     qualifiers;
         std::unique_ptr<CompoundStatementNode> body;
-        std::unique_ptr<DeclarationGroupNode> instances;
+        std::unique_ptr<DeclarationGroupNode>  instances;
 
         using DeclarationNode::DeclarationNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kInterfaceDecl;
+            return AstNodeKind::kInterfaceDeclaration;
         }
     };
 
     struct StructDeclarationNode : public DeclarationNode {
         std::unique_ptr<CompoundStatementNode> body;
-        std::unique_ptr<DeclarationGroupNode> instances;
+        std::unique_ptr<DeclarationGroupNode>  instances;
 
         using DeclarationNode::DeclarationNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kStructDecl;
+            return AstNodeKind::kStructDeclaration;
         }
     };
 
     struct TranslationUnitNode : public AstNode {
-        std::vector<std::unique_ptr<StatementNode>> stmts;
+        std::vector<std::unique_ptr<StatementNode>> statements;
 
         using AstNode::AstNode;
 

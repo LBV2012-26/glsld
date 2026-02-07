@@ -74,7 +74,7 @@ namespace glsld {
 
         if (node->init != nullptr) {
             PrintIndent();
-            std::print("Initializer: ");
+            std::print("Init: ");
             TraverseWithoutIndent(node->init.get());
         }
 
@@ -466,10 +466,10 @@ namespace glsld {
         return std::format("[{}:{}-{}:{}]", node->begin.line, node->begin.column, node->end.line, node->end.column);
     }
 
-    std::string AstDumper::TypeToString(TypeSpecifier& spec) const {
+    std::string AstDumper::TypeToString(TypeSpecifier& type_spec) const {
         std::string result;
-        for (const auto& qual : spec.qualifiers) {
-            result += std::string(qual.text) + " ";
+        for (const auto& specifier : type_spec.specifiers) {
+            result += std::string(specifier.text) + " ";
         }
 
         return result.empty() ? "void" : result;
