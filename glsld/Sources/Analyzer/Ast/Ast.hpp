@@ -7,7 +7,7 @@
 #include <variant>
 #include <vector>
 
-#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {

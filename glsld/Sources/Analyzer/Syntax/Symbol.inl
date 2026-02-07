@@ -1,4 +1,4 @@
-#include "SymbolTable.hpp"
+#include "Symbol.hpp"
 
 namespace glsld {
     inline bool TypeInfo::is_builtin() const {

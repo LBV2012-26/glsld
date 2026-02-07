@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
 

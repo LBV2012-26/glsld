@@ -6,7 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Server/Context.hpp"
 #include "Server/Router.hpp"

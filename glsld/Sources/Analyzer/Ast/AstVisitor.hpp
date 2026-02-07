@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
     class AstVisitor {

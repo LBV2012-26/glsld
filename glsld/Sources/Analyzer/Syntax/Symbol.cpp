@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "SymbolTable.hpp"
+#include "Symbol.hpp"
 
 #include <algorithm>
 #include <format>

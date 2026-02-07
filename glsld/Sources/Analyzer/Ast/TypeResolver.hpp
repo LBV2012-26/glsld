@@ -4,7 +4,7 @@
 #include <string>
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
-#include "Analyzer/Syntax/SymbolTable.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
     class TypeResolver : public AstVisitor {

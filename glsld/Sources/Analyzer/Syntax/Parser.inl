@@ -1,5 +1,4 @@
 #include "Parser.hpp"
-
 #include <algorithm>
 
 namespace glsld {

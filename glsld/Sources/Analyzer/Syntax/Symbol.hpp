@@ -5,7 +5,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -28,10 +27,10 @@ namespace glsld {
 
     struct SymbolInfo;
     struct TypeInfo {
-        Token typename_token;
+        Token             typename_token;
         const SymbolInfo* block_symbol{ nullptr };
-        int  array_size{ 0 };
-        bool is_array{ false };
+        int               array_size{ 0 };
+        bool              is_array{ false };
 
         bool is_builtin() const;
         bool is_valid() const;
@@ -39,13 +38,13 @@ namespace glsld {
 
     class Scope;
     struct SymbolInfo {
-        std::string name;
+        std::string        name;
         std::vector<Token> param_typename_tokens;
-        SourceLocation location;
-        SymbolKind kind{};
-        TypeInfo type_info{};
-        Scope* located_scope{ nullptr };
-        Scope* internal_scope{ nullptr };
+        SourceLocation     location;
+        SymbolKind         kind{};
+        TypeInfo           type_info{};
+        Scope*             located_scope{ nullptr };
+        Scope*             internal_scope{ nullptr };
 
         operator bool() const;
     };
@@ -73,7 +72,7 @@ namespace glsld {
         const auto& interval() const;
         const auto& children() const;
         const auto& symbols() const;
-        ScopeKind kind() const;
+        ScopeKind   kind() const;
 
     private:
         friend class DocumentSymbols;
@@ -81,14 +80,14 @@ namespace glsld {
 
         SymbolInfo* AddSymbol(SymbolInfo symbol);
         SymbolInfo* AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind);
-        SymbolInfo RemoveSymbol(std::string_view name);
+        SymbolInfo  RemoveSymbol(std::string_view name);
 
-        Scope* parent_;
-        std::size_t index_;
-        std::pair<SourceLocation, SourceLocation> interval_;
-        std::vector<std::unique_ptr<Scope>> children_;
+        Scope*                                                parent_;
+        std::size_t                                           index_;
+        std::pair<SourceLocation, SourceLocation>             interval_;
+        std::vector<std::unique_ptr<Scope>>                   children_;
         utils::StringHeteroHashTable<std::string, SymbolInfo> symbols_;
-        ScopeKind kind_{ ScopeKind::kTransparent };
+        ScopeKind                                             kind_{ ScopeKind::kTransparent };
     };
 
     class DocumentSymbols {
@@ -107,9 +106,8 @@ namespace glsld {
         bool IsLocationInScope(const Scope* scope, SourceLocation location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
-        std::unordered_set<std::int64_t> visited_symbol_ids_;
         std::unique_ptr<Scope> root_scope_;
     };
 }
 
-#include "SymbolTable.inl"
+#include "Symbol.inl"
