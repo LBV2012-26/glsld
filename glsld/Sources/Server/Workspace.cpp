@@ -5,13 +5,13 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
+#include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
-#include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Passes/TypeCollector.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-
     void Workspace::UpdateDocument(std::string_view uri, std::string_view context) {
         auto document = std::make_unique<Document>();
 
@@ -22,7 +22,10 @@ namespace glsld {
         SymbolLinker linker(document->symbols, document->bindings);
         linker.Traverse(document->ast.get());
 
-        TypeResolver resolver(document->symbols, document->bindings);
+        TypeCollector collector(document->symbols, document->bindings);
+        collector.Traverse(document->ast.get());
+
+        OverloadResolver resolver(document->symbols, document->bindings);
         resolver.Traverse(document->ast.get());
 
         documents_[std::string(uri)] = std::move(document);

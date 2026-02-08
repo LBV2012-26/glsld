@@ -10,8 +10,9 @@
 #include "Windows.h"
 
 #include "Analyzer/Ast/AstDumper.hpp"
+#include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
-#include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Passes/TypeCollector.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
@@ -56,7 +57,10 @@ int main() {
         SymbolLinker linker(symbols, bindings);
         linker.Traverse(root.get());
 
-        TypeResolver resolver(symbols, bindings);
+        TypeCollector collector(symbols, bindings);
+        collector.Traverse(root.get());
+
+        OverloadResolver resolver(symbols, bindings);
         resolver.Traverse(root.get());
 
         AstDumper dumper;

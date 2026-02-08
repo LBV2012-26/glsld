@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Passes\TypeCollector.cpp" />
     <ClCompile Include="Sources\Server\LspConverter.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
@@ -168,9 +169,10 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Passes\TypeCollector.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Server\LspConverter.hpp" />
@@ -196,7 +198,7 @@
     <ClInclude Include="Sources\xstdafx.h" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\OverloadResolver.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
