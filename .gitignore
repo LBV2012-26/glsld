@@ -369,3 +369,4 @@ glsld/vcpkg_installed/
 glsld/Win64
 /glsld/Output.txt
 /glsld/RefOutput.txt
+/glsld/Assets/a.spv
