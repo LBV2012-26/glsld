@@ -4,9 +4,9 @@
 #include <variant>
 
 #include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Ast/NodeLocator.hpp"
-#include "Analyzer/Ast/SymbolLinker.hpp"
-#include "Analyzer/Ast/TypeResolver.hpp"
+#include "Analyzer/Passes/NodeLocator.hpp"
+#include "Analyzer/Passes/SymbolLinker.hpp"
+#include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Utils/Utils.hpp"
 

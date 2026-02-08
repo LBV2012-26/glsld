@@ -24,7 +24,7 @@ LightData ReturnLightData() {
     return data;
 }
 
-LightData ReturnLightData(int) {
+LightData ReturnLightData(float) {
     LightData data;
     return data;
 }

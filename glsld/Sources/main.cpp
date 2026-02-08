@@ -10,8 +10,8 @@
 #include "Windows.h"
 
 #include "Analyzer/Ast/AstDumper.hpp"
-#include "Analyzer/Ast/SymbolLinker.hpp"
-#include "Analyzer/Ast/TypeResolver.hpp"
+#include "Analyzer/Passes/SymbolLinker.hpp"
+#include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"

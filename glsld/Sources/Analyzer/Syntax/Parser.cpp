@@ -216,6 +216,7 @@ namespace glsld {
                       (first.location.column + first.text.length() == second.location.column);
             };
 
+            // macro function like #define MACRO(x)
             if (CurrentToken().type == TokenType::kOpenParen && IsAdjacent(macro_token, CurrentToken())) {
                 ConsumeToken();
                 while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
@@ -296,6 +297,8 @@ namespace glsld {
         auto* internal_scope = EnterScope(begin_location);
 
         node->params = ParseParameterList();
+
+        // mangle function name, such as "Func(int array[5], vec3 v) -> Func(int[5], vec3)"
         std::vector<std::string> param_typenames;
         for (const auto& param : node->params) {
             auto param_typename = param->type_spec.typename_token().text;
@@ -350,6 +353,7 @@ namespace glsld {
 
         node->end = GetPreviousTokenEnd();
         LeaveScope(node->end);
+        // current scope is function located scope
         node->declared_symbol = current_scope()->AddSymbol(function_name, name_token.location, kind);
         node->declared_symbol->internal_scope = internal_scope;
         node->internal_scope = internal_scope;
@@ -419,7 +423,7 @@ namespace glsld {
     }
 
     TypeSpecifier Parser::ParseQualifiersAndType() {
-        // current token is qualifier or type such as: Func("const" int input)
+        // current token is specifier such as: Func("const int" input)
         TypeSpecifier type_spec;
 
         while (true) {
@@ -437,7 +441,7 @@ namespace glsld {
                 ConsumeToken();
                 continue;
             } else if (current_token.type == TokenType::kIdentifier) {
-                // MyStruct s
+                // MyStruct instance
                 const auto& next_token = PeekToken();
                 if (next_token.type == TokenType::kIdentifier) {
                     type_spec.specifiers.push_back(current_token);
@@ -455,7 +459,6 @@ namespace glsld {
             // current token is array index
             auto node = ParseExpression(Precedence::kLowest);
             type_spec.array_sizes.push_back(std::move(node));
-
             MatchAndConsume(TokenType::kCloseBracket);
         }
 
@@ -464,6 +467,7 @@ namespace glsld {
 
     std::vector<Token> Parser::ParseLayoutQualifier() {
         // current token is "layout"
+        // temporarily implementation, just capture all tokens
         ConsumeToken();
 
         std::vector<Token> tokens;
@@ -573,10 +577,9 @@ namespace glsld {
     }
 
     std::unique_ptr<ExpressionStatementNode> Parser::ParseExpressionStatement() {
-        auto node = std::make_unique<ExpressionStatementNode>(current_scope());
+        auto node   = std::make_unique<ExpressionStatementNode>(current_scope());
         node->begin = CurrentToken().location;
-
-        node->expr = ParseExpression(Precedence::kLowest);
+        node->expr  = ParseExpression(Precedence::kLowest);
 
         if (CurrentToken().type == TokenType::kSemicolon) {
             node->end = GetCurrentTokenEnd();
@@ -711,7 +714,7 @@ namespace glsld {
         case TokenType::kOpenBracket:
             return ParseArrayIndex(std::move(left));
 
-        // 函数调用 (func(args...))
+        // 函数调用 (Func(args...))
         case TokenType::kOpenParen:
             return ParseFunctionCall(std::move(left));
 
@@ -847,15 +850,16 @@ namespace glsld {
         const auto& block_name = CurrentToken();
         ConsumeToken();
 
-        bool is_struct  = type_spec.has_keyword("struct");
-        auto block_kind = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
+        bool is_struct = type_spec.has_keyword("struct");
 
         auto ParseBody = [&](auto& node) -> void {
             node->begin           = type_spec.begin_location();
+            auto block_kind       = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
             node->declared_symbol = current_scope()->AddSymbol(block_name.text, block_name.location, block_kind);
             node->body            = ParseScope(ScopeKind::kBlock);
 
             if (CurrentToken().type != TokenType::kSemicolon) {
+                // struct MyStruct { ... } instance;
                 type_spec.specifiers.push_back(block_name);
                 node->instances = ParseVariableDeclarationList(std::move(type_spec));
             } else {
@@ -868,7 +872,7 @@ namespace glsld {
                 }
             }
 
-            if (node->declared_symbol != nullptr && node->body != nullptr) {
+            if (node->body != nullptr && node->declared_symbol != nullptr) {
                 node->declared_symbol->internal_scope = node->body->internal_scope;
             }
 
@@ -934,6 +938,7 @@ namespace glsld {
             node->end = node->then_branch->end;
         }
 
+        node->internal_scope = current_scope();
         LeaveScope(node->end);
         return node;
     }
@@ -972,6 +977,7 @@ namespace glsld {
             node->end = GetPreviousTokenEnd();
         }
 
+        node->internal_scope = current_scope();
         LeaveScope(node->end);
         return node;
     }
@@ -995,6 +1001,7 @@ namespace glsld {
         node->end = GetCurrentTokenEnd();
         MatchAndConsume(TokenType::kSemicolon);
 
+        node->internal_scope = current_scope();
         LeaveScope(node->end);
         return node;
     }
@@ -1019,6 +1026,7 @@ namespace glsld {
             node->end = GetPreviousTokenEnd();
         }
 
+        node->internal_scope = current_scope();
         LeaveScope(node->end);
         return node;
     }
@@ -1047,6 +1055,7 @@ namespace glsld {
             }
 
             node->end = GetCurrentTokenEnd();
+            node->internal_scope = current_scope();
             MatchAndConsume(TokenType::kCloseBrace);
             LeaveScope(node->end);
         }
@@ -1133,6 +1142,7 @@ namespace glsld {
         while (CurrentToken().type != TokenType::kEndOfFile) {
             const auto& current_token = CurrentToken();
             if (current_token.location.line > directive_physical_line) {
+                // #define MACRO sth "\"
                 if (!collected.empty() && collected.back().type == TokenType::kBackslash) {
                     directive_physical_line = current_token.location.line;
                 } else {

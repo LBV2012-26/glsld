@@ -15,11 +15,11 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\NodeLocator.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Server\LspConverter.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\TypeResolver.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -41,12 +41,12 @@
     <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\NodeLocator.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Server\LspConverter.hpp" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\SymbolLinker.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\TypeResolver.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
   </ItemGroup>
   <ItemGroup>

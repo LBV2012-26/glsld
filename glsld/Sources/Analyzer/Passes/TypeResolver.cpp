@@ -88,7 +88,7 @@ namespace glsld {
         std::vector<TypeInfo> call_arg_types;
         for (const auto& arg : node->args) {
             Traverse(arg.get());
-            call_arg_types.push_back(arg->evaluated_type);
+            call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
         }
 
         Traverse(node->callee.get()); // 如果是函数列表（未确定重载），不会进行任何操作
@@ -107,7 +107,7 @@ namespace glsld {
             if (const auto* symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols)) {
                 callee_node->evaluated_type = symbol->type_info;
                 node->evaluated_type = symbol->type_info;
-            }
+            } // 只有一个符号并且已经推导，直接过
         }
     }
 
