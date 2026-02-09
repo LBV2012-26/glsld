@@ -132,3 +132,16 @@ shadow1D shadow2D
 shadow1DProj shadow2DProj
 shadow1DLod shadow2DLod
 shadow1DProjLod shadow2DProjLod
+
+rayPayloadNV
+rayPayloadInNV
+hitAttributeNV
+callableDataNV
+callableDataInNV
+
+rayPayloadEXT
+rayPayloadInEXT
+hitAttributeEXT
+callableDataEXT
+callableDataInEXT
+shaderRecordEXT

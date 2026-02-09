@@ -13,7 +13,7 @@ namespace glsld {
 
     private:
         void VisitCallExpression(CallExpressionNode* node) override;
-        const SymbolInfo* ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
+        SymbolReference ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
         const DocumentSymbols& symbols_;
         BindingMap&            bindings_;

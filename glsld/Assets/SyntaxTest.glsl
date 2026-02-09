@@ -1,7 +1,16 @@
 #version 460 core
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
+
+layout(set = 0, binding = 0) uniform sampler my_sampler;
 
 struct LightData {
     vec3 position;
@@ -24,24 +33,30 @@ LightData ReturnLightData() {
     return data;
 }
 
-LightData ReturnLightData(float) {
-    LightData data;
-    return data;
-}
-
-LightData ReturnLightData(uint) {
-    LightData data;
-    return data;
-}
+void TestOverloadFunction() {}
+void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
+void TestOverloadFunction(uint16_t, uint32_t, uint32_t, float64_t) {}
 
 void main() {
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
     vec3 light = normalize(lights[0].position - InPosition);
     
-    int arg = 0;
-    LightData result1 = ReturnLightData();
-    LightData result2 = ReturnLightData(arg);
+    int8_t int8arg;
+    uint8_t uint8arg;
+    int16_t int16arg;
+    uint16_t uint16arg;
+    int32_t int32arg;
+    uint32_t uint32arg;
+    int64_t int64arg;
+    uint64_t uint64arg;
+    float16_t float16arg;
+    float32_t float32arg;
+    float64_t float64arg;
+
+    TestOverloadFunction(int8arg, int8arg, int8arg, float16arg);
+
+    LightData result = ReturnLightData();
 
     FragColor = vec4(light, 1.0);
 }
