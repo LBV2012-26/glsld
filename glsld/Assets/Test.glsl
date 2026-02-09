@@ -10,7 +10,9 @@
     #define HAS_LIGHTS 0
 #endif
 
-void bbbbbbbbbb();
+void bbbbbbbbbb() {
+    int x = true;
+}
 
 void ffffffffffffffffffffffffff(int ppppppppppp) {
     bbbbbbbbbb();

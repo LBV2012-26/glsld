@@ -33,9 +33,12 @@ LightData ReturnLightData() {
     return data;
 }
 
-void TestOverloadFunction() {}
+void TestOverloadFunction(int) {}
+void TestOverloadFunction(uint) {}
+void TestOverloadFunction(float) {}
+void TestOverloadFunction(double) {}
 void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
-void TestOverloadFunction(uint16_t, uint32_t, uint32_t, float64_t) {}
+void TestOverloadFunction(uint16_t, uint32_t, uint64_t, float64_t) {}
 
 void main() {
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
@@ -54,7 +57,20 @@ void main() {
     float32_t float32arg;
     float64_t float64arg;
 
-    TestOverloadFunction(int8arg, int8arg, int8arg, float16arg);
+    TestOverloadFunction(1);
+    TestOverloadFunction(1u);
+    TestOverloadFunction(1.0);
+    TestOverloadFunction(1.0f);
+    TestOverloadFunction(1.0lf);
+
+    TestOverloadFunction(int16arg, int32arg, int64arg, float32arg);
+    TestOverloadFunction(uint16arg, uint32arg, uint64arg, float64arg);
+
+    TestOverloadFunction(int8arg);
+    TestOverloadFunction(uint8arg);
+
+    TestOverloadFunction(int16arg, int8arg, int8arg, float64arg);
+    TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     LightData result = ReturnLightData();
 

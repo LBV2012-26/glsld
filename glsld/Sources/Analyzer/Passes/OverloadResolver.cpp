@@ -172,6 +172,12 @@ namespace glsld {
         }
 
         bool CanImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
+            if (from.typename_token.text == "unknown" || to.typename_token.text == "unknown" ||
+                from.typename_token.text == ""        || to.typename_token.text == "")
+            {
+                return false;
+            }
+
             if (from == to) {
                 return true;
             }

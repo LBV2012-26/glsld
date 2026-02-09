@@ -17,7 +17,7 @@ namespace glsld {
 
         auto* function_symbol = node->declared_symbol;
         bindings_.try_emplace(function_symbol->location, function_symbol);
-        ExtractTypeInfo(function_symbol->type_info, node->type_spec);
+        function_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
         function_symbol->param_typeinfos.clear();
         for (auto& param_node : node->params) {
@@ -27,7 +27,7 @@ namespace glsld {
             if (param_node->declared_symbol != nullptr) {
                 param_typeinfo = param_node->declared_symbol->type_info;
             } else {
-                ExtractTypeInfo(param_typeinfo, param_node->type_spec);
+                param_typeinfo = ExtractTypeInfo(param_node->type_spec);
             }
 
             function_symbol->param_typeinfos.push_back(param_typeinfo);
@@ -45,7 +45,7 @@ namespace glsld {
 
         auto* variable_symbol = node->declared_symbol;
         bindings_.try_emplace(variable_symbol->location, variable_symbol);
-        ExtractTypeInfo(variable_symbol->type_info, node->type_spec);
+        variable_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
         AstVisitor::VisitVariableDeclaration(node);
     }
@@ -72,10 +72,29 @@ namespace glsld {
     }
 
     void TypeCollector::VisitVariableExpression(VariableExpressionNode* node) {
+        if (node->name == "true" || node->name == "false") {
+            TypeInfo info{
+                .typename_token = Token{
+                    .text = "bool",
+                    .type = TokenType::kPrimitive
+                }
+            };
+
+            node->evaluated_type = info;
+            return;
+        }
+
         if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
             if (const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols)) {
                 node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
             }
+        }
+    }
+
+    void TypeCollector::VisitRawExpression(RawExpressionNode* node) {
+        if (!node->tokens.empty()) {
+            // 看第一个就够
+            node->evaluated_type = SniffLiteralType(node->tokens.front());
         }
     }
 
@@ -97,11 +116,13 @@ namespace glsld {
         }
     }
 
-    void TypeCollector::ExtractTypeInfo(TypeInfo& target, const TypeSpecifier& type_spec) {
-        const auto& typename_token = type_spec.typename_token();
-        target.typename_token = typename_token;
+    TypeInfo TypeCollector::ExtractTypeInfo(const TypeSpecifier& type_spec) {
+        TypeInfo info;
 
-        target.array_sizes.clear();
+        const auto& typename_token = type_spec.typename_token();
+        info.typename_token = typename_token;
+
+        info.array_sizes.clear();
         for (const auto& size : type_spec.array_sizes) {
             if (size == nullptr) {
                 continue;
@@ -110,11 +131,11 @@ namespace glsld {
             if (size->kind() == AstNodeKind::kLiteralExpression) {
                 const auto* raw_node = static_cast<const RawExpressionNode*>(size.get());
                 for (const auto& token : raw_node->tokens) {
-                    target.array_sizes.push_back(token);
+                    info.array_sizes.push_back(token);
                 }
             } else {
                 const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
-                target.array_sizes.push_back(var_expr->evaluated_type.typename_token);
+                info.array_sizes.push_back(var_expr->evaluated_type.typename_token);
 
                 if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
                     const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
@@ -129,9 +150,75 @@ namespace glsld {
                              || type_symbol->kind == SymbolKind::kStruct;
 
             if (type_symbol != nullptr && is_block) {
-                target.block_symbol = type_symbol;
+                info.block_symbol = type_symbol;
                 bindings_.try_emplace(typename_token.location, type_symbol);
             }
         }
+
+        return info;
+    }
+
+    TypeInfo TypeCollector::SniffLiteralType(const Token& token) {
+        if (token.type == TokenType::kNumberLiteral) {
+            std::string_view text = token.text;
+
+            if (text.ends_with("lf") || text.ends_with("LF") || text.ends_with("Lf") || text.ends_with("lF")) {
+                return TypeInfo{
+                    .typename_token = Token{
+                        .text = "double",
+                        .type = TokenType::kPrimitive
+                    }
+                };
+            }
+
+            if (text.find('.') != std::string_view::npos ||
+                text.find('e') != std::string_view::npos ||
+                text.find('E') != std::string_view::npos ||
+                text.ends_with('f') || text.ends_with('F'))
+            {
+                return TypeInfo{
+                    .typename_token = Token{
+                        .text = "float",
+                        .type = TokenType::kPrimitive
+                    }
+                };
+            }
+
+            if (text.find('.') == std::string_view::npos) {
+                if (text.ends_with('u') || text.ends_with('U')) {
+                    return TypeInfo{
+                        .typename_token = Token{
+                            .text = "uint",
+                            .type = TokenType::kPrimitive
+                        }
+                    };
+                } else {
+                    return TypeInfo{
+                        .typename_token = Token{
+                            .text = "int",
+                            .type = TokenType::kPrimitive
+                        }
+                    };
+                }
+            }
+        }
+
+        if (token.type == TokenType::kPrimitive) {
+            if (token.text == "true" || token.text == "false") {
+                return TypeInfo{
+                    .typename_token = Token{
+                        .text = "bool",
+                        .type = TokenType::kPrimitive
+                    }
+                };
+            }
+        }
+
+        return TypeInfo{
+            .typename_token = Token{
+                .text = "unknown",
+                .type = TokenType::kUnknown
+            }
+        };
     }
 }

@@ -18,9 +18,11 @@ namespace glsld {
         void VisitStructDeclaration(StructDeclarationNode* node) override;
         void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
+        void VisitRawExpression(RawExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
-        void ExtractTypeInfo(TypeInfo& target, const TypeSpecifier& type_spec);
+        TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec);
+        TypeInfo SniffLiteralType(const Token& token);
 
         const DocumentSymbols& symbols_;
         BindingMap&            bindings_;

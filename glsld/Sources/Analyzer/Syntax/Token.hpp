@@ -91,8 +91,8 @@ namespace glsld {
     };
 
     struct Token {
-        std::string    text;
+        std::string    text{ "unknown" };
         SourceLocation location;
-        TokenType      type{};
+        TokenType      type{ TokenType::kUnknown };
     };
 }

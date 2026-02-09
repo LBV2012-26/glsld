@@ -427,9 +427,12 @@ namespace glsld {
     void AstDumper::VisitVariableExpression(VariableExpressionNode* node) {
         PrintIndent();
 
-        auto type = node->evaluated_type.typename_token.text;
-        if (type.empty()) {
+        const auto& typename_token = node->evaluated_type.typename_token;
+        std::string type;
+        if (node->evaluated_type.typename_token.type == TokenType::kUnknown) {
             type = magic_enum::enum_name(node->token_type);
+        } else {
+            type = node->evaluated_type.typename_token.text;
         }
 
         std::println("VariableExpression '{}' Type: {} {}", node->name, type, FormatRange(node));
