@@ -171,21 +171,28 @@ namespace glsld {
             return desc;
         }
 
-        bool CanImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
+        enum class MatchGrade {
+            kFailed      = 0,
+            kTypeUpgrade = 1,
+            kBitsUpgrade = 2,
+            kExactMatch  = 3
+        };
+
+        MatchGrade TryImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
             if (from.typename_token.text == "unknown" || to.typename_token.text == "unknown" ||
                 from.typename_token.text == ""        || to.typename_token.text == "")
             {
-                return false;
+                return MatchGrade::kFailed;
             }
 
             if (from == to) {
-                return true;
+                return MatchGrade::kExactMatch;
             }
 
             if (from.is_array() != to.is_array() ||
                 from.block_symbol != nullptr || to.block_symbol != nullptr)
             {
-                return false;
+                return MatchGrade::kFailed;
             }
 
             auto from_desc = ParseGlslType(from.typename_token.text);
@@ -195,48 +202,55 @@ namespace glsld {
                 from_desc.family == BaseFamily::kUnknown || to_desc.family == BaseFamily::kUnknown ||
                 from_desc.family == BaseFamily::kBool    || to_desc.family == BaseFamily::kBool)
             {
-                return false;
+                return MatchGrade::kFailed;
             }
 
             if (from_desc.rows != to_desc.rows || from_desc.cols != to_desc.cols || from_desc.is_matrix != to_desc.is_matrix) {
-                return false;
+                return MatchGrade::kFailed;
             }
 
             // 类型提升
             // 相同 Family，允许位宽提升
             if (from_desc.family == to_desc.family) {
-                return from_desc.bits <= to_desc.bits;
+                if (from_desc.bits <= to_desc.bits) {
+                    return MatchGrade::kBitsUpgrade;
+                } else {
+                    return MatchGrade::kFailed;
+                }
             }
 
             // int -> uint/float/double
-            if (from_desc.family == BaseFamily::kInt)
-            {
-                if (to_desc.family == BaseFamily::kFloat || to_desc.family == BaseFamily::kUint) {
-                    return from_desc.bits <= to_desc.bits;
+            if (from_desc.family == BaseFamily::kInt) {
+                if (to_desc.family == BaseFamily::kUint || to_desc.family == BaseFamily::kFloat) {
+                    if (from_desc.bits <= to_desc.bits) {
+                        return MatchGrade::kTypeUpgrade;
+                    } else {
+                        return MatchGrade::kFailed;
+                    }
+                } else {
+                    return MatchGrade::kFailed;
                 }
             }
 
             // uint -> float/double
             if (from_desc.family == BaseFamily::kUint) {
                 if (to_desc.family == BaseFamily::kFloat) {
-                    return from_desc.bits <= to_desc.bits;
-                } else if (to_desc.family == BaseFamily::kInt) {
-                    return false;
+                    if (from_desc.bits <= to_desc.bits) {
+                        return MatchGrade::kTypeUpgrade;
+                    } else {
+                        return MatchGrade::kFailed;
+                    }
+                } else {
+                    return MatchGrade::kFailed;
                 }
             }
 
             if (from_desc.family == BaseFamily::kFloat) {
-                return false;
+                return MatchGrade::kFailed; // float -> double 的情况已经在位宽提升中判断
             }
 
-            return false;
+            return MatchGrade::kFailed;
         }
-
-        enum class MatchGrade {
-            kNone,
-            kImplicit,
-            kExact
-        };
 
         enum class MatchResult {
             kLhsBetter,
@@ -341,12 +355,15 @@ namespace glsld {
                 const auto& target_type = param_typeinfos[i];
 
                 if (call_type == target_type) {
-                    current_grades.push_back(MatchGrade::kExact);
-                } else if (CanImplicityConvert(call_type, target_type)) {
-                    current_grades.push_back(MatchGrade::kImplicit);
+                    current_grades.push_back(MatchGrade::kExactMatch);
                 } else {
-                    match_failed = true;
-                    break;
+                    auto match_grade = TryImplicityConvert(call_type, target_type);
+                    if (match_grade != MatchGrade::kFailed) {
+                        current_grades.push_back(match_grade);
+                    } else {
+                        match_failed = true;
+                        break;
+                    }
                 }
             }
 

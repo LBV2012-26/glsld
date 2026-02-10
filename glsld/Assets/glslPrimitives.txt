@@ -16,6 +16,7 @@ rgba32i rgba16i rgba8i r32i r16i r8i rg32i rg16i rg8i
 rgba32ui rgba16ui rgba8ui r32ui r16ui r8ui rg32ui rg16ui rg8ui 
 rgba8 r8 rg8
 
+bool
 double
 
 subroutine

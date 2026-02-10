@@ -33,10 +33,11 @@ LightData ReturnLightData() {
     return data;
 }
 
+void TestOverloadFunction(bool) {}
 void TestOverloadFunction(int) {}
-void TestOverloadFunction(uint) {}
-void TestOverloadFunction(float) {}
-void TestOverloadFunction(double) {}
+//void TestOverloadFunction(uint) {}
+//void TestOverloadFunction(float) {}
+//void TestOverloadFunction(double) {}
 void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
 void TestOverloadFunction(uint16_t, uint32_t, uint64_t, float64_t) {}
 
@@ -57,6 +58,7 @@ void main() {
     float32_t float32arg;
     float64_t float64arg;
 
+    TestOverloadFunction(true);
     TestOverloadFunction(1);
     TestOverloadFunction(1u);
     TestOverloadFunction(1.0);
