@@ -2,6 +2,7 @@
 
 #include <span>
 #include <string>
+#include <string_view>
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -22,6 +23,7 @@ namespace glsld {
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec);
+        TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);
 
         const DocumentSymbols& symbols_;

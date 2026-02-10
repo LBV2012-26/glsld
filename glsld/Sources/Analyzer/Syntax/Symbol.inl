@@ -1,6 +1,14 @@
 #include "Symbol.hpp"
 
 namespace glsld {
+    inline bool TypeDescriptor::operator==(const TypeDescriptor& other) const {
+        return family    == other.family
+            && bits      == other.bits
+            && rows      == other.rows
+            && cols      == other.cols
+            && is_matrix == other.is_matrix;
+    }
+
     inline bool TypeInfo::is_builtin() const {
         return block_symbol == nullptr;
     }

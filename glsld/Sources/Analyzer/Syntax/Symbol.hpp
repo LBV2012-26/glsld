@@ -25,9 +25,30 @@ namespace glsld {
 
     int ConvertSymbolKind(SymbolKind kind);
 
+    enum class BaseFamily {
+        kUnknown,
+        kVoid,
+        kBool,
+        kInt,
+        kUint,
+        kFloat,
+        kOpaque
+    };
+
+    struct TypeDescriptor {
+        BaseFamily family{ BaseFamily::kUnknown };
+        int        bits{};
+        int        rows{ 1 };
+        int        cols{ 1 };
+        bool       is_matrix{ false };
+
+        bool operator==(const TypeDescriptor& other) const;
+    };
+
     struct SymbolInfo;
     struct TypeInfo {
         Token              typename_token;
+        TypeDescriptor     type_desc;
         const SymbolInfo*  block_symbol{ nullptr };
         std::vector<Token> array_sizes;
 

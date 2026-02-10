@@ -104,6 +104,7 @@ namespace glsld {
 
         auto object_type = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
+
         if (block_symbol != nullptr  && block_symbol->internal_scope != nullptr) {
             const auto* member_symbol = block_symbol->internal_scope->FindSymbol(node->member->name);
 
@@ -155,7 +156,143 @@ namespace glsld {
             }
         }
 
+        info.type_desc = ParseTypeDescriptor(typename_token.text);
+
         return info;
+    }
+
+    TypeDescriptor TypeCollector::ParseTypeDescriptor(std::string_view text) {
+        static const std::vector<std::string> kOpaquePrefix{
+            "sampler", "isampler", "usampler",
+            "image", "iimage", "uimage",
+            "texture", "shadow",
+            "subpass", "isubpass", "usubpass",
+            "accelerationStructure", "rayQuery", "rayPayload",
+            "hitAttribute", "callableData", "shaderRecord",
+            "atomic"
+        };
+
+        TypeDescriptor desc;
+
+        for (const auto& prefix : kOpaquePrefix) {
+            if (text.find(prefix) != std::string_view::npos) {
+                desc.family = BaseFamily::kOpaque;
+                return desc;
+            }
+        }
+
+        if (text == "bool")
+            return { BaseFamily::kBool,  0,  1, 1 };
+        if (text == "int")
+            return { BaseFamily::kInt,   32, 1, 1 };
+        if (text == "uint")
+            return { BaseFamily::kUint,  32, 1, 1 };
+        if (text == "float")
+            return { BaseFamily::kFloat, 32, 1, 1 };
+        if (text == "double")
+            return { BaseFamily::kFloat, 64, 1, 1 };
+        if (text == "int8_t")
+            return { BaseFamily::kInt,   8,  1, 1 };
+        if (text == "int16_t")
+            return { BaseFamily::kInt,   16, 1, 1 };
+        if (text == "int32_t")
+            return { BaseFamily::kInt,   32, 1, 1 };
+        if (text == "int64_t")
+            return { BaseFamily::kInt,   64, 1, 1 };
+        if (text == "uint8_t")
+            return { BaseFamily::kUint,  8,  1, 1 };
+        if (text == "uint16_t")
+            return { BaseFamily::kUint,  16, 1, 1 };
+        if (text == "uint32_t")
+            return { BaseFamily::kUint,  32, 1, 1 };
+        if (text == "uint64_t")
+            return { BaseFamily::kUint,  64, 1, 1 };
+        if (text == "float16_t")
+            return { BaseFamily::kFloat, 16, 1, 1 };
+        if (text == "float32_t")
+            return { BaseFamily::kFloat, 32, 1, 1 };
+        if (text == "float64_t")
+            return { BaseFamily::kFloat, 64, 1, 1 };
+
+        std::size_t vec_pos = text.find("vec");
+        std::size_t mat_pos = text.find("mat");
+        bool is_vector = (vec_pos != std::string_view::npos);
+        bool is_matrix = (mat_pos != std::string_view::npos);
+        desc.is_matrix = is_matrix;
+
+        std::string_view prefix;
+        if (is_matrix) {
+            prefix = text.substr(0, mat_pos);
+        } else {
+            prefix = text.substr(0, vec_pos);
+        }
+
+        desc.family = BaseFamily::kFloat;
+        desc.bits = 32;
+
+        if (prefix.empty()) {
+            // vec2, mat4 -> float32
+        } else if (prefix == "b") {
+            desc.family = BaseFamily::kBool;
+        } else if (prefix == "i") {
+            desc.family = BaseFamily::kInt;
+        } else if (prefix == "u") {
+            desc.family = BaseFamily::kUint;
+        } else if (prefix == "d") {
+            desc.family = BaseFamily::kFloat;
+            desc.bits   = 64;
+        } else if (prefix == "h") {
+            desc.family = BaseFamily::kFloat;
+            desc.bits   = 16;
+        } else if (prefix == "f") {
+            // such as default;
+        } else { // 带数字的
+            if (prefix.rfind("f", 0) == 0) {
+                desc.family = BaseFamily::kFloat;
+            } else if (prefix.rfind("i", 0) == 0) {
+                desc.family = BaseFamily::kInt;
+            } else if (prefix.rfind("u", 0) == 0) {
+                desc.family = BaseFamily::kUint;
+            } else {
+                return { BaseFamily::kUnknown };
+            }
+
+            std::size_t num_start = (prefix[0] == 'f' || prefix[0] == 'i' || prefix[0] == 'u') ? 1 : 0;
+            int bits = 0;
+            std::from_chars(prefix.data() + num_start, prefix.data() + prefix.size(), bits);
+
+            if (bits > 0) {
+                desc.bits = bits;
+            }
+        }
+
+        std::string_view suffix;
+        if (is_matrix) {
+            suffix = text.substr(mat_pos + 3);
+        } else {
+            suffix = text.substr(vec_pos + 3);
+        }
+
+        if (suffix.empty()) {
+            return { BaseFamily::kUnknown };
+        }
+
+        if (auto x_pos = suffix.find('x'); x_pos != std::string_view::npos) {
+            if (x_pos > 0 && x_pos + 1 < suffix.size()) {
+                desc.cols = suffix[x_pos - 1] - '0';
+                desc.rows = suffix[x_pos + 1] - '0';
+            }
+        } else {
+            int dimension = suffix[0] - '0';
+            desc.rows = dimension; // vector lengths or matrix rows
+            if (is_matrix) {
+                desc.cols = dimension;
+            } else {
+                desc.cols = 1;
+            }
+        }
+
+        return desc;
     }
 
     TypeInfo TypeCollector::SniffLiteralType(const Token& token) {
