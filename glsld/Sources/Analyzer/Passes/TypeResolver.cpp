@@ -1,16 +1,16 @@
 #include "stdafx.h"
-#include "TypeCollector.hpp"
+#include "TypeResolver.hpp"
 
 #include <variant>
 #include <vector>
 
 namespace glsld {
-    TypeCollector::TypeCollector(const DocumentSymbols& symbols, BindingMap& bindings)
+    TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings)
         : symbols_{ symbols }
         , bindings_{ bindings }
     {}
 
-    void TypeCollector::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+    void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         if (node->declared_symbol == nullptr) {
             return;
         }
@@ -38,7 +38,7 @@ namespace glsld {
         }
     }
 
-    void TypeCollector::VisitVariableDeclaration(VariableDeclarationNode* node) {
+    void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
         if (node->declared_symbol == nullptr) {
             return;
         }
@@ -50,7 +50,7 @@ namespace glsld {
         AstVisitor::VisitVariableDeclaration(node);
     }
 
-    void TypeCollector::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
+    void TypeResolver::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
         if (node->declared_symbol != nullptr) {
             bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
         }
@@ -58,7 +58,7 @@ namespace glsld {
         AstVisitor::VisitInterfaceDeclaration(node);
     }
 
-    void TypeCollector::VisitStructDeclaration(StructDeclarationNode* node) {
+    void TypeResolver::VisitStructDeclaration(StructDeclarationNode* node) {
         if (node->declared_symbol != nullptr) {
             bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
         }
@@ -66,12 +66,12 @@ namespace glsld {
         AstVisitor::VisitStructDeclaration(node);
     }
 
-    void TypeCollector::VisitIndexExpression(IndexExpressionNode* node) {
+    void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
         Traverse(node->base.get());
         node->evaluated_type = node->base->evaluated_type;
     }
 
-    void TypeCollector::VisitVariableExpression(VariableExpressionNode* node) {
+    void TypeResolver::VisitVariableExpression(VariableExpressionNode* node) {
         if (node->name == "true" || node->name == "false") {
             TypeInfo info{
                 .typename_token = Token{
@@ -91,14 +91,14 @@ namespace glsld {
         }
     }
 
-    void TypeCollector::VisitRawExpression(RawExpressionNode* node) {
+    void TypeResolver::VisitRawExpression(RawExpressionNode* node) {
         if (!node->tokens.empty()) {
             // 看第一个就够
             node->evaluated_type = SniffLiteralType(node->tokens.front());
         }
     }
 
-    void TypeCollector::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
+    void TypeResolver::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         // object.member
         Traverse(node->object.get()); // 递归推导对象类型
 
@@ -117,13 +117,13 @@ namespace glsld {
         }
     }
 
-    TypeInfo TypeCollector::ExtractTypeInfo(const TypeSpecifier& type_spec) {
+    TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec) {
         TypeInfo info;
 
         const auto& typename_token = type_spec.typename_token();
         info.typename_token = typename_token;
-
         info.array_sizes.clear();
+
         for (const auto& size : type_spec.array_sizes) {
             if (size == nullptr) {
                 continue;
@@ -161,7 +161,7 @@ namespace glsld {
         return info;
     }
 
-    TypeDescriptor TypeCollector::ParseTypeDescriptor(std::string_view text) {
+    TypeDescriptor TypeResolver::ParseTypeDescriptor(std::string_view text) {
         static const std::vector<std::string> kOpaquePrefix{
             "sampler", "isampler", "usampler",
             "image", "iimage", "uimage",
@@ -295,7 +295,7 @@ namespace glsld {
         return desc;
     }
 
-    TypeInfo TypeCollector::SniffLiteralType(const Token& token) {
+    TypeInfo TypeResolver::SniffLiteralType(const Token& token) {
         if (token.type == TokenType::kNumberLiteral) {
             std::string_view text = token.text;
 
@@ -357,5 +357,13 @@ namespace glsld {
                 .type = TokenType::kUnknown
             }
         };
+    }
+
+    TypeInfo TypeResolver::ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle) {
+        if (base_type.type_desc.is_matrix || base_type.type_desc.family == BaseFamily::kUnknown) {
+
+        }
+
+        return {};
     }
 }

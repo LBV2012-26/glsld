@@ -8,9 +8,9 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
-    class TypeCollector : public AstVisitor {
+    class TypeResolver : public AstVisitor {
     public:
-        TypeCollector(const DocumentSymbols& symbols, BindingMap& bindings);
+        TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings);
 
     private:
         void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;
@@ -25,6 +25,7 @@ namespace glsld {
         TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec);
         TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);
+        TypeInfo ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle);
 
         const DocumentSymbols& symbols_;
         BindingMap&            bindings_;

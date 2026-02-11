@@ -45,6 +45,9 @@ void main() {
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
     vec3 light = normalize(lights[0].position - InPosition);
+
+    LightData mddata[10][5];
+    vec3 data = mddata[2][3].position;
     
     int8_t int8arg;
     uint8_t uint8arg;
@@ -73,6 +76,9 @@ void main() {
 
     TestOverloadFunction(int16arg, int8arg, int8arg, float64arg);
     TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
+
+    mat4 matrix = mat4(1.0);
+    vec4 vector = matrix[0].wzyx;
 
     LightData result = ReturnLightData();
 

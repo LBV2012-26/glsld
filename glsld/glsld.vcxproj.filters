@@ -20,7 +20,7 @@
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\TypeCollector.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -49,7 +49,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\OverloadResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\TypeCollector.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

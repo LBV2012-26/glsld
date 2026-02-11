@@ -7,7 +7,7 @@
 #include "Analyzer/Passes/NodeLocator.hpp"
 #include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
-#include "Analyzer/Passes/TypeCollector.hpp"
+#include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Utils/Utils.hpp"
 
@@ -22,7 +22,7 @@ namespace glsld {
         SymbolLinker linker(document->symbols, document->bindings);
         linker.Traverse(document->ast.get());
 
-        TypeCollector collector(document->symbols, document->bindings);
+        TypeResolver collector(document->symbols, document->bindings);
         collector.Traverse(document->ast.get());
 
         OverloadResolver resolver(document->symbols, document->bindings);

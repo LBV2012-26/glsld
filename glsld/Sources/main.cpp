@@ -12,7 +12,7 @@
 #include "Analyzer/Ast/AstDumper.hpp"
 #include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
-#include "Analyzer/Passes/TypeCollector.hpp"
+#include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
@@ -35,7 +35,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        std::ifstream shader_file("Assets/Test.glsl", std::ios::ate | std::ios::binary);
+        std::ifstream shader_file("Assets/SyntaxTest.glsl", std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::cerr << "Failed to open test GLSL source." << std::endl;
             return EXIT_FAILURE;
@@ -57,7 +57,7 @@ int main() {
         SymbolLinker linker(symbols, bindings);
         linker.Traverse(root.get());
 
-        TypeCollector collector(symbols, bindings);
+        TypeResolver collector(symbols, bindings);
         collector.Traverse(root.get());
 
         OverloadResolver resolver(symbols, bindings);
