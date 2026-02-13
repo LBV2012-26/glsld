@@ -37,12 +37,13 @@ namespace glsld {
 
     struct TypeDescriptor {
         BaseFamily family{ BaseFamily::kUnknown };
-        int        bits{};
-        int        rows{ 1 };
-        int        cols{ 1 };
-        bool       is_matrix{ false };
+        int bits{};
+        // mat2x3 -> 2 x vector with size 3
+        int vector_count{};
+        int vector_length{};
 
         bool operator==(const TypeDescriptor& other) const;
+        bool is_matrix() const;
     };
 
     struct SymbolInfo;
@@ -52,11 +53,10 @@ namespace glsld {
         const SymbolInfo*  block_symbol{ nullptr };
         std::vector<Token> array_sizes;
 
+        bool operator==(const TypeInfo& other) const;
         bool is_builtin() const;
         bool is_valid() const;
         bool is_array() const;
-
-        bool operator==(const TypeInfo& other) const;
     };
 
     class Scope;

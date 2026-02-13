@@ -45,7 +45,10 @@ namespace glsld {
                 return MatchGrade::kFailed;
             }
 
-            if (from_desc.rows != to_desc.rows || from_desc.cols != to_desc.cols || from_desc.is_matrix != to_desc.is_matrix) {
+            if (from_desc.vector_count  != to_desc.vector_count  ||
+                from_desc.vector_length != to_desc.vector_length ||
+                from_desc.is_matrix()   != to_desc.is_matrix())
+            {
                 return MatchGrade::kFailed;
             }
 

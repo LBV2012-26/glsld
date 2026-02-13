@@ -1,10 +1,77 @@
 #include "stdafx.h"
 #include "TypeResolver.hpp"
 
+#include <format>
 #include <variant>
 #include <vector>
 
 namespace glsld {
+    namespace {
+        void SeparateType(TypeInfo& type_info, bool keep_vector) {
+            if (keep_vector) {
+                std::string prefix;
+                switch (type_info.type_desc.family) {
+                case BaseFamily::kBool:
+                    prefix = "b";
+                    break;
+                case BaseFamily::kInt:
+                    prefix = std::format("i{}", type_info.type_desc.bits);
+                    break;
+                case BaseFamily::kUint:
+                    prefix = std::format("u{}", type_info.type_desc.bits);
+                    break;
+                case BaseFamily::kFloat:
+                    prefix = std::format("f{}", type_info.type_desc.bits);
+                    break;
+                default:
+                    break;
+                }
+
+                type_info.typename_token.text    = std::format("{}vec{}", prefix, type_info.type_desc.vector_length);
+                type_info.type_desc.vector_count = 1;
+            } else {
+                switch (type_info.type_desc.family) {
+                case BaseFamily::kBool:
+                    type_info.typename_token.text = "bool";
+                    break;
+                case BaseFamily::kInt:
+                    type_info.typename_token.text = std::format("int{}_t", type_info.type_desc.bits);
+                    break;
+                case BaseFamily::kUint:
+                    type_info.typename_token.text = std::format("uint{}_t", type_info.type_desc.bits);
+                    break;
+                case BaseFamily::kFloat:
+                    type_info.typename_token.text = std::format("float{}_t", type_info.type_desc.bits);
+                    break;
+                default:
+                    break;
+                }
+
+                type_info.type_desc.vector_count  = 1;
+                type_info.type_desc.vector_length = 1;
+            }
+        }
+
+        TypeInfo GetCanonicalTypeInfo(const TypeInfo& base_type) {
+            if (base_type.type_desc.family == BaseFamily::kUnknown ||
+                base_type.type_desc.family == BaseFamily::kVoid ||
+                base_type.type_desc.family == BaseFamily::kOpaque)
+            {
+                return base_type;
+            }
+
+            TypeInfo canonical_info = base_type;
+
+            if (base_type.type_desc.is_matrix()) {
+                SeparateType(canonical_info, true);
+            } else {
+                SeparateType(canonical_info, false);
+            }
+
+            return canonical_info;
+        }
+    }
+
     TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings)
         : symbols_{ symbols }
         , bindings_{ bindings }
@@ -68,7 +135,18 @@ namespace glsld {
 
     void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
         Traverse(node->base.get());
-        node->evaluated_type = node->base->evaluated_type;
+
+        const auto& base_type = node->base->evaluated_type;
+        auto& evaluated_type = node->evaluated_type;
+
+        if (base_type.is_array()) {
+            evaluated_type = base_type;
+            evaluated_type.array_sizes.erase(evaluated_type.array_sizes.begin());
+        } else if (base_type.type_desc.vector_length > 1) {
+            evaluated_type = GetCanonicalTypeInfo(base_type);
+        } else {
+            evaluated_type = base_type;
+        }
     }
 
     void TypeResolver::VisitVariableExpression(VariableExpressionNode* node) {
@@ -114,6 +192,8 @@ namespace glsld {
 
                 bindings_.try_emplace(node->member->begin, member_symbol);
             }
+        } else if (object_type.is_builtin()) {
+            node->evaluated_type = ResolveSwizzleType(object_type, node->member->name);
         }
     }
 
@@ -218,7 +298,6 @@ namespace glsld {
         std::size_t mat_pos = text.find("mat");
         bool is_vector = (vec_pos != std::string_view::npos);
         bool is_matrix = (mat_pos != std::string_view::npos);
-        desc.is_matrix = is_matrix;
 
         std::string_view prefix;
         if (is_matrix) {
@@ -228,7 +307,7 @@ namespace glsld {
         }
 
         desc.family = BaseFamily::kFloat;
-        desc.bits = 32;
+        desc.bits   = 32;
 
         if (prefix.empty()) {
             // vec2, mat4 -> float32
@@ -279,16 +358,16 @@ namespace glsld {
 
         if (auto x_pos = suffix.find('x'); x_pos != std::string_view::npos) {
             if (x_pos > 0 && x_pos + 1 < suffix.size()) {
-                desc.cols = suffix[x_pos - 1] - '0';
-                desc.rows = suffix[x_pos + 1] - '0';
+                desc.vector_count  = suffix[x_pos - 1] - '0';
+                desc.vector_length = suffix[x_pos + 1] - '0';
             }
         } else {
             int dimension = suffix[0] - '0';
-            desc.rows = dimension; // vector lengths or matrix rows
+            desc.vector_length = dimension; // vector lengths or matrix rows
             if (is_matrix) {
-                desc.cols = dimension;
+                desc.vector_count = dimension;
             } else {
-                desc.cols = 1;
+                desc.vector_count = 1;
             }
         }
 
@@ -360,10 +439,20 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle) {
-        if (base_type.type_desc.is_matrix || base_type.type_desc.family == BaseFamily::kUnknown) {
-
+        if (base_type.type_desc.is_matrix() || base_type.type_desc.family == BaseFamily::kUnknown) {
+            return base_type;
         }
 
-        return {};
+        TypeInfo result = base_type;
+        result.type_desc.vector_count  = 1;
+        result.type_desc.vector_length = static_cast<int>(swizzle.size());
+
+        if (result.type_desc.vector_length > 1) {
+            SeparateType(result, true);
+        } else {
+            SeparateType(result, false);
+        }
+        
+        return result;
     }
 }

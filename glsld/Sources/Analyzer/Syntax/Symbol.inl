@@ -2,15 +2,16 @@
 
 namespace glsld {
     inline bool TypeDescriptor::operator==(const TypeDescriptor& other) const {
-        return family    == other.family
-            && bits      == other.bits
-            && rows      == other.rows
-            && cols      == other.cols
-            && is_matrix == other.is_matrix;
+        return family       == other.family       && bits          == other.bits &&
+               vector_count == other.vector_count && vector_length == other.vector_length;
+    }
+
+    inline bool TypeDescriptor::is_matrix() const {
+        return vector_count > 1;
     }
 
     inline bool TypeInfo::is_builtin() const {
-        return block_symbol == nullptr;
+        return block_symbol == nullptr && typename_token.type == TokenType::kBuiltInType;
     }
 
     inline bool TypeInfo::is_valid() const {

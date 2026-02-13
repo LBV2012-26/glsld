@@ -42,6 +42,14 @@ void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
 void TestOverloadFunction(uint16_t, uint32_t, uint64_t, float16_t) {}
 
 void main() {
+    mat4 m;
+    vec4 v = m[0].xyzw;
+
+    vec4 v1;
+    float f = v1[0];
+
+    bvec3 a;
+
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
     vec3 light = normalize(lights[0].position - InPosition);
@@ -61,6 +69,10 @@ void main() {
     float32_t float32arg;
     float64_t float64arg;
 
+    vec4 vec = vec4(1.0);
+    float varg = vec.xxyy.x;
+    TestOverloadFunction(varg);
+
     TestOverloadFunction(true);
     TestOverloadFunction(1);
     TestOverloadFunction(1u);
@@ -74,7 +86,7 @@ void main() {
     TestOverloadFunction(int8arg);
     TestOverloadFunction(uint8arg);
 
-    TestOverloadFunction(int16arg, int8arg, int8arg, float64arg);
+    TestOverloadFunction(int16arg, int8arg, int8arg, float16arg);
     TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     mat4 matrix = mat4(1.0);
