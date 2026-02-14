@@ -13,26 +13,6 @@ namespace glsld::utils {
         bool operator()(std::string_view lhs, std::string_view rhs) const {
             return lhs == rhs;
         }
-
-        bool operator()(std::string_view lhs, const std::string& rhs) const {
-            return lhs == rhs;
-        }
-
-        bool operator()(const std::string& lhs, std::string_view rhs) const {
-            return lhs == rhs;
-        }
-
-        bool operator()(const std::string& lhs, const std::string& rhs) const {
-            return lhs == rhs;
-        }
-
-        bool operator()(std::string_view lhs, const char* rhs) const {
-            return lhs == rhs;
-        }
-
-        bool operator()(const char* lhs, std::string_view rhs) const {
-            return lhs == rhs;
-        }
     };
 
     struct StringViewHeteroHash {

@@ -70,14 +70,14 @@ namespace glsld {
         }
 
         if (node->kind() == AstNodeKind::kVariableDeclaration) {
-            const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
-
+            const auto* var_decl       = static_cast<const VariableDeclarationNode*>(node);
             const auto& typename_token = var_decl->type_spec.typename_token();
-            if (typename_token.type != TokenType::kIdentifier) {
-                return results;
-            }
 
             if (utils::IsPositionInToken(typename_token, location)) {
+                if (typename_token.type != TokenType::kIdentifier) {
+                    return results;
+                }
+
                 const auto& type_symbol = document->bindings.at(typename_token.location);
                 if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
                     const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
@@ -93,6 +93,35 @@ namespace glsld {
             }
 
             return results;
+        }
+
+        if (node->kind() == AstNodeKind::kFunctionDeclaration) {
+            const auto* func_decl      = static_cast<const FunctionDeclarationNode*>(node);
+            const auto& typename_token = func_decl->type_spec.typename_token();
+
+            if (utils::IsPositionInToken(typename_token, location)) {
+                if (typename_token.type != TokenType::kIdentifier) {
+                    return results;
+                }
+
+                const auto& type_symbol = document->bindings.at(typename_token.location);
+                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
+                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
+                    if (linked_symbol != nullptr) {
+                        results.push_back(linked_symbol);
+                    }
+                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
+                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
+                    if (!linked_symbols.empty()) {
+                        results.append_range(linked_symbols);
+                    }
+                }
+            } else if (func_decl->declared_symbol != nullptr && utils::IsPositionInFunctionName(func_decl->declared_symbol, location)) {
+                const auto* result = ResolveFunctionJump(func_decl->declared_symbol, uri);
+                if (result != nullptr) {
+                    results.push_back(result);
+                }
+            }
         }
 
         return results;
@@ -123,5 +152,26 @@ namespace glsld {
         }
 
         return {};
+    }
+
+    const SymbolInfo* Workspace::ResolveFunctionJump(const SymbolInfo* symbol, std::string_view uri) const {
+        std::string name = symbol->name;
+        if (symbol->kind == SymbolKind::kFunctionImpl) {
+            if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
+                name.replace(pos, 7, "__Decl_");
+            }
+        } else if (symbol->kind == SymbolKind::kFunctionDecl) {
+            if (auto pos = name.find("__Decl_"); pos != std::string::npos) {
+                name.replace(pos, 7, "__Impl_");
+            }
+        }
+
+        auto it = documents_.find(uri);
+        if (it != documents_.end()) {
+            const auto* resolved_symbol = it->second->symbols.root_scope()->FindSymbol(name);
+            return resolved_symbol;
+        }
+
+        return nullptr;
     }
 }

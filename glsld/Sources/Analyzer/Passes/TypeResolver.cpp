@@ -86,6 +86,11 @@ namespace glsld {
         bindings_.try_emplace(function_symbol->location, function_symbol);
         function_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
+        const auto* block_symbol = function_symbol->type_info.block_symbol;
+        if (function_symbol->type_info.block_symbol != nullptr) {
+            bindings_.try_emplace(function_symbol->type_info.typename_token.location, block_symbol);
+        }
+
         function_symbol->param_typeinfos.clear();
         for (auto& param_node : node->params) {
             VisitVariableDeclaration(param_node.get());

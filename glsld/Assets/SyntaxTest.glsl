@@ -33,7 +33,7 @@ LightData ReturnLightData() {
     return data;
 }
 
-void TestOverloadFunction(bool) {}
+void TestOverloadFunction(bool);
 void TestOverloadFunction(int) {}
 void TestOverloadFunction(uint) {}
 void TestOverloadFunction(float) {}
@@ -95,4 +95,8 @@ void main() {
     LightData result = ReturnLightData();
 
     FragColor = vec4(light, 1.0);
+}
+
+void TestOverloadFunction(bool) {
+    
 }
