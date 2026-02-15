@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/Hash.hpp"
 
@@ -15,7 +16,7 @@ namespace glsld {
         void UpdateDocument(std::string_view uri, std::string_view context);
         void RemoveDocument(std::string_view uri);
 
-        std::vector<const SymbolInfo*> GetDefinitionSymbols(std::string_view uri, SourceLocation location) const;
+        SymbolList GetDefinitionSymbols(std::string_view uri, SourceLocation location) const;
 
         const Document* GetDocument(std::string_view uri) const;
         const DocumentSymbols* GetDocumentSymbols(std::string_view uri) const;
@@ -23,7 +24,6 @@ namespace glsld {
 
     private:
         const SymbolInfo* ResolveFunctionJump(const SymbolInfo* symbol, std::string_view uri) const;
-        std::string FormatSymbol(const SymbolInfo* symbol) const;
 
         utils::StringHeteroHashTable<std::string, std::unique_ptr<Document>> documents_;
     };

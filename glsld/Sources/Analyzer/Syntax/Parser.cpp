@@ -150,6 +150,8 @@ namespace glsld {
         switch (CurrentToken().type) {
         case TokenType::kPrimitive:
         case TokenType::kBuiltInType:
+        case TokenType::kBuiltInFunction:
+        case TokenType::kBuiltInVariable:
         case TokenType::kIdentifier:
             return ParseCodeStatement();
             break;
@@ -208,7 +210,7 @@ namespace glsld {
         if (CurrentToken().type == TokenType::kIdentifier) {
             const auto& macro_token = CurrentToken();
 
-            node->symbol = current_scope()->AddSymbol(macro_token.text, macro_token.location, SymbolKind::kMacro);
+            node->symbol = current_scope()->AddSymbol(node.get(), macro_token.text, macro_token.location, SymbolKind::kMacro);
             ConsumeToken();
 
             auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
@@ -270,12 +272,18 @@ namespace glsld {
         }
 
         // common variable
-        if (!type_spec.empty()) {
+        if (!type_spec.empty() && CurrentToken().type != TokenType::kOpenParen) {
             return ParseVariableDeclarationList(std::move(type_spec));
         }
 
         // expression, including function calling
-        if (type_spec.empty() && CurrentToken().type == TokenType::kIdentifier) {
+        bool common_calling = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kBuiltInFunction);
+        bool constructor = !type_spec.empty() && CurrentToken().type == TokenType::kOpenParen;
+        if (common_calling || constructor) {
+            if (constructor) {
+                ConsumeToken(-1);
+            }
+
             return ParseExpressionStatement();
         }
 
@@ -372,7 +380,7 @@ namespace glsld {
         node->end = GetPreviousTokenEnd();
         LeaveScope(node->end);
         // current scope is function located scope
-        node->declared_symbol = current_scope()->AddSymbol(function_name, name_token.location, kind);
+        node->declared_symbol = current_scope()->AddSymbol(node.get(), function_name, name_token.location, kind);
         node->declared_symbol->internal_scope = internal_scope;
         node->internal_scope = internal_scope;
 
@@ -408,7 +416,7 @@ namespace glsld {
 
             if (CurrentToken().type == TokenType::kIdentifier) {
                 const auto& name_token = CurrentToken();
-                node->declared_symbol  = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kParameter);
+                node->declared_symbol  = current_scope()->AddSymbol(node.get(), name_token.text, name_token.location, SymbolKind::kParameter);
 
                 ConsumeToken();
 
@@ -543,7 +551,7 @@ namespace glsld {
 
             node->begin           = type_spec.begin_location();
             node->type_spec       = type_spec;
-            node->declared_symbol = current_scope()->AddSymbol(name_token.text, name_token.location, SymbolKind::kVariable);
+            node->declared_symbol = current_scope()->AddSymbol(node.get(), name_token.text, name_token.location, SymbolKind::kVariable);
 
             ConsumeToken();
 
@@ -873,7 +881,7 @@ namespace glsld {
         auto ParseBody = [&](auto& node) -> void {
             node->begin           = type_spec.begin_location();
             auto block_kind       = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
-            node->declared_symbol = current_scope()->AddSymbol(block_name.text, block_name.location, block_kind);
+            node->declared_symbol = current_scope()->AddSymbol(node.get(), block_name.text, block_name.location, block_kind);
             node->body            = ParseScope(ScopeKind::kBlock);
 
             if (CurrentToken().type != TokenType::kSemicolon) {

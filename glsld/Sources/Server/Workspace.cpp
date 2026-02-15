@@ -35,7 +35,7 @@ namespace glsld {
         documents_.erase(uri);
     }
 
-    std::vector<const SymbolInfo*> Workspace::GetDefinitionSymbols(std::string_view uri, SourceLocation location) const {
+    SymbolList Workspace::GetDefinitionSymbols(std::string_view uri, SourceLocation location) const {
         auto it = documents_.find(uri);
         if (it == documents_.end()) {
             return {};
@@ -43,7 +43,7 @@ namespace glsld {
 
         const auto& document = it->second;
 
-        std::vector<const SymbolInfo*> results;
+        SymbolList results;
         NodeLocator locator(location);
         locator.Traverse(document->ast.get());
         const AstNode* node = locator.result();
@@ -180,43 +180,5 @@ namespace glsld {
         }
 
         return nullptr;
-    }
-
-    std::string Workspace::FormatSymbol(const SymbolInfo* symbol) const {
-        if (symbol == nullptr) {
-            return "";
-        }
-
-        std::string result;
-        switch (symbol->kind) {
-        case SymbolKind::kParameter:
-            result = std::format("(parameter) {} {}", symbol->type_info.typename_token.text, symbol->name);
-            break;
-        case SymbolKind::kVariable: {
-            std::string prefix;
-
-            if (symbol->located_scope->kind() == ScopeKind::kTransparent) {
-                prefix = "(global variable)";
-            } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
-                prefix = "(local variable)";
-            } else {
-                prefix = "(field)";
-            }
-
-            result = std::format("{} {} {}", prefix, symbol->type_info.typename_token.text, symbol->name);
-            break;
-        }
-
-        case SymbolKind::kFunctionDecl:
-        case SymbolKind::kFunctionImpl: {
-            std::string return_typename = symbol->type_info.typename_token.text;
-            for (const auto& array_size : symbol->type_info.array_sizes) {
-                return_typename += std::format("[{}]", array_size.text);
-            }
-
-            auto raw_name = utils::UnmangleFunctionName(symbol->name);
-            result = std::format("{} {}(", return_typename, raw_name);
-        }
-        }
     }
 }

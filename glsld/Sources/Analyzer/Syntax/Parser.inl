@@ -18,7 +18,7 @@ namespace glsld {
         return tokens_[token_index_ + offset];
     }
 
-    inline void Parser::ConsumeToken(std::size_t count) {
+    inline void Parser::ConsumeToken(std::ptrdiff_t count) {
         token_index_ = std::min(token_index_ + count, tokens_.size() - 1);
     }
 

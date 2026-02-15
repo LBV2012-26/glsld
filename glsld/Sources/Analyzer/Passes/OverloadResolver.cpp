@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <charconv>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,7 +27,7 @@ namespace glsld {
             }
 
             if (from == to) {
-                return MatchGrade::kExactMatch;
+                throw std::logic_error("This path should not be reached since exact matches are handled separately.");
             }
 
             if (from.is_array() != to.is_array() ||
@@ -184,6 +185,32 @@ namespace glsld {
         std::vector<CandidateScore> possible_matches;
         SymbolList failed_matches;
 
+        auto CompareTypeInfoIgnoreQualifiers = [](const TypeInfo& lhs, const TypeInfo& rhs) -> bool {
+            if (lhs.typename_token.text != rhs.typename_token.text ||
+                lhs.typename_token.type != rhs.typename_token.type)
+            {
+                return false;
+            }
+
+            if (lhs.block_symbol != rhs.block_symbol) {
+                return false;
+            }
+
+            if (lhs.array_sizes.size() != rhs.array_sizes.size()) {
+                return false;
+            }
+
+            for (auto i = 0uz; i != lhs.array_sizes.size(); ++i) {
+                if (lhs.array_sizes[i].text != rhs.array_sizes[i].text ||
+                    lhs.array_sizes[i].type != rhs.array_sizes[i].type)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
         for (const auto* symbol : candidates) {
             const auto& param_typeinfos = symbol->param_typeinfos;
             if (param_typeinfos.size() != normalized_call_args.size()) {
@@ -197,7 +224,7 @@ namespace glsld {
                 const auto& call_type   = normalized_call_args[i];
                 const auto& target_type = param_typeinfos[i];
 
-                if (call_type == target_type) {
+                if (CompareTypeInfoIgnoreQualifiers(call_type, target_type)) {
                     current_grades.push_back(MatchGrade::kExactMatch);
                 } else {
                     auto match_grade = TryImplicityConvert(call_type, target_type);
@@ -223,9 +250,9 @@ namespace glsld {
         if (possible_matches.empty() && failed_matches.empty()) {
             return std::monostate{};
         } else if (possible_matches.empty() && !failed_matches.empty()) {
-            return failed_matches;
+            return failed_matches; // 全都不对
         } else if (possible_matches.size() == 1) {
-            return possible_matches.front().symbol;
+            return possible_matches.front().symbol; // 只有一个
         }
 
         std::vector<CandidateScore> best_matches;

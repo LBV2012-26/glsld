@@ -2,6 +2,7 @@
 #include "LspConverter.hpp"
 
 #include <variant>
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
@@ -47,6 +48,9 @@ namespace glsld {
                 break;
             case TokenType::kBuiltInType:
                 type_index = 1;
+                break;
+            case TokenType::kBuiltInFunction:
+                type_index = 12;
                 break;
             case TokenType::kKeyword:
             case TokenType::kPreprocessor:
@@ -210,5 +214,113 @@ namespace glsld {
         }
 
         return data;
+    }
+
+    std::string FormatSymbol(const SymbolInfo* symbol) {
+        if (symbol == nullptr) {
+            return "";
+        }
+
+        auto GetVariableSpecifiers = [](const VariableDeclarationNode* node) -> std::string {
+            std::string specifiers;
+
+            for (auto i = 0uz; i < node->type_spec.specifiers.size(); ++i) {
+                const auto& specifier = node->type_spec.specifiers[i];
+                if (specifier.text == "layout") {
+                    specifiers += specifier.text + "(";
+                    for (auto j = 0uz; j != node->type_spec.layout_params.size(); ++j) {
+                        const auto& layout_param = node->type_spec.layout_params[j];
+
+                        if (layout_param.text == "," && specifiers.back() == ' ') {
+                            specifiers.pop_back();
+                        }
+
+                        specifiers += layout_param.text;
+
+                        if (j + 1 != node->type_spec.layout_params.size()) {
+                            specifiers += " ";
+                        }
+                    }
+
+                    specifiers += ")";
+                } else {
+                    if (specifiers.empty()) {
+                        specifiers = specifier.text;
+                    } else {
+                        specifiers += " " + specifier.text;
+                    }
+                }
+            }
+
+            if (node->type_spec.specifiers.back().type == TokenType::kIdentifier &&
+                specifiers.find("layout") != std::string::npos)
+            {
+                specifiers += " { ... }";
+            }
+
+            return specifiers;
+        };
+
+        std::string result;
+        switch (symbol->kind) {
+        case SymbolKind::kParameter: {
+            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+            result = std::format("(parameter) {} {}", GetVariableSpecifiers(node), symbol->name);
+            break;
+        }
+
+        case SymbolKind::kVariable: {
+            std::string prefix;
+
+            if (symbol->located_scope->kind() == ScopeKind::kTransparent) {
+                prefix = "(global variable)";
+            } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
+                prefix = "(local variable)";
+            } else {
+                prefix = "(field)";
+            }
+
+            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+            result = std::format("{} {} {}", prefix, GetVariableSpecifiers(node), symbol->name);
+
+            for (const auto& array_size : symbol->type_info.array_sizes) {
+                result += std::format("[{}]", array_size.text);
+            }
+
+            break;
+        }
+
+        case SymbolKind::kFunctionDecl:
+        case SymbolKind::kFunctionImpl: {
+            std::string return_typename = symbol->type_info.typename_token.text;
+            for (const auto& array_size : symbol->type_info.array_sizes) {
+                return_typename += std::format("[{}]", array_size.text);
+            }
+
+            auto raw_name = utils::UnmangleFunctionName(symbol->name);
+            result = std::format("{} {}(", return_typename, raw_name);
+
+            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
+            for (auto i = 0uz; i != node->params.size(); ++i) {
+                const auto& param = node->params[i];
+                result += GetVariableSpecifiers(param.get());
+                if (param->declared_symbol != nullptr && param->declared_symbol->name != "") {
+                    result += " " + param->declared_symbol->name;
+                }
+
+                if (i + 1 != node->params.size()) {
+                    result += ", ";
+                }
+            }
+
+            result += ")";
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        return result;
     }
 }

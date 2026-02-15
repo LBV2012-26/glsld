@@ -30,6 +30,7 @@ namespace glsld {
         nlohmann::json HandleDocumentSymbol(Context& context);
         nlohmann::json HandleSemanticTokens(Context& context);
         nlohmann::json HandleDefinition(Context& context);
+        nlohmann::json HandleHover(Context& context);
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);

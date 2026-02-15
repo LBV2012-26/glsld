@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
 
@@ -12,4 +13,5 @@
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope);
     std::vector<std::uint32_t> SemanticData(const Document& document);
+    std::string FormatSymbol(const SymbolInfo* symbol);
 }

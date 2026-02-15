@@ -53,6 +53,18 @@ namespace glsld {
             }
         }
 
+        if (qualifiers.size() != other.qualifiers.size()) {
+            return false;
+        }
+
+        for (auto i = 0uz; i != qualifiers.size(); ++i) {
+            if (qualifiers[i].text != other.qualifiers[i].text ||
+                qualifiers[i].type != other.qualifiers[i].type)
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

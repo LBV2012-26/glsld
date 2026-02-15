@@ -11,6 +11,16 @@ layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
 
 layout(set = 0, binding = 0) uniform sampler my_sampler;
+layout(set = 0, binding = 0) uniform texture2D my_texture;
+
+void F() {
+    texture(sampler(my_sampler, my_texture), vec2(0.5));
+    texture2D(my_texture, vec2(0.5));
+}
+
+layout(std140, set = 0, binding = 1) uniform MyUniformBuffer {
+    mat4 my_matrix;
+} ubo;
 
 struct LightData {
     vec3 position;
@@ -33,17 +43,20 @@ LightData ReturnLightData() {
     return data;
 }
 
-void TestOverloadFunction(in bool);
-void TestOverloadFunction(in int) {}
-void TestOverloadFunction(in uint) {}
-void TestOverloadFunction(in float) {}
-void TestOverloadFunction(in double) {}
-void TestOverloadFunction(in int16_t, in int32_t, in int64_t, in float32_t) {}
+void TestOverloadFunction();
+void TestOverloadFunction(bool) {}
+void TestOverloadFunction(int) {}
+void TestOverloadFunction(uint) {}
+void TestOverloadFunction(float) {}
+void TestOverloadFunction(double) {}
+void TestOverloadFunction(in int16_t a, in int32_t, in int64_t b, in float32_t) {}
 void TestOverloadFunction(in uint16_t, in uint32_t, in uint64_t, in float16_t) {}
 
 void main() {
+    texture(sampler(my_sampler, my_texture), vec2(0.5));
     mat4 m;
     vec4 v = m[0].xyzw;
+    ubo.my_matrix;
 
     vec4 v1;
     float f = v1[0];
@@ -56,6 +69,8 @@ void main() {
 
     LightData mddata[10][5];
     vec3 data = mddata[2][3].position;
+
+    const bool cb = false;
     
     int8_t int8arg;
     uint8_t uint8arg;
@@ -71,14 +86,15 @@ void main() {
 
     vec4 vec = vec4(1.0);
     float varg = vec.xxyy.x;
-    TestOverloadFunction(varg);
+    //TestOverloadFunction(varg);
 
-    TestOverloadFunction(true);
-    TestOverloadFunction(1);
-    TestOverloadFunction(1u);
-    TestOverloadFunction(1.0);
-    TestOverloadFunction(1.0f);
-    TestOverloadFunction(1.0lf);
+    //TestOverloadFunction(true);
+    //TestOverloadFunction(cb);
+    //TestOverloadFunction(1);
+    //TestOverloadFunction(1u);
+    //TestOverloadFunction(1.0);
+    //TestOverloadFunction(1.0f);
+    //TestOverloadFunction(1.0lf);
 
     TestOverloadFunction(int16arg, int32arg, int64arg, float32arg);
     TestOverloadFunction(int16arg, uint32arg, uint64arg, float16arg);
@@ -86,8 +102,8 @@ void main() {
     TestOverloadFunction(int8arg);
     TestOverloadFunction(uint8arg);
 
-    // TestOverloadFunction(int16arg, int8arg, int8arg, float16arg);
-    // TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
+    TestOverloadFunction(int16arg, int8arg, int8arg, float16arg);
+    TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     mat4 matrix = mat4(1.0);
     vec4 vector = matrix[0].wzyx;

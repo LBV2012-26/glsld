@@ -52,6 +52,7 @@ namespace glsld {
         TypeDescriptor     type_desc;
         const SymbolInfo*  block_symbol{ nullptr };
         std::vector<Token> array_sizes;
+        std::vector<Token> qualifiers;
 
         bool operator==(const TypeInfo& other) const;
         bool is_builtin() const;
@@ -69,7 +70,7 @@ namespace glsld {
         std::vector<TypeInfo> param_typeinfos;
         Scope*                located_scope{ nullptr };
         Scope*                internal_scope{ nullptr };
-        AstNode*              node{ nullptr };
+        const AstNode*        node{ nullptr };
 
         operator bool() const;
     };
@@ -104,7 +105,7 @@ namespace glsld {
         friend class Parser;
 
         SymbolInfo* AddSymbol(SymbolInfo symbol);
-        SymbolInfo* AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind);
+        SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind);
         SymbolInfo  RemoveSymbol(std::string_view name);
 
         Scope*                                                parent_;

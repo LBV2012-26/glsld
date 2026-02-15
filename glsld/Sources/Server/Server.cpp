@@ -16,6 +16,20 @@
 #include "Server/LspConverter.hpp"
 
 namespace glsld {
+    namespace {
+        SourceLocation ConvertLspPosition(const auto& position) {
+            std::size_t line      = position["line"];
+            std::size_t character = position["character"];
+
+            SourceLocation target{
+                .line   = line + 1,
+                .column = character + 1
+            };
+
+            return target;
+        }
+    }
+
     LspServer::LspServer() {
         RegisterHandlers();
     }
@@ -83,6 +97,10 @@ namespace glsld {
 
         router_.RegisterRequest("textDocument/definition", [this](Context& context) -> nlohmann::json {
             return HandleDefinition(context);
+        });
+
+        router_.RegisterRequest("textDocument/hover", [this](Context& context) -> nlohmann::json {
+            return HandleHover(context);
         });
 
         router_.RegisterNotification("textDocument/didOpen", [this](Context& context) -> void {
@@ -153,6 +171,7 @@ namespace glsld {
 
         capabilities["textDocumentSync"] = 1;
         capabilities["documentSymbolProvider"] = true;
+        capabilities["hoverProvider"] = true;
 
         static const std::vector<std::string> kTokenTypes{
             "namespace",    // 0
@@ -249,14 +268,8 @@ namespace glsld {
     nlohmann::json LspServer::HandleDefinition(Context& context) {
         std::string_view uri = context.params["textDocument"]["uri"];
         const auto& position = context.params["position"];
-        std::size_t line = position["line"];
-        std::size_t character = position["character"];
 
-        SourceLocation target{
-            .line   = line + 1,
-            .column = character + 1
-        };
-
+        auto target = ConvertLspPosition(position);
         auto response_array = nlohmann::json::array();
 
         auto symbols = workspace_.GetDefinitionSymbols(uri, target);
@@ -265,7 +278,7 @@ namespace glsld {
         }
 
         for (const auto& symbol : symbols) {
-            std::size_t start_line  = symbol->location.line - 1;
+            std::size_t start_line  = symbol->location.line   - 1;
             std::size_t start_char  = symbol->location.column - 1;
             std::size_t name_length = symbol->name.length();
 
@@ -281,6 +294,31 @@ namespace glsld {
         }
 
         return response_array;
+    }
+
+    nlohmann::json LspServer::HandleHover(Context& context) {
+        std::string_view uri = context.params["textDocument"]["uri"];
+        const auto& position = context.params["position"];
+
+        auto target = ConvertLspPosition(position);
+        nlohmann::json response;
+
+        auto symbols = workspace_.GetDefinitionSymbols(uri, target);
+        if (symbols.empty()) {
+            return response;
+        }
+
+        if (symbols.size() == 1) {
+            const auto* symbol = symbols.front();
+            std::string markdown = "```glsl\n";
+            markdown += FormatSymbol(symbol);
+            markdown += "\n```";
+
+            response["contents"]["kind"] = "markdown";
+            response["contents"]["value"] = markdown;
+        }
+
+        return response;
     }
 
     void LspServer::HandleDidOpen(Context& context) {

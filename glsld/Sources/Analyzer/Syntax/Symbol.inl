@@ -43,12 +43,13 @@ namespace glsld {
         return &it->second;
     }
 
-    inline SymbolInfo* Scope::AddSymbol(std::string_view name, SourceLocation location, SymbolKind kind) {
+    inline SymbolInfo* Scope::AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind) {
         SymbolInfo symbol{
             .name          = std::string(name),
             .location      = location,
             .kind          = kind,
-            .located_scope = this
+            .located_scope = this,
+            .node          = node
         };
 
         return AddSymbol(std::move(symbol));

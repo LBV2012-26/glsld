@@ -2,6 +2,7 @@
 #include "TypeResolver.hpp"
 
 #include <format>
+#include <ranges>
 #include <variant>
 #include <vector>
 
@@ -207,6 +208,10 @@ namespace glsld {
 
         const auto& typename_token = type_spec.typename_token();
         info.typename_token = typename_token;
+
+        info.qualifiers.clear();
+        info.qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
+
         info.array_sizes.clear();
 
         for (const auto& size : type_spec.array_sizes) {
@@ -221,7 +226,10 @@ namespace glsld {
                 }
             } else {
                 const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
-                info.array_sizes.push_back(var_expr->evaluated_type.typename_token);
+                info.array_sizes.push_back(Token{
+                    .text = var_expr->name,
+                    .type = var_expr->token_type
+                });
 
                 if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
                     const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
