@@ -59,7 +59,8 @@ namespace glsld {
         bool is_array() const;
     };
 
-    class Scope;
+    class  Scope;
+    struct AstNode;
     struct SymbolInfo {
         std::string           name;
         SourceLocation        location;
@@ -68,6 +69,7 @@ namespace glsld {
         std::vector<TypeInfo> param_typeinfos;
         Scope*                located_scope{ nullptr };
         Scope*                internal_scope{ nullptr };
+        AstNode*              node{ nullptr };
 
         operator bool() const;
     };

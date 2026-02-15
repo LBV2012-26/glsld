@@ -7,6 +7,7 @@
 
 namespace glsld::utils {
     std::string GetFilePath(std::string_view filename);
+    std::string_view UnmangleFunctionName(std::string_view mangled_name);
     void PrintIndent(int level);
     bool IsPositionInToken(const Token& token, SourceLocation position);
     bool IsPositionInFunctionName(const SymbolInfo* symbol, SourceLocation position);

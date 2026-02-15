@@ -13,6 +13,7 @@ namespace glsld {
 
     private:
         bool IsPositionInNode(const AstNode* node) const;
+        bool IsPositionDeeper(const AstNode* node) const;
 
         SourceLocation target_;
         AstNode* deepest_node_;

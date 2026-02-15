@@ -51,7 +51,8 @@ namespace glsld {
             return {};
         }
 
-        if (node->kind() == AstNodeKind::kVariableExpression) {
+        switch (node->kind()) {
+        case AstNodeKind::kVariableExpression: {
             const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
 
             if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
@@ -69,8 +70,8 @@ namespace glsld {
             return results;
         }
 
-        if (node->kind() == AstNodeKind::kVariableDeclaration) {
-            const auto* var_decl       = static_cast<const VariableDeclarationNode*>(node);
+        case AstNodeKind::kVariableDeclaration: {
+            const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
             const auto& typename_token = var_decl->type_spec.typename_token();
 
             if (utils::IsPositionInToken(typename_token, location)) {
@@ -95,8 +96,8 @@ namespace glsld {
             return results;
         }
 
-        if (node->kind() == AstNodeKind::kFunctionDeclaration) {
-            const auto* func_decl      = static_cast<const FunctionDeclarationNode*>(node);
+        case AstNodeKind::kFunctionDeclaration: {
+            const auto* func_decl = static_cast<const FunctionDeclarationNode*>(node);
             const auto& typename_token = func_decl->type_spec.typename_token();
 
             if (utils::IsPositionInToken(typename_token, location)) {
@@ -122,6 +123,12 @@ namespace glsld {
                     results.push_back(result);
                 }
             }
+
+            return results;
+        }
+
+        default:
+            break;
         }
 
         return results;
@@ -173,5 +180,43 @@ namespace glsld {
         }
 
         return nullptr;
+    }
+
+    std::string Workspace::FormatSymbol(const SymbolInfo* symbol) const {
+        if (symbol == nullptr) {
+            return "";
+        }
+
+        std::string result;
+        switch (symbol->kind) {
+        case SymbolKind::kParameter:
+            result = std::format("(parameter) {} {}", symbol->type_info.typename_token.text, symbol->name);
+            break;
+        case SymbolKind::kVariable: {
+            std::string prefix;
+
+            if (symbol->located_scope->kind() == ScopeKind::kTransparent) {
+                prefix = "(global variable)";
+            } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
+                prefix = "(local variable)";
+            } else {
+                prefix = "(field)";
+            }
+
+            result = std::format("{} {} {}", prefix, symbol->type_info.typename_token.text, symbol->name);
+            break;
+        }
+
+        case SymbolKind::kFunctionDecl:
+        case SymbolKind::kFunctionImpl: {
+            std::string return_typename = symbol->type_info.typename_token.text;
+            for (const auto& array_size : symbol->type_info.array_sizes) {
+                return_typename += std::format("[{}]", array_size.text);
+            }
+
+            auto raw_name = utils::UnmangleFunctionName(symbol->name);
+            result = std::format("{} {}(", return_typename, raw_name);
+        }
+        }
     }
 }

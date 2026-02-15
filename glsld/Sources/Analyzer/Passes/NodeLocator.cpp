@@ -12,9 +12,14 @@ namespace glsld {
             return;
         }
 
-        if (IsPositionInNode(node)) {
+        if (IsPositionInNode(node) && IsPositionDeeper(node)) {
             deepest_node_ = node;
             AstVisitor::Traverse(node);
+        }
+
+        if (node->begin.line > target_.line || (node->begin.line == target_.line && node->begin.column > target_.column)) {
+            // No need to continue traversing siblings, as they will be after the target position.
+            return;
         }
     }
 
@@ -23,13 +28,31 @@ namespace glsld {
     }
 
     bool NodeLocator::IsPositionInNode(const AstNode* node) const {
-        // [begin.line, begin.col] <= target_ < [end.line, end.col]
-        if (target_.line <  node->begin.line || target_.line   > node->end.line)
+        // [begin.line, begin.col] <= target_ <= [end.line, end.col]
+        return node->begin <= target_ && target_ <= node->end;
+    }
+
+    bool NodeLocator::IsPositionDeeper(const AstNode* node) const {
+        if (deepest_node_ == nullptr) {
+            return true;
+        }
+
+        if (deepest_node_->begin > node->begin) {
             return false;
-        if (target_.line == node->begin.line && target_.column < node->begin.column)
-            return false;
-        if (target_.line == node->end.line   && target_.column > node->end.column)
-            return false;
+        } else if (deepest_node_->begin < node->begin) {
+            return true;
+        } else {
+            // deepest_node_->begin == node->begin
+            if (deepest_node_->end < node->end) {
+                return false;
+            } else if (deepest_node_->end > node->end) {
+                return true;
+            } else {
+                // deepest_node_->end == node->end
+                return true;
+            }
+        }
+
         return true;
     }
 }

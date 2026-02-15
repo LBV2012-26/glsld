@@ -23,6 +23,7 @@ namespace glsld {
 
     private:
         const SymbolInfo* ResolveFunctionJump(const SymbolInfo* symbol, std::string_view uri) const;
+        std::string FormatSymbol(const SymbolInfo* symbol) const;
 
         utils::StringHeteroHashTable<std::string, std::unique_ptr<Document>> documents_;
     };

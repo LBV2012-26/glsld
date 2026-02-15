@@ -298,10 +298,28 @@ namespace glsld {
 
         node->params = ParseParameterList();
 
-        // mangle function name, such as "Func(int array[5], vec3 v) -> Func(int[5], vec3)"
+        // mangle function name, such as "Func(int array[5], in vec3 v) -> Func(int[5], in vec3)"
         std::vector<std::string> param_typenames;
         for (const auto& param : node->params) {
-            auto param_typename = param->type_spec.typename_token().text;
+            std::string param_typename;
+            for (const auto& specifier : param->type_spec.specifiers) {
+                if (param_typename.empty()) {
+                    param_typename = specifier.text;
+                } else {
+                    param_typename += " " + specifier.text;
+                }
+            }
+
+            // if (param_typename.find("in")    == std::string::npos && param_typename.find("out")  == std::string::npos &&
+            //     param_typename.find("inout") == std::string::npos && param_typename.find("void") == std::string::npos)
+            // { // default as "in" if no in/out/inout qualifier
+            //     auto const_pos = param_typename.find("const");
+            //     if (const_pos == std::string::npos) {
+            //         param_typename = "in " + param_typename;
+            //     } else {
+            //         param_typename.insert(const_pos + 6, "in ");
+            //     }
+            // }
 
             for (const auto& array_size : param->type_spec.array_sizes) {
                 std::string array_dimension;

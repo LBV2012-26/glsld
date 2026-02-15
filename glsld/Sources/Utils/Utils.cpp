@@ -17,6 +17,20 @@ namespace glsld::utils {
         return file_path.string();
     }
 
+    std::string_view UnmangleFunctionName(std::string_view mangled_name) {
+        std::string_view raw_name = mangled_name;
+        // __Impl_main(void) -> main
+        if (raw_name.starts_with("__Decl_") || raw_name.starts_with("__Impl_")) {
+            raw_name = raw_name.substr(7);
+            auto paren = raw_name.find('(');
+            if (paren != std::string_view::npos) {
+                raw_name = raw_name.substr(0, paren);
+            }
+        }
+
+        return raw_name;
+    }
+
     void PrintIndent(int level) {
         for (int i = 0; i < level; ++i) {
             std::print("  "); // 2 spaces per indent level
@@ -40,15 +54,7 @@ namespace glsld::utils {
             return false;
         }
 
-        // __Impl_main(void) -> main
-        std::string_view raw_name = symbol->name;
-        if (raw_name.starts_with("__Decl_") || raw_name.starts_with("__Impl_")) {
-            raw_name = raw_name.substr(7);
-            auto paren = raw_name.find('(');
-            if (paren != std::string_view::npos) {
-                raw_name = raw_name.substr(0, paren);
-            }
-        }
+        auto raw_name = UnmangleFunctionName(symbol->name);
 
         std::size_t start_column = symbol->location.column;
         std::size_t end_column   = start_column + raw_name.length();

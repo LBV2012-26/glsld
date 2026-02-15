@@ -155,7 +155,7 @@ void main() {
 }
 
 // 7. 函数定义
-float calculateShadow(in vec3 pos, vec3 normal) {
+float calculateShadow(in vec3 pos, const vec3 normal) {
     // 测试 return 语句
     if (pos.y < 0.0) return 0.0;
     return 1.0;

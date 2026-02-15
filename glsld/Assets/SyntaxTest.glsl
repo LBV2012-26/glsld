@@ -33,13 +33,13 @@ LightData ReturnLightData() {
     return data;
 }
 
-void TestOverloadFunction(bool);
-void TestOverloadFunction(int) {}
-void TestOverloadFunction(uint) {}
-void TestOverloadFunction(float) {}
-void TestOverloadFunction(double) {}
-void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
-void TestOverloadFunction(uint16_t, uint32_t, uint64_t, float16_t) {}
+void TestOverloadFunction(in bool);
+void TestOverloadFunction(in int) {}
+void TestOverloadFunction(in uint) {}
+void TestOverloadFunction(in float) {}
+void TestOverloadFunction(in double) {}
+void TestOverloadFunction(in int16_t, in int32_t, in int64_t, in float32_t) {}
+void TestOverloadFunction(in uint16_t, in uint32_t, in uint64_t, in float16_t) {}
 
 void main() {
     mat4 m;
@@ -48,11 +48,11 @@ void main() {
     vec4 v1;
     float f = v1[0];
 
-    bvec3 a;
+    bvec3 a, b;
 
     int mdarray[25][MAX_TEST_ARRAY_1_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
-    vec3 light = normalize(lights[0].position - InPosition);
+    vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
 
     LightData mddata[10][5];
     vec3 data = mddata[2][3].position;
@@ -86,17 +86,17 @@ void main() {
     TestOverloadFunction(int8arg);
     TestOverloadFunction(uint8arg);
 
-    TestOverloadFunction(int16arg, int8arg, int8arg, float16arg);
-    TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
+    // TestOverloadFunction(int16arg, int8arg, int8arg, float16arg);
+    // TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     mat4 matrix = mat4(1.0);
     vec4 vector = matrix[0].wzyx;
 
     LightData result = ReturnLightData();
 
-    FragColor = vec4(light, 1.0);
+    FragColor = vec4(light + ambient, 1.0);
 }
 
-void TestOverloadFunction(bool) {
-    
+void TestOverloadFunction(out bool) {
+    return;
 }

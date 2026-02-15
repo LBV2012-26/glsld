@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <compare>
 #include <string>
 
 namespace glsld {
@@ -87,6 +88,23 @@ namespace glsld {
 
         bool operator==(const SourceLocation& other) const {
             return line == other.line && column == other.column;
+        }
+
+        auto operator<=>(const SourceLocation& other) const {
+            if (line < other.line) {
+                return std::strong_ordering::less;
+            } else if (line > other.line) {
+                return std::strong_ordering::greater;
+            } else {
+                // line == other.line
+                if (column < other.column) {
+                    return std::strong_ordering::less;
+                } else if (column > other.column) {
+                    return std::strong_ordering::greater;
+                } else {
+                    return std::strong_ordering::equal;
+                }
+            }
         }
     };
 
