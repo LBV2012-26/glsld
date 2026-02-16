@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "LspConverter.hpp"
 
+#include <unordered_set>
 #include <variant>
 #include "Utils/Utils.hpp"
 
@@ -221,7 +222,7 @@ namespace glsld {
             return "";
         }
 
-        auto GetVariableSpecifiers = [](const VariableDeclarationNode* node) -> std::string {
+        auto GetVariableSpecifiers = [](const auto* node) -> std::string {
             std::string specifiers;
 
             for (auto i = 0uz; i < node->type_spec.specifiers.size(); ++i) {
@@ -324,9 +325,44 @@ namespace glsld {
             break;
         }
 
-        case SymbolKind::kInterface:
-        case SymbolKind::kStruct: {
+        case SymbolKind::kInterface: {
+            const auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
+            result = std::format("{} {}", GetVariableSpecifiers(node), symbol->name);
+            break;
+        }
 
+        case SymbolKind::kStruct: {
+            const auto* node = static_cast<const StructDeclarationNode*>(symbol->node);
+            result = std::format("struct {}", symbol->name);
+            break;
+        }
+
+        case SymbolKind::kMacro: {
+            const auto* node = static_cast<const PreprocessorNode*>(symbol->node);
+            result = std::format("#define {}", node->symbol->name);
+
+            if (node->params.size() != 0) {
+                result += "(";
+                for (auto i = 0uz; i != node->params.size(); ++i) {
+                    const auto& param = node->params[i];
+                    result += param;
+                    if (i + 1 != node->params.size()) {
+                        result += ", ";
+                    }
+                }
+
+                result += ")";
+            }
+
+            for (const auto& token : node->tokens) {
+                if (token.type == TokenType::kBackslash) {
+                    continue;
+                }
+
+                result += " " + token.text;
+            }
+
+            break;
         }
 
         default:

@@ -377,9 +377,9 @@ namespace glsld {
     };
 
     struct InterfaceDeclarationNode : public DeclarationNode {
-        std::vector<Token>                     qualifiers;
         std::unique_ptr<CompoundStatementNode> body;
         std::unique_ptr<DeclarationGroupNode>  instances;
+        TypeSpecifier                          type_spec;
 
         using DeclarationNode::DeclarationNode;
 

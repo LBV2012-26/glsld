@@ -21,6 +21,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -50,6 +51,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\OverloadResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

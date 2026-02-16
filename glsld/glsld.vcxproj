@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
     <ClCompile Include="Sources\Server\LspConverter.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
@@ -172,6 +173,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />

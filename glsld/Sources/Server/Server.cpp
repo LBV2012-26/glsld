@@ -7,7 +7,6 @@
 #include <iostream>
 #include <print>
 #include <span>
-#include <unordered_set>
 #include <utility>
 
 #include "Analyzer/Syntax/Parser.hpp"
@@ -17,7 +16,7 @@
 
 namespace glsld {
     namespace {
-        SourceLocation ConvertLspPosition(const auto& position) {
+        SourceLocation ConvertToParserPosition(const auto& position) {
             std::size_t line      = position["line"];
             std::size_t character = position["character"];
 
@@ -28,14 +27,25 @@ namespace glsld {
 
             return target;
         }
+
+        nlohmann::json ConvertToLspPosition(SourceLocation location) {
+            return {
+                { "line",      location.line   - 1 },
+                { "character", location.column - 1 }
+            };
+        }
     }
 
     LspServer::LspServer() {
         RegisterHandlers();
+
+        worker_thread_ = std::jthread([this]() -> void {
+            UpdateWorker();
+        });
     }
 
     void LspServer::Run() {
-        while (running_ && std::cin.good()) {
+        while (running_.load() && std::cin.good()) {
             auto message_opt = ReadMessage();
             if (!message_opt) {
                 break;
@@ -101,6 +111,10 @@ namespace glsld {
 
         router_.RegisterRequest("textDocument/hover", [this](Context& context) -> nlohmann::json {
             return HandleHover(context);
+        });
+
+        router_.RegisterRequest("textDocument/inlayHint", [this](Context& context) -> nlohmann::json {
+            return HandleInlayHints(context);
         });
 
         router_.RegisterNotification("textDocument/didOpen", [this](Context& context) -> void {
@@ -169,9 +183,10 @@ namespace glsld {
     nlohmann::json LspServer::HandleInitialize(Context& context) {
         nlohmann::json capabilities;
 
-        capabilities["textDocumentSync"] = 1;
+        capabilities["textDocumentSync"]       = 1;
         capabilities["documentSymbolProvider"] = true;
-        capabilities["hoverProvider"] = true;
+        capabilities["hoverProvider"]          = true;
+        capabilities["inlayHintProvider"]      = true;
 
         static const std::vector<std::string> kTokenTypes{
             "namespace",    // 0
@@ -252,7 +267,8 @@ namespace glsld {
             return nlohmann::json::array();
         }
 
-        return ConvertScopeToDocumentSymbols(symbols->root_scope());
+        auto result = ConvertScopeToDocumentSymbols(symbols->root_scope());
+        return result;
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
@@ -269,7 +285,7 @@ namespace glsld {
         std::string_view uri = context.params["textDocument"]["uri"];
         const auto& position = context.params["position"];
 
-        auto target = ConvertLspPosition(position);
+        auto target = ConvertToParserPosition(position);
         auto response_array = nlohmann::json::array();
 
         auto symbols = workspace_.GetDefinitionSymbols(uri, target);
@@ -300,7 +316,7 @@ namespace glsld {
         std::string_view uri = context.params["textDocument"]["uri"];
         const auto& position = context.params["position"];
 
-        auto target = ConvertLspPosition(position);
+        auto target = ConvertToParserPosition(position);
         nlohmann::json response;
 
         auto symbols = workspace_.GetDefinitionSymbols(uri, target);
@@ -308,14 +324,43 @@ namespace glsld {
             return response;
         }
 
+        std::string markdown;
         if (symbols.size() == 1) {
             const auto* symbol = symbols.front();
-            std::string markdown = "```glsl\n";
+            markdown = "```glsl\n";
             markdown += FormatSymbol(symbol);
             markdown += "\n```";
+        } else {
+            markdown = std::format("```glsl\nAmbiguous call (+{} candidates)\n---\n", symbols.size());
+            for (const auto* symbol : symbols) {
+                markdown += FormatSymbol(symbol);
+                markdown += "\n";
+            }
 
-            response["contents"]["kind"] = "markdown";
-            response["contents"]["value"] = markdown;
+            markdown += "\n```";
+        }
+
+        response["contents"]["kind"] = "markdown";
+        response["contents"]["value"] = markdown;
+
+        return response;
+    }
+
+    nlohmann::json LspServer::HandleInlayHints(Context& context) {
+        const auto& document = context.params["textDocument"];
+        std::string_view uri = document["uri"];
+
+        nlohmann::json response = nlohmann::json::array();
+        auto hints = workspace_.GetInlayHints(uri);
+        for (const auto& hint : hints) {
+            nlohmann::json result;
+
+            result["position"]     = ConvertToLspPosition(hint.location);
+            result["label"]        = hint.label;
+            result["kind"]         = 2;
+            result["paddingRight"] = true;
+
+            response.push_back(result);
         }
 
         return response;
@@ -337,7 +382,20 @@ namespace glsld {
             return;
         }
         std::string new_text = changes[0]["text"];
-        // TODO
+
+        {
+            using namespace std::chrono_literals;
+
+            std::unique_lock lock(update_mutex_);
+            auto deadline = std::chrono::steady_clock::now() + 300ms;
+
+            pending_updates_[std::string(uri)] = {
+                .text = std::move(new_text),
+                .deadline = deadline
+            };
+        }
+
+        update_condition_.notify_one();
     }
 
     void LspServer::HandleDidClose(Context& context) {
@@ -353,6 +411,41 @@ namespace glsld {
     void LspServer::HandleInitialized(Context& context) {}
 
     void LspServer::HandleExit(Context& context) {
-        running_ = false;
+        running_.store(false);
+    }
+
+    void LspServer::UpdateWorker() {
+        while (running_.load()) {
+            std::unique_lock lock(update_mutex_);
+
+            update_condition_.wait(lock, [this]() -> bool {
+                return !pending_updates_.empty() || !running_.load();
+            });
+
+            if (!running_.load()) {
+                break;
+            }
+
+            auto now = std::chrono::steady_clock::now();
+
+            for (auto it = pending_updates_.begin(); it != pending_updates_.end();) {
+                if (now >= it->second.deadline) {
+                    std::string uri  = it->first;
+                    std::string text = std::move(it->second.text);
+                    it = pending_updates_.erase(it);
+
+                    lock.unlock();
+                    Update(uri, text);
+                    lock.lock();
+                } else {
+                    update_condition_.wait_until(lock, it->second.deadline);
+                    break;
+                }
+            }
+        }
+    }
+
+    void LspServer::Update(std::string_view uri, std::string_view text) {
+        workspace_.UpdateDocument(uri, text);
     }
 }

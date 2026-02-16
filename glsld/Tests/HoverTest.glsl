@@ -31,6 +31,9 @@ layout(push_constant) uniform PushConstants {
 #define MAX_RETURN_ARRAY_SIZE 5
 #define MAX_ARRAY_SIZE_1      20
 
+#define MACRO_FUNC(x) \
+    (x * x)
+
 int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25][MAX_ARRAY_SIZE_1]) {
     int array[5];
     return array;
@@ -42,7 +45,7 @@ LightData ReturnLightData() {
 }
 
 void Func(const in float input_arg, out float output_arg, inout float param) {
-    output_arg = input_arg + param;
+    output_arg = input_arg + MACRO_FUNC(param);
 
     texture(sampler(my_sampler, my_texture), vec2(0.5));
     texture2D(my_texture, vec2(0.5)); // test constructor, it should be green, not yellow
@@ -50,7 +53,6 @@ void Func(const in float input_arg, out float output_arg, inout float param) {
 
 void main() {
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
-
     mat4 my_matrix = ubo.my_matrix;
 
     int mdarray[25][MAX_ARRAY_SIZE_1];

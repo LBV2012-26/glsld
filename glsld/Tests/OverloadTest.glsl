@@ -8,14 +8,14 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
 void TestOverloadFunction();
-void TestOverloadFunction(bool) {}
-void TestOverloadFunction(int) {}
-void TestOverloadFunction(uint) {}
-void TestOverloadFunction(float) {}
-void TestOverloadFunction(double) {}
+void TestOverloadFunction(bool boolarg) {}
+void TestOverloadFunction(int intarg) {}
+void TestOverloadFunction(uint uintarg) {}
+void TestOverloadFunction(float floatarg) {}
+void TestOverloadFunction(double doublearg) {}
 
-void TestOverloadFunction(int16_t, int32_t, int64_t, float32_t) {}
-void TestOverloadFunction(uint16_t, uint32_t, uint64_t, float16_t) {}
+void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
+void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}
 
 void main() {
     int8_t    int8arg;

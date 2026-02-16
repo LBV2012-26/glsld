@@ -912,6 +912,7 @@ namespace glsld {
             return node;
         } else {
             auto node = std::make_unique<InterfaceDeclarationNode>(current_scope());
+            node->type_spec = type_spec;
             ParseBody(node);
             return node;
         }

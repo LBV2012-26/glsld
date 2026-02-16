@@ -36,12 +36,10 @@ namespace glsld {
     }
 
     SymbolList Workspace::GetDefinitionSymbols(std::string_view uri, SourceLocation location) const {
-        auto it = documents_.find(uri);
-        if (it == documents_.end()) {
+        const auto* document = GetDocument(uri);
+        if (document == nullptr) {
             return {};
         }
-
-        const auto& document = it->second;
 
         SymbolList results;
         NodeLocator locator(location);
@@ -134,6 +132,17 @@ namespace glsld {
         return results;
     }
 
+    std::vector<InlayHint> Workspace::GetInlayHints(std::string_view uri) const {
+        const auto* document = GetDocument(uri);
+        if (document == nullptr || document->ast == nullptr) {
+            return {};
+        }
+
+        InlayHintVisitor visitor;
+        visitor.Traverse(document->ast.get());
+        return visitor.hints();
+    }
+
     const Document* Workspace::GetDocument(std::string_view uri) const {
         auto it = documents_.find(uri);
         if (it != documents_.end()) {
@@ -144,21 +153,21 @@ namespace glsld {
     }
 
     const DocumentSymbols* Workspace::GetDocumentSymbols(std::string_view uri) const {
-        auto it = documents_.find(uri);
-        if (it != documents_.end()) {
-            return &it->second->symbols;
+        const auto* document = GetDocument(uri);
+        if (document == nullptr) {
+            return nullptr;
         }
 
-        return nullptr;
+        return &document->symbols;
     }
 
     std::span<const Token> Workspace::GetDocumentTokens(std::string_view uri) const {
-        auto it = documents_.find(uri);
-        if (it != documents_.end()) {
-            return it->second->tokens;
+        const auto* document = GetDocument(uri);
+        if (document == nullptr) {
+            return {};
         }
 
-        return {};
+        return document->tokens;
     }
 
     const SymbolInfo* Workspace::ResolveFunctionJump(const SymbolInfo* symbol, std::string_view uri) const {

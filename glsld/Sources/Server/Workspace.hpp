@@ -8,6 +8,7 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
+#include "Analyzer/Passes/InlayHintVisitor.hpp"
 #include "Base/Hash.hpp"
 
 namespace glsld {
@@ -17,6 +18,7 @@ namespace glsld {
         void RemoveDocument(std::string_view uri);
 
         SymbolList GetDefinitionSymbols(std::string_view uri, SourceLocation location) const;
+        std::vector<InlayHint> GetInlayHints(std::string_view uri) const;
 
         const Document* GetDocument(std::string_view uri) const;
         const DocumentSymbols* GetDocumentSymbols(std::string_view uri) const;
