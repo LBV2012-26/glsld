@@ -318,8 +318,8 @@ namespace glsld {
                 }
             }
 
-            // if (param_typename.find("in")    == std::string::npos && param_typename.find("out")  == std::string::npos &&
-            //     param_typename.find("inout") == std::string::npos && param_typename.find("void") == std::string::npos)
+            // if (!param_typename.contains("in")    && !param_typename.contains("out") &&
+            //     !param_typename.contains("inout") && !param_typename.contains("void"))
             // { // default as "in" if no in/out/inout qualifier
             //     auto const_pos = param_typename.find("const");
             //     if (const_pos == std::string::npos) {

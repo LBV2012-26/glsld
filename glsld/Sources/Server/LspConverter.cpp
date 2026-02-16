@@ -252,10 +252,17 @@ namespace glsld {
                 }
             }
 
-            if (node->type_spec.specifiers.back().type == TokenType::kIdentifier &&
-                specifiers.find("layout") != std::string::npos)
-            {
-                specifiers += " { ... }";
+            if (specifiers.contains("layout")) {
+                if (node->type_spec.specifiers.back().type == TokenType::kIdentifier) {
+                    specifiers += " { ... }";
+                }
+
+                if (!specifiers.contains("set")) {
+                    auto binding_pos = specifiers.find("binding");
+                    if (binding_pos != std::string::npos) {
+                        specifiers.insert(binding_pos, "set = 0, ");
+                    }
+                }
             }
 
             return specifiers;
@@ -315,6 +322,11 @@ namespace glsld {
 
             result += ")";
             break;
+        }
+
+        case SymbolKind::kInterface:
+        case SymbolKind::kStruct: {
+
         }
 
         default:

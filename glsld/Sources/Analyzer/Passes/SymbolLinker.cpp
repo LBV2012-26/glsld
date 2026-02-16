@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "SymbolLinker.hpp"
 
+#include <utility>
+
 namespace glsld {
     SymbolLinker::SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings)
         : symbols_{ symbols }
@@ -30,9 +32,18 @@ namespace glsld {
         case kCommonVariable:
             node->linked_symbols = scope->FindSymbol(node->name);
             break;
-        case kFunctionCallee:
-            node->linked_symbols = symbols_.FindFunctionsByOriginalName(node->name);
+        case kFunctionCallee: {
+            auto function_result = symbols_.FindFunctionsByOriginalName(node->name);
+
+            if (function_result.empty()) { // constructor calling, like "BufferReference ref = BufferReference(device_address);"
+                const auto* symbol_result = scope->FindSymbol(node->name);
+                node->linked_symbols = symbol_result;
+                break;
+            }
+
+            node->linked_symbols = std::move(function_result);
             break;
+        }
         default:
             break;
         }

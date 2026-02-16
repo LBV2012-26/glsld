@@ -268,7 +268,7 @@ namespace glsld {
         TypeDescriptor desc;
 
         for (const auto& prefix : kOpaquePrefix) {
-            if (text.find(prefix) != std::string_view::npos) {
+            if (text.contains(prefix)) {
                 desc.family = BaseFamily::kOpaque;
                 return desc;
             }
@@ -400,9 +400,7 @@ namespace glsld {
                 };
             }
 
-            if (text.find('.') != std::string_view::npos ||
-                text.find('e') != std::string_view::npos ||
-                text.find('E') != std::string_view::npos ||
+            if (text.contains('.') || text.contains('e') || text.contains('E') ||
                 text.ends_with('f') || text.ends_with('F'))
             {
                 return TypeInfo{
