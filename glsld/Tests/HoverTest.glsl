@@ -25,17 +25,16 @@ layout(buffer_reference, std430) buffer LightDataBuffer {
 } light_data_buffer;
 
 layout(push_constant) uniform PushConstants {
-    uint64_t push_constant_value;
+    layout(offset = 0) uint64_t push_constant_value;
 } push_constants;
 
 #define MAX_RETURN_ARRAY_SIZE 5
 #define MAX_ARRAY_SIZE_1      20
 
-#define MACRO_FUNC(x) \
-    (x * x)
+#define MACRO_FUNC(x) (x * x)
 
 int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25][MAX_ARRAY_SIZE_1]) {
-    int array[5];
+    int array[MAX_RETURN_ARRAY_SIZE];
     return array;
 }
 

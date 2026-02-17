@@ -287,7 +287,13 @@ namespace glsld {
                     return results;
                 }
 
-                const auto& type_symbol = document_snapshot->bindings.at(typename_token.location);
+                auto it = document_snapshot->bindings.find(typename_token.location);
+                if (it == document_snapshot->bindings.end()) {
+                    return results;
+                }
+
+                const auto& type_symbol = it->second;
+
                 if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
                     const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
                     if (linked_symbol != nullptr) {
@@ -313,7 +319,13 @@ namespace glsld {
                     return results;
                 }
 
-                const auto& type_symbol = document_snapshot->bindings.at(typename_token.location);
+                auto it = document_snapshot->bindings.find(typename_token.location);
+                if (it == document_snapshot->bindings.end()) {
+                    return results;
+                }
+
+                const auto& type_symbol = it->second;
+
                 if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
                     const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
                     if (linked_symbol != nullptr) {

@@ -166,7 +166,7 @@ namespace glsld {
             break;
         default:
             while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kSemicolon &&
-                   CurrentToken().type != TokenType::kOpenBrace && CurrentToken().type != TokenType::kCloseBrace)
+                   CurrentToken().type != TokenType::kOpenBrace || CurrentToken().type == TokenType::kCloseBrace)
             {
                 ConsumeToken();
             }
@@ -337,7 +337,7 @@ namespace glsld {
                     for (const auto& token : raw_node->tokens) {
                         array_dimension += token.text;
                     }
-                } else {
+                } else if (array_size->kind() == AstNodeKind::kVariableExpression) {
                     const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
                     array_dimension = var_expr->name;
                 }
@@ -501,7 +501,9 @@ namespace glsld {
             return tokens;
         }
 
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
+        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen &&
+               CurrentToken().type != TokenType::kOpenBrace && CurrentToken().type != TokenType::kCloseBrace)
+        {
             if (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kPrimitive) {
                 tokens.push_back(CurrentToken());
                 ConsumeToken();

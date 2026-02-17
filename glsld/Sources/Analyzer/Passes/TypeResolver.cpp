@@ -224,7 +224,7 @@ namespace glsld {
                 for (const auto& token : raw_node->tokens) {
                     info.array_sizes.push_back(token);
                 }
-            } else {
+            } else if (size->kind() == AstNodeKind::kVariableExpression) {
                 const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
                 info.array_sizes.push_back(Token{
                     .text = var_expr->name,
@@ -240,8 +240,12 @@ namespace glsld {
 
         if (typename_token.type == TokenType::kIdentifier) {
             auto* type_symbol = current_scope_->FindSymbol(typename_token.text);
-            bool  is_block    = type_symbol->kind == SymbolKind::kInterface
-                             || type_symbol->kind == SymbolKind::kStruct;
+            if (type_symbol == nullptr) {
+                return {};
+            }
+
+            bool is_block = type_symbol->kind == SymbolKind::kInterface
+                         || type_symbol->kind == SymbolKind::kStruct;
 
             if (type_symbol != nullptr && is_block) {
                 info.block_symbol = type_symbol;
