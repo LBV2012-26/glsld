@@ -12,7 +12,7 @@
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Logger.hpp"
 #include "Server/JsonResponse.hpp"
-#include "Server/LspConverter.hpp"
+#include "Server/LspProviders.hpp"
 
 namespace glsld {
     namespace {
@@ -83,7 +83,7 @@ namespace glsld {
                     }
                 }
             } catch (const std::exception& e) {
-
+                // TODO
             }
         }
     }
@@ -249,7 +249,7 @@ namespace glsld {
         return {
             { "capabilities", capabilities },
             { "serverInfo", {
-                { "name", "glsl-analyzer" },
+                { "name", "glsld" },
                 { "version", "0.1.0" }
             } }
         };
@@ -260,38 +260,45 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
-        std::string uri = context.params["textDocument"]["uri"];
+        const auto& uri = context.params["textDocument"]["uri"];
 
-        const auto* symbols = workspace_.GetDocumentSymbols(uri);
-        if (symbols == nullptr) {
-            return nlohmann::json::array();
+        const auto [snapshot, error_response] = ValidateAndGetDocument(uri);
+        if (snapshot == nullptr) {
+            return error_response;
         }
 
-        auto result = ConvertScopeToDocumentSymbols(symbols->root_scope());
-        return result;
+        return ConvertScopeToDocumentSymbols(snapshot->symbols.root_scope());
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
-        std::string uri = context.params["textDocument"]["uri"];
+        const auto& uri = context.params["textDocument"]["uri"];
 
-        const auto* symbols = workspace_.GetDocumentSymbols(uri);
-        auto tokens = workspace_.GetDocumentTokens(uri);
-        auto data   = SemanticData(*workspace_.GetDocument(uri));
+        const auto [snapshot, error_response] = ValidateAndGetDocument(uri);
+        if (snapshot == nullptr) {
+            return error_response;
+        }
 
+        auto data = GetSemanticData(snapshot);
         return { { "data", data } };
     }
 
     nlohmann::json LspServer::HandleDefinition(Context& context) {
-        std::string_view uri = context.params["textDocument"]["uri"];
+        const auto& uri      = context.params["textDocument"]["uri"];
         const auto& position = context.params["position"];
 
         auto target = ConvertToParserPosition(position);
-        auto response_array = nlohmann::json::array();
 
-        auto symbols = workspace_.GetDefinitionSymbols(uri, target);
-        if (symbols.empty()) {
-            return response_array;
+        const auto [snapshot, error_response] = ValidateAndGetDocument(uri);
+        if (snapshot == nullptr) {
+            return error_response;
         }
+
+        auto symbols = GetDefinitionSymbols(snapshot, target);
+        if (symbols.empty()) {
+            return nlohmann::json::array();
+        }
+
+        auto response_array = nlohmann::json::array();
 
         for (const auto& symbol : symbols) {
             std::size_t start_line  = symbol->location.line   - 1;
@@ -313,18 +320,23 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleHover(Context& context) {
-        std::string_view uri = context.params["textDocument"]["uri"];
+        const auto& uri      = context.params["textDocument"]["uri"];
         const auto& position = context.params["position"];
 
-        auto target = ConvertToParserPosition(position);
-        nlohmann::json response;
-
-        auto symbols = workspace_.GetDefinitionSymbols(uri, target);
-        if (symbols.empty()) {
-            return response;
+        const auto [snapshot, error_response] = ValidateAndGetDocument(uri);
+        if (snapshot == nullptr) {
+            return error_response;
         }
 
+        auto target  = ConvertToParserPosition(position);
+        auto symbols = GetDefinitionSymbols(snapshot, target);
+        if (symbols.empty()) {
+            return {};
+        }
+
+        nlohmann::json response;
         std::string markdown;
+
         if (symbols.size() == 1) {
             const auto* symbol = symbols.front();
             markdown = "```glsl\n";
@@ -347,11 +359,16 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleInlayHints(Context& context) {
-        const auto& document = context.params["textDocument"];
-        std::string_view uri = document["uri"];
+        const auto& uri = context.params["textDocument"]["uri"];
+
+        const auto [snapshot, error_response] = ValidateAndGetDocument(uri);
+        if (snapshot == nullptr) {
+            return error_response;
+        }
+
+        auto hints = GetInlayHints(snapshot);
 
         nlohmann::json response = nlohmann::json::array();
-        auto hints = workspace_.GetInlayHints(uri);
         for (const auto& hint : hints) {
             nlohmann::json result;
 
@@ -370,28 +387,33 @@ namespace glsld {
         const auto& document  = context.params["textDocument"];
         std::string_view uri  = document["uri"];
         std::string_view text = document["text"];
+        int version           = document["version"];
 
-        workspace_.UpdateDocument(uri, text);
+        workspace_.UpdateDocument(uri, text, version);
     }
 
     void LspServer::HandleDidChange(Context& context) {
-        std::string_view uri = context.params["textDocument"]["uri"];
+        const auto& document = context.params["textDocument"];
+        const auto& uri = document["uri"];
+        int version = document["version"];
 
         const auto& changes = context.params["contentChanges"];
         if (changes.empty() || !changes[0].contains("text")) {
             return;
         }
-        std::string new_text = changes[0]["text"];
+        const auto& new_text = changes[0]["text"];
 
         {
             using namespace std::chrono_literals;
-
             std::unique_lock lock(update_mutex_);
-            auto deadline = std::chrono::steady_clock::now() + 300ms;
 
-            pending_updates_[std::string(uri)] = {
-                .text = std::move(new_text),
-                .deadline = deadline
+            latest_received_versions_[uri] = version;
+            auto deadline = std::chrono::steady_clock::now() + 200ms;
+
+            pending_updates_[uri] = {
+                .text     = new_text,
+                .deadline = deadline,
+                .version  = version
             };
         }
 
@@ -432,10 +454,11 @@ namespace glsld {
                 if (now >= it->second.deadline) {
                     std::string uri  = it->first;
                     std::string text = std::move(it->second.text);
+                    int version      = it->second.version;
                     it = pending_updates_.erase(it);
 
                     lock.unlock();
-                    Update(uri, text);
+                    Update(uri, text, version);
                     lock.lock();
                 } else {
                     update_condition_.wait_until(lock, it->second.deadline);
@@ -445,7 +468,36 @@ namespace glsld {
         }
     }
 
-    void LspServer::Update(std::string_view uri, std::string_view text) {
-        workspace_.UpdateDocument(uri, text);
+    void LspServer::Update(std::string_view uri, std::string_view text, int version) {
+        workspace_.UpdateDocument(uri, text, version);
+
+        // TODO
+        SendNotification("textDocument/publishDiagnostics", {
+            { "uri", uri },
+            { "version", version },
+            { "diagnostics", nlohmann::json::array() } // 发送空数组清空错误
+        });
+    }
+
+    std::pair<std::shared_ptr<const Document>, nlohmann::json> LspServer::ValidateAndGetDocument(const std::string& uri) const {
+        int target_version = 0;
+        {
+            std::lock_guard lock(update_mutex_);
+            if (latest_received_versions_.contains(uri)) {
+                target_version = latest_received_versions_.at(uri);
+            }
+        }
+
+        const auto snapshot = workspace_.GetDocumentSnapshot(uri);
+        if (snapshot == nullptr || snapshot->version < target_version) {
+            nlohmann::json error_response;
+            error_response = {
+                { "code", -32801 },
+                { "message", "Document is out of date, parsing in progress." }
+            };
+            return { nullptr, error_response };
+        }
+
+        return { snapshot, {} };
     }
 }

@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <variant>
+#include "Analyzer/Ast/Ast.hpp"
 
 namespace glsld {
     void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {

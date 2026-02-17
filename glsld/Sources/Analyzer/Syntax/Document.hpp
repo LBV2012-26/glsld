@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -31,5 +32,11 @@ namespace glsld {
         std::vector<Token>                   tokens;
         std::unique_ptr<TranslationUnitNode> ast;
         BindingMap                           bindings;
+        int                                  version{};
+    };
+
+    struct InlayHint {
+        SourceLocation location;
+        std::string    label;
     };
 }

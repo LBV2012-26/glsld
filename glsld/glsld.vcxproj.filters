@@ -16,7 +16,7 @@
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
-    <ClCompile Include="Sources\Server\LspConverter.cpp" />
+    <ClCompile Include="Sources\Server\LspProviders.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
@@ -44,7 +44,7 @@
     <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
-    <ClInclude Include="Sources\Server\LspConverter.hpp" />
+    <ClInclude Include="Sources\Server\LspProviders.hpp" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />

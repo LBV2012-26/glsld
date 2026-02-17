@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -10,6 +11,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Server/Context.hpp"
@@ -44,19 +46,23 @@ namespace glsld {
         void HandleExit(Context& context);
 
         void UpdateWorker();
-        void Update(std::string_view uri, std::string_view text);
+        void Update(std::string_view uri, std::string_view text, int version);
+
+        std::pair<std::shared_ptr<const Document>, nlohmann::json> ValidateAndGetDocument(const std::string& uri) const;
 
         struct PendingUpdate {
             std::string text;
             std::chrono::steady_clock::time_point deadline;
+            int version;
         };
 
         Router router_;
         Workspace workspace_;
         std::atomic<bool> running_{ true };
-        std::mutex update_mutex_;
+        mutable std::mutex update_mutex_;
         std::condition_variable update_condition_;
         utils::StringHeteroHashTable<std::string, PendingUpdate> pending_updates_;
+        utils::StringHeteroHashTable<std::string, int> latest_received_versions_;
         std::jthread worker_thread_;
     };
 }

@@ -8,7 +8,7 @@ layout(location = 0) out vec4 FragColor;
 layout(set = 1, binding = 0) uniform sampler   my_sampler;
 layout(set = 2, binding = 0) uniform texture2D my_texture;
 
-layout(std140, binding = 1) uniform MyUniformBuffer { // without set, auto fill set to 0
+layout(std140, set = 0, binding = 1) uniform MyUniformBuffer { // without set, auto fill set to 0
     mat4 my_matrix;
 } ubo;
 

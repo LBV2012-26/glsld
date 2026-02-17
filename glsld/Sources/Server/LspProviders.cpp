@@ -1,8 +1,11 @@
 #include "stdafx.h"
-#include "LspConverter.hpp"
+#include "LspProviders.hpp"
 
 #include <unordered_set>
 #include <variant>
+
+#include "Analyzer/Passes/InlayHintVisitor.hpp"
+#include "Analyzer/Passes/NodeLocator.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -67,6 +70,26 @@ namespace glsld {
 
             return type_index;
         }
+
+        const SymbolInfo* ResolveFunctionJump(const Document* document_snapshot, const SymbolInfo* symbol) {
+            std::string name = symbol->name;
+            if (symbol->kind == SymbolKind::kFunctionImpl) {
+                if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
+                    name.replace(pos, 7, "__Decl_");
+                }
+            } else if (symbol->kind == SymbolKind::kFunctionDecl) {
+                if (auto pos = name.find("__Decl_"); pos != std::string::npos) {
+                    name.replace(pos, 7, "__Impl_");
+                }
+            }
+
+            if (document_snapshot != nullptr) {
+                const auto* resolved_symbol = document_snapshot->symbols.root_scope()->FindSymbol(name);
+                return resolved_symbol;
+            }
+
+            return nullptr;
+        }
     }
 
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
@@ -105,6 +128,7 @@ namespace glsld {
 
         for (const auto& [name, info] : scope->symbols()) {
             nlohmann::json symbol_node;
+
             symbol_node["name"] = SplitSymbolName(info.name);
             symbol_node["kind"] = ConvertSymbolKind(info.kind);
             symbol_node["selectionRange"] = ConvertToSelectionRange(info.location, info.name);
@@ -152,18 +176,22 @@ namespace glsld {
         return symbols;
     }
 
-    std::vector<std::uint32_t> SemanticData(const Document& document) {
+    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> document_snapshot) {
+        if (document_snapshot == nullptr) {
+            return {};
+        }
+
         std::vector<std::uint32_t> data;
         std::uint32_t last_line = 0;
         std::uint32_t last_char = 0;
 
-        for (const auto& token : document.tokens) {
+        for (const auto& token : document_snapshot->tokens) {
             std::uint32_t modifiers = 0;
             int type_index = -1;
 
             if (token.type == TokenType::kIdentifier) {
-                auto it = document.bindings.find(token.location);
-                if (it != document.bindings.end()) {
+                auto it = document_snapshot->bindings.find(token.location);
+                if (it != document_snapshot->bindings.end()) {
                     const SymbolInfo* symbol = nullptr;
                     if (std::holds_alternative<SymbolList>(it->second)) {
                         const auto& symbols = std::get<SymbolList>(it->second);
@@ -215,6 +243,113 @@ namespace glsld {
         }
 
         return data;
+    }
+
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> document_snapshot, SourceLocation location) {
+        if (document_snapshot == nullptr) {
+            return {};
+        }
+
+        NodeLocator locator(location);
+        locator.Traverse(document_snapshot->ast.get());
+        const AstNode* node = locator.result();
+        if (node == nullptr) {
+            return {};
+        }
+
+        SymbolList results;
+
+        switch (node->kind()) {
+        case AstNodeKind::kVariableExpression: {
+            const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
+
+            if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
+                const auto* linked_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
+                if (linked_symbol != nullptr) {
+                    results.push_back(linked_symbol);
+                }
+            } else if (std::holds_alternative<SymbolList>(var_expr->linked_symbols)) {
+                const auto& linked_symbols = std::get<SymbolList>(var_expr->linked_symbols);
+                if (!linked_symbols.empty()) {
+                    results.append_range(linked_symbols);
+                }
+            }
+
+            return results;
+        }
+
+        case AstNodeKind::kVariableDeclaration: {
+            const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
+            const auto& typename_token = var_decl->type_spec.typename_token();
+
+            if (utils::IsPositionInToken(typename_token, location)) {
+                if (typename_token.type != TokenType::kIdentifier) {
+                    return results;
+                }
+
+                const auto& type_symbol = document_snapshot->bindings.at(typename_token.location);
+                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
+                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
+                    if (linked_symbol != nullptr) {
+                        results.push_back(linked_symbol);
+                    }
+                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
+                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
+                    if (!linked_symbols.empty()) {
+                        results.append_range(linked_symbols);
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        case AstNodeKind::kFunctionDeclaration: {
+            const auto* func_decl = static_cast<const FunctionDeclarationNode*>(node);
+            const auto& typename_token = func_decl->type_spec.typename_token();
+
+            if (utils::IsPositionInToken(typename_token, location)) {
+                if (typename_token.type != TokenType::kIdentifier) {
+                    return results;
+                }
+
+                const auto& type_symbol = document_snapshot->bindings.at(typename_token.location);
+                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
+                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
+                    if (linked_symbol != nullptr) {
+                        results.push_back(linked_symbol);
+                    }
+                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
+                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
+                    if (!linked_symbols.empty()) {
+                        results.append_range(linked_symbols);
+                    }
+                }
+            } else if (func_decl->declared_symbol != nullptr && utils::IsPositionInFunctionName(func_decl->declared_symbol, location)) {
+                const auto* result = ResolveFunctionJump(document_snapshot.get(), func_decl->declared_symbol);
+                if (result != nullptr) {
+                    results.push_back(result);
+                }
+            }
+
+            return results;
+        }
+
+        default:
+            break;
+        }
+
+        return results;
+    }
+
+    std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> document_snapshot) {
+        if (document_snapshot == nullptr || document_snapshot->ast == nullptr) {
+            return {};
+        }
+
+        InlayHintVisitor visitor;
+        visitor.Traverse(document_snapshot->ast.get());
+        return visitor.hints();
     }
 
     std::string FormatSymbol(const SymbolInfo* symbol) {

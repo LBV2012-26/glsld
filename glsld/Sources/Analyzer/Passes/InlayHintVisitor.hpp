@@ -3,14 +3,9 @@
 #include <string>
 #include <vector>
 #include "Analyzer/Ast/AstVisitor.hpp"
-#include "Analyzer/Syntax/Token.hpp"
+#include "Analyzer/Syntax/Document.hpp"
 
 namespace glsld {
-    struct InlayHint {
-        SourceLocation location;
-        std::string label;
-    };
-
     class InlayHintVisitor : public AstVisitor {
     public:
         void VisitCallExpression(CallExpressionNode* node) override;
