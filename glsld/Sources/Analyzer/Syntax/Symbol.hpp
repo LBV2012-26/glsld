@@ -58,9 +58,10 @@ namespace glsld {
         bool is_builtin() const;
         bool is_valid() const;
         bool is_array() const;
+        bool is_const() const;
     };
 
-    class  Scope;
+    class Scope;
     struct AstNode;
     struct SymbolInfo {
         std::string           name;
@@ -94,6 +95,7 @@ namespace glsld {
         const SymbolInfo* FindSymbol(std::string_view name) const;
         const SymbolInfo* FindSymbolForHighlighting(std::string_view name) const;
         const SymbolInfo* FindSymbolInCurrentScope(std::string_view name) const;
+        void GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
         const auto& interval() const;
         const auto& children() const;
@@ -107,6 +109,7 @@ namespace glsld {
         SymbolInfo* AddSymbol(SymbolInfo symbol);
         SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind);
         SymbolInfo  RemoveSymbol(std::string_view name);
+        void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
         Scope*                                         parent_;
         std::size_t                                    index_;
@@ -129,7 +132,6 @@ namespace glsld {
 
     private:
         const Scope* FindScopeRecursive(const Scope* current, SourceLocation location) const;
-        bool IsLocationInScope(const Scope* scope, SourceLocation location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
         std::unique_ptr<Scope> root_scope_;

@@ -116,6 +116,10 @@ namespace glsld {
             return HandleInlayHints(context);
         });
 
+        router_.RegisterRequest("textDocument/completion", [this](Context& context) -> nlohmann::json {
+            return HandleCompletion(context);
+        });
+
         router_.RegisterNotification("textDocument/didOpen", [this](Context& context) -> void {
             HandleDidOpen(context);
         });
@@ -184,8 +188,6 @@ namespace glsld {
 
         capabilities["textDocumentSync"]       = 1;
         capabilities["documentSymbolProvider"] = true;
-        capabilities["hoverProvider"]          = true;
-        capabilities["inlayHintProvider"]      = true;
 
         static const std::vector<std::string> kTokenTypes{
             "namespace",    // 0
@@ -238,12 +240,12 @@ namespace glsld {
         };
 
         capabilities["definitionProvider"] = true;
+        capabilities["hoverProvider"]      = true;
+        capabilities["inlayHintProvider"]  = true;
 
-        // 4. 支持补全 (未来实现)
-        // capabilities["completionProvider"] = {
-        //     {"resolveProvider", false},
-        //     {"triggerCharacters", {".", "#"}}
-        // };
+        capabilities["completionProvider"] = {
+            { "triggerCharacters", { "." } }
+        };
 
         return {
             { "capabilities", capabilities },
@@ -361,6 +363,20 @@ namespace glsld {
         }
 
         return response;
+    }
+
+    nlohmann::json LspServer::HandleCompletion(Context& context) {
+        const auto& uri      = context.params["textDocument"]["uri"];
+        const auto& position = context.params["position"];
+
+        const auto snapshot = ValidateAndGetDocument(uri);
+        auto target = ConvertToParserPosition(position);
+
+        if (context.params["context"]["triggerCharacter"] == ".") {
+            return GetFieldCompletionItems(snapshot, target);
+        } else {
+            return GetCompletionItems(snapshot, target);
+        }
     }
 
     void LspServer::HandleDidOpen(Context& context) {

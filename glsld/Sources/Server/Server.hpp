@@ -44,6 +44,7 @@ namespace glsld {
         nlohmann::json HandleDefinition(Context& context);
         nlohmann::json HandleHover(Context& context);
         nlohmann::json HandleInlayHints(Context& context);
+        nlohmann::json HandleCompletion(Context& context);
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);

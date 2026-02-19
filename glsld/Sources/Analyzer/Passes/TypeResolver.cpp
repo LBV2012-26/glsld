@@ -99,7 +99,7 @@ namespace glsld {
             VisitVariableDeclaration(param_node.get());
 
             TypeInfo param_typeinfo;
-            if (param_node->declared_symbol != nullptr) { // 是否无参数
+            if (param_node->declared_symbol != nullptr) { // 是否无参数只有类型
                 param_typeinfo = param_node->declared_symbol->type_info;
             } else {
                 param_typeinfo = ExtractTypeInfo(param_node->type_spec);
@@ -191,7 +191,7 @@ namespace glsld {
         auto object_type = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
 
-        if (block_symbol != nullptr  && block_symbol->internal_scope != nullptr) {
+        if (block_symbol != nullptr  && block_symbol->internal_scope != nullptr && node->member != nullptr) {
             const auto* member_symbol = block_symbol->internal_scope->FindSymbol(node->member->name);
 
             if (member_symbol != nullptr) {

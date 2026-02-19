@@ -126,6 +126,14 @@ namespace glsld {
         return nullptr;
     }
 
+    void Scope::GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const {
+        CollectLocalSymbols(symbols);
+
+        if (parent_ != nullptr) {
+            parent_->GetVisibleSymbols(symbols);
+        }
+    }
+
     SymbolInfo Scope::RemoveSymbol(std::string_view name) {
         auto it = symbols_.find(name);
         if (it != symbols_.end()) {
@@ -135,6 +143,18 @@ namespace glsld {
         }
 
         return {};
+    }
+
+    void Scope::CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const {
+        for (const auto& [_, symbol] : symbols_) {
+            symbols.push_back(&symbol);
+        }
+
+        for (const auto& child : children_) {
+            if (child->kind_ == ScopeKind::kTransparent) {
+                child->CollectLocalSymbols(symbols);
+            }
+        }
     }
 
     DocumentSymbols::DocumentSymbols()
@@ -182,16 +202,18 @@ namespace glsld {
 
     const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, SourceLocation location) const {
         auto Comparer = [](const SourceLocation& source_loc, const SourceLocation& scope_loc) -> bool {
-            return source_loc.line <  scope_loc.line ||
-                  (source_loc.line == scope_loc.line && source_loc.column < scope_loc.column);
+            return source_loc < scope_loc;
         };
 
         auto Projector = [](const std::unique_ptr<Scope>& scope) -> const SourceLocation& {
             return scope->interval_.first;
         };
 
-        auto it = std::ranges::upper_bound(current->children_, location, Comparer, Projector);
+        auto IsLocationInScope = [](const Scope* scope, SourceLocation location) -> bool {
+            return (scope->interval_.first <= location) && (location < scope->interval_.second);
+        };
 
+        auto it = std::ranges::upper_bound(current->children_, location, Comparer, Projector);
         if (it != current->children_.begin()) {
             const auto& candidate = *(--it);
 
@@ -201,22 +223,6 @@ namespace glsld {
         }
 
         return current;
-    }
-
-    bool DocumentSymbols::IsLocationInScope(const Scope* scope, SourceLocation location) const {
-        if (location.line > scope->interval_.first.line && location.line < scope->interval_.second.line) {
-            return true;
-        }
-
-        if (location.line == scope->interval_.first.line && location.column >= scope->interval_.first.column) {
-            if (location.line < scope->interval_.second.line ||
-                (location.line == scope->interval_.second.line && location.column < scope->interval_.second.column))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     void DocumentSymbols::PrintScopes(const Scope* scope, int indent_level) const {

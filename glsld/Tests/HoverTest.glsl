@@ -52,8 +52,6 @@ void Func(const in float input_arg, out float output_arg, inout float param) {
 
 void main() {
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
-
-
     mat4 my_matrix = ubo.my_matrix;
 
     int mdarray[25][MAX_ARRAY_SIZE_1];

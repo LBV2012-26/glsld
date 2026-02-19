@@ -1,11 +1,13 @@
 #include "stdafx.h"
 #include "LspProviders.hpp"
 
+#include <string_view>
 #include <unordered_set>
 #include <variant>
 
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
+#include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -71,7 +73,7 @@ namespace glsld {
             return type_index;
         }
 
-        const SymbolInfo* ResolveFunctionJump(const Document* document_snapshot, const SymbolInfo* symbol) {
+        const SymbolInfo* ResolveFunctionJump(const Document* snapshot, const SymbolInfo* symbol) {
             std::string name = symbol->name;
             if (symbol->kind == SymbolKind::kFunctionImpl) {
                 if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
@@ -83,12 +85,32 @@ namespace glsld {
                 }
             }
 
-            if (document_snapshot != nullptr) {
-                const auto* resolved_symbol = document_snapshot->symbols.root_scope()->FindSymbol(name);
+            if (snapshot != nullptr) {
+                const auto* resolved_symbol = snapshot->symbols.root_scope()->FindSymbol(name);
                 return resolved_symbol;
             }
 
             return nullptr;
+        }
+
+        int MapSymbolKindToLspCompletion(SymbolKind kind, bool is_const = false) {
+            switch (kind) {
+            case SymbolKind::kVariable:
+                return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
+            case SymbolKind::kParameter:
+                return 6;  // Variable
+            case SymbolKind::kStruct:
+                return 22; // Struct
+            case SymbolKind::kInterface:
+                return 8;  // Interface
+            case SymbolKind::kFunctionDecl:
+            case SymbolKind::kFunctionImpl:
+                return 3;  // Function
+            case SymbolKind::kMacro:
+                return 9;  // Module (或者 Constant)
+            default:
+                return 1;  // Text
+            }
         }
     }
 
@@ -176,8 +198,8 @@ namespace glsld {
         return symbols;
     }
 
-    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> document_snapshot) {
-        if (document_snapshot == nullptr) {
+    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot) {
+        if (snapshot == nullptr) {
             return {};
         }
 
@@ -185,13 +207,13 @@ namespace glsld {
         std::uint32_t last_line = 0;
         std::uint32_t last_char = 0;
 
-        for (const auto& token : document_snapshot->tokens) {
+        for (const auto& token : snapshot->tokens) {
             std::uint32_t modifiers = 0;
             int type_index = -1;
 
             if (token.type == TokenType::kIdentifier) {
-                auto it = document_snapshot->bindings.find(token.location);
-                if (it != document_snapshot->bindings.end()) {
+                auto it = snapshot->bindings.find(token.location);
+                if (it != snapshot->bindings.end()) {
                     const SymbolInfo* symbol = nullptr;
                     if (std::holds_alternative<SymbolList>(it->second)) {
                         const auto& symbols = std::get<SymbolList>(it->second);
@@ -245,13 +267,13 @@ namespace glsld {
         return data;
     }
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> document_snapshot, SourceLocation location) {
-        if (document_snapshot == nullptr) {
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        if (snapshot == nullptr) {
             return {};
         }
 
         NodeLocator locator(location);
-        locator.Traverse(document_snapshot->ast.get());
+        locator.Traverse(snapshot->ast.get());
         const AstNode* node = locator.result();
         if (node == nullptr) {
             return {};
@@ -287,8 +309,8 @@ namespace glsld {
                     return results;
                 }
 
-                auto it = document_snapshot->bindings.find(typename_token.location);
-                if (it == document_snapshot->bindings.end()) {
+                auto it = snapshot->bindings.find(typename_token.location);
+                if (it == snapshot->bindings.end()) {
                     return results;
                 }
 
@@ -319,8 +341,8 @@ namespace glsld {
                     return results;
                 }
 
-                auto it = document_snapshot->bindings.find(typename_token.location);
-                if (it == document_snapshot->bindings.end()) {
+                auto it = snapshot->bindings.find(typename_token.location);
+                if (it == snapshot->bindings.end()) {
                     return results;
                 }
 
@@ -338,7 +360,7 @@ namespace glsld {
                     }
                 }
             } else if (func_decl->declared_symbol != nullptr && utils::IsPositionInFunctionName(func_decl->declared_symbol, location)) {
-                const auto* result = ResolveFunctionJump(document_snapshot.get(), func_decl->declared_symbol);
+                const auto* result = ResolveFunctionJump(snapshot.get(), func_decl->declared_symbol);
                 if (result != nullptr) {
                     results.push_back(result);
                 }
@@ -354,14 +376,74 @@ namespace glsld {
         return results;
     }
 
-    std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> document_snapshot) {
-        if (document_snapshot == nullptr || document_snapshot->ast == nullptr) {
+    std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot) {
+        if (snapshot == nullptr || snapshot->ast == nullptr) {
             return {};
         }
 
         InlayHintVisitor visitor;
-        visitor.Traverse(document_snapshot->ast.get());
+        visitor.Traverse(snapshot->ast.get());
         return visitor.hints();
+    }
+
+    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        const auto* located_scope = snapshot->symbols.FindScopeAt(location);
+
+        std::vector<const SymbolInfo*> visible_symbols;
+        located_scope->GetVisibleSymbols(visible_symbols);
+
+        nlohmann::json items = nlohmann::json::array();
+        std::unordered_set<std::string, StringViewHeteroHash, StringViewHeteroEqual> existing_labels;
+
+        for (const auto* symbol : visible_symbols) {
+            nlohmann::json item;
+            std::string_view symbol_name;
+
+            if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
+                symbol_name = utils::UnmangleFunctionName(symbol->name);
+            } else {
+                symbol_name = symbol->name;
+            }
+
+            if (existing_labels.contains(symbol_name)) {
+                continue;
+            }
+
+            existing_labels.emplace(symbol_name);
+            item["label"] = symbol_name;
+            item["kind"]  = MapSymbolKindToLspCompletion(symbol->kind, symbol->type_info.is_const());
+
+            // TODO: document, detail, etc
+            items.push_back(item);
+        }
+
+        return items;
+    }
+
+    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        SourceLocation dot_location{ location.line, location.column - 1 };
+        NodeLocator locator(dot_location);
+        locator.Traverse(snapshot->ast.get());
+        const auto* node = locator.result();
+
+        nlohmann::json items = nlohmann::json::array();
+
+        if (const auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
+            const auto& type_info = expr_node->evaluated_type;
+
+            if (type_info.block_symbol != nullptr && type_info.block_symbol->internal_scope != nullptr) {
+                const auto* scope = type_info.block_symbol->internal_scope;
+                for (const auto& symbol : scope->symbols()) {
+                    nlohmann::json item;
+                    item["label"] = symbol.first;
+                    item["kind"]  = 5;
+
+                    items.push_back(item);
+                }
+            }
+        }
+
+        return items;
     }
 
     std::string FormatSymbol(const SymbolInfo* symbol) {

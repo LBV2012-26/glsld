@@ -22,6 +22,16 @@ namespace glsld {
         return !array_sizes.empty();
     }
 
+    inline bool TypeInfo::is_const() const {
+        for (const auto& qualifier : qualifiers) {
+            if (qualifier.text == "const") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     inline const auto& Scope::interval() const {
         return interval_;
     }

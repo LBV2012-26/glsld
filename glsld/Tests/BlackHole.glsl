@@ -1134,7 +1134,6 @@ void StepGeodesicRK4_Optimized(
 
     vec4 finalX = s0.X + (dt / 6.0) * (k1.X + 2.0 * k2.X + 2.0 * k3.X + k4.X);
     vec4 finalP = s0.P + (dt / 6.0) * (k1.P + 2.0 * k2.P + 2.0 * k3.P + k4.P);
-
     
     float finalSign = GetIntermediateSign(s0.X, finalX, r_sign, PhysicalSpinA);
     if(finalSign>0.0){//antiverse侧修正有可能造成数值问题，暂时关停
