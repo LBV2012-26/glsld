@@ -401,8 +401,8 @@ namespace glsld {
             }
         }
 
-        thread_pool_.Submit([this, uri]() -> void {
-            UpdateWorker(uri);
+        thread_pool_.Submit([this, uri, version]() -> void {
+            UpdateWorker(uri, version);
         });
     }
 
@@ -428,10 +428,8 @@ namespace glsld {
         running_.store(false);
     }
 
-    void LspServer::UpdateWorker(const std::string& uri) {
+    void LspServer::UpdateWorker(const std::string& uri, int version_replica) {
         auto& update = pending_updates_[uri];
-        int version_replica = document_versions_[uri]->load();
-
         if (std::chrono::steady_clock::now() < update.deadline) {
             std::this_thread::sleep_until(update.deadline);
         }

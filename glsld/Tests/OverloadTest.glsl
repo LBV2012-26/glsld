@@ -11,6 +11,7 @@ void TestOverloadFunction();
 void TestOverloadFunction(bool boolarg) {}
 void TestOverloadFunction(int intarg) {}
 void TestOverloadFunction(uint uintarg) {}
+void TestOverloadFunction(half halfarg) {}
 void TestOverloadFunction(float floatarg) {}
 void TestOverloadFunction(double doublearg) {}
 
@@ -37,6 +38,7 @@ void main() {
     TestOverloadFunction(1);
     TestOverloadFunction(1u);
     TestOverloadFunction(1.0);
+    TestOverloadFunction(1.0hf);
     TestOverloadFunction(1.0f);
     TestOverloadFunction(1.0lf);
 

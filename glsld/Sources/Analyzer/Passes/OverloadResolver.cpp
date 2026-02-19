@@ -53,6 +53,10 @@ namespace glsld {
                 return MatchGrade::kFailed;
             }
 
+            if (from_desc == to_desc) {
+                return MatchGrade::kExactMatch;
+            }
+
             // 类型提升
             // 相同 Family，允许位宽提升
             if (from_desc.family == to_desc.family) {

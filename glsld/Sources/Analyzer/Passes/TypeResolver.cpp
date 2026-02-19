@@ -99,7 +99,7 @@ namespace glsld {
             VisitVariableDeclaration(param_node.get());
 
             TypeInfo param_typeinfo;
-            if (param_node->declared_symbol != nullptr) {
+            if (param_node->declared_symbol != nullptr) { // 是否无参数
                 param_typeinfo = param_node->declared_symbol->type_info;
             } else {
                 param_typeinfo = ExtractTypeInfo(param_node->type_spec);
@@ -151,7 +151,7 @@ namespace glsld {
             evaluated_type = base_type;
             evaluated_type.array_sizes.erase(evaluated_type.array_sizes.begin());
         } else if (base_type.type_desc.vector_length > 1) {
-            evaluated_type = GetCanonicalTypeInfo(base_type);
+            evaluated_type = GetCanonicalTypeInfo(base_type); // 从向量或者矩阵中剥离子类型
         } else {
             evaluated_type = base_type;
         }
@@ -287,7 +287,7 @@ namespace glsld {
         }
 
         if (text == "bool")
-            return { BaseFamily::kBool,  0,  1, 1 };
+            return { BaseFamily::kBool,  32, 1, 1 };
         if (text == "int")
             return { BaseFamily::kInt,   32, 1, 1 };
         if (text == "uint")
@@ -404,10 +404,31 @@ namespace glsld {
             std::string_view text = token.text;
 
             if (text.ends_with("lf") || text.ends_with("LF") || text.ends_with("Lf") || text.ends_with("lF")) {
-                return TypeInfo{
-                    .typename_token = Token{
+                return {
+                    .typename_token{
                         .text = "double",
                         .type = TokenType::kPrimitive
+                    },
+                    .type_desc{
+                        .family        = BaseFamily::kFloat,
+                        .bits          = 64,
+                        .vector_count  = 1,
+                        .vector_length = 1
+                    }
+                };
+            }
+
+            if (text.ends_with("hf") || text.ends_with("HF") || text.ends_with("Hf") || text.ends_with("hF")) {
+                return {
+                    .typename_token{
+                        .text = "half",
+                        .type = TokenType::kPrimitive
+                    },
+                    .type_desc{
+                        .family        = BaseFamily::kFloat,
+                        .bits          = 16,
+                        .vector_count  = 1,
+                        .vector_length = 1
                     }
                 };
             }
@@ -415,27 +436,45 @@ namespace glsld {
             if (text.contains('.') || text.contains('e') || text.contains('E') ||
                 text.ends_with('f') || text.ends_with('F'))
             {
-                return TypeInfo{
-                    .typename_token = Token{
+                return {
+                    .typename_token{
                         .text = "float",
                         .type = TokenType::kPrimitive
+                    },
+                    .type_desc{
+                        .family        = BaseFamily::kFloat,
+                        .bits          = 32,
+                        .vector_count  = 1,
+                        .vector_length = 1
                     }
                 };
             }
 
             if (text.find('.') == std::string_view::npos) {
                 if (text.ends_with('u') || text.ends_with('U')) {
-                    return TypeInfo{
-                        .typename_token = Token{
+                    return {
+                        .typename_token{
                             .text = "uint",
                             .type = TokenType::kPrimitive
+                        },
+                        .type_desc{
+                            .family        = BaseFamily::kUint,
+                            .bits          = 32,
+                            .vector_count  = 1,
+                            .vector_length = 1
                         }
                     };
                 } else {
-                    return TypeInfo{
-                        .typename_token = Token{
+                    return {
+                        .typename_token{
                             .text = "int",
                             .type = TokenType::kPrimitive
+                        },
+                        .type_desc{
+                            .family        = BaseFamily::kInt,
+                            .bits          = 32,
+                            .vector_count  = 1,
+                            .vector_length = 1
                         }
                     };
                 }
@@ -444,10 +483,16 @@ namespace glsld {
 
         if (token.type == TokenType::kPrimitive) {
             if (token.text == "true" || token.text == "false") {
-                return TypeInfo{
-                    .typename_token = Token{
+                return {
+                    .typename_token{
                         .text = "bool",
                         .type = TokenType::kPrimitive
+                    },
+                    .type_desc{
+                        .family        = BaseFamily::kBool,
+                        .bits          = 32,
+                        .vector_count  = 1,
+                        .vector_length = 1
                     }
                 };
             }

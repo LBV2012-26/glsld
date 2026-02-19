@@ -51,7 +51,7 @@ namespace glsld {
         void HandleInitialized(Context& context);
         void HandleExit(Context& context);
 
-        void UpdateWorker(const std::string& uri);
+        void UpdateWorker(const std::string& uri, int version_replica);
         void Update(const std::string& uri, std::string_view text, int version_replica);
         std::shared_ptr<const Document> ValidateAndGetDocument(const std::string& uri) const;
 
