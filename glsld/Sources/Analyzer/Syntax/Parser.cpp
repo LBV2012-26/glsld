@@ -3,13 +3,15 @@
 
 #include <concepts>
 #include <format>
-#include <memory>
 #include <utility>
 
 namespace glsld {
-    Parser::Parser(std::string_view source, DocumentSymbols& symbols)
+    Parser::Parser(std::string_view source, DocumentSymbols& symbols, int version_replica,
+                   std::shared_ptr<const std::atomic<int>> version_pointer)
         : lexer_{ source }
         , symbols_{ symbols }
+        , version_replica_{ version_replica }
+        , version_pointer_{ version_pointer }
     {
         Token token;
         do {
@@ -136,6 +138,10 @@ namespace glsld {
         root->begin = { 1, 1 };
 
         while (CurrentToken().type != TokenType::kEndOfFile) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+                return nullptr;
+            }
+
             auto statement = ParseStatement();
             if (statement != nullptr) {
                 root->statements.push_back(std::move(statement));
@@ -277,8 +283,10 @@ namespace glsld {
         }
 
         // expression, including function calling
-        bool common_calling = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kBuiltInFunction);
+        bool common_calling = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier ||
+                                                    CurrentToken().type == TokenType::kBuiltInFunction);
         bool constructor = !type_spec.empty() && CurrentToken().type == TokenType::kOpenParen;
+
         if (common_calling || constructor) {
             if (constructor) {
                 ConsumeToken(-1);

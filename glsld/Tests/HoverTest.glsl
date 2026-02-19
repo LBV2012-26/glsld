@@ -47,11 +47,13 @@ void Func(const in float input_arg, out float output_arg, inout float param) {
     output_arg = input_arg + MACRO_FUNC(param);
 
     texture(sampler(my_sampler, my_texture), vec2(0.5));
-    texture2D(my_texture, vec2(0.5)); // test constructor, it should be green, not yellow
+    texture2D(my_texture, vec2(0.5)); // test constructor
 }
 
 void main() {
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
+
+
     mat4 my_matrix = ubo.my_matrix;
 
     int mdarray[25][MAX_ARRAY_SIZE_1];

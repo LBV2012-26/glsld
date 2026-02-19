@@ -6,7 +6,6 @@
 #include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -14,6 +13,8 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/Hash.hpp"
+#include "Base/ThreadPool.hpp"
 #include "Server/Context.hpp"
 #include "Server/Router.hpp"
 #include "Server/Workspace.hpp"
@@ -26,6 +27,11 @@ namespace glsld {
         void Run();
 
     private:
+        struct PendingUpdate {
+            std::string text;
+            std::chrono::steady_clock::time_point deadline;
+        };
+
         void RegisterHandlers();
 
         std::optional<nlohmann::json> ReadMessage();
@@ -42,27 +48,21 @@ namespace glsld {
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);
         void HandleDidClose(Context& context);
-        void HandleInitialized(Context& context); // 客户端确认初始化完成
+        void HandleInitialized(Context& context);
         void HandleExit(Context& context);
 
-        void UpdateWorker();
-        void Update(std::string_view uri, std::string_view text, int version);
+        void UpdateWorker(const std::string& uri);
+        void Update(const std::string& uri, std::string_view text, int version_replica);
+        std::shared_ptr<const Document> ValidateAndGetDocument(const std::string& uri) const;
 
-        std::pair<std::shared_ptr<const Document>, nlohmann::json> ValidateAndGetDocument(const std::string& uri) const;
+        std::atomic<bool>               running_{ true };
+        mutable std::condition_variable ready_condition_;
+        mutable std::mutex              update_mutex_;
+        Router                          router_;
+        Workspace                       workspace_;
+        ThreadPool                      thread_pool_;
 
-        struct PendingUpdate {
-            std::string text;
-            std::chrono::steady_clock::time_point deadline;
-            int version;
-        };
-
-        Router router_;
-        Workspace workspace_;
-        std::atomic<bool> running_{ true };
-        mutable std::mutex update_mutex_;
-        std::condition_variable update_condition_;
-        utils::StringHeteroHashTable<std::string, PendingUpdate> pending_updates_;
-        utils::StringHeteroHashTable<std::string, int> latest_received_versions_;
-        std::jthread worker_thread_;
+        StringHeteroHashTable<std::string, PendingUpdate> pending_updates_;
+        StringHeteroHashTable<std::string, std::shared_ptr<std::atomic<int>>> document_versions_;
     };
 }

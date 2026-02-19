@@ -2,8 +2,17 @@
 #include "AstVisitor.hpp"
 
 namespace glsld {
+    AstVisitor::AstVisitor(int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
+        : version_replica_{ version_replica }
+        , version_pointer_{ version_pointer }
+    {}
+
     void AstVisitor::Traverse(AstNode* node) {
         if (node == nullptr) {
+            return;
+        }
+
+        if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
             return;
         }
 

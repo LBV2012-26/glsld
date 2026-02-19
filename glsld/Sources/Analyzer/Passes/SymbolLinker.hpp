@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -7,7 +9,8 @@
 namespace glsld {
     class SymbolLinker : public AstVisitor {
     public:
-        SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings);
+        SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+                     std::shared_ptr<const std::atomic<int>> vesion_pointer);
 
     private:
         void VisitPreprocessor(PreprocessorNode* node) override;

@@ -9,7 +9,7 @@
 namespace glsld {
     class ThreadPool {
     public:
-        explicit ThreadPool(int max_thread_count = 0);
+        explicit ThreadPool(unsigned int max_thread_count = 0);
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool(ThreadPool&&)      = delete;
         ~ThreadPool();
@@ -28,7 +28,7 @@ namespace glsld {
         std::vector<std::unique_ptr<Worker>> workers_;
         std::vector<std::jthread>            threads_;
         std::atomic<std::size_t>             next_thread_index_{};
-        int                                  max_thread_count_;
+        unsigned int                         max_thread_count_;
         std::atomic<bool>                    terminate_{ false };
     };
 }

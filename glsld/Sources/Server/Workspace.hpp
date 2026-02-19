@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <shared_mutex>
 #include <string>
@@ -12,12 +13,14 @@
 namespace glsld {
     class Workspace {
     public:
-        void UpdateDocument(std::string_view uri, std::string_view context, int version);
+        void UpdateDocument(std::string_view uri, std::string_view context, int version_replica,
+                            std::shared_ptr<const std::atomic<int>> version, bool open_document = false);
+
         void RemoveDocument(std::string_view uri);
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
 
     private:
-        utils::StringHeteroHashTable<std::string, std::shared_ptr<Document>> documents_;
+        StringHeteroHashTable<std::string, std::shared_ptr<Document>> documents_;
         mutable std::shared_mutex mutex_;
     };
 }

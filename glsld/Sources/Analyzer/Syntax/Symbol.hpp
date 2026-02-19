@@ -108,12 +108,12 @@ namespace glsld {
         SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind);
         SymbolInfo  RemoveSymbol(std::string_view name);
 
-        Scope*                                                parent_;
-        std::size_t                                           index_;
-        std::pair<SourceLocation, SourceLocation>             interval_;
-        std::vector<std::unique_ptr<Scope>>                   children_;
-        utils::StringHeteroHashTable<std::string, SymbolInfo> symbols_;
-        ScopeKind                                             kind_{ ScopeKind::kTransparent };
+        Scope*                                         parent_;
+        std::size_t                                    index_;
+        std::pair<SourceLocation, SourceLocation>      interval_;
+        std::vector<std::unique_ptr<Scope>>            children_;
+        StringHeteroHashTable<std::string, SymbolInfo> symbols_;
+        ScopeKind                                      kind_{ ScopeKind::kTransparent };
     };
 
     class DocumentSymbols {

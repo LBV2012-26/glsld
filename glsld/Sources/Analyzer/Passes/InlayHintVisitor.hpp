@@ -8,8 +8,9 @@
 namespace glsld {
     class InlayHintVisitor : public AstVisitor {
     public:
-        void VisitCallExpression(CallExpressionNode* node) override;
+        InlayHintVisitor();
 
+        void VisitCallExpression(CallExpressionNode* node) override;
         const std::vector<InlayHint>& hints() const;
 
     private:

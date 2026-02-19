@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <atomic>
 #include <memory>
 #include <span>
 #include <stack>
@@ -16,7 +17,8 @@
 namespace glsld {
     class Parser {
     public:
-        Parser(std::string_view source, DocumentSymbols& symbols);
+        Parser(std::string_view source, DocumentSymbols& symbols, int version_replica,
+               std::shared_ptr<const std::atomic<int>> version_pointer);
 
         std::unique_ptr<TranslationUnitNode> Parse();
         const auto& tokens() const;
@@ -106,6 +108,8 @@ namespace glsld {
         std::vector<Token>                      tokens_;
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
+        int                                     version_replica_{};
+        std::shared_ptr<const std::atomic<int>> version_pointer_;
     };
 }
 

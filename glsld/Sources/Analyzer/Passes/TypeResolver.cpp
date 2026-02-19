@@ -73,8 +73,10 @@ namespace glsld {
         }
     }
 
-    TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings)
-        : symbols_{ symbols }
+    TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+                               std::shared_ptr<const std::atomic<int>> version_pointer)
+        : AstVisitor(version_replica, version_pointer)
+        , symbols_{ symbols }
         , bindings_{ bindings }
     {}
 
@@ -204,13 +206,19 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec) {
+        if (type_spec.typename_token().type == TokenType::kUnknown) {
+            return {};
+        }
+
         TypeInfo info;
 
         const auto& typename_token = type_spec.typename_token();
         info.typename_token = typename_token;
 
-        info.qualifiers.clear();
-        info.qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
+        if (type_spec.specifiers.size() > 0) {
+            info.qualifiers.clear();
+            info.qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
+        }
 
         info.array_sizes.clear();
 

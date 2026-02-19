@@ -10,25 +10,44 @@
 #include "Analyzer/Syntax/Parser.hpp"
 
 namespace glsld {
-    void Workspace::UpdateDocument(std::string_view uri, std::string_view context, int version) {
+    void Workspace::UpdateDocument(std::string_view uri, std::string_view context, int version_replica,
+                                   std::shared_ptr<const std::atomic<int>> version, bool open_document)
+    {
         auto document = std::make_shared<Document>();
-        document->version = version;
+        document->version = version_replica;
 
-        Parser parser(context, document->symbols);
+        auto Cancelled = [version_replica, &version]() -> bool {
+            return version_replica != version->load();
+        };
+
+        Parser parser(context, document->symbols, version_replica, version);
         document->ast = parser.Parse();
+        if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
+            return;
+        }
+
         document->tokens = parser.tokens();
 
-        SymbolLinker linker(document->symbols, document->bindings);
+        if (Cancelled()) return;
+        SymbolLinker linker(document->symbols, document->bindings, version_replica, version);
         linker.Traverse(document->ast.get());
 
-        TypeResolver collector(document->symbols, document->bindings);
+        if (Cancelled()) return;
+        TypeResolver collector(document->symbols, document->bindings, version_replica, version);
         collector.Traverse(document->ast.get());
 
-        OverloadResolver resolver(document->symbols, document->bindings);
+        if (Cancelled()) return;
+        OverloadResolver resolver(document->symbols, document->bindings, version_replica, version);
         resolver.Traverse(document->ast.get());
 
         {
             std::unique_lock lock(mutex_);
+            if (!open_document) {
+                if (!documents_.contains(uri)) {
+                    return;
+                }
+            }
+
             documents_[std::string(uri)] = std::move(document);
         }
     }

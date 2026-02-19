@@ -3,7 +3,8 @@
 
 namespace glsld {
     NodeLocator::NodeLocator(SourceLocation target)
-        : target_{ target }
+        : AstVisitor(0, nullptr)
+        , target_{ target }
         , deepest_node_{ nullptr }
     {}
 

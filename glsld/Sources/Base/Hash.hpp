@@ -6,7 +6,7 @@
 #include <string_view>
 #include <unordered_map>
 
-namespace glsld::utils {
+namespace glsld {
     struct StringViewHeteroEqual {
         using is_transparent = void;
 

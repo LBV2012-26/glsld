@@ -19,8 +19,8 @@ namespace glsld {
             std::size_t hash2 = std::hash<std::size_t>{}(location.column);
 
             std::size_t seed = 0;
-            utils::HashCombine(seed, hash1);
-            utils::HashCombine(seed, hash2);
+            HashCombine(seed, hash1);
+            HashCombine(seed, hash2);
             return seed;
         }
     };

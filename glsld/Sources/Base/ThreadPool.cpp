@@ -9,8 +9,8 @@
 #include <utility>
 
 namespace glsld {
-    ThreadPool::ThreadPool(int max_thread_count)
-        : max_thread_count_{ std::clamp(max_thread_count, 0, static_cast<int>(std::thread::hardware_concurrency())) }
+    ThreadPool::ThreadPool(unsigned int max_thread_count)
+        : max_thread_count_{ std::clamp(max_thread_count, 0u, std::thread::hardware_concurrency()) }
     {
         workers_.reserve(max_thread_count_);
         threads_.reserve(max_thread_count_);

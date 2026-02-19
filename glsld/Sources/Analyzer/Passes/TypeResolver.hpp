@@ -1,8 +1,11 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -10,7 +13,8 @@
 namespace glsld {
     class TypeResolver : public AstVisitor {
     public:
-        TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings);
+        TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+                     std::shared_ptr<const std::atomic<int>> version_pointer);
 
     private:
         void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;

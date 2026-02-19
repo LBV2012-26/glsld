@@ -1,11 +1,14 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
     class AstVisitor {
     public:
+        AstVisitor(int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer);
         virtual ~AstVisitor() = default;
 
         virtual void Traverse(AstNode* node);
@@ -40,6 +43,8 @@ namespace glsld {
         virtual void VisitRawExpression(RawExpressionNode* node);
         virtual void VisitMemberAccessExpression(MemberAccessExpressionNode* node);
 
-        Scope* current_scope_{ nullptr };
+        Scope*                                  current_scope_{ nullptr };
+        int                                     version_replica_{};
+        std::shared_ptr<const std::atomic<int>> version_pointer_;
     };
 }

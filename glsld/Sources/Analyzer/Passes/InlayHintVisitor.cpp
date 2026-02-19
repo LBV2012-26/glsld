@@ -6,6 +6,10 @@
 #include "Analyzer/Ast/Ast.hpp"
 
 namespace glsld {
+    InlayHintVisitor::InlayHintVisitor()
+        : AstVisitor(0, nullptr)
+    {}
+
     void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {
         const SymbolInfo* symbol = nullptr;
         const auto* callee_node = static_cast<const VariableExpressionNode*>(node->callee.get());

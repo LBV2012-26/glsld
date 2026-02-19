@@ -29,21 +29,21 @@ namespace glsld {
 namespace std {
     inline size_t hash<glsld::LogSinkConfig>::operator()(const glsld::LogSinkConfig& config) const {
         size_t seed = 0;
-        glsld::utils::HashCombine(seed, config.type);
-        glsld::utils::HashCombine(seed, config.pattern);
-        glsld::utils::HashCombine(seed, config.filename);
-        glsld::utils::HashCombine(seed, std::to_underlying(config.level));
+        glsld::HashCombine(seed, config.type);
+        glsld::HashCombine(seed, config.pattern);
+        glsld::HashCombine(seed, config.filename);
+        glsld::HashCombine(seed, std::to_underlying(config.level));
         return seed;
     }
 
     inline size_t hash<glsld::LoggerConfig>::operator()(const glsld::LoggerConfig& config) const {
         size_t seed = 0;
-        glsld::utils::HashCombine(seed, config.name);
-        glsld::utils::HashCombine(seed, config.pattern);
-        glsld::utils::HashCombine(seed, std::to_underlying(config.level));
+        glsld::HashCombine(seed, config.name);
+        glsld::HashCombine(seed, config.pattern);
+        glsld::HashCombine(seed, std::to_underlying(config.level));
 
         for (const auto& sink : config.sinks) {
-            glsld::utils::HashCombine(seed, sink);
+            glsld::HashCombine(seed, sink);
         }
 
         return seed;

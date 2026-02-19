@@ -134,8 +134,10 @@ namespace glsld {
         }
     }
 
-    OverloadResolver::OverloadResolver(const DocumentSymbols& symbols, BindingMap& bindings)
-        : symbols_{ symbols }
+    OverloadResolver::OverloadResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+                                       std::shared_ptr<const std::atomic<int>> version_pointer)
+        : AstVisitor(version_replica, version_pointer)
+        , symbols_{ symbols }
         , bindings_{ bindings }
     {}
 

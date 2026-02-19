@@ -4,8 +4,10 @@
 #include <utility>
 
 namespace glsld {
-    SymbolLinker::SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings)
-        : symbols_{ symbols }
+    SymbolLinker::SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+                               std::shared_ptr<const std::atomic<int>> vesion_pointer)
+        : AstVisitor(version_replica, vesion_pointer)
+        , symbols_{ symbols }
         , bindings_{ bindings }
     {}
 

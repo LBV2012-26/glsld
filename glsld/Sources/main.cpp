@@ -36,7 +36,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        std::ifstream shader_file("Tests/HoverTest.glsl", std::ios::ate | std::ios::binary);
+        std::ifstream shader_file("Tests/ScopeTest.glsl", std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::cerr << "Failed to open test GLSL source." << std::endl;
             return EXIT_FAILURE;
@@ -54,7 +54,7 @@ int main() {
         BindingMap bindings;
 
         auto lexer_start = std::chrono::high_resolution_clock::now();
-        Parser parser(shader_source, symbols);
+        Parser parser(shader_source, symbols, 0, nullptr);
         auto lexer_end = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
@@ -64,35 +64,34 @@ int main() {
         auto parse_end = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
-        SymbolLinker linker(symbols, bindings);
+        SymbolLinker linker(symbols, bindings, 0, nullptr);
         auto link_start = std::chrono::high_resolution_clock::now();
         linker.Traverse(root.get());
         auto link_end = std::chrono::high_resolution_clock::now();
         auto link_duration = link_end - link_start;
 
-        TypeResolver collector(symbols, bindings);
+        TypeResolver collector(symbols, bindings, 0, nullptr);
         auto collect_start = std::chrono::high_resolution_clock::now();
         collector.Traverse(root.get());
         auto collect_end = std::chrono::high_resolution_clock::now();
         auto collect_duration = collect_end - collect_start;
 
-        OverloadResolver resolver(symbols, bindings);
+        OverloadResolver resolver(symbols, bindings, 0, nullptr);
         auto resolve_start = std::chrono::high_resolution_clock::now();
         resolver.Traverse(root.get());
         auto resolve_end = std::chrono::high_resolution_clock::now();
         auto resolve_duration = resolve_end - resolve_start;
 
-        AstDumper dumper;
+        AstDumper dumper(0, nullptr);
         dumper.Traverse(root.get());
-        //DumpAst(root.get());
 
         symbols.Dump();
 
-        std::println("Lexer time: {}ns, Parse time: {}ns, SymbolLink time: {}ns, TypeResolve time: {}ns, OverloadResolve time: {}ns",
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(lexer_duration).count(),
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(parse_duration).count(),
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(link_duration).count(),
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(collect_duration).count(),
-                     std::chrono::duration_cast<std::chrono::nanoseconds>(resolve_duration).count());
+        std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, OverloadResolve time: {}ms",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(collect_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count());
     }
 }
