@@ -475,6 +475,11 @@ namespace glsld {
                 ConsumeToken();
                 continue;
             } else if (current_token.type == TokenType::kIdentifier) {
+                const auto* symbol_info = current_scope()->FindSymbol(current_token.text);
+                if (symbol_info == nullptr || (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface)) {
+                    break; // 不是类型标识符
+                }
+
                 // MyStruct instance
                 const auto& next_token = PeekToken();
                 if (next_token.type == TokenType::kIdentifier) {

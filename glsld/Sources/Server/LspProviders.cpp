@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "LspProviders.hpp"
 
+#include <algorithm>
+#include <iterator>
+#include <ranges>
 #include <string_view>
 #include <unordered_set>
 #include <variant>
@@ -281,22 +284,24 @@ namespace glsld {
 
         SymbolList results;
 
-        switch (node->kind()) {
-        case AstNodeKind::kVariableExpression: {
-            const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
-
-            if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
-                const auto* linked_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
+        auto ExtractSymbols = [&results](const auto& symbols) mutable -> void {
+            if (std::holds_alternative<const SymbolInfo*>(symbols)) {
+                const auto* linked_symbol = std::get<const SymbolInfo*>(symbols);
                 if (linked_symbol != nullptr) {
                     results.push_back(linked_symbol);
                 }
-            } else if (std::holds_alternative<SymbolList>(var_expr->linked_symbols)) {
-                const auto& linked_symbols = std::get<SymbolList>(var_expr->linked_symbols);
+            } else if (std::holds_alternative<SymbolList>(symbols)) {
+                const auto& linked_symbols = std::get<SymbolList>(symbols);
                 if (!linked_symbols.empty()) {
                     results.append_range(linked_symbols);
                 }
             }
+        };
 
+        switch (node->kind()) {
+        case AstNodeKind::kVariableExpression: {
+            const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
+            ExtractSymbols(var_expr->linked_symbols);
             return results;
         }
 
@@ -315,18 +320,7 @@ namespace glsld {
                 }
 
                 const auto& type_symbol = it->second;
-
-                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
-                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
-                    if (linked_symbol != nullptr) {
-                        results.push_back(linked_symbol);
-                    }
-                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
-                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
-                    if (!linked_symbols.empty()) {
-                        results.append_range(linked_symbols);
-                    }
-                }
+                ExtractSymbols(type_symbol);
             }
 
             return results;
@@ -347,18 +341,7 @@ namespace glsld {
                 }
 
                 const auto& type_symbol = it->second;
-
-                if (std::holds_alternative<const SymbolInfo*>(type_symbol)) {
-                    const auto* linked_symbol = std::get<const SymbolInfo*>(type_symbol);
-                    if (linked_symbol != nullptr) {
-                        results.push_back(linked_symbol);
-                    }
-                } else if (std::holds_alternative<SymbolList>(type_symbol)) {
-                    const auto& linked_symbols = std::get<SymbolList>(type_symbol);
-                    if (!linked_symbols.empty()) {
-                        results.append_range(linked_symbols);
-                    }
-                }
+                ExtractSymbols(type_symbol);
             } else if (func_decl->declared_symbol != nullptr && utils::IsPositionInFunctionName(func_decl->declared_symbol, location)) {
                 const auto* result = ResolveFunctionJump(snapshot.get(), func_decl->declared_symbol);
                 if (result != nullptr) {
@@ -421,7 +404,12 @@ namespace glsld {
     }
 
     nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
-        SourceLocation dot_location{ location.line, location.column - 1 };
+        SourceLocation dot_location;
+        auto it = std::ranges::upper_bound(snapshot->tokens, location, std::ranges::less{}, &Token::location);
+        if (it != snapshot->tokens.begin()) {
+            dot_location = std::prev(it)->location;
+        }
+
         NodeLocator locator(dot_location);
         locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
