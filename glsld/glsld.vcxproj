@@ -172,7 +172,6 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
@@ -202,7 +201,6 @@
     <ClInclude Include="Sources\xstdafx.h" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\OverloadResolver.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />

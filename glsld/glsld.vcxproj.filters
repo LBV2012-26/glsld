@@ -19,7 +19,6 @@
     <ClCompile Include="Sources\Server\LspProviders.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\OverloadResolver.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
   </ItemGroup>
@@ -48,7 +47,6 @@
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\OverloadResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />

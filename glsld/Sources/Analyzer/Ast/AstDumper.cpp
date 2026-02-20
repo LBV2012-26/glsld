@@ -34,7 +34,7 @@ namespace glsld {
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         PrintIndent();
         std::string name = node->declared_symbol ? node->declared_symbol->name : "unnamed";
-        std::println("FunctionDeclaration '{}' {}", name, FormatRange(node));
+        std::println("FunctionDeclaration '{}' Type: {} {}", name, TypeToString(node->type_spec), FormatRange(node));
 
         ++indent_level_;
 
@@ -433,6 +433,9 @@ namespace glsld {
             type = magic_enum::enum_name(node->token_type);
         } else {
             type = node->evaluated_type.typename_token.text;
+            for (const auto& array_size : node->evaluated_type.array_sizes) {
+                type += std::format("[{}]", array_size.text);
+            }
         }
 
         std::println("VariableExpression '{}' Type: {} {}", node->name, type, FormatRange(node));
@@ -475,8 +478,28 @@ namespace glsld {
 
     std::string AstDumper::TypeToString(TypeSpecifier& type_spec) const {
         std::string result;
-        for (const auto& specifier : type_spec.specifiers) {
-            result += std::string(specifier.text) + " ";
+        for (auto i = 0uz; i != type_spec.specifiers.size(); ++i) {
+            const auto& specifier = type_spec.specifiers[i];
+            if (i + 1 != type_spec.specifiers.size()) {
+                result += std::string(specifier.text) + " ";
+            } else {
+                result += specifier.text;
+            }
+        }
+
+        for (const auto& array_size : type_spec.array_sizes) {
+            std::string array_dimension;
+            if (array_size->kind() == AstNodeKind::kLiteralExpression) {
+                const auto* raw_node = static_cast<const RawExpressionNode*>(array_size.get());
+                for (const auto& token : raw_node->tokens) {
+                    array_dimension += token.text;
+                }
+            } else if (array_size->kind() == AstNodeKind::kVariableExpression) {
+                const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
+                array_dimension = var_expr->name;
+            }
+
+            result += std::format("[{}]", array_dimension);
         }
 
         return result.empty() ? "void" : result;

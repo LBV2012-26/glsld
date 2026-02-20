@@ -275,7 +275,7 @@ namespace glsld {
             return {};
         }
 
-        NodeLocator locator(location);
+        LeafLocator locator(location);
         locator.Traverse(snapshot->ast.get());
         const AstNode* node = locator.result();
         if (node == nullptr) {
@@ -410,7 +410,7 @@ namespace glsld {
             dot_location = std::prev(it)->location;
         }
 
-        NodeLocator locator(dot_location);
+        ContextLocator locator(dot_location);
         locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
 

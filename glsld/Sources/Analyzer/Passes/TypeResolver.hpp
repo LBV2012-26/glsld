@@ -21,6 +21,7 @@ namespace glsld {
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;
         void VisitStructDeclaration(StructDeclarationNode* node) override;
+        void VisitCallExpression(CallExpressionNode* node) override;
         void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitRawExpression(RawExpressionNode* node) override;
@@ -30,6 +31,7 @@ namespace glsld {
         TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);
         TypeInfo ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle);
+        SymbolReference ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
         const DocumentSymbols& symbols_;
         BindingMap&            bindings_;

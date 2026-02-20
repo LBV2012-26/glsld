@@ -11,7 +11,6 @@
 #include "Windows.h"
 
 #include "Analyzer/Ast/AstDumper.hpp"
-#include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
@@ -70,13 +69,7 @@ int main() {
         auto link_end = std::chrono::high_resolution_clock::now();
         auto link_duration = link_end - link_start;
 
-        TypeResolver collector(symbols, bindings, 0, nullptr);
-        auto collect_start = std::chrono::high_resolution_clock::now();
-        collector.Traverse(root.get());
-        auto collect_end = std::chrono::high_resolution_clock::now();
-        auto collect_duration = collect_end - collect_start;
-
-        OverloadResolver resolver(symbols, bindings, 0, nullptr);
+        TypeResolver resolver(symbols, bindings, 0, nullptr);
         auto resolve_start = std::chrono::high_resolution_clock::now();
         resolver.Traverse(root.get());
         auto resolve_end = std::chrono::high_resolution_clock::now();
@@ -87,11 +80,10 @@ int main() {
 
         symbols.Dump();
 
-        std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, OverloadResolve time: {}ms",
+        std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
-                     std::chrono::duration_cast<std::chrono::milliseconds>(collect_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count());
     }
 }

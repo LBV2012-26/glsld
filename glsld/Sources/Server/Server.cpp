@@ -490,7 +490,7 @@ namespace glsld {
         if (snapshot == nullptr || snapshot->version < target_version) {
             std::unique_lock lock(update_mutex_);
             using namespace std::chrono_literals;
-            ready_condition_.wait_for(lock, 500ms);
+            ready_condition_.wait_for(lock, 2s);
         }
 
         return snapshot;

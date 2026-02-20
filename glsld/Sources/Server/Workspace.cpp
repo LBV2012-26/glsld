@@ -4,7 +4,6 @@
 #include <mutex>
 
 #include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Passes/OverloadResolver.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
@@ -33,11 +32,7 @@ namespace glsld {
         linker.Traverse(document->ast.get());
 
         if (Cancelled()) return;
-        TypeResolver collector(document->symbols, document->bindings, version_replica, version);
-        collector.Traverse(document->ast.get());
-
-        if (Cancelled()) return;
-        OverloadResolver resolver(document->symbols, document->bindings, version_replica, version);
+        TypeResolver resolver(document->symbols, document->bindings, version_replica, version);
         resolver.Traverse(document->ast.get());
 
         {
@@ -46,9 +41,11 @@ namespace glsld {
                 if (!documents_.contains(uri)) {
                     return;
                 }
-            }
 
-            documents_[std::string(uri)] = std::move(document);
+                *documents_[std::string(uri)] = std::move(*document);
+            } else {
+                documents_[std::string(uri)] = std::move(document);
+            }
         }
     }
 

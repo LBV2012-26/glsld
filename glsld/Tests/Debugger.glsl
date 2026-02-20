@@ -1,18 +1,19 @@
 #version 460 core
 
-layout(std140, set = 0, binding = 1) uniform MyUniformBuffer { // without set, auto fill set to 0
-    mat4 my_matrix;
-} ubo;
-
 struct LightData {
-    vec3 position;
+    vec3 strength;
 };
 
-LightData ReturnLightData() {
-    LightData data;
+struct LightBuffer {
+    LightData light[6];
+};
+
+LightBuffer[10][2] ReturnLightBuffer() {
+    LightBuffer[10][2] data;
     return data;
 }
 
 void main() {
-    vec3 light = ReturnLightData();
+    LightBuffer l;
+    ReturnLightBuffer()[0][1].light[0].strength;
 }

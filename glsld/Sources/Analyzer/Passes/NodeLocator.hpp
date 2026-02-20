@@ -4,18 +4,28 @@
 #include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
-    class NodeLocator : public AstVisitor {
+    class LeafLocator : public AstVisitor {
     public:
-        NodeLocator(SourceLocation target);
+        LeafLocator(SourceLocation target);
+        ~LeafLocator() override = default;
 
-        virtual void Traverse(AstNode* node) override;
+        void Traverse(AstNode* node) override;
         const AstNode* const result() const;
 
-    private:
+    protected:
         bool IsPositionInNode(const AstNode* node) const;
         bool IsPositionDeeper(const AstNode* node) const;
 
         SourceLocation target_;
         AstNode* deepest_node_;
+    };
+
+    class ContextLocator : public LeafLocator {
+    public:
+        using LeafLocator::LeafLocator;
+        void Traverse(AstNode* node) override;
+
+    private:
+        void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
     };
 }

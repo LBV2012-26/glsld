@@ -480,15 +480,8 @@ namespace glsld {
                     break; // 不是类型标识符
                 }
 
-                // MyStruct instance
-                const auto& next_token = PeekToken();
-                if (next_token.type == TokenType::kIdentifier) {
-                    type_spec.specifiers.push_back(current_token);
-                    ConsumeToken();
-                    continue;
-                } else {
-                    break;
-                }
+                type_spec.specifiers.push_back(current_token);
+                ConsumeToken();
             }
 
             break;
