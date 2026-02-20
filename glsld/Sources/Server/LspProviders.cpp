@@ -190,7 +190,10 @@ namespace glsld {
 
         // Transparent scope
         for (const auto& child_scope : scope->children()) {
-            if (child_scope->kind() == ScopeKind::kTransparent && !handled_scopes.contains(child_scope.get())) {
+            if ((child_scope->kind() == ScopeKind::kGlobalTransparent ||
+                 child_scope->kind() == ScopeKind::kBlockTransparent) &&
+                !handled_scopes.contains(child_scope.get()))
+            {
                 auto transparent_children = ConvertScopeToDocumentSymbols(child_scope.get());
                 for (const auto& child : transparent_children) {
                     symbols.push_back(child);
@@ -240,7 +243,7 @@ namespace glsld {
                     }
 
                     if (token.type == TokenType::kIdentifier &&
-                        symbol->located_scope->kind() == ScopeKind::kTransparent)
+                        symbol->located_scope->kind() == ScopeKind::kGlobalTransparent)
                     {
                         modifiers |= (1 << 3); // static
                     }
@@ -496,17 +499,27 @@ namespace glsld {
 
         case SymbolKind::kVariable: {
             std::string prefix;
+            bool is_field = false;
 
-            if (symbol->located_scope->kind() == ScopeKind::kTransparent) {
+            if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
                 prefix = "(global variable)";
             } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
                 prefix = "(local variable)";
             } else {
                 prefix = "(field)";
+                is_field = true;
             }
 
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
-            result = std::format("{} {} {}", prefix, GetVariableSpecifiers(node), symbol->name);
+            auto specifiers = GetVariableSpecifiers(node);
+            std::string name;
+            if (is_field && node->located_scope->host_symbol() != nullptr) {
+                name = std::format("{} {}::{}", specifiers, node->located_scope->host_symbol()->name, symbol->name);
+            } else {
+                name = std::format("{} {}", specifiers, symbol->name);
+            }
+
+            result = std::format("{} {}", prefix, name);
 
             for (const auto& array_size : symbol->type_info.array_sizes) {
                 result += std::format("[{}]", array_size.text);

@@ -32,6 +32,10 @@ namespace glsld {
         return false;
     }
 
+    inline const auto& Scope::host_symbol() const {
+        return host_symbol_;
+    }
+
     inline const auto& Scope::interval() const {
         return interval_;
     }

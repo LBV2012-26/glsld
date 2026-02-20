@@ -14,6 +14,6 @@ LightBuffer[10][2] ReturnLightBuffer() {
 }
 
 void main() {
-    LightBuffer l;
-    ReturnLightBuffer()[0][1].light[0].strength;
+    LightBuffer b;
+    b.light.strength;
 }

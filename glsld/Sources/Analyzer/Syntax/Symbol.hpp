@@ -79,7 +79,8 @@ namespace glsld {
     enum class ScopeKind {
         kBlock,
         kCommon,
-        kTransparent
+        kGlobalTransparent,
+        kBlockTransparent
     };
 
     class Scope {
@@ -97,6 +98,7 @@ namespace glsld {
         const SymbolInfo* FindSymbolInCurrentScope(std::string_view name) const;
         void GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
+        const auto& host_symbol() const;
         const auto& interval() const;
         const auto& children() const;
         const auto& symbols() const;
@@ -112,11 +114,12 @@ namespace glsld {
         void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
         Scope*                                         parent_;
+        SymbolInfo*                                    host_symbol_{ nullptr };
         std::size_t                                    index_;
         std::pair<SourceLocation, SourceLocation>      interval_;
         std::vector<std::unique_ptr<Scope>>            children_;
         StringHeteroHashTable<std::string, SymbolInfo> symbols_;
-        ScopeKind                                      kind_{ ScopeKind::kTransparent };
+        ScopeKind                                      kind_{ ScopeKind::kGlobalTransparent };
     };
 
     class DocumentSymbols {

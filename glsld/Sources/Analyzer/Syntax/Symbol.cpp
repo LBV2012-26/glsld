@@ -116,7 +116,9 @@ namespace glsld {
         }
 
         for (const auto& child : children_) {
-            if (child->kind_ == ScopeKind::kTransparent) {
+            if (child->kind_ == ScopeKind::kGlobalTransparent ||
+                child->kind_ == ScopeKind::kBlockTransparent)
+            {
                 if (auto symbol = child->FindSymbolInCurrentScope(name)) {
                     return symbol;
                 }
@@ -151,7 +153,9 @@ namespace glsld {
         }
 
         for (const auto& child : children_) {
-            if (child->kind_ == ScopeKind::kTransparent) {
+            if (child->kind_ == ScopeKind::kGlobalTransparent ||
+                child->kind_ == ScopeKind::kBlockTransparent)
+            {
                 child->CollectLocalSymbols(symbols);
             }
         }
@@ -231,9 +235,10 @@ namespace glsld {
         }
 
         utils::PrintIndent(indent_level);
-        std::println("-> {} Scope index {} @ 0x{:X} (Parent: 0x{:X}) [Lines {}:{}-{}:{}]",
+        std::println("-> {} Scope index {}, host symbol: {} @ 0x{:X} (Parent: 0x{:X}) [Lines {}:{}-{}:{}]",
                      magic_enum::enum_name(scope->kind_),
                      scope->index_,
+                     scope->host_symbol_ ? scope->host_symbol_->name : "<null>",
                      reinterpret_cast<std::uintptr_t>(scope),
                      reinterpret_cast<std::uintptr_t>(scope->parent_),
                      scope->interval_.first.line, scope->interval_.first.column,

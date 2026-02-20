@@ -21,7 +21,7 @@ namespace glsld {
     }
 
     std::unique_ptr<TranslationUnitNode> Parser::Parse() {
-        symbols_.root_scope()->kind_ = ScopeKind::kTransparent;
+        symbols_.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
         scope_stack_.push(symbols_.root_scope());
         return ParserMainTask();
     }
@@ -246,12 +246,12 @@ namespace glsld {
         return node;
     }
 
-    std::unique_ptr<CompoundStatementNode> Parser::ParseScope(ScopeKind kind) {
+    std::unique_ptr<CompoundStatementNode> Parser::ParseScope(SymbolInfo* host_symbol, ScopeKind kind) {
         auto node = std::make_unique<CompoundStatementNode>(current_scope());
         node->begin = CurrentToken().location;
         MatchAndConsume(TokenType::kOpenBrace);
 
-        node->internal_scope = EnterScope(node->begin, kind);
+        node->internal_scope = EnterScope(node->begin, host_symbol, kind);
         node->children = ParseSequence<StatementNode>(TokenType::kCloseBrace, [this]() -> std::unique_ptr<StatementNode> {
             return ParseStatement();
         }, false);
@@ -390,7 +390,9 @@ namespace glsld {
         // current scope is function located scope
         node->declared_symbol = current_scope()->AddSymbol(node.get(), function_name, name_token.location, kind);
         node->declared_symbol->internal_scope = internal_scope;
+        node->declared_symbol->internal_scope->host_symbol_ = node->declared_symbol;
         node->internal_scope = internal_scope;
+        node->internal_scope->host_symbol_ = node->declared_symbol;
 
         return node;
     }
@@ -890,7 +892,7 @@ namespace glsld {
             node->begin           = type_spec.begin_location();
             auto block_kind       = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
             node->declared_symbol = current_scope()->AddSymbol(node.get(), block_name.text, block_name.location, block_kind);
-            node->body            = ParseScope(ScopeKind::kBlock);
+            node->body            = ParseScope(node->declared_symbol, ScopeKind::kBlock);
 
             if (CurrentToken().type != TokenType::kSemicolon) {
                 // struct MyStruct { ... } instance;
@@ -902,7 +904,7 @@ namespace glsld {
 
             if (!is_struct && node->instances == nullptr) {
                 if (node->body != nullptr && node->body->internal_scope != nullptr) {
-                    node->body->internal_scope->kind_ = ScopeKind::kTransparent;
+                    node->body->internal_scope->kind_ = ScopeKind::kBlockTransparent;
                 }
             }
 
@@ -1233,12 +1235,13 @@ namespace glsld {
         return nodes;
     }
 
-    Scope* Parser::EnterScope(SourceLocation location, ScopeKind kind) {
+    Scope* Parser::EnterScope(SourceLocation location, SymbolInfo* host_symbol, ScopeKind kind) {
         auto new_scope = std::make_unique<Scope>(current_scope());
 
         Scope* new_scope_ptr           = new_scope.get();
         new_scope_ptr->kind_           = kind;
         new_scope_ptr->interval_.first = location;
+        new_scope_ptr->host_symbol_    = host_symbol;
 
         current_scope()->children_.push_back(std::move(new_scope));
         scope_stack_.push(new_scope_ptr);

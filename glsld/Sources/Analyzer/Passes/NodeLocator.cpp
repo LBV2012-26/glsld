@@ -66,12 +66,9 @@ namespace glsld {
             AstVisitor::Traverse(node);
         }
 
-        if (deepest_node_ != nullptr) {
-            return;
-        }
-
-        if (node->begin.line > target_.line || (node->begin.line == target_.line && node->begin.column > target_.column)) {
-            // No need to continue traversing siblings, as they will be after the target position.
+        if (deepest_node_ != nullptr || node->begin.line > target_.line ||
+            (node->begin.line == target_.line && node->begin.column > target_.column))
+        {
             return;
         }
     }
