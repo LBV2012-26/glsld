@@ -13,7 +13,7 @@ namespace glsld {
     namespace {
         void SendRaw(std::string_view content) {
 #ifdef _DEBUG
-            VALKY_LOG_DEBUG(VALKY_LOG_ROOT(), "Sending response: {}", content);
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Sending response: {}", content);
 #endif
             std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
             std::fflush(stdout);

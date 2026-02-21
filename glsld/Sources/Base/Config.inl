@@ -136,7 +136,7 @@ namespace glsld {
             set_value(FromStrPred()(str));
             return true;
         } catch (const std::exception& e) {
-            VALKY_LOG_ERROR(VALKY_LOG_ROOT(), "ConfigVar::FromString() exception for name='{}', value='{}': {}",
+            GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "ConfigVar::FromString() exception for name='{}', value='{}': {}",
                             name(), str, e.what());
             return false;
         }
@@ -191,7 +191,7 @@ namespace glsld {
     std::shared_ptr<ConfigVar<ValueType>>
     Config::Lookup(std::string_view name, const ValueType& default_value, std::string_view description) {
         if (name.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._0123456789") != std::string::npos) {
-            VALKY_LOG_ERROR(VALKY_LOG_ROOT(), "Lookup config name={} invalid", name);
+            GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Lookup config name={} invalid", name);
             throw std::invalid_argument(std::string(name));
         }
 
@@ -201,10 +201,10 @@ namespace glsld {
             if (it != ConfigVarData().end()) {
                 auto typed_var = Lookup<ValueType>(name);
                 if (typed_var != nullptr) {
-                    VALKY_LOG_INFO(VALKY_LOG_ROOT(), "Lookup config name={} already exists", name);
+                    GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Lookup config name={} already exists", name);
                     return typed_var;
                 } else {
-                    VALKY_LOG_ERROR(VALKY_LOG_ROOT(), "Lookup config name={} exists but type not {}, real_type={}",
+                    GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Lookup config name={} exists but type not {}, real_type={}",
                                     name, typeid(ValueType).name(), it->second->GetTypeName());
                     return nullptr;
                 }
@@ -233,9 +233,9 @@ namespace glsld {
         if (found_in_pending) {
             try {
                 final_value = pending_node.as<ValueType>();
-                VALKY_LOG_INFO(VALKY_LOG_ROOT(), "Load config name={} from pending table", name);
+                GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Load config name={} from pending table", name);
             } catch (const std::exception& e) {
-                VALKY_LOG_ERROR(VALKY_LOG_ROOT(), "Failed to cast pending YAML node for key '{}': {}", name, e.what());
+                GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Failed to cast pending YAML node for key '{}': {}", name, e.what());
             }
         }
 

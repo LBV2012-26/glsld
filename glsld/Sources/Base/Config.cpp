@@ -12,7 +12,7 @@ namespace glsld {
                            std::vector<std::pair<std::string, YAML::Node>>& output)
         {
             if (prefix.find_first_not_of("abcdefghijklmnopqrstuvwxyz._0123456789") != std::string_view::npos) {
-                VALKY_LOG_ERROR(VALKY_LOG_ROOT(), "Config invalid name: {}", prefix);
+                GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Config invalid name: {}", prefix);
                 return;
             }
 

@@ -82,29 +82,29 @@ namespace YAML {
 
 #include "Logger.inl"
 
-#define VALKY_LOG_NAME(name) ::glsld::LoggerManager::GetInstance().GetLogger(name)
-#define VALKY_LOG_ROOT()     ::glsld::LoggerManager::GetInstance().GetRoot()
+#define GLSLD_LOG_NAME(name) ::glsld::LoggerManager::GetInstance().GetLogger(name)
+#define GLSLD_LOG_ROOT()     ::glsld::LoggerManager::GetInstance().GetRoot()
 
-#define VALKY_LOG_CRITICAL(logger, ...)              \
+#define GLSLD_LOG_CRITICAL(logger, ...)              \
     if (logger->should_log(spdlog::level::critical)) \
         logger->critical(__VA_ARGS__)
 
-#define VALKY_LOG_DEBUG(logger, ...)                 \
+#define GLSLD_LOG_DEBUG(logger, ...)                 \
     if (logger->should_log(spdlog::level::debug))    \
         logger->debug(__VA_ARGS__)
 
-#define VALKY_LOG_ERROR(logger, ...)                 \
+#define GLSLD_LOG_ERROR(logger, ...)                 \
     if (logger->should_log(spdlog::level::err))      \
         logger->error(__VA_ARGS__)
 
-#define VALKY_LOG_INFO(logger, ...)                  \
+#define GLSLD_LOG_INFO(logger, ...)                  \
     if (logger->should_log(spdlog::level::info))     \
         logger->info(__VA_ARGS__)
 
-#define VALKY_LOG_TRACE(logger, ...)                 \
+#define GLSLD_LOG_TRACE(logger, ...)                 \
     if (logger->should_log(spdlog::level::trace))    \
         logger->trace(__VA_ARGS__)
 
-#define VALKY_LOG_WARN(logger, ...)                  \
+#define GLSLD_LOG_WARN(logger, ...)                  \
     if (logger->should_log(spdlog::level::warn))     \
         logger->warn(__VA_ARGS__)

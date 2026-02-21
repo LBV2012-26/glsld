@@ -2,8 +2,10 @@
 #include "Workspace.hpp"
 
 #include <mutex>
+#include <utility>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
@@ -19,13 +21,17 @@ namespace glsld {
             return version_replica != version->load();
         };
 
-        Parser parser(context, document->symbols, version_replica, version);
-        document->ast = parser.Parse();
-        if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
+        try {
+            Parser parser(context, *document, version_replica, version);
+            parser.Parse();
+
+            if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
+                return;
+            }
+
+        } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
             return;
         }
-
-        document->tokens = parser.tokens();
 
         if (Cancelled()) return;
         SymbolLinker linker(document->symbols, document->bindings, version_replica, version);
@@ -34,6 +40,10 @@ namespace glsld {
         if (Cancelled()) return;
         TypeResolver resolver(document->symbols, document->bindings, version_replica, version);
         resolver.Traverse(document->ast.get());
+
+        if (Cancelled()) return;
+        MacroBinder binder(*document);
+        binder.BindMacro();
 
         {
             std::unique_lock lock(mutex_);

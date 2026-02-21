@@ -213,7 +213,7 @@ namespace glsld {
         std::uint32_t last_line = 0;
         std::uint32_t last_char = 0;
 
-        for (const auto& token : snapshot->tokens) {
+        for (const auto& token : snapshot->raw_tokens) {
             std::uint32_t modifiers = 0;
             int type_index = -1;
 
@@ -276,6 +276,32 @@ namespace glsld {
     SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location) {
         if (snapshot == nullptr) {
             return {};
+        }
+
+        // 替换后的宏符号不在 AST 中，需要直接从 token 流里找
+        const Token* cursor_token = nullptr;
+        for (const auto& token : snapshot->raw_tokens) {
+            if (utils::IsPositionInToken(token, location)) {
+                cursor_token = &token;
+                break;
+            }
+
+            if (token.location.line > location.line) {
+                break;
+            }
+        }
+
+        if (cursor_token != nullptr) {
+            auto it = snapshot->bindings.find(cursor_token->location);
+            if (it != snapshot->bindings.end()) {
+                const auto& symbol_reference = it->second;
+                if (std::holds_alternative<const SymbolInfo*>(symbol_reference)) {
+                    const auto* symbol = std::get<const SymbolInfo*>(symbol_reference);
+                    if (symbol != nullptr && symbol->kind == SymbolKind::kMacro) {
+                        return { symbol };
+                    }
+                }
+            }
         }
 
         LeafLocator locator(location);
@@ -373,6 +399,10 @@ namespace glsld {
     }
 
     nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
         const auto* located_scope = snapshot->symbols.FindScopeAt(location);
 
         std::vector<const SymbolInfo*> visible_symbols;
@@ -407,9 +437,13 @@ namespace glsld {
     }
 
     nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
         SourceLocation dot_location;
-        auto it = std::ranges::upper_bound(snapshot->tokens, location, std::ranges::less{}, &Token::location);
-        if (it != snapshot->tokens.begin()) {
+        auto it = std::ranges::upper_bound(snapshot->expanded_tokens, location, std::ranges::less{}, &Token::location);
+        if (it != snapshot->expanded_tokens.begin()) {
             dot_location = std::prev(it)->location;
         }
 
@@ -494,6 +528,11 @@ namespace glsld {
         case SymbolKind::kParameter: {
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
             result = std::format("(parameter) {} {}", GetVariableSpecifiers(node), symbol->name);
+
+            for (const auto& array_size : symbol->type_info.array_sizes) {
+                result += std::format("[{}]", array_size.text);
+            }
+
             break;
         }
 
@@ -542,8 +581,14 @@ namespace glsld {
             for (auto i = 0uz; i != node->params.size(); ++i) {
                 const auto& param = node->params[i];
                 result += GetVariableSpecifiers(param.get());
-                if (param->declared_symbol != nullptr && param->declared_symbol->name != "") {
-                    result += " " + param->declared_symbol->name;
+
+                const auto* param_symbol = param->declared_symbol;
+                if (param_symbol != nullptr && param_symbol->name != "") {
+                    result += " " + param_symbol->name;
+
+                    for (const auto& array_size : param_symbol->type_info.array_sizes) {
+                        result += std::format("[{}]", array_size.text);
+                    }
                 }
 
                 if (i + 1 != node->params.size()) {

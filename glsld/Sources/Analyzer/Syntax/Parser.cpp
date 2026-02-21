@@ -3,27 +3,43 @@
 
 #include <concepts>
 #include <format>
+#include <stdexcept>
 #include <utility>
 
+#include "Analyzer/Syntax/Preprocessor.hpp"
+
 namespace glsld {
-    Parser::Parser(std::string_view source, DocumentSymbols& symbols, int version_replica,
+    Parser::Parser(std::string_view source, Document& document, int version_replica,
                    std::shared_ptr<const std::atomic<int>> version_pointer)
         : lexer_{ source }
-        , symbols_{ symbols }
+        , document_{ document }
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
     {
         Token token;
         do {
+            if (version_pointer_ != nullptr && version_replica != version_pointer_->load()) {
+                throw std::runtime_error("Lexing cancelled due to version modified.");
+            }
+
             token = lexer_.AcquireNextToken();
-            tokens_.push_back(token);
+            raw_tokens_.push_back(token);
         } while (token.type != TokenType::kEndOfFile);
+
+        Preprocessor processor(document_.macro_traces);
+        expanded_tokens_ = processor.Process(raw_tokens_);
     }
 
-    std::unique_ptr<TranslationUnitNode> Parser::Parse() {
-        symbols_.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
-        scope_stack_.push(symbols_.root_scope());
-        return ParserMainTask();
+    void Parser::Parse() {
+        document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
+        scope_stack_.push(document_.symbols.root_scope());
+
+        auto ast_root = ParserMainTask();
+        document_.ast = std::move(ast_root);
+        document_.raw_tokens = std::move(raw_tokens_);
+        document_.expanded_tokens = std::move(expanded_tokens_);
+
+        document_.ast->preprocessor_references = std::move(preprocessor_references_);
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
@@ -197,48 +213,51 @@ namespace glsld {
         if (directive_token.type == TokenType::kKeyword) {
             // #if defined, #else
             if (directive_token.text == "if" || directive_token.text == "else") {
-                tokens_[token_index_].type = TokenType::kPreprocessor;
+                expanded_tokens_[token_index_].type = TokenType::kPreprocessor;
             }
         }
         ConsumeToken();
 
         if (directive_token.text == "define") {
-            return ParseDefine(std::move(node), directive_token.location.line);
+            node = ParseDefine(std::move(node), directive_token.location.line);
         } else {
             node->tokens = CaptureDirectiveTokens(directive_token.location.line);
             node->end    = GetPreviousTokenEnd();
-            return node;
         }
+
+        preprocessor_references_.push_back(node.get());
+        return node;
     }
 
     std::unique_ptr<PreprocessorNode> Parser::ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line) {
         // current token is macro name after "define"
-        if (CurrentToken().type == TokenType::kIdentifier) {
-            const auto& macro_token = CurrentToken();
+        const auto& macro_token = CurrentToken();
 
-            node->symbol = current_scope()->AddSymbol(node.get(), macro_token.text, macro_token.location, SymbolKind::kMacro);
+        raw_tokens_[token_index_].type      = TokenType::kIdentifier;
+        expanded_tokens_[token_index_].type = TokenType::kIdentifier;
+
+        node->symbol = document_.symbols.root_scope()->AddSymbol(node.get(), macro_token.text, macro_token.location, SymbolKind::kMacro);
+        ConsumeToken();
+
+        auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
+            return first.location.line == second.location.line &&
+                (first.location.column + first.text.length() == second.location.column);
+        };
+
+        // macro function like #define MACRO(x)
+        if (CurrentToken().type == TokenType::kOpenParen && IsAdjacent(macro_token, CurrentToken())) {
             ConsumeToken();
-
-            auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
-                return first.location.line == second.location.line &&
-                      (first.location.column + first.text.length() == second.location.column);
-            };
-
-            // macro function like #define MACRO(x)
-            if (CurrentToken().type == TokenType::kOpenParen && IsAdjacent(macro_token, CurrentToken())) {
-                ConsumeToken();
-                while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
-                    if (CurrentToken().type == TokenType::kIdentifier) {
-                        node->params.push_back(CurrentToken().text);
-                        ConsumeToken();
-                    }
-                    if (!MatchAndConsume(TokenType::kComma)) {
-                        break;
-                    }
+            while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
+                if (CurrentToken().type == TokenType::kIdentifier) {
+                    node->params.push_back(CurrentToken().text);
+                    ConsumeToken();
                 }
-
-                MatchAndConsume(TokenType::kCloseParen);
+                if (!MatchAndConsume(TokenType::kComma)) {
+                    break;
+                }
             }
+
+            MatchAndConsume(TokenType::kCloseParen);
         }
 
         node->tokens = CaptureDirectiveTokens(directive_physical_line);

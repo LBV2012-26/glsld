@@ -401,6 +401,7 @@ namespace glsld {
 
     struct TranslationUnitNode : public AstNode {
         std::vector<std::unique_ptr<StatementNode>> statements;
+        std::vector<PreprocessorNode*> preprocessor_references;
 
         using AstNode::AstNode;
 

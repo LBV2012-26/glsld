@@ -2,24 +2,20 @@
 #include <algorithm>
 
 namespace glsld {
-    inline const auto& Parser::tokens() const {
-        return tokens_;
-    }
-
     inline const Token& Parser::CurrentToken() const {
-        return tokens_[token_index_];
+        return expanded_tokens_[token_index_];
     }
 
     inline const Token& Parser::PeekToken(std::int64_t offset) const {
-        if (token_index_ + offset >= tokens_.size()) {
-            return tokens_.back();
+        if (token_index_ + offset >= expanded_tokens_.size()) {
+            return expanded_tokens_.back();
         }
 
-        return tokens_[token_index_ + offset];
+        return expanded_tokens_[token_index_ + offset];
     }
 
     inline void Parser::ConsumeToken(std::ptrdiff_t count) {
-        token_index_ = std::min(token_index_ + count, tokens_.size() - 1);
+        token_index_ = std::min(token_index_ + count, expanded_tokens_.size() - 1);
     }
 
     inline SourceLocation Parser::GetCurrentTokenEnd() const {

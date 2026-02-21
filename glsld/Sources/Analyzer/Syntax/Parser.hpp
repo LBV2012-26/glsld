@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
@@ -17,11 +18,10 @@
 namespace glsld {
     class Parser {
     public:
-        Parser(std::string_view source, DocumentSymbols& symbols, int version_replica,
+        Parser(std::string_view source, Document& document, int version_replica,
                std::shared_ptr<const std::atomic<int>> version_pointer);
 
-        std::unique_ptr<TranslationUnitNode> Parse();
-        const auto& tokens() const;
+        void Parse();
 
     private:
         enum class Precedence : int {
@@ -104,8 +104,10 @@ namespace glsld {
         Scope* current_scope();
 
         Lexer                                   lexer_;
-        DocumentSymbols&                        symbols_;
-        std::vector<Token>                      tokens_;
+        Document&                               document_;
+        std::vector<Token>                      raw_tokens_;
+        std::vector<Token>                      expanded_tokens_;
+        std::vector<PreprocessorNode*>          preprocessor_references_;
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
         int                                     version_replica_{};

@@ -13,7 +13,7 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
-    struct BindingHash {
+    struct LocationHash {
         std::size_t operator()(SourceLocation location) const {
             std::size_t hash1 = std::hash<std::size_t>{}(location.line);
             std::size_t hash2 = std::hash<std::size_t>{}(location.column);
@@ -25,13 +25,16 @@ namespace glsld {
         }
     };
 
-    using BindingMap = std::unordered_map<SourceLocation, SymbolReference, BindingHash>;
+    using BindingMap    = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
+    using MacroTraceMap = std::unordered_map<SourceLocation, Token, LocationHash>;
 
     struct Document {
         DocumentSymbols                      symbols;
-        std::vector<Token>                   tokens;
+        std::vector<Token>                   raw_tokens;
+        std::vector<Token>                   expanded_tokens;
         std::unique_ptr<TranslationUnitNode> ast;
         BindingMap                           bindings;
+        MacroTraceMap                        macro_traces;
         int                                  version{};
     };
 

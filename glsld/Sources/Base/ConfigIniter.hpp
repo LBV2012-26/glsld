@@ -41,7 +41,7 @@ namespace glsld {
             config->AddListener(reinterpret_cast<std::uintptr_t>(this),
             [](const auto&, const auto& new_value) -> void {
                 value = new_value;
-                VALKY_LOG_INFO(VALKY_LOG_ROOT(), "Configuration updated: {} = {}", std::string_view(Name), new_value);
+                GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Configuration updated: {} = {}", std::string_view(Name), new_value);
             });
         }
     };

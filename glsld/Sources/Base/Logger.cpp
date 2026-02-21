@@ -85,13 +85,13 @@ namespace glsld {
 
             if (old_it == old_configs.end() || !(*old_it == new_config)) {
                 ApplyConfig(new_config);
-                VALKY_LOG_INFO(VALKY_LOG_ROOT(), "Logger [{}] reconfigured.", name);
+                GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Logger [{}] reconfigured.", name);
             }
         }
 
         for (const auto& old_config : old_configs) {
             if (!new_configs_map.contains(old_config.name)) {
-                VALKY_LOG_INFO(VALKY_LOG_ROOT(), "Logger [{}] removed.", old_config.name);
+                GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Logger [{}] removed.", old_config.name);
                 spdlog::drop(old_config.name);
             }
         }

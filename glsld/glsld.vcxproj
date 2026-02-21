@@ -149,6 +149,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
     <ClCompile Include="Sources\Server\LspProviders.cpp" />
@@ -174,6 +176,8 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
