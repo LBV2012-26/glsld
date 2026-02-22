@@ -1,6 +1,10 @@
 #version 460 core
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference : require
+#extension GL_EXT_subgroup_uniform_control_flow : require
+#extension GL_EXT_maximal_reconvergence : require
+#extension GL_EXT_control_flow_attributes : require
+#extension GL_EXT_control_flow_attributes2 : require
 
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
@@ -29,11 +33,9 @@ layout(push_constant) uniform PushConstants {
 } push_constants;
 
 #define MAX_RETURN_ARRAY_SIZE 5
-#define MAX_ARRAY_SIZE_1      20
-
 #define MACRO_FUNC(x) (x * x)
 
-int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25][MAX_ARRAY_SIZE_1]) {
+int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25][MAX_RETURN_ARRAY_SIZE]) {
     int array[MAX_RETURN_ARRAY_SIZE] = mdarray[0];
     return array;
 }
@@ -43,20 +45,24 @@ LightData ReturnLightData() {
     return data;
 }
 
-void Func(const in float input_arg, out float output_arg, inout float param) {
+[[subgroup_uniform_control_flow]] void Func(const in float input_arg, out float output_arg, inout float param) {
     output_arg = input_arg + MACRO_FUNC(param);
 
-    texture(sampler(my_sampler, my_texture), vec2(0.5));
-    texture2D(my_texture, vec2(0.5)); // test constructor
+    texture(sampler2D(my_texture, my_sampler), vec2(0.5));
+    // texture2D(my_texture, vec2(0.5)); // test constructor
 }
 
 void main() {
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
     mat4 my_matrix = ubo.my_matrix;
-    int mdarray[25][MAX_ARRAY_SIZE_1];
+    int mdarray[25][MAX_RETURN_ARRAY_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
 
     vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
+
+    const int max_iter = 10;
+    #define MIN_ITER 1
+    [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]] for (int i = 0; i != max_iter; ++i);
 
     LightData mddata[10][5];
     vec3 data = mddata[2][3].position;

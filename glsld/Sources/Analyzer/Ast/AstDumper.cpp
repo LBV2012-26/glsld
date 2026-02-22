@@ -3,7 +3,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <print>
+
 #include <magic_enum/magic_enum_all.hpp>
 #include "Utils/Utils.hpp"
 
@@ -29,6 +31,24 @@ namespace glsld {
     void AstDumper::VisitPreprocessor(PreprocessorNode* node) {
         PrintIndent();
         std::println("Preprocessor #{} (Tokens: {}) {}", node->directive, node->tokens.size(), FormatRange(node));
+    }
+
+    void AstDumper::VisitAttribute(AttributeNode* node) {
+        PrintIndent();
+        std::string dump_info;
+        if (node->namespace_.type != TokenType::kUnknown) {
+            dump_info = std::format("Attribute [[{}::{}]]", node->namespace_.text, node->name.text);
+        } else {
+            dump_info = std::format("Attribute [[{}]]", node->name.text);
+        }
+
+        if (node->argument != nullptr) {
+            dump_info += " Argument: ";
+            std::print("{}", dump_info);
+            TraverseWithoutIndent(node->argument.get());
+        } else {
+            std::println("{}", dump_info);
+        }
     }
 
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {

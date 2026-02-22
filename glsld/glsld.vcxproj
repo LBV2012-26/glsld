@@ -153,7 +153,7 @@
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
-    <ClCompile Include="Sources\Server\LspProviders.cpp" />
+    <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
@@ -182,7 +182,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Server\LspProviders.hpp" />
+    <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />

@@ -11,6 +11,8 @@
 namespace glsld {
     int ConvertSymbolKind(SymbolKind kind) {
         switch (kind) {
+        case SymbolKind::kAttribute:
+            return 7;  // Property
         case SymbolKind::kPreprocessor:
             return 2;  // Module
         case SymbolKind::kInterface:

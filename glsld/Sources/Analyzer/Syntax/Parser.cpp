@@ -169,22 +169,28 @@ namespace glsld {
     }
 
     std::unique_ptr<StatementNode> Parser::ParseStatement() {
+        std::vector<std::unique_ptr<AttributeNode>> attributes;
+        if (CurrentToken().type == TokenType::kOpenAttributeBracket) {
+            attributes = ParseAttributeList();
+        }
+
+        std::unique_ptr<StatementNode> node;
         switch (CurrentToken().type) {
         case TokenType::kPrimitive:
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
         case TokenType::kBuiltInVariable:
         case TokenType::kIdentifier:
-            return ParseCodeStatement();
+            node = ParseCodeStatement();
             break;
         case TokenType::kKeyword:
-            return ParseControlFlowStatement();
+            node = ParseControlFlowStatement();
             break;
         case TokenType::kOpenBrace:
-            return ParseScope();
+            node = ParseScope();
             break;
         case TokenType::kSharp:
-            return ParsePreprocessor();
+            node = ParsePreprocessor();
             break;
         default:
             while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kSemicolon &&
@@ -196,6 +202,12 @@ namespace glsld {
             MatchAndConsume(TokenType::kSemicolon);
             return std::make_unique<NullStatementNode>(current_scope());
         }
+
+        if (node != nullptr && !attributes.empty()) {
+            node->attributes = std::move(attributes);
+        }
+
+        return node;
     }
 
     std::unique_ptr<PreprocessorNode> Parser::ParsePreprocessor() {
@@ -280,6 +292,50 @@ namespace glsld {
 
         LeaveScope(node->end);
         return node;
+    }
+
+    std::vector<std::unique_ptr<AttributeNode>> Parser::ParseAttributeList() {
+        if (CurrentToken().type != TokenType::kOpenAttributeBracket) {
+            return {};
+        }
+
+        std::vector<std::unique_ptr<AttributeNode>> attributes;
+
+        do {
+            // current token is [[ if in the first loop, or , in the following loops
+            MatchAndConsume(TokenType::kOpenAttributeBracket);
+            MatchAndConsume(TokenType::kComma);
+            auto node = std::make_unique<AttributeNode>(current_scope());
+            node->begin = CurrentToken().location;
+
+            if (PeekToken().type == TokenType::kColonColon) {
+                node->namespace_ = CurrentToken();
+                ConsumeToken();
+            }
+
+            const auto& name_token = CurrentToken();
+            if (name_token.type == TokenType::kIdentifier) {
+                node->name = name_token;
+
+                const auto* attribute_symbol =
+                    document_.symbols.root_scope()->AddSymbol(node.get(), name_token.text, name_token.location, SymbolKind::kAttribute);
+                document_.bindings.try_emplace(name_token.location, attribute_symbol);
+            }
+
+            ConsumeToken();
+
+            if (MatchAndConsume(TokenType::kOpenParen)) {
+                // current token is attribute argument
+                node->argument = ParseExpression(Precedence::kLowest);
+                MatchAndConsume(TokenType::kCloseParen);
+            }
+
+            node->end = GetCurrentTokenEnd();
+            attributes.push_back(std::move(node));
+        } while (CurrentToken().type == TokenType::kComma);
+
+        MatchAndConsume(TokenType::kCloseAttributeBracket);
+        return attributes;
     }
 
     std::unique_ptr<StatementNode> Parser::ParseCodeStatement() {
@@ -379,6 +435,10 @@ namespace glsld {
 
         // current token is ')'
         MatchAndConsume(TokenType::kCloseParen);
+        if (CurrentToken().type == TokenType::kOpenAttributeBracket) {
+            node->attributes = ParseAttributeList();
+        }
+
         SymbolKind kind{};
         if (CurrentToken().type == TokenType::kOpenBrace) {
             // function body
@@ -1027,7 +1087,7 @@ namespace glsld {
         MatchAndConsume(TokenType::kCloseParen);
 
         node->body = ParseStatement();
-        if (node->body != nullptr) {
+        if (node->body->kind() != AstNodeKind::kNullStatement) {
             node->end = node->body->end;
         } else {
             node->end = GetPreviousTokenEnd();
@@ -1076,7 +1136,7 @@ namespace glsld {
 
         node->body = ParseStatement();
 
-        if (node->body != nullptr) {
+        if (node->body->kind() != AstNodeKind::kNullStatement) {
             node->end = node->body->end;
         } else {
             node->end = GetPreviousTokenEnd();

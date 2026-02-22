@@ -13,6 +13,7 @@
 
 namespace glsld {
     enum class SymbolKind {
+        kAttribute,
         kFunctionDecl,
         kFunctionImpl,
         kInterface,

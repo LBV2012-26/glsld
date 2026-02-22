@@ -17,6 +17,7 @@ namespace glsld {
         virtual void VisitTranslationUnit(TranslationUnitNode* node);
         virtual void VisitDeclarationGroup(DeclarationGroupNode* node);
         virtual void VisitPreprocessor(PreprocessorNode* node);
+        virtual void VisitAttribute(AttributeNode* node);
         virtual void VisitFunctionDeclaration(FunctionDeclarationNode* node);
         virtual void VisitVariableDeclaration(VariableDeclarationNode* node);
         virtual void VisitInterfaceDeclaration(InterfaceDeclarationNode* node);

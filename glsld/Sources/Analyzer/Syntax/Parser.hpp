@@ -53,6 +53,7 @@ namespace glsld {
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
         std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line);
         std::unique_ptr<CompoundStatementNode> ParseScope(SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
+        std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
         std::unique_ptr<StatementNode> ParseCodeStatement();
         std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpecifier type_spec);
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();

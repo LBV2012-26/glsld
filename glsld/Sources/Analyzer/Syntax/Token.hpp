@@ -79,7 +79,12 @@ namespace glsld {
         kIdentifier,
         kNumberLiteral,
         kStringLiteral,
-        kEndOfFile
+        kEndOfFile,
+
+        // 高级
+        kOpenAttributeBracket,   // [[
+        kCloseAttributeBracket,  // ]]
+        kColonColon              // ::
     };
 
     struct SourceLocation {

@@ -23,6 +23,12 @@ namespace glsld {
             current_scope_ = node->located_scope;
         }
 
+        if (auto* expr_node = dynamic_cast<StatementNode*>(node)) {
+            for (auto& attribute : expr_node->attributes) {
+                VisitAttribute(attribute.get());
+            }
+        }
+
         switch (node->kind()) {
         case AstNodeKind::kTranslationUnit:
             VisitTranslationUnit(static_cast<TranslationUnitNode*>(node));
@@ -126,6 +132,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitPreprocessor(PreprocessorNode* node) {}
+
+    void AstVisitor::VisitAttribute(AttributeNode* node) {
+        Traverse(node->argument.get());
+    }
 
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         for (auto& size_expr : node->type_spec.array_sizes) {

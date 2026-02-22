@@ -15,6 +15,7 @@ namespace glsld {
         kTranslationUnit,
         kDeclarationGroup,
         kPreprocessor,
+        kAttribute,
 
         // Declarations
         kFunctionDeclaration,
@@ -65,7 +66,21 @@ namespace glsld {
         virtual AstNodeKind kind() const = 0;
     };
 
+    struct ExpressionNode;
+    struct AttributeNode : public AstNode {
+        Token namespace_;
+        Token name;
+        std::unique_ptr<ExpressionNode> argument;
+
+        using AstNode::AstNode;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kAttribute;
+        }
+    };
+
     struct StatementNode : public AstNode {
+        std::vector<std::unique_ptr<AttributeNode>> attributes;
         using AstNode::AstNode;
     };
 

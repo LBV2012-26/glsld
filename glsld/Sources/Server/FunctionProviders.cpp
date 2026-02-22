@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "LspProviders.hpp"
+#include "FunctionProviders.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -19,6 +19,9 @@ namespace glsld {
             int type_index = -1;
 
             switch (kind) {
+            case SymbolKind::kAttribute:
+                type_index = 1;
+                break;
             case SymbolKind::kInterface:
                 type_index = 4;
                 break;
@@ -154,8 +157,17 @@ namespace glsld {
         for (const auto& [name, info] : scope->symbols()) {
             nlohmann::json symbol_node;
 
+            int symbol_kind = ConvertSymbolKind(info.kind);
+            if (symbol_kind == 13) {
+                if (info.located_scope != nullptr &&
+                    (info.located_scope->kind() == ScopeKind::kBlock || info.located_scope->kind() == ScopeKind::kBlockTransparent))
+                {
+                    symbol_kind = 8;
+                }
+            }
+
             symbol_node["name"] = SplitSymbolName(info.name);
-            symbol_node["kind"] = ConvertSymbolKind(info.kind);
+            symbol_node["kind"] = symbol_kind;
             symbol_node["selectionRange"] = ConvertToSelectionRange(info.location, info.name);
 
             const Scope* child_scope = nullptr;
@@ -219,34 +231,36 @@ namespace glsld {
 
             if (token.type == TokenType::kIdentifier) {
                 auto it = snapshot->bindings.find(token.location);
-                if (it != snapshot->bindings.end()) {
-                    const SymbolInfo* symbol = nullptr;
-                    if (std::holds_alternative<SymbolList>(it->second)) {
-                        const auto& symbols = std::get<SymbolList>(it->second);
-                        if (!symbols.empty()) {
-                            symbol = symbols.front();
-                        }
-                    } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
-                        symbol = std::get<const SymbolInfo*>(it->second);
-                    }
+                if (it == snapshot->bindings.end()) {
+                    continue;
+                }
 
-                    if (symbol == nullptr) {
-                        continue;
+                const SymbolInfo* symbol = nullptr;
+                if (std::holds_alternative<SymbolList>(it->second)) {
+                    const auto& symbols = std::get<SymbolList>(it->second);
+                    if (!symbols.empty()) {
+                        symbol = symbols.front();
                     }
+                } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
+                    symbol = std::get<const SymbolInfo*>(it->second);
+                }
 
-                    type_index = GetSymbolSemanticHighlight(symbol->kind);
+                if (symbol == nullptr) {
+                    continue;
+                }
 
-                    if (token.location.line   == symbol->location.line &&
-                        token.location.column == symbol->location.column)
-                    {
-                        modifiers |= (1 << 0); // declaration
-                    }
+                type_index = GetSymbolSemanticHighlight(symbol->kind);
 
-                    if (token.type == TokenType::kIdentifier &&
-                        symbol->located_scope->kind() == ScopeKind::kGlobalTransparent)
-                    {
-                        modifiers |= (1 << 3); // static
-                    }
+                if (token.location.line   == symbol->location.line &&
+                    token.location.column == symbol->location.column)
+                {
+                    modifiers |= (1 << 0); // declaration
+                }
+
+                if (token.type == TokenType::kIdentifier &&
+                    symbol->located_scope->kind() == ScopeKind::kGlobalTransparent)
+                {
+                    modifiers |= (1 << 3); // static
                 }
             } else {
                 type_index = GetTokenSemanticHighlight(token.type);
@@ -278,111 +292,61 @@ namespace glsld {
             return {};
         }
 
-        // 替换后的宏符号不在 AST 中，需要直接从 token 流里找
+        SymbolList results;
         const Token* cursor_token = nullptr;
-        for (const auto& token : snapshot->raw_tokens) {
-            if (utils::IsPositionInToken(token, location)) {
-                cursor_token = &token;
-                break;
-            }
 
-            if (token.location.line > location.line) {
-                break;
+        auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
+        if (it != snapshot->raw_tokens.begin()) {
+            cursor_token = &*std::prev(it);
+            if (!utils::IsPositionInToken(*cursor_token, location)) {
+                cursor_token = nullptr;
             }
         }
 
         if (cursor_token != nullptr) {
             auto it = snapshot->bindings.find(cursor_token->location);
-            if (it != snapshot->bindings.end()) {
-                const auto& symbol_reference = it->second;
-                if (std::holds_alternative<const SymbolInfo*>(symbol_reference)) {
-                    const auto* symbol = std::get<const SymbolInfo*>(symbol_reference);
-                    if (symbol != nullptr && symbol->kind == SymbolKind::kMacro) {
-                        return { symbol };
+            if (it != snapshot->bindings.end() && std::holds_alternative<const SymbolInfo*>(it->second)) {
+                const auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
+                if (linked_symbol != nullptr) {
+                    if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
+                        linked_symbol->kind == SymbolKind::kFunctionImpl)
+                    {
+                        const auto* resolved_symbol = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                        if (resolved_symbol != nullptr) {
+                            results.push_back(resolved_symbol);
+                        } else {
+                            results.push_back(linked_symbol);
+                        }
+                    } else {
+                        results.push_back(linked_symbol);
                     }
                 }
             }
         }
 
+        if (!results.empty()) {
+            return results;
+        }
+
         LeafLocator locator(location);
         locator.Traverse(snapshot->ast.get());
-        const AstNode* node = locator.result();
-        if (node == nullptr) {
+        const auto* node = locator.result();
+
+        if (node == nullptr || node->kind() != AstNodeKind::kVariableExpression) {
             return {};
         }
 
-        SymbolList results;
-
-        auto ExtractSymbols = [&results](const auto& symbols) mutable -> void {
-            if (std::holds_alternative<const SymbolInfo*>(symbols)) {
-                const auto* linked_symbol = std::get<const SymbolInfo*>(symbols);
-                if (linked_symbol != nullptr) {
-                    results.push_back(linked_symbol);
-                }
-            } else if (std::holds_alternative<SymbolList>(symbols)) {
-                const auto& linked_symbols = std::get<SymbolList>(symbols);
-                if (!linked_symbols.empty()) {
-                    results.append_range(linked_symbols);
-                }
+        const auto& linked_symbols = static_cast<const VariableExpressionNode*>(node)->linked_symbols;
+        if (std::holds_alternative<const SymbolInfo*>(linked_symbols)) {
+            const auto* symbol = std::get<const SymbolInfo*>(linked_symbols);
+            if (symbol != nullptr) {
+                results.push_back(symbol);
             }
-        };
-
-        switch (node->kind()) {
-        case AstNodeKind::kVariableExpression: {
-            const auto* var_expr = static_cast<const VariableExpressionNode*>(node);
-            ExtractSymbols(var_expr->linked_symbols);
-            return results;
-        }
-
-        case AstNodeKind::kVariableDeclaration: {
-            const auto* var_decl = static_cast<const VariableDeclarationNode*>(node);
-            const auto& typename_token = var_decl->type_spec.typename_token();
-
-            if (utils::IsPositionInToken(typename_token, location)) {
-                if (typename_token.type != TokenType::kIdentifier) {
-                    return results;
-                }
-
-                auto it = snapshot->bindings.find(typename_token.location);
-                if (it == snapshot->bindings.end()) {
-                    return results;
-                }
-
-                const auto& type_symbol = it->second;
-                ExtractSymbols(type_symbol);
+        } else if (std::holds_alternative<SymbolList>(linked_symbols)) {
+            const auto& symbols = std::get<SymbolList>(linked_symbols);
+            if (!symbols.empty()) {
+                results.append_range(symbols);
             }
-
-            return results;
-        }
-
-        case AstNodeKind::kFunctionDeclaration: {
-            const auto* func_decl = static_cast<const FunctionDeclarationNode*>(node);
-            const auto& typename_token = func_decl->type_spec.typename_token();
-
-            if (utils::IsPositionInToken(typename_token, location)) {
-                if (typename_token.type != TokenType::kIdentifier) {
-                    return results;
-                }
-
-                auto it = snapshot->bindings.find(typename_token.location);
-                if (it == snapshot->bindings.end()) {
-                    return results;
-                }
-
-                const auto& type_symbol = it->second;
-                ExtractSymbols(type_symbol);
-            } else if (func_decl->declared_symbol != nullptr && utils::IsPositionInFunctionName(func_decl->declared_symbol, location)) {
-                const auto* result = ResolveFunctionJump(snapshot.get(), func_decl->declared_symbol);
-                if (result != nullptr) {
-                    results.push_back(result);
-                }
-            }
-
-            return results;
-        }
-
-        default:
-            break;
         }
 
         return results;
@@ -525,6 +489,11 @@ namespace glsld {
 
         std::string result;
         switch (symbol->kind) {
+        case SymbolKind::kAttribute: {
+            result = std::format("(attribute) {}", symbol->name);
+            break;
+        }
+
         case SymbolKind::kParameter: {
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
             result = std::format("(parameter) {} {}", GetVariableSpecifiers(node), symbol->name);

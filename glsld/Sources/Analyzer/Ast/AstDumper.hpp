@@ -14,6 +14,7 @@ namespace glsld {
         void VisitTranslationUnit(TranslationUnitNode* node) override;
         void VisitDeclarationGroup(DeclarationGroupNode* node) override;
         void VisitPreprocessor(PreprocessorNode* node) override;
+        void VisitAttribute(AttributeNode* node) override;
         void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;

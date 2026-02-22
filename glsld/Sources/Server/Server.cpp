@@ -12,8 +12,9 @@
 
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Logger.hpp"
+#include "Server/FunctionProviders.hpp"
 #include "Server/JsonResponse.hpp"
-#include "Server/LspProviders.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
@@ -292,7 +293,13 @@ namespace glsld {
         for (const auto& symbol : symbols) {
             std::size_t start_line  = symbol->location.line   - 1;
             std::size_t start_char  = symbol->location.column - 1;
-            std::size_t name_length = symbol->name.length();
+
+            std::string symbol_name = symbol->name;
+            if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
+                symbol_name = utils::UnmangleFunctionName(symbol_name);
+            }
+
+            std::size_t name_length = symbol_name.length();
 
             nlohmann::json result;
 
