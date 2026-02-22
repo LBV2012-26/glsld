@@ -2,6 +2,7 @@
 #include "TypeResolver.hpp"
 
 #include <cstddef>
+#include <algorithm>
 #include <charconv>
 #include <format>
 #include <ranges>
@@ -12,52 +13,63 @@
 
 namespace glsld {
     namespace {
+        std::string GetTypePrefix(const TypeDescriptor& type_desc) {
+            std::string prefix;
+            switch (type_desc.family) {
+            case BaseFamily::kBool:
+                prefix = "b";
+                break;
+            case BaseFamily::kInt:
+                prefix = std::format("i{}", type_desc.bits);
+                break;
+            case BaseFamily::kUint:
+                prefix = std::format("u{}", type_desc.bits);
+                break;
+            case BaseFamily::kFloat:
+                prefix = std::format("f{}", type_desc.bits);
+                break;
+            default:
+                break;
+            }
+
+            return prefix;
+        }
+
+        std::string GetScalarTypename(const TypeDescriptor& type_desc) {
+            std::string name;
+            switch (type_desc.family) {
+            case BaseFamily::kBool:
+                name = "bool";
+                break;
+            case BaseFamily::kInt:
+                name = std::format("int{}_t", type_desc.bits);
+                break;
+            case BaseFamily::kUint:
+                name = std::format("uint{}_t", type_desc.bits);
+                break;
+            case BaseFamily::kFloat:
+                name = std::format("float{}_t", type_desc.bits);
+                break;
+            default:
+                break;
+            }
+
+            return name;
+        }
+
         void SeparateType(TypeInfo& type_info, bool keep_vector) {
             if (keep_vector) {
-                std::string prefix;
-                switch (type_info.type_desc.family) {
-                case BaseFamily::kBool:
-                    prefix = "b";
-                    break;
-                case BaseFamily::kInt:
-                    prefix = std::format("i{}", type_info.type_desc.bits);
-                    break;
-                case BaseFamily::kUint:
-                    prefix = std::format("u{}", type_info.type_desc.bits);
-                    break;
-                case BaseFamily::kFloat:
-                    prefix = std::format("f{}", type_info.type_desc.bits);
-                    break;
-                default:
-                    break;
-                }
-
+                std::string prefix = GetTypePrefix(type_info.type_desc);
                 type_info.typename_token.text    = std::format("{}vec{}", prefix, type_info.type_desc.vector_length);
                 type_info.type_desc.vector_count = 1;
             } else {
-                switch (type_info.type_desc.family) {
-                case BaseFamily::kBool:
-                    type_info.typename_token.text = "bool";
-                    break;
-                case BaseFamily::kInt:
-                    type_info.typename_token.text = std::format("int{}_t", type_info.type_desc.bits);
-                    break;
-                case BaseFamily::kUint:
-                    type_info.typename_token.text = std::format("uint{}_t", type_info.type_desc.bits);
-                    break;
-                case BaseFamily::kFloat:
-                    type_info.typename_token.text = std::format("float{}_t", type_info.type_desc.bits);
-                    break;
-                default:
-                    break;
-                }
-
+                type_info.typename_token.text     = GetScalarTypename(type_info.type_desc);
                 type_info.type_desc.vector_count  = 1;
                 type_info.type_desc.vector_length = 1;
             }
         }
 
-        TypeInfo GetCanonicalTypeInfo(const TypeInfo& base_type) {
+        TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type) {
             if (base_type.type_desc.family == BaseFamily::kUnknown ||
                 base_type.type_desc.family == BaseFamily::kVoid ||
                 base_type.type_desc.family == BaseFamily::kOpaque)
@@ -67,13 +79,46 @@ namespace glsld {
 
             TypeInfo canonical_info = base_type;
 
-            if (base_type.type_desc.is_matrix()) {
+            using enum TypeDescriptor::ArithmeticStructure;
+            if (base_type.type_desc.arithmetic_structure() == kMatrix) {
                 SeparateType(canonical_info, true);
-            } else {
+            } else if (base_type.type_desc.arithmetic_structure() == kVector) {
                 SeparateType(canonical_info, false);
             }
 
             return canonical_info;
+        }
+
+        TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc) {
+            if (type_desc.family == BaseFamily::kUnknown) {
+                return {
+                    .typename_token{
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
+                    },
+                    .type_desc = type_desc
+                };
+            }
+
+            auto arithmetic_structure = type_desc.arithmetic_structure();
+            using enum TypeDescriptor::ArithmeticStructure;
+
+            TypeInfo type_info;
+            type_info.typename_token.type = TokenType::kBuiltInType;
+
+            if (arithmetic_structure == kScalar) {
+                type_info.typename_token.text = GetScalarTypename(type_desc);
+            } else {
+                std::string prefix = GetTypePrefix(type_desc);
+                if (arithmetic_structure == kVector) {
+                    type_info.typename_token.text = std::format("{}vec{}", prefix, type_desc.vector_length);
+                } else {
+                    type_info.typename_token.text = std::format("{}mat{}x{}", prefix, type_desc.vector_count, type_desc.vector_length);
+                }
+            }
+
+            type_info.type_desc = type_desc;
+            return type_info;
         }
 
         enum class MatchGrade {
@@ -110,9 +155,9 @@ namespace glsld {
                 return MatchGrade::kFailed;
             }
 
-            if (from_desc.vector_count  != to_desc.vector_count  ||
-                from_desc.vector_length != to_desc.vector_length ||
-                from_desc.is_matrix()   != to_desc.is_matrix())
+            if (from_desc.vector_count           != to_desc.vector_count  ||
+                from_desc.vector_length          != to_desc.vector_length ||
+                from_desc.arithmetic_structure() != to_desc.arithmetic_structure())
             {
                 return MatchGrade::kFailed;
             }
@@ -200,6 +245,32 @@ namespace glsld {
 
             return MatchResult::kAmbiguous;
         }
+
+        bool CompareTypeInfoIgnoreQualifiers(const TypeInfo& lhs, const TypeInfo& rhs) {
+            if (lhs.typename_token.text != rhs.typename_token.text ||
+                lhs.typename_token.type != rhs.typename_token.type)
+            {
+                return false;
+            }
+
+            if (lhs.block_symbol != rhs.block_symbol) {
+                return false;
+            }
+
+            if (lhs.array_sizes.size() != rhs.array_sizes.size()) {
+                return false;
+            }
+
+            for (auto i = 0uz; i != lhs.array_sizes.size(); ++i) {
+                if (lhs.array_sizes[i].text != rhs.array_sizes[i].text ||
+                    lhs.array_sizes[i].type != rhs.array_sizes[i].type)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        };
     }
 
     TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
@@ -270,6 +341,105 @@ namespace glsld {
         AstVisitor::VisitStructDeclaration(node);
     }
 
+    void TypeResolver::VisitBinaryExpression(BinaryExpressionNode* node) {
+        Traverse(node->left.get());
+        Traverse(node->right.get());
+
+        const auto& left_type  = node->left->evaluated_type;
+        const auto& right_type = node->right->evaluated_type;
+
+        if (node->left == nullptr || node->right == nullptr ||
+            !left_type.is_valid() || !right_type.is_valid())
+        {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        node->evaluated_type = ResolveBinaryOperationType(left_type, right_type, node->op);
+    }
+
+    void TypeResolver::VisitUnaryExpression(UnaryExpressionNode* node) {
+        if (node->operand == nullptr) {
+            return;
+        }
+
+        Traverse(node->operand.get());
+        TypeInfo operand_type = node->operand->evaluated_type;
+        if (operand_type.type_desc.family == BaseFamily::kUnknown) {
+            node->evaluated_type = operand_type;
+            return;
+        }
+
+        TypeDescriptor result_desc = operand_type.type_desc;
+
+        switch (node->op) {
+        case TokenType::kPlus:
+        case TokenType::kMinus:
+        case TokenType::kPlusPlus:
+        case TokenType::kMinusMinus:
+            if (operand_type.type_desc.family == BaseFamily::kBool || operand_type.type_desc.family == BaseFamily::kOpaque)
+                result_desc.family = BaseFamily::kUnknown;
+            break;
+        case TokenType::kTilde:
+            if (operand_type.type_desc.family != BaseFamily::kInt && operand_type.type_desc.family != BaseFamily::kUint)
+                result_desc.family = BaseFamily::kUnknown;
+            break;
+        case TokenType::kExclamation:
+            if (operand_type.type_desc.family != BaseFamily::kBool)
+                result_desc.family = BaseFamily::kUnknown;
+            break;
+        default:
+            result_desc.family = BaseFamily::kUnknown;
+            break;
+        }
+
+        if (result_desc.family != BaseFamily::kUnknown) {
+            node->evaluated_type = GetCanonicalTypeInfo(result_desc);
+        } else {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+        }
+    }
+
+    void TypeResolver::VisitTernaryExpression(TernaryExpressionNode* node) {
+        if (node->condition != nullptr)
+            Traverse(node->condition.get());
+        if (node->true_expr != nullptr)
+            Traverse(node->true_expr.get());
+        if (node->false_expr != nullptr)
+            Traverse(node->false_expr.get());
+
+        if (node->true_expr != nullptr && node->false_expr != nullptr) {
+            auto true_type  = node->true_expr->evaluated_type;
+            auto false_type = node->false_expr->evaluated_type;
+
+            if (CompareTypeInfoIgnoreQualifiers(true_type, false_type)) {
+                node->evaluated_type = true_type;
+            } else if (TryImplicityConvert(true_type, false_type) != MatchGrade::kFailed) {
+                node->evaluated_type = false_type;
+            } else if (TryImplicityConvert(false_type, true_type) != MatchGrade::kFailed) {
+                node->evaluated_type = true_type;
+            } else {
+                node->evaluated_type = {
+                    .typename_token{
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
+                    }
+                };
+            }
+        }
+    }
+
     void TypeResolver::VisitCallExpression(CallExpressionNode* node) {
         std::vector<TypeInfo> call_arg_types;
         for (const auto& arg : node->args) {
@@ -277,9 +447,25 @@ namespace glsld {
             call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
         }
 
-        Traverse(node->callee.get()); // 如果是函数列表（未确定重载），不会进行任何操作
-
+        Traverse(node->callee.get());
         auto* callee_node = static_cast<VariableExpressionNode*>(node->callee.get());
+
+        if (callee_node->token_type == TokenType::kPrimitive ||
+            callee_node->token_type == TokenType::kBuiltInType)
+        {
+            TypeInfo constructor_type{
+                .typename_token{
+                    .text = callee_node->name,
+                    .type = callee_node->token_type
+                },
+                .type_desc = ParseTypeDescriptor(callee_node->name)
+            };
+
+            callee_node->evaluated_type = constructor_type;
+            node->evaluated_type        = constructor_type;
+            return;
+        }
+
         if (std::holds_alternative<SymbolList>(callee_node->linked_symbols)) {
             const auto& candidates = std::get<SymbolList>(callee_node->linked_symbols);
 
@@ -296,10 +482,20 @@ namespace glsld {
                 callee_node->linked_symbols = std::monostate{};
             }
         } else if (std::holds_alternative<const SymbolInfo*>(callee_node->linked_symbols)) {
-            if (const auto* symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols)) {
+            const auto* symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols);
+            if (symbol != nullptr) {
+                if (symbol->kind == SymbolKind::kInterface || symbol->kind == SymbolKind::kStruct) {
+                    TypeInfo constructor_type{
+                        .typename_token = symbol->type_info.typename_token,
+                        .type_desc      = symbol->type_info.type_desc,
+                        .block_symbol   = symbol
+                    };
+                }
+
                 callee_node->evaluated_type = symbol->type_info;
                 node->evaluated_type = symbol->type_info;
-            } // 只有一个符号并且已经推导，直接过
+                bindings_[callee_node->begin] = symbol;
+            }
         }
     }
 
@@ -313,7 +509,7 @@ namespace glsld {
             evaluated_type = base_type;
             evaluated_type.array_sizes.erase(evaluated_type.array_sizes.begin());
         } else if (base_type.type_desc.vector_length > 1) {
-            evaluated_type = GetCanonicalTypeInfo(base_type); // 从向量或者矩阵中剥离子类型
+            evaluated_type = SplitCanonicalTypeInfo(base_type); // 从向量或者矩阵中剥离子类型
         } else {
             evaluated_type = base_type;
         }
@@ -669,7 +865,9 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle) {
-        if (base_type.type_desc.is_matrix() || base_type.type_desc.family == BaseFamily::kUnknown) {
+        if (base_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector ||
+            base_type.type_desc.family == BaseFamily::kUnknown)
+        {
             return base_type;
         }
 
@@ -699,32 +897,6 @@ namespace glsld {
 
         std::vector<CandidateScore> possible_matches;
         SymbolList failed_matches;
-
-        auto CompareTypeInfoIgnoreQualifiers = [](const TypeInfo& lhs, const TypeInfo& rhs) -> bool {
-            if (lhs.typename_token.text != rhs.typename_token.text ||
-                lhs.typename_token.type != rhs.typename_token.type)
-            {
-                return false;
-            }
-
-            if (lhs.block_symbol != rhs.block_symbol) {
-                return false;
-            }
-
-            if (lhs.array_sizes.size() != rhs.array_sizes.size()) {
-                return false;
-            }
-
-            for (auto i = 0uz; i != lhs.array_sizes.size(); ++i) {
-                if (lhs.array_sizes[i].text != rhs.array_sizes[i].text ||
-                    lhs.array_sizes[i].type != rhs.array_sizes[i].type)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        };
 
         for (const auto* symbol : candidates) {
             const auto& param_typeinfos = symbol->param_typeinfos;
@@ -800,5 +972,123 @@ namespace glsld {
 
             return ambiguous_symbols;
         }
+    }
+
+    TypeInfo TypeResolver::ResolveBinaryOperationType(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op) {
+        auto IsLogicalOperator = [](TokenType op) -> bool {
+            return op == TokenType::kAmpersandAmpersand
+                || op == TokenType::kVerticalBarVerticalBar
+                || op == TokenType::kCaretCaret;
+        };
+
+        auto IsRelationalOperator = [](TokenType op) -> bool {
+            return op == TokenType::kLessThan  || op == TokenType::kGreaterThan
+                || op == TokenType::kLessEqual || op == TokenType::kGreaterEqual;
+        };
+
+        auto IsEqualityOperator = [](TokenType op) -> bool {
+            return op == TokenType::kEqualEqual || op == TokenType::kNotEqual;
+        };
+
+        if (IsLogicalOperator(op) || IsRelationalOperator(op) || IsEqualityOperator(op)) {
+            return {
+                .typename_token{
+                    .text = "bool",
+                    .type = TokenType::kPrimitive
+                },
+                .type_desc{
+                    .family        = BaseFamily::kBool,
+                    .bits          = 32,
+                    .vector_count  = 1,
+                    .vector_length = 1
+                }
+            };
+        }
+
+        auto IsAssignmentOperator = [](TokenType op) -> bool {
+            return op == TokenType::kEqual          || op == TokenType::kPlusEqual       || op == TokenType::kMinusEqual ||
+                   op == TokenType::kStarEqual      || op == TokenType::kSlashEqual      || op == TokenType::kPercentEqual ||
+                   op == TokenType::kLeftShiftEqual || op == TokenType::kRightShiftEqual ||
+                   op == TokenType::kAmpersandEqual || op == TokenType::kCaretEqual      || op == TokenType::kVerticalBarEqual;
+        };
+
+        if (IsAssignmentOperator(op)) {
+            return left_type;
+        }
+
+        return ResolveArithmeticPromotion(left_type, right_type, op);
+    }
+
+    TypeInfo TypeResolver::ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op) {
+        if (left_type == right_type) {
+            return left_type;
+        }
+
+        auto left_desc  = left_type.type_desc;
+        auto right_desc = right_type.type_desc;
+
+        TypeDescriptor result_desc;
+        result_desc.family = std::max(left_desc.family, right_desc.family);
+        result_desc.bits   = std::max(left_desc.bits,   right_desc.bits);
+
+        auto left_structure  = left_desc.arithmetic_structure();
+        auto right_structure = right_desc.arithmetic_structure();
+
+        using enum TypeDescriptor::ArithmeticStructure;
+
+        if (left_structure == kMatrix || right_structure == kMatrix) {
+            if (left_structure == kMatrix && right_structure == kMatrix) {
+                if (op == TokenType::kStar) {
+                    if (left_desc.vector_count == right_desc.vector_length) {
+                        // mat2x3 * mat4x2 -> mat4x3
+                        result_desc.vector_count  = right_desc.vector_count;
+                        result_desc.vector_length = left_desc.vector_length;
+                    }
+                } else { // +, -, /
+                    if (left_desc.vector_count == right_desc.vector_count &&
+                        left_desc.vector_length == right_desc.vector_length)
+                    {
+                        result_desc.vector_count  = left_desc.vector_count;
+                        result_desc.vector_length = left_desc.vector_length;
+                    }
+                }
+            } else if (left_structure == kMatrix && right_structure == kVector) {
+                if (op == TokenType::kStar && left_desc.vector_count == right_desc.vector_length) {
+                    result_desc.vector_count  = 1;
+                    result_desc.vector_length = left_desc.vector_length;
+                }
+            } else if (left_structure == kVector && right_structure == kMatrix) {
+                if (op == TokenType::kStar && left_desc.vector_length == right_desc.vector_length) {
+                    result_desc.vector_count  = 1;
+                    result_desc.vector_length = right_desc.vector_count;
+                }
+            } else { // 矩阵和标量
+                if (left_structure == kMatrix) {
+                    result_desc.vector_count  = left_desc.vector_count;
+                    result_desc.vector_length = left_desc.vector_length;
+                } else { // right is matrix
+                    result_desc.vector_count  = right_desc.vector_count;
+                    result_desc.vector_length = right_desc.vector_length;
+                }
+            }
+        } else {
+            if (left_structure == kScalar && right_structure == kVector) {
+                result_desc.vector_count  = right_desc.vector_count;
+                result_desc.vector_length = right_desc.vector_length;
+            } else if (left_structure == kVector && right_structure == kScalar) {
+                result_desc.vector_count  = left_desc.vector_count;
+                result_desc.vector_length = left_desc.vector_length;
+            } else if (left_structure == kScalar && right_structure == kScalar) {
+                result_desc.vector_count  = left_desc.vector_count;
+                result_desc.vector_length = left_desc.vector_length;
+            } else if (left_structure == kVector && right_structure == kVector) {
+                if (left_desc.vector_length == right_desc.vector_length) {
+                    result_desc.vector_count  = 1;
+                    result_desc.vector_length = left_desc.vector_length;
+                }
+            }
+        }
+
+        return GetCanonicalTypeInfo(result_desc);
     }
 }

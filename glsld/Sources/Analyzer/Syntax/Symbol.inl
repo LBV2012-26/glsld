@@ -6,8 +6,12 @@ namespace glsld {
                vector_count == other.vector_count && vector_length == other.vector_length;
     }
 
-    inline bool TypeDescriptor::is_matrix() const {
-        return vector_count > 1;
+    inline TypeDescriptor::ArithmeticStructure TypeDescriptor::arithmetic_structure() const {
+        if (vector_count == 1 && vector_length == 1)
+            return ArithmeticStructure::kScalar;
+        if (vector_count > 1)
+            return ArithmeticStructure::kMatrix;
+        return ArithmeticStructure::kVector;
     }
 
     inline bool TypeInfo::is_builtin() const {
@@ -15,7 +19,7 @@ namespace glsld {
     }
 
     inline bool TypeInfo::is_valid() const {
-        return !typename_token.text.empty();
+        return typename_token.type != TokenType::kUnknown;
     }
 
     inline bool TypeInfo::is_array() const {

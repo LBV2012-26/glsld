@@ -42,6 +42,7 @@ namespace glsld {
         kInitializerListExpression,
         kBinaryExpression,
         kUnaryExpression,
+        kTernaryExpression,
         kCallExpression,
         kIndexExpression,
         kVariableExpression,    // 变量引用
@@ -269,6 +270,18 @@ namespace glsld {
 
         AstNodeKind kind() const override {
             return AstNodeKind::kUnaryExpression;
+        }
+    };
+
+    struct TernaryExpressionNode : public ExpressionNode {
+        std::unique_ptr<ExpressionNode> condition;
+        std::unique_ptr<ExpressionNode> true_expr;
+        std::unique_ptr<ExpressionNode> false_expr;
+
+        using ExpressionNode::ExpressionNode;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kTernaryExpression;
         }
     };
 

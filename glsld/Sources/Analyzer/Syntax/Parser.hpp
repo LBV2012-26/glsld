@@ -72,6 +72,7 @@ namespace glsld {
         std::unique_ptr<MemberAccessExpressionNode> ParseMemberAccess(std::unique_ptr<ExpressionNode> object);
         std::unique_ptr<IndexExpressionNode> ParseArrayIndex(std::unique_ptr<ExpressionNode> base);
         std::unique_ptr<CallExpressionNode> ParseFunctionCall(std::unique_ptr<ExpressionNode> callee);
+        std::unique_ptr<TernaryExpressionNode> ParseTernary(std::unique_ptr<ExpressionNode> condition);
         std::unique_ptr<UnaryExpressionNode> ParsePostfixUnary(std::unique_ptr<ExpressionNode> operand, TokenType op_type);
         std::unique_ptr<BinaryExpressionNode> ParseStandardBinary(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
         std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);

@@ -35,6 +35,7 @@ namespace glsld {
         void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
+        void VisitTernaryExpression(TernaryExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;
         void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;

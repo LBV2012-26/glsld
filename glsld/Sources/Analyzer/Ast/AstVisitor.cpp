@@ -99,6 +99,9 @@ namespace glsld {
         case AstNodeKind::kUnaryExpression:
             VisitUnaryExpression(static_cast<UnaryExpressionNode*>(node));
             break;
+        case AstNodeKind::kTernaryExpression:
+            VisitTernaryExpression(static_cast<TernaryExpressionNode*>(node));
+            break;
         case AstNodeKind::kCallExpression:
             VisitCallExpression(static_cast<CallExpressionNode*>(node));
             break;
@@ -296,6 +299,20 @@ namespace glsld {
     void AstVisitor::VisitUnaryExpression(UnaryExpressionNode* node) {
         if (node->operand != nullptr) {
             Traverse(node->operand.get());
+        }
+    }
+
+    void AstVisitor::VisitTernaryExpression(TernaryExpressionNode* node) {
+        if (node->condition != nullptr) {
+            Traverse(node->condition.get());
+        }
+
+        if (node->true_expr != nullptr) {
+            Traverse(node->true_expr.get());
+        }
+
+        if (node->false_expr != nullptr) {
+            Traverse(node->false_expr.get());
         }
     }
 

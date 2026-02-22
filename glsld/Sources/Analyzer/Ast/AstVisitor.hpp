@@ -38,6 +38,7 @@ namespace glsld {
         virtual void VisitInitializerListExpression(InitializerListExpressionNode* node);
         virtual void VisitBinaryExpression(BinaryExpressionNode* node);
         virtual void VisitUnaryExpression(UnaryExpressionNode* node);
+        virtual void VisitTernaryExpression(TernaryExpressionNode* node);
         virtual void VisitCallExpression(CallExpressionNode* node);
         virtual void VisitIndexExpression(IndexExpressionNode* node);
         virtual void VisitVariableExpression(VariableExpressionNode* node);

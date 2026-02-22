@@ -40,7 +40,7 @@ namespace glsld {
 
                     hints_.push_back({
                         .location = arg->begin,
-                        .label    = label
+                        .label    = label + ":"
                     });
                 }
             }

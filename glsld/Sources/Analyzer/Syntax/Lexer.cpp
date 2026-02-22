@@ -30,6 +30,21 @@ namespace glsld {
         }
 
         unsigned char current_char = static_cast<unsigned char>(source_[position_]);
+
+        auto IsIdentifierAlnum = [](unsigned char ch) -> bool {
+            return std::isalnum(ch) || ch == '.' || ch == '_';
+        };
+
+        if (std::isdigit(current_char) || (current_char == '.' && std::isdigit(Peek()))) {
+            std::size_t begin = position_;
+            Advance();
+            while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
+                Advance();
+            }
+
+            return { std::string(source_.substr(begin, position_ - begin)), location, TokenType::kNumberLiteral };
+        }
+
         auto token = DetectToken(current_char);
         if (token.type != TokenType::kUnknown) {
             return token;
@@ -57,20 +72,6 @@ namespace glsld {
             }
 
             return { std::string(word), location, TokenType::kIdentifier };
-        }
-
-        auto IsIdentifierAlnum = [](unsigned char ch) -> bool {
-            return std::isalnum(ch) || ch == '.' || ch == '_';
-        };
-
-        if (std::isdigit(current_char)) {
-            std::size_t begin = position_;
-            Advance();
-            while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
-                Advance();
-            }
-
-            return { std::string(source_.substr(begin, position_ - begin)), location, TokenType::kNumberLiteral };
         }
 
         if (current_char == '"') {

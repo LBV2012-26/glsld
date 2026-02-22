@@ -402,6 +402,37 @@ namespace glsld {
         --indent_level_;
     }
 
+    void AstDumper::VisitTernaryExpression(TernaryExpressionNode* node) {
+        PrintIndent();
+        std::println("TernaryExpression {}", FormatRange(node));
+
+        ++indent_level_;
+
+        if (node->condition != nullptr) {
+            PrintIndent();
+            std::print("Condition: ");
+            TraverseWithoutIndent(node->condition.get());
+        }
+
+        if (node->true_expr != nullptr) {
+            PrintIndent();
+            std::println("TrueExpr:");
+            ++indent_level_;
+            Traverse(node->true_expr.get());
+            --indent_level_;
+        }
+
+        if (node->false_expr != nullptr) {
+            PrintIndent();
+            std::println("FalseExpr:");
+            ++indent_level_;
+            Traverse(node->false_expr.get());
+            --indent_level_;
+        }
+
+        --indent_level_;
+    }
+
     void AstDumper::VisitCallExpression(CallExpressionNode* node) {
         PrintIndent();
         std::println("CallExpression {}", FormatRange(node));

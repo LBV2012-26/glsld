@@ -358,11 +358,11 @@ namespace glsld {
         }
 
         // expression, including function calling
-        bool common_calling = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier ||
-                                                    CurrentToken().type == TokenType::kBuiltInFunction);
-        bool constructor = !type_spec.empty() && CurrentToken().type == TokenType::kOpenParen;
+        bool common_calling    = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kBuiltInFunction);
+        bool constructor       = !type_spec.empty() && CurrentToken().type == TokenType::kOpenParen;
+        bool is_expr_primitive = CurrentToken().text == "true" || CurrentToken().text == "false";
 
-        if (common_calling || constructor) {
+        if (common_calling || constructor || is_expr_primitive) {
             if (constructor) {
                 ConsumeToken(-1);
             }
@@ -552,6 +552,10 @@ namespace glsld {
             } else if (current_token.type == TokenType::kPrimitive || current_token.type == TokenType::kBuiltInType) {
                 // (in, out, uniform, const, struct, ...)
                 // (vec3, mat4, float, ...)
+                if (current_token.text == "true" || current_token.text == "false") {
+                    break;
+                }
+
                 type_spec.specifiers.push_back(current_token);
                 ConsumeToken();
                 continue;
@@ -707,14 +711,17 @@ namespace glsld {
     }
 
     std::unique_ptr<ExpressionNode> Parser::ParsePrefixExpression() {
+        const auto& current_token = CurrentToken();
+
         // ( expr )
-        if (MatchAndConsume(TokenType::kOpenParen)) {
+        if (current_token.type == TokenType::kOpenParen) {
+            ConsumeToken();
             auto expr_node = ParseExpression(Precedence::kLowest);
+            expr_node->begin = current_token.location;
             MatchAndConsume(TokenType::kCloseParen);
+            expr_node->end = GetPreviousTokenEnd();
             return expr_node;
         }
-
-        const auto& current_token = CurrentToken();
 
         switch (current_token.type) {
         // 字面量
@@ -838,6 +845,10 @@ namespace glsld {
         case TokenType::kMinusMinus:
             return ParsePostfixUnary(std::move(left), op_type);
 
+        // 三元运算符
+        case TokenType::kQuestion:
+            return ParseTernary(std::move(left));
+
         // 标准二元运算符 (+, -, *, /, &&, =, etc.)
         default:
             return ParseStandardBinary(std::move(left), op_type, precedence);
@@ -903,6 +914,24 @@ namespace glsld {
 
         MatchAndConsume(TokenType::kCloseParen);
         node->end = GetPreviousTokenEnd();
+        return node;
+    }
+
+    std::unique_ptr<TernaryExpressionNode> Parser::ParseTernary(std::unique_ptr<ExpressionNode> condition) {
+        auto node = std::make_unique<TernaryExpressionNode>(current_scope());
+
+        node->begin     = condition->begin;
+        node->condition = std::move(condition);
+        node->true_expr = ParseExpression(Precedence::kLowest);
+        MatchAndConsume(TokenType::kColon);
+        node->false_expr = ParseExpression(Precedence::kTernary);
+
+        if (node->false_expr != nullptr) {
+            node->end = node->false_expr->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
         return node;
     }
 

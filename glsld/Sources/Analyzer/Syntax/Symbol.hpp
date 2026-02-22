@@ -37,6 +37,10 @@ namespace glsld {
     };
 
     struct TypeDescriptor {
+        enum class ArithmeticStructure {
+            kMatrix, kVector, kScalar
+        };
+
         BaseFamily family{ BaseFamily::kUnknown };
         int bits{};
         // mat2x3 -> 2 x vector with size 3
@@ -44,7 +48,7 @@ namespace glsld {
         int vector_length{};
 
         bool operator==(const TypeDescriptor& other) const;
-        bool is_matrix() const;
+        ArithmeticStructure arithmetic_structure() const;
     };
 
     struct SymbolInfo;
