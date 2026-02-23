@@ -16,15 +16,16 @@ namespace glsld {
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
     {
-        Token token;
-        do {
+        while (true) {
             if (version_pointer_ != nullptr && version_replica != version_pointer_->load()) {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
             }
 
-            token = lexer_.AcquireNextToken();
-            raw_tokens_.push_back(token);
-        } while (token.type != TokenType::kEndOfFile);
+            raw_tokens_.push_back(lexer_.AcquireNextToken());
+            if (raw_tokens_.back().type == TokenType::kEndOfFile) {
+                break;
+            }
+        }
 
         Preprocessor processor(document_.macro_traces);
         expanded_tokens_ = processor.Process(raw_tokens_);
@@ -244,6 +245,10 @@ namespace glsld {
     std::unique_ptr<PreprocessorNode> Parser::ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line) {
         // current token is macro name after "define"
         const auto& macro_token = CurrentToken();
+
+        if (macro_token.location.line != directive_physical_line) {
+            return node;
+        }
 
         raw_tokens_[token_index_].type      = TokenType::kIdentifier;
         expanded_tokens_[token_index_].type = TokenType::kIdentifier;

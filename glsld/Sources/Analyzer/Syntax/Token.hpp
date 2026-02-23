@@ -82,6 +82,7 @@ namespace glsld {
         kEndOfFile,
 
         // 高级
+        kSharpSharp,             // ##
         kColonColon              // ::
     };
 

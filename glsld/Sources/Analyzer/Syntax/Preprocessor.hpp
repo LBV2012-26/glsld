@@ -13,8 +13,10 @@
 
 namespace glsld {
     struct MacroDefination {
-        Token              original_token;
-        std::vector<Token> replacement_list;
+        bool                     is_macro_func{};
+        Token                    original_token;
+        std::vector<Token>       replacement_list;
+        std::vector<std::string> params;
     };
 
     class Preprocessor {
@@ -25,6 +27,7 @@ namespace glsld {
     private:
         void CollectMacroReplacement(std::size_t index, std::span<const Token> tokens, MacroDefination& defination);
         void ExpandMacro(const Token& macro_token, std::vector<Token>& output, std::unordered_set<std::string>& active_macros);
+        Token PasteTokens(const Token& left, const Token& right);
 
         StringHeteroHashTable<std::string, MacroDefination> macros_;
         MacroTraceMap&                                      trace_map_;

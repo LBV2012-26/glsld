@@ -107,12 +107,12 @@ namespace glsld {
         case ',':  return Capture(TokenType::kComma);
         case ';':  return Capture(TokenType::kSemicolon);
         case '.':  return Capture(TokenType::kDot);
-        case '#':  return Capture(TokenType::kSharp);
         case '~':  return Capture(TokenType::kTilde);
         case '?':  return Capture(TokenType::kQuestion);
         case '\\': return Capture(TokenType::kBackslash);
         // XX
-        case ':':  return Peek() == ':' ? Capture(TokenType::kColonColon,            2) : Capture(TokenType::kColon);
+        case '#': return Peek() == '#' ? Capture(TokenType::kSharpSharp, 2) : Capture(TokenType::kSharp);
+        case ':': return Peek() == ':' ? Capture(TokenType::kColonColon, 2) : Capture(TokenType::kColon);
         // X, XE
         case '*': return Peek() == '=' ? Capture(TokenType::kStarEqual,    2) : Capture(TokenType::kStar);
         case '/': return Peek() == '=' ? Capture(TokenType::kSlashEqual,   2) : Capture(TokenType::kSlash);

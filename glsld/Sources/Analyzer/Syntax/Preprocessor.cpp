@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Preprocessor.hpp"
 
+#include "Analyzer/Syntax/Lexer.hpp"
+
 namespace glsld {
     Preprocessor::Preprocessor(MacroTraceMap& trace_map)
         : trace_map_{ trace_map }
@@ -91,9 +93,30 @@ namespace glsld {
             return;
         }
 
+        const auto& replacement_list = it->second.replacement_list;
+        std::vector<Token> pasted_list;
+        for (auto i = 0uz; i != replacement_list.size(); ++i) {
+            if (i + 1 < replacement_list.size() && replacement_list[i + 1].type == TokenType::kSharpSharp) {
+                Token current = replacement_list[i];
+                while (i + 1 < replacement_list.size() && replacement_list[i + 1].type == TokenType::kSharpSharp) {
+                    if (i + 2 < replacement_list.size()) {
+                        Token next = replacement_list[i + 2];
+                        current = PasteTokens(current, next);
+                        i += 2;
+                    } else {
+                        break;
+                    }
+                }
+
+                pasted_list.push_back(current);
+            } else {
+                pasted_list.push_back(replacement_list[i]);
+            }
+        }
+
         active_macros.insert(macro_name);
 
-        for (const auto& replaced_token : it->second.replacement_list) {
+        for (const auto& replaced_token : pasted_list) {
             auto new_token = replaced_token;
             new_token.location = macro_token.location;
 
@@ -105,5 +128,15 @@ namespace glsld {
         }
 
         active_macros.erase(macro_name);
+    }
+
+    Token Preprocessor::PasteTokens(const Token& left, const Token& right) {
+        std::string new_text = left.text + right.text;
+
+        Lexer lexer(new_text);
+        Token token = lexer.AcquireNextToken();
+        token.location = left.location;
+
+        return token;
     }
 }
