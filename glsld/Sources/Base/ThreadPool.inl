@@ -1,3 +1,5 @@
+#include "ThreadPool.hpp"
+
 #include <functional>
 #include <future>
 #include <mutex>
@@ -30,7 +32,7 @@ namespace glsld {
         auto& target_worker = workers_[thread_index];
         {
             std::unique_lock<std::mutex> lock(target_worker->mutex);
-            target_worker->tasks.emplace([task]() -> void { (*task)(); });
+            target_worker->tasks.push([task]() -> void { (*task)(); });
         }
         target_worker->condition.notify_one();
 

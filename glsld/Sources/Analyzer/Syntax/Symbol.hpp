@@ -53,11 +53,11 @@ namespace glsld {
 
     struct SymbolInfo;
     struct TypeInfo {
-        Token              typename_token;
-        TypeDescriptor     type_desc;
-        const SymbolInfo*  block_symbol{ nullptr };
-        std::vector<Token> array_sizes;
-        std::vector<Token> qualifiers;
+        Token                     typename_token;
+        TypeDescriptor            type_desc;
+        const SymbolInfo*         block_symbol{ nullptr };
+        std::vector<std::int64_t> array_sizes;
+        std::vector<Token>        qualifiers;
 
         bool operator==(const TypeInfo& other) const;
         bool is_builtin() const;

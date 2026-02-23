@@ -49,6 +49,28 @@ void TestOverloadFunction(float16_t float16arg) {}
 void TestOverloadFunction(float32_t float32arg) {}
 void TestOverloadFunction(float64_t float64arg) {}
 
+float GetFloat() { return 1.0f; }
+double GetDouble() { return 1.0lf; }
+int GetInt() { return 1; }
+vec2 GetVec2() { return vec2(1.0f, 2.0f); }
+vec3 GetVec3() { return vec3(1.0f, 2.0f, 3.0f); }
+vec4 GetVec4() { return vec4(1.0f, 2.0f, 3.0f, 4.0f); }
+dvec2 GetDVec2() { return dvec2(1.0lf, 2.0lf); }
+dvec3 GetDVec3() { return dvec3(1.0lf, 2.0lf, 3.0lf); }
+dvec4 GetDVec4() { return dvec4(1.0lf, 2.0lf, 3.0lf, 4.0lf); }
+ivec2 GetIVec2() { return ivec2(1, 2); }
+ivec3 GetIVec3() { return ivec3(1, 2, 3); }
+ivec4 GetIVec4() { return ivec4(1, 2, 3, 4); }
+mat2 GetMat2() { return mat2(1.0f); }
+mat3 GetMat3() { return mat3(1.0f); }
+mat4 GetMat4() { return mat4(1.0f); }
+mat2x3 GetMat2x3() { return mat2x3(1.0f); }
+mat3x2 GetMat3x2() { return mat3x2(1.0f); }
+mat2x4 GetMat2x4() { return mat2x4(1.0f); }
+mat4x2 GetMat4x2() { return mat4x2(1.0f); }
+mat3x4 GetMat3x4() { return mat3x4(1.0f); }
+mat4x3 GetMat4x3() { return mat4x3(1.0f); }
+
 void main() {
     int8_t    int8arg;
     int16_t   int16arg;
@@ -388,6 +410,163 @@ void main() {
     TestOverloadFunction(component2);
 
     #define CALL_TEST_OVERLOAD_FUNC TestOverloadFunction(int16arg, int32arg, int64arg, float32arg)
+
+    // --- Super complex compound expressions ---
+
+    // Function call + arithmetic operations + swizzle
+    TestOverloadFunction(GetFloat() + GetFloat() * GetFloat());
+    TestOverloadFunction(GetDouble() - GetDouble() / GetDouble());
+    TestOverloadFunction(GetInt() * GetInt() + GetInt());
+
+    // Function call + vector swizzle + arithmetic
+    TestOverloadFunction((GetVec2() + GetVec2()).xy);
+    TestOverloadFunction((GetVec3() * GetVec3()).xyz);
+    TestOverloadFunction((GetVec4() - GetVec4()).xyzw);
+    TestOverloadFunction((GetDVec2() / GetDVec2()).yx);
+    TestOverloadFunction((GetIVec3() + GetIVec3()).zyx);
+    TestOverloadFunction((GetIVec4() * GetIVec4()).wwzz);
+
+    // Nested function calls with arithmetic
+    TestOverloadFunction(GetVec2() + GetVec2() * GetFloat());
+    TestOverloadFunction(GetVec3() * GetFloat() - GetVec3() / GetFloat());
+    TestOverloadFunction(GetFloat() * GetVec4() + GetVec4() * GetFloat());
+    TestOverloadFunction(GetDVec3() + GetDouble() * GetDVec3());
+    TestOverloadFunction(GetIVec2() * GetInt() + GetIVec2() / GetInt());
+
+    // Array-like access + swizzle + arithmetic
+    vec2 v2Array[3] = vec2[](vec2(1.0f, 2.0f), vec2(3.0f, 4.0f), vec2(5.0f, 6.0f));
+    vec3 v3Array[2] = vec3[](vec3(1.0f, 2.0f, 3.0f), vec3(4.0f, 5.0f, 6.0f));
+    vec4 v4Array[2] = vec4[](vec4(1.0f, 2.0f, 3.0f, 4.0f), vec4(5.0f, 6.0f, 7.0f, 8.0f));
+    dvec2 dv2Array[2] = dvec2[](dvec2(1.0lf, 2.0lf), dvec2(3.0lf, 4.0lf));
+    ivec3 iv3Array[2] = ivec3[](ivec3(1, 2, 3), ivec3(4, 5, 6));
+    mat3 m3Array[2] = mat3[](mat3(1.0f), mat3(2.0f));
+
+    TestOverloadFunction(v2Array[0] + v2Array[1]);
+    TestOverloadFunction(v3Array[0] - v3Array[1]);
+    TestOverloadFunction(v4Array[0] * v4Array[1]);
+    TestOverloadFunction(dv2Array[0] / dv2Array[1]);
+    TestOverloadFunction(iv3Array[0] + iv3Array[1]);
+    TestOverloadFunction(m3Array[0] * m3Array[1]);
+
+    // Array access with swizzle
+    TestOverloadFunction((v2Array[0] + v2Array[2]).xy);
+    TestOverloadFunction((v3Array[1] * v3Array[0]).zyx);
+    TestOverloadFunction((v4Array[0] - v4Array[1]).xyzw);
+    TestOverloadFunction((dv2Array[0] + dv2Array[1]).yx);
+    TestOverloadFunction((iv3Array[1] / iv3Array[0]).xyz);
+
+    // Constructor calls with nested expressions
+    TestOverloadFunction(vec2(GetFloat() + GetFloat(), GetFloat() * GetFloat()));
+    TestOverloadFunction(vec3(GetFloat(), GetFloat() * GetFloat(), GetFloat() / GetFloat()));
+    TestOverloadFunction(vec4(GetFloat() + GetFloat(), GetFloat() - GetFloat(), GetFloat() * GetFloat(), GetFloat() / GetFloat()));
+    TestOverloadFunction(dvec2(GetDouble() + GetDouble(), GetDouble() * GetDouble()));
+    TestOverloadFunction(dvec3(GetDouble(), GetDouble() / GetDouble(), GetDouble() - GetDouble()));
+    TestOverloadFunction(ivec2(GetInt() + GetInt(), GetInt() * GetInt()));
+    TestOverloadFunction(ivec4(GetInt(), GetInt() - GetInt(), GetInt() * GetInt(), GetInt() / GetInt()));
+
+    // Constructor calls combining function results
+    TestOverloadFunction(vec2(GetVec2().x, GetVec2().y));
+    TestOverloadFunction(vec3(GetVec3().x, GetVec3().y, GetVec3().z));
+    TestOverloadFunction(vec4(GetVec4().x, GetVec4().y, GetVec4().z, GetVec4().w));
+    TestOverloadFunction(dvec2(GetDVec2().x, GetDVec2().y));
+    TestOverloadFunction(ivec3(GetIVec3().x, GetIVec3().y, GetIVec3().z));
+
+    // Nested constructor + array access + arithmetic
+    TestOverloadFunction(vec2[](vec2(1.0f, 2.0f), vec2(3.0f, 4.0f))[0] + vec2[](vec2(5.0f, 6.0f), vec2(7.0f, 8.0f))[1]);
+    TestOverloadFunction(vec3[](vec3(1.0f, 2.0f, 3.0f), vec3(4.0f, 5.0f, 6.0f))[1] - vec3[](vec3(7.0f, 8.0f, 9.0f), vec3(10.0f, 11.0f, 12.0f))[0]);
+    TestOverloadFunction(vec4[](vec4(1.0f), vec4(2.0f))[0] * vec4[](vec4(3.0f), vec4(4.0f))[1]);
+
+    // Matrix operations with multiple levels of calls/access
+    TestOverloadFunction(GetMat2() * GetMat2());
+    TestOverloadFunction(GetMat3() + GetMat3());
+    TestOverloadFunction(GetMat4() - GetMat4());
+    TestOverloadFunction(GetMat2() * GetVec2());
+    TestOverloadFunction(GetVec3() * GetMat3());
+    TestOverloadFunction(GetMat4() * GetVec4());
+
+    // Non-square matrix operations
+    TestOverloadFunction(GetMat2x3() + GetMat2x3());
+    TestOverloadFunction(GetMat3x2() * GetMat2x3());
+    TestOverloadFunction(GetMat2x4() * GetVec2());
+    TestOverloadFunction(GetVec4() * GetMat2x4());
+    TestOverloadFunction(GetMat3x4() * GetMat4x3());
+
+    // Complex chained expressions with multiple operations
+    TestOverloadFunction(GetVec2() + GetVec2() * GetFloat() - GetVec2() / GetFloat());
+    TestOverloadFunction(GetVec3() * GetFloat() + GetVec3() / GetFloat() - GetVec3() * GetFloat());
+    TestOverloadFunction(GetVec4() - GetVec4() * GetFloat() + GetVec4() / GetFloat() * GetFloat());
+    TestOverloadFunction(GetDVec2() / GetDVec2() * GetDouble() + GetDVec2() - GetDVec2() * GetDouble());
+    TestOverloadFunction(GetIVec3() + GetIVec3() * GetInt() - GetIVec3() / GetInt() + GetIVec3());
+
+    // Array access + function call + swizzle + arithmetic in chains
+    TestOverloadFunction((v2Array[0] + GetVec2()).xy);
+    TestOverloadFunction((v3Array[1] * GetVec3()).zyx);
+    TestOverloadFunction((v4Array[0] - GetVec4()).xyzw);
+    TestOverloadFunction((dv2Array[0] / GetDVec2()).yx);
+    TestOverloadFunction((iv3Array[1] + GetIVec3()).xyz);
+
+    // Constructor with array element and arithmetic
+    TestOverloadFunction(vec2(v2Array[0].x + v2Array[1].x, v2Array[0].y * v2Array[1].y));
+    TestOverloadFunction(vec3(v3Array[0].x + GetFloat(), v3Array[1].y * GetFloat(), v3Array[0].z / GetFloat()));
+    TestOverloadFunction(ivec2(iv3Array[0].x * GetInt(), iv3Array[1].y + GetInt()));
+
+    // Matrix array access with arithmetic
+    TestOverloadFunction(m3Array[0] * m3Array[1]);
+    TestOverloadFunction(m3Array[0] + m3Array[1] * GetFloat());
+    TestOverloadFunction(m3Array[1] - m3Array[0] / GetFloat());
+    TestOverloadFunction(m3Array[0] * GetVec3());
+    TestOverloadFunction(GetVec3() * m3Array[1]);
+
+    // Deeply nested expressions
+    TestOverloadFunction((GetVec2() + (GetVec2() * GetFloat())) / (GetVec2() - GetFloat()));
+    TestOverloadFunction((GetVec3() * GetFloat() + GetVec3()) - (GetVec3() / GetFloat() * GetVec3()));
+    TestOverloadFunction((GetVec4() + GetVec4()) * (GetFloat() + GetFloat()) - (GetVec4() - GetVec4()));
+    TestOverloadFunction((GetDVec2() * GetDouble() + GetDVec2()) / (GetDVec2() + GetDouble()));
+    TestOverloadFunction((GetIVec3() + GetIVec3() * GetInt()) - (GetIVec3() - GetInt()));
+
+    // Expressions with member access chains
+    TestOverloadFunction(vec2(v2Array[0].x, v2Array[1].x));
+    TestOverloadFunction(vec3(v3Array[0].x, v3Array[0].y, v3Array[1].z));
+    TestOverloadFunction(vec4(v4Array[0].x, v4Array[0].y, v4Array[1].z, v4Array[1].w));
+    TestOverloadFunction(dvec2(dv2Array[0].x, dv2Array[1].y));
+    TestOverloadFunction(ivec3(iv3Array[0].x, iv3Array[1].y, iv3Array[0].z));
+
+    // Constructor with mixed function calls and array access
+    TestOverloadFunction(vec2(v2Array[0] + GetVec2()));
+    TestOverloadFunction(vec3(v3Array[1] * GetVec3()));
+    TestOverloadFunction(vec4(v4Array[0] - GetVec4()));
+    TestOverloadFunction(dvec2(dv2Array[0] / GetDVec2()));
+    TestOverloadFunction(ivec3(iv3Array[1] + GetIVec3()));
+
+    // Swizzle on constructor results
+    TestOverloadFunction((vec2(GetFloat() + GetFloat(), GetFloat() * GetFloat())).xy);
+    TestOverloadFunction((vec3(GetFloat(), GetFloat() * GetFloat(), GetFloat() / GetFloat())).zyx);
+    TestOverloadFunction((vec4(GetFloat() + GetFloat(), GetFloat() - GetFloat(), GetFloat() * GetFloat(), GetFloat() / GetFloat())).xyzw);
+
+    // Matrix constructor with nested expressions
+    TestOverloadFunction(mat2(vec2(GetFloat() + GetFloat(), GetFloat() * GetFloat()), vec2(GetFloat() - GetFloat(), GetFloat() / GetFloat())));
+    TestOverloadFunction(mat3(GetFloat(), GetFloat() * GetFloat(), GetFloat() / GetFloat(), GetFloat() + GetFloat(), GetFloat() - GetFloat(), GetFloat() * GetFloat(), GetFloat(), GetFloat(), GetFloat()));
+    TestOverloadFunction(mat4(vec4(GetFloat()), vec4(GetFloat() * GetFloat()), vec4(GetFloat() / GetFloat()), vec4(GetFloat() + GetFloat())));
+
+    // Arithmetic on matrix constructor results
+    TestOverloadFunction(mat2(vec2(GetFloat()), vec2(GetFloat())) + mat2(vec2(GetFloat()), vec2(GetFloat())));
+    TestOverloadFunction(mat3(GetFloat()) * mat3(GetFloat() * GetFloat()));
+    TestOverloadFunction(mat4(vec4(GetFloat()), vec4(GetFloat()), vec4(GetFloat()), vec4(GetFloat())) - mat4(vec4(GetFloat()), vec4(GetFloat()), vec4(GetFloat()), vec4(GetFloat())));
+
+    // Array of constructors with arithmetic
+    TestOverloadFunction(vec2[](vec2(GetFloat()), vec2(GetFloat() * GetFloat()))[0] + vec2[](vec2(GetFloat() / GetFloat()), vec2(GetFloat() + GetFloat()))[1]);
+    TestOverloadFunction(vec3[](vec3(GetFloat()), vec3(GetFloat() * GetFloat()))[1] - vec3[](vec3(GetFloat()), vec3(GetFloat()))[0]);
+    TestOverloadFunction(vec4[](vec4(GetFloat() + GetFloat()), vec4(GetFloat() - GetFloat()))[0] * vec4[](vec4(GetFloat()), vec4(GetFloat()))[1]);
+
+    // Super nested: array[function().member operation] + constructor
+    TestOverloadFunction(vec2(v2Array[0].x + GetVec2().x, v2Array[1].y * GetVec2().y));
+    TestOverloadFunction(vec3(v3Array[0].x + GetVec3().x, v3Array[1].y - GetVec3().y, v3Array[0].z * GetVec3().z));
+    TestOverloadFunction(dvec2(dv2Array[0].x * GetDVec2().x, dv2Array[1].y / GetDVec2().y));
+
+    // Chain of swizzles and operations
+    TestOverloadFunction(((GetVec4().xy + GetVec2()) * GetFloat()).xy);
+    TestOverloadFunction(((GetVec3().zyx - GetVec3()) / GetFloat()).xyz);
+    TestOverloadFunction(((GetVec2().yx + GetVec2().xy) * GetFloat()).xy);
 }
 
 void TestOverloadFunction() {}

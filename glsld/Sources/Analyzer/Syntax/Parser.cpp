@@ -170,7 +170,7 @@ namespace glsld {
 
     std::unique_ptr<StatementNode> Parser::ParseStatement() {
         std::vector<std::unique_ptr<AttributeNode>> attributes;
-        if (CurrentToken().type == TokenType::kOpenAttributeBracket) {
+        if (CurrentToken().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
             attributes = ParseAttributeList();
         }
 
@@ -295,7 +295,7 @@ namespace glsld {
     }
 
     std::vector<std::unique_ptr<AttributeNode>> Parser::ParseAttributeList() {
-        if (CurrentToken().type != TokenType::kOpenAttributeBracket) {
+        if (CurrentToken().type != TokenType::kOpenBracket || PeekToken().type != TokenType::kOpenBracket) {
             return {};
         }
 
@@ -303,7 +303,8 @@ namespace glsld {
 
         do {
             // current token is [[ if in the first loop, or , in the following loops
-            MatchAndConsume(TokenType::kOpenAttributeBracket);
+            MatchAndConsume(TokenType::kOpenBracket);
+            MatchAndConsume(TokenType::kOpenBracket);
             MatchAndConsume(TokenType::kComma);
             auto node = std::make_unique<AttributeNode>(current_scope());
             node->begin = CurrentToken().location;
@@ -334,7 +335,8 @@ namespace glsld {
             attributes.push_back(std::move(node));
         } while (CurrentToken().type == TokenType::kComma);
 
-        MatchAndConsume(TokenType::kCloseAttributeBracket);
+        MatchAndConsume(TokenType::kCloseBracket);
+        MatchAndConsume(TokenType::kCloseBracket);
         return attributes;
     }
 
@@ -413,6 +415,11 @@ namespace glsld {
             // }
 
             for (const auto& array_size : param->type_spec.array_sizes) {
+                if (array_size == nullptr) {
+                    param_typename += "[]";
+                    continue;
+                }
+
                 std::string array_dimension;
 
                 if (array_size->kind() == AstNodeKind::kLiteralExpression) {
@@ -435,7 +442,7 @@ namespace glsld {
 
         // current token is ')'
         MatchAndConsume(TokenType::kCloseParen);
-        if (CurrentToken().type == TokenType::kOpenAttributeBracket) {
+        if (CurrentToken().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
             node->attributes = ParseAttributeList();
         }
 
@@ -717,9 +724,13 @@ namespace glsld {
         if (current_token.type == TokenType::kOpenParen) {
             ConsumeToken();
             auto expr_node = ParseExpression(Precedence::kLowest);
-            expr_node->begin = current_token.location;
+
+            if (expr_node != nullptr) {
+                expr_node->begin = current_token.location;
+                expr_node->end = GetCurrentTokenEnd();
+            }
+
             MatchAndConsume(TokenType::kCloseParen);
-            expr_node->end = GetPreviousTokenEnd();
             return expr_node;
         }
 
@@ -770,9 +781,9 @@ namespace glsld {
         auto node = std::make_unique<VariableExpressionNode>(current_scope());
         const auto& current_token = CurrentToken();
 
-        node->begin      = current_token.location;
-        node->token_type = current_token.type;
-        node->name       = current_token.text;
+        node->begin          = current_token.location;
+        node->original_token = current_token;
+        node->name           = current_token.text;
 
         if (PeekToken().type != TokenType::kOpenParen) {
             node->node_type = VariableExpressionNode::NodeType::kCommonVariable;
@@ -864,12 +875,12 @@ namespace glsld {
         if (CurrentToken().type == TokenType::kIdentifier) {
             const auto& member_token = CurrentToken();
 
-            auto member_node        = std::make_unique<VariableExpressionNode>(current_scope());
-            member_node->begin      = member_token.location;
-            member_node->token_type = member_token.type;
-            member_node->node_type  = VariableExpressionNode::NodeType::kBlockMember;
-            member_node->name       = member_token.text;
-            member_node->end        = GetCurrentTokenEnd();
+            auto member_node            = std::make_unique<VariableExpressionNode>(current_scope());
+            member_node->begin          = member_token.location;
+            member_node->original_token = member_token;
+            member_node->node_type      = VariableExpressionNode::NodeType::kBlockMember;
+            member_node->name           = member_token.text;
+            member_node->end            = GetCurrentTokenEnd();
 
             node->member = std::move(member_node);
 

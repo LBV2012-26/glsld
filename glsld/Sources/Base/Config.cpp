@@ -53,7 +53,7 @@ namespace glsld {
                 if (it != ConfigVarData().end()) {
                     ConfigVarData().at(key)->FromString(node.IsScalar() ? node.Scalar() : YAML::Dump(node));
                 } else {
-                    pending.emplace(key, node);
+                    pending.try_emplace(key, node);
                 }
             }
         }

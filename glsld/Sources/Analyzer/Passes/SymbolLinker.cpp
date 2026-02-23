@@ -2,6 +2,7 @@
 #include "SymbolLinker.hpp"
 
 #include <utility>
+#include <variant>
 
 namespace glsld {
     SymbolLinker::SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
@@ -25,7 +26,7 @@ namespace glsld {
             scope = node->located_scope;
         }
 
-        if (node->token_type != TokenType::kIdentifier || scope == nullptr) {
+        if (node->original_token.type != TokenType::kIdentifier || scope == nullptr) {
             return;
         }
 
@@ -37,7 +38,8 @@ namespace glsld {
         case kFunctionCallee: {
             auto function_result = symbols_.FindFunctionsByOriginalName(node->name);
 
-            if (function_result.empty()) { // constructor calling, like "BufferReference ref = BufferReference(device_address);"
+            if (function_result.empty()) {
+                // constructor calling, like "BufferReference ref = BufferReference(device_address);"
                 const auto* symbol_result = scope->FindSymbol(node->name);
                 node->linked_symbols = symbol_result;
                 break;
@@ -50,8 +52,11 @@ namespace glsld {
             break;
         }
 
-        if (!std::holds_alternative<std::monostate>(node->linked_symbols)) {
+        if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
             bindings_.try_emplace(node->begin, node->linked_symbols);
+        } else if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
+            const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
+            bindings_.try_emplace(node->original_token.location, symbol);
         }
     }
 }

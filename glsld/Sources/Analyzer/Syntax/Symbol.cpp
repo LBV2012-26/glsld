@@ -48,9 +48,7 @@ namespace glsld {
         }
 
         for (auto i = 0uz; i != array_sizes.size(); ++i) {
-            if (array_sizes[i].text != other.array_sizes[i].text ||
-                array_sizes[i].type != other.array_sizes[i].type)
-            {
+            if (array_sizes[i] != other.array_sizes[i]) {
                 return false;
             }
         }
@@ -185,8 +183,12 @@ namespace glsld {
 
         for (const auto& [mangled_name, symbol] : root_scope_->symbols_) {
             if (mangled_name.starts_with("__Decl_") || mangled_name.starts_with("__Impl_")) {
-                if (mangled_name.contains(base_name)) {
-                    results.push_back(&symbol);
+                size_t paren_pos = mangled_name.find('(');
+                if (paren_pos != std::string_view::npos) {
+                    const auto& func_name = mangled_name.substr(7, paren_pos - 7);
+                    if (func_name == base_name) {
+                        results.push_back(&symbol);
+                    }
                 }
             }
         }

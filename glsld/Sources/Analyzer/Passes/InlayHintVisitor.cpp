@@ -2,6 +2,8 @@
 #include "InlayHintVisitor.hpp"
 
 #include <algorithm>
+#include <format>
+#include <iterator>
 #include <variant>
 #include "Analyzer/Ast/Ast.hpp"
 
@@ -33,8 +35,8 @@ namespace glsld {
                     const auto& type_info = param->declared_symbol->type_info;
                     std::string label = param->declared_symbol->name;
                     if (!type_info.array_sizes.empty()) {
-                        for (const auto& array_size : type_info.array_sizes) {
-                            label += "[" + array_size.text + "]";
+                        for (auto array_size : type_info.array_sizes) {
+                            std::format_to(std::back_inserter(label), "[{}]", array_size);
                         }
                     }
 

@@ -82,8 +82,6 @@ namespace glsld {
         kEndOfFile,
 
         // 高级
-        kOpenAttributeBracket,   // [[
-        kCloseAttributeBracket,  // ]]
         kColonColon              // ::
     };
 

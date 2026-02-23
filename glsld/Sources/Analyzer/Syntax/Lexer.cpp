@@ -100,6 +100,8 @@ namespace glsld {
         // X
         case '{':  return Capture(TokenType::kOpenBrace);
         case '}':  return Capture(TokenType::kCloseBrace);
+        case '[':  return Capture(TokenType::kOpenBracket);
+        case ']':  return Capture(TokenType::kCloseBracket);
         case '(':  return Capture(TokenType::kOpenParen);
         case ')':  return Capture(TokenType::kCloseParen);
         case ',':  return Capture(TokenType::kComma);
@@ -110,8 +112,6 @@ namespace glsld {
         case '?':  return Capture(TokenType::kQuestion);
         case '\\': return Capture(TokenType::kBackslash);
         // XX
-        case '[':  return Peek() == '[' ? Capture(TokenType::kOpenAttributeBracket,  2) : Capture(TokenType::kOpenBracket);
-        case ']':  return Peek() == ']' ? Capture(TokenType::kCloseAttributeBracket, 2) : Capture(TokenType::kCloseBracket);
         case ':':  return Peek() == ':' ? Capture(TokenType::kColonColon,            2) : Capture(TokenType::kColon);
         // X, XE
         case '*': return Peek() == '=' ? Capture(TokenType::kStarEqual,    2) : Capture(TokenType::kStar);

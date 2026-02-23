@@ -35,12 +35,12 @@ layout(push_constant) uniform PushConstants {
 #define MAX_RETURN_ARRAY_SIZE 5
 #define MACRO_FUNC(x) (x * x)
 
-int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25][MAX_RETURN_ARRAY_SIZE]) {
+int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE]) {
     int array[MAX_RETURN_ARRAY_SIZE] = mdarray[0];
     return array;
 }
 
-LightData ReturnLightData() {
+LightData ReturnLightData(int param) {
     LightData data;
     return data;
 }
@@ -55,7 +55,7 @@ LightData ReturnLightData() {
 void main() {
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
     mat4 my_matrix = ubo.my_matrix;
-    int mdarray[25][MAX_RETURN_ARRAY_SIZE];
+    int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE];
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
 
     vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
@@ -64,10 +64,10 @@ void main() {
     #define MIN_ITER 1
     [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]] for (int i = 0; i != max_iter; ++i);
 
-    LightData mddata[10][5];
-    vec3 data = mddata[2][3].position;
+    LightData mddata[max_iter][5];
+    vec3 data = mddata[ReturnArray(mdarray)[0]][3].position;
 
-    LightData result = ReturnLightData();
+    LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
 
     FragColor = vec4(light + ambient, 1.0);
 }

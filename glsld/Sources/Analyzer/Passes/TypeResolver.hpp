@@ -1,10 +1,13 @@
 #pragma once
 
+
+#include <cstdint>
 #include <atomic>
 #include <memory>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
@@ -30,6 +33,7 @@ namespace glsld {
         void VisitRawExpression(RawExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
+        std::vector<std::int64_t> DeduceArraySizesFromArgs(const CallExpressionNode* call_node);
         TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec);
         TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);

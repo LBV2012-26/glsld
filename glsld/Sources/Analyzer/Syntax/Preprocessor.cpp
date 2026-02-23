@@ -91,7 +91,7 @@ namespace glsld {
             return;
         }
 
-        active_macros.emplace(macro_name);
+        active_macros.insert(macro_name);
 
         for (const auto& replaced_token : it->second.replacement_list) {
             auto new_token = replaced_token;

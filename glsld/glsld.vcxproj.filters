@@ -23,6 +23,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -54,6 +55,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

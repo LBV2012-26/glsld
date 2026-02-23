@@ -5,15 +5,17 @@
 #include <algorithm>
 #include <charconv>
 #include <format>
+#include <limits>
 #include <ranges>
 #include <stdexcept>
 #include <utility>
 #include <variant>
-#include <vector>
+
+#include "Analyzer/Passes/ConstantEvaluator.hpp"
 
 namespace glsld {
     namespace {
-        std::string GetTypePrefix(const TypeDescriptor& type_desc) {
+        std::string GetTypeBitsPrefix(const TypeDescriptor& type_desc) {
             std::string prefix;
             switch (type_desc.family) {
             case BaseFamily::kBool:
@@ -59,7 +61,7 @@ namespace glsld {
 
         void SeparateType(TypeInfo& type_info, bool keep_vector) {
             if (keep_vector) {
-                std::string prefix = GetTypePrefix(type_info.type_desc);
+                std::string prefix = GetTypeBitsPrefix(type_info.type_desc);
                 type_info.typename_token.text    = std::format("{}vec{}", prefix, type_info.type_desc.vector_length);
                 type_info.type_desc.vector_count = 1;
             } else {
@@ -109,7 +111,7 @@ namespace glsld {
             if (arithmetic_structure == kScalar) {
                 type_info.typename_token.text = GetScalarTypename(type_desc);
             } else {
-                std::string prefix = GetTypePrefix(type_desc);
+                std::string prefix = GetTypeBitsPrefix(type_desc);
                 if (arithmetic_structure == kVector) {
                     type_info.typename_token.text = std::format("{}vec{}", prefix, type_desc.vector_length);
                 } else {
@@ -262,9 +264,7 @@ namespace glsld {
             }
 
             for (auto i = 0uz; i != lhs.array_sizes.size(); ++i) {
-                if (lhs.array_sizes[i].text != rhs.array_sizes[i].text ||
-                    lhs.array_sizes[i].type != rhs.array_sizes[i].type)
-                {
+                if (lhs.array_sizes[i] != rhs.array_sizes[i]) {
                     return false;
                 }
             }
@@ -322,7 +322,20 @@ namespace glsld {
         bindings_.try_emplace(variable_symbol->location, variable_symbol);
         variable_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
-        AstVisitor::VisitVariableDeclaration(node);
+        if (node->init == nullptr) {
+            return;
+        }
+
+        Traverse(node->init.get());
+
+        variable_symbol->type_info.array_sizes.resize(node->type_spec.array_sizes.size());
+        node->init->evaluated_type.array_sizes.resize(node->type_spec.array_sizes.size());
+
+        for (auto i = 0uz; i != node->type_spec.array_sizes.size(); ++i) {
+            if (node->type_spec.array_sizes[i] == nullptr) {
+                variable_symbol->type_info.array_sizes[i] = node->init->evaluated_type.array_sizes[i];
+            }
+        }
     }
 
     void TypeResolver::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
@@ -370,6 +383,7 @@ namespace glsld {
         }
 
         Traverse(node->operand.get());
+
         TypeInfo operand_type = node->operand->evaluated_type;
         if (operand_type.type_desc.family == BaseFamily::kUnknown) {
             node->evaluated_type = operand_type;
@@ -443,20 +457,91 @@ namespace glsld {
     void TypeResolver::VisitCallExpression(CallExpressionNode* node) {
         std::vector<TypeInfo> call_arg_types;
         for (const auto& arg : node->args) {
-            Traverse(arg.get());
-            call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
+            if (arg != nullptr) {
+                Traverse(arg.get());
+                call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
+            }
         }
 
         Traverse(node->callee.get());
+
+        ExpressionNode* current_base = node->callee.get();
+        std::vector<std::int64_t> dimensions;
+        bool is_array_constructor = false;
+
+        while (auto* index_node = dynamic_cast<IndexExpressionNode*>(current_base)) {
+            is_array_constructor = true;
+
+            auto size = 0z;
+            if (index_node->index != nullptr) {
+                ConstantEvaluator evaluator;
+                auto result = evaluator.Evaluate(index_node->index.get());
+                size = result.value_or(std::numeric_limits<std::int64_t>::min());
+            } else {
+                size = std::numeric_limits<std::int64_t>::min();
+            }
+
+            dimensions.push_back(size);
+            current_base = index_node->base.get();
+        }
+
+        // int array[] = int[](...)
+        if (is_array_constructor) {
+            if (const auto* base_varexpr = dynamic_cast<const VariableExpressionNode*>(current_base)) {
+                bool is_constructor = false;
+                TypeDescriptor base_desc;
+
+                if (base_varexpr->original_token.type == TokenType::kPrimitive ||
+                    base_varexpr->original_token.type == TokenType::kBuiltInType)
+                {
+                    is_constructor = true;
+                    base_desc = ParseTypeDescriptor(base_varexpr->name);
+                } else if (std::holds_alternative<const SymbolInfo*>(base_varexpr->linked_symbols)) {
+                    const auto* symbol = std::get<const SymbolInfo*>(base_varexpr->linked_symbols);
+                    if (symbol != nullptr) {
+                        if (symbol->kind == SymbolKind::kInterface || symbol->kind == SymbolKind::kStruct) {
+                            is_constructor = true;
+                            base_desc = symbol->type_info.type_desc;
+                        }
+                    }
+                }
+
+                if (is_constructor) {
+                    TypeInfo array_type{
+                        .typename_token{
+                            .text = base_varexpr->name,
+                            .type = base_varexpr->original_token.type
+                        },
+                        .type_desc = base_desc
+                    };
+
+                    std::ranges::reverse(dimensions);
+                    if (std::ranges::find(dimensions, std::numeric_limits<std::int64_t>::min()) != dimensions.end()) {
+                        auto dimensions_from_args = DeduceArraySizesFromArgs(node);
+                        for (auto&& [target, source] : std::views::zip(dimensions, dimensions_from_args)) {
+                            if (target == std::numeric_limits<std::int64_t>::min()) {
+                                target = source;
+                            }
+                        }
+                    }
+
+                    array_type.array_sizes = std::move(dimensions);
+
+                    node->evaluated_type         = array_type;
+                    node->callee->evaluated_type = array_type;
+                    return;
+                }
+            }
+        }
+
         auto* callee_node = static_cast<VariableExpressionNode*>(node->callee.get());
 
-        if (callee_node->token_type == TokenType::kPrimitive ||
-            callee_node->token_type == TokenType::kBuiltInType)
-        {
+        if (callee_node->original_token.type == TokenType::kPrimitive ||
+            callee_node->original_token.type == TokenType::kBuiltInType) {
             TypeInfo constructor_type{
                 .typename_token{
                     .text = callee_node->name,
-                    .type = callee_node->token_type
+                    .type = callee_node->original_token.type
                 },
                 .type_desc = ParseTypeDescriptor(callee_node->name)
             };
@@ -501,6 +586,7 @@ namespace glsld {
 
     void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
         Traverse(node->base.get());
+        Traverse(node->index.get());
 
         const auto& base_type = node->base->evaluated_type;
         auto& evaluated_type = node->evaluated_type;
@@ -543,8 +629,8 @@ namespace glsld {
     }
 
     void TypeResolver::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
-        // object.member
-        Traverse(node->object.get()); // 递归推导对象类型
+        Traverse(node->object.get());
+        // Traverse(node->member.get()); SymbolLinker 不知道结构体内部作用域，遍历了也鸡毛用没有
 
         auto object_type = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
@@ -561,6 +647,25 @@ namespace glsld {
         } else if (object_type.is_builtin()) {
             node->evaluated_type = ResolveSwizzleType(object_type, node->member->name);
         }
+    }
+
+    std::vector<std::int64_t> TypeResolver::DeduceArraySizesFromArgs(const CallExpressionNode* call_node) {
+        std::vector<std::int64_t> dimensions;
+        if (call_node->args.empty()) {
+            return dimensions;
+        }
+
+        dimensions.push_back(static_cast<std::int64_t>(call_node->args.size()));
+        const auto* first_arg = call_node->args.front().get();
+
+        if (const auto* next_call = dynamic_cast<const CallExpressionNode*>(first_arg)) {
+            if (dynamic_cast<IndexExpressionNode*>(next_call->callee.get()) != nullptr) {
+                auto next_dimensions = DeduceArraySizesFromArgs(next_call);
+                dimensions.append_range(next_dimensions | std::views::as_rvalue);
+            }
+        }
+
+        return dimensions;
     }
 
     TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec) {
@@ -585,23 +690,9 @@ namespace glsld {
                 continue;
             }
 
-            if (size->kind() == AstNodeKind::kLiteralExpression) {
-                const auto* raw_node = static_cast<const RawExpressionNode*>(size.get());
-                for (const auto& token : raw_node->tokens) {
-                    info.array_sizes.push_back(token);
-                }
-            } else if (size->kind() == AstNodeKind::kVariableExpression) {
-                const auto* var_expr = static_cast<const VariableExpressionNode*>(size.get());
-                info.array_sizes.push_back(Token{
-                    .text = var_expr->name,
-                    .type = var_expr->token_type
-                });
-
-                if (std::holds_alternative<const SymbolInfo*>(var_expr->linked_symbols)) {
-                    const auto* size_symbol = std::get<const SymbolInfo*>(var_expr->linked_symbols);
-                    bindings_.try_emplace(var_expr->begin, size_symbol);
-                }
-            }
+            ConstantEvaluator evaluator;
+            auto result = evaluator.Evaluate(size.get());
+            info.array_sizes.push_back(result.value_or(std::numeric_limits<std::int64_t>::min()));
         }
 
         if (typename_token.type == TokenType::kIdentifier) {

@@ -314,7 +314,7 @@ namespace glsld {
             kBlockMember
         };
 
-        TokenType       token_type;
+        Token           original_token;
         NodeType        node_type;
         std::string     name;
         SymbolReference linked_symbols{ std::monostate{} };

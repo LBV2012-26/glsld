@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <iterator>
 #include <print>
 
 #include <magic_enum/magic_enum_all.hpp>
@@ -82,7 +83,7 @@ namespace glsld {
         std::string name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
         std::string type = node->declared_symbol ? node->declared_symbol->type_info.typename_token.text : TypeToString(node->type_spec);
 
-        std::println("Variable '{}' Type: {} {}", name, type, FormatRange(node));
+        std::println("VariableDeclaration '{}' Type: {} {}", name, type, FormatRange(node));
 
         ++indent_level_;
 
@@ -176,11 +177,13 @@ namespace glsld {
         std::print("Condition: ");
         TraverseWithoutIndent(node->condition.get());
 
-        PrintIndent();
-        std::println("Then:");
-        ++indent_level_;
-        Traverse(node->then_branch.get());
-        --indent_level_;
+        if (node->then_branch != nullptr) {
+            PrintIndent();
+            std::println("Then:");
+            ++indent_level_;
+            Traverse(node->then_branch.get());
+            --indent_level_;
+        }
 
         if (node->else_branch != nullptr) {
             PrintIndent();
@@ -304,8 +307,8 @@ namespace glsld {
             std::println("Default:");
         }
 
-        for (const auto& stmt : node->body) {
-            Traverse(stmt.get());
+        for (const auto& statement : node->body) {
+            Traverse(statement.get());
         }
 
         --indent_level_;
@@ -354,9 +357,7 @@ namespace glsld {
         std::println("InitListExpression (Elements: {}) {}", node->elements.size(), FormatRange(node));
 
         ++indent_level_;
-        for (const auto& element : node->elements) {
-            Traverse(element.get());
-        }
+        Base::VisitInitializerListExpression(node);
         --indent_level_;
     }
 
@@ -416,7 +417,7 @@ namespace glsld {
 
         if (node->true_expr != nullptr) {
             PrintIndent();
-            std::println("TrueExpr:");
+            std::println("TrueExpression:");
             ++indent_level_;
             Traverse(node->true_expr.get());
             --indent_level_;
@@ -424,7 +425,7 @@ namespace glsld {
 
         if (node->false_expr != nullptr) {
             PrintIndent();
-            std::println("FalseExpr:");
+            std::println("FalseExpression:");
             ++indent_level_;
             Traverse(node->false_expr.get());
             --indent_level_;
@@ -470,7 +471,11 @@ namespace glsld {
 
         PrintIndent();
         std::print("Index: ");
-        TraverseWithoutIndent(node->index.get());
+        if (node->index != nullptr) {
+            TraverseWithoutIndent(node->index.get());
+        } else {
+            std::println("<null>");
+        }
 
         --indent_level_;
     }
@@ -481,11 +486,11 @@ namespace glsld {
         const auto& typename_token = node->evaluated_type.typename_token;
         std::string type;
         if (node->evaluated_type.typename_token.type == TokenType::kUnknown) {
-            type = magic_enum::enum_name(node->token_type);
+            type = magic_enum::enum_name(node->original_token.type);
         } else {
             type = node->evaluated_type.typename_token.text;
-            for (const auto& array_size : node->evaluated_type.array_sizes) {
-                type += std::format("[{}]", array_size.text);
+            for (auto array_size : node->evaluated_type.array_sizes) {
+                std::format_to(std::back_inserter(type), "[{}]", array_size);
             }
         }
 
@@ -538,6 +543,7 @@ namespace glsld {
             }
         }
 
+        // TODO: modify to evaluate
         for (const auto& array_size : type_spec.array_sizes) {
             std::string array_dimension;
             if (array_size->kind() == AstNodeKind::kLiteralExpression) {
@@ -550,7 +556,7 @@ namespace glsld {
                 array_dimension = var_expr->name;
             }
 
-            result += std::format("[{}]", array_dimension);
+            std::format_to(std::back_inserter(result), "[{}]", array_dimension);
         }
 
         return result.empty() ? "void" : result;

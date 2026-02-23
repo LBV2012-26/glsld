@@ -75,7 +75,7 @@ namespace glsld {
     {
         std::unordered_map<std::string, LoggerConfig> new_configs_map;
         for (const auto& config : new_configs) {
-            new_configs_map.emplace(config.name, config);
+            new_configs_map.try_emplace(config.name, config);
         }
 
         for (const auto& [name, new_config] : new_configs_map) {

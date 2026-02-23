@@ -175,7 +175,7 @@ namespace glsld {
                 for (const auto& child : scope->children()) {
                     if (child->interval().first.line == info.location.line) {
                         child_scope = child.get();
-                        handled_scopes.emplace(child_scope);
+                        handled_scopes.insert(child_scope);
                         break;
                     }
                 }
@@ -498,8 +498,8 @@ namespace glsld {
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
             result = std::format("(parameter) {} {}", GetVariableSpecifiers(node), symbol->name);
 
-            for (const auto& array_size : symbol->type_info.array_sizes) {
-                result += std::format("[{}]", array_size.text);
+            for (auto array_size : symbol->type_info.array_sizes) {
+                std::format_to(std::back_inserter(result), "[{}]", array_size);
             }
 
             break;
@@ -529,8 +529,8 @@ namespace glsld {
 
             result = std::format("{} {}", prefix, name);
 
-            for (const auto& array_size : symbol->type_info.array_sizes) {
-                result += std::format("[{}]", array_size.text);
+            for (auto array_size : symbol->type_info.array_sizes) {
+                std::format_to(std::back_inserter(result), "[{}]", array_size);
             }
 
             break;
@@ -539,8 +539,8 @@ namespace glsld {
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl: {
             std::string return_typename = symbol->type_info.typename_token.text;
-            for (const auto& array_size : symbol->type_info.array_sizes) {
-                return_typename += std::format("[{}]", array_size.text);
+            for (auto array_size : symbol->type_info.array_sizes) {
+                std::format_to(std::back_inserter(return_typename), "[{}]", array_size);
             }
 
             auto raw_name = utils::UnmangleFunctionName(symbol->name);
@@ -555,8 +555,8 @@ namespace glsld {
                 if (param_symbol != nullptr && param_symbol->name != "") {
                     result += " " + param_symbol->name;
 
-                    for (const auto& array_size : param_symbol->type_info.array_sizes) {
-                        result += std::format("[{}]", array_size.text);
+                    for (auto array_size : param_symbol->type_info.array_sizes) {
+                        std::format_to(std::back_inserter(result), "[{}]", array_size);
                     }
                 }
 
