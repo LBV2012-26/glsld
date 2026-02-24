@@ -1,7 +1,5 @@
-#version 460
-
-#define A vec##3
+#define F(x, y) (x * y)
 
 void main() {
-    A a;
+    F(2, 3);
 }

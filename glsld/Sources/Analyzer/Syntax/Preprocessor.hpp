@@ -14,10 +14,10 @@
 
 namespace glsld {
     struct MacroDefination {
-        bool                     is_function{};
-        Token                    original_token;
-        std::vector<Token>       replacement_list;
-        std::vector<std::string> params;
+        bool               is_function{};
+        Token              original_token;
+        std::vector<Token> replacement_list;
+        std::vector<Token> params;
     };
 
     class Preprocessor {
@@ -33,6 +33,7 @@ namespace glsld {
         const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
+        bool MatchAndConsume(TokenType type);
 
         StringHeteroHashTable<std::string, MacroDefination> macros_;
         MacroTraceMap&                                      trace_map_;

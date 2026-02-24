@@ -1318,15 +1318,6 @@ namespace glsld {
         return collected;
     }
 
-    bool Parser::MatchAndConsume(TokenType type) {
-        if (current_token().type == type) {
-            ConsumeToken();
-            return true;
-        }
-
-        return false;
-    }
-
     template <typename Ty>
     concept IsVector = requires {
         typename Ty::value_type;

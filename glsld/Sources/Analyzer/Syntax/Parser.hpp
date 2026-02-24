@@ -90,8 +90,8 @@ namespace glsld {
         const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
-        std::vector<Token> CaptureDirectiveTokens(std::size_t directive_physical_line);
         bool MatchAndConsume(TokenType type);
+        std::vector<Token> CaptureDirectiveTokens(std::size_t directive_physical_line);
         SourceLocation GetCurrentTokenEnd() const;
         SourceLocation GetPreviousTokenEnd() const;
 

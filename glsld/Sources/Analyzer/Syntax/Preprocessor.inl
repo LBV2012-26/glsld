@@ -17,4 +17,13 @@ namespace glsld {
     inline void Preprocessor::ConsumeToken(std::ptrdiff_t count) {
         token_index_ = std::min(token_index_ + count, raw_tokens_.size() - 1);
     }
+
+    inline bool Preprocessor::MatchAndConsume(TokenType type) {
+        if (current_token().type == type) {
+            ConsumeToken();
+            return true;
+        }
+
+        return false;
+    }
 }

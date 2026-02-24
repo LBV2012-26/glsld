@@ -567,6 +567,8 @@ void main() {
     TestOverloadFunction(((GetVec4().xy + GetVec2()) * GetFloat()).xy);
     TestOverloadFunction(((GetVec3().zyx - GetVec3()) / GetFloat()).xyz);
     TestOverloadFunction(((GetVec2().yx + GetVec2().xy) * GetFloat()).xy);
+
+#define TEST TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 }
 
 void TestOverloadFunction() {}

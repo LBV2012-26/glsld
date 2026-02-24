@@ -61,7 +61,7 @@ void main() {
     vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
 
     const int max_iter = 10;
-    #define MIN_ITER 1
+    #define MIN_ITER max_iter
     [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]] for (int i = 0; i != max_iter; ++i);
 
     LightData mddata[max_iter][5];

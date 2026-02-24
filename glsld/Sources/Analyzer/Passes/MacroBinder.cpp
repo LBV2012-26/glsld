@@ -43,9 +43,15 @@ namespace glsld {
                     continue;
                 }
 
-                const auto* symbol = scope->FindSymbolForHighlighting(token.text);
+                // TODO: parse macro body function overload
+                const auto* symbol = scope->FindSymbol(token.text);
                 if (symbol != nullptr) {
                     document_.bindings.try_emplace(token.location, symbol);
+                } else {
+                    const auto& symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
+                    if (!symbol_list.empty()) {
+                        document_.bindings.try_emplace(token.location, SymbolList{ symbol_list });
+                    }
                 }
             }
         }

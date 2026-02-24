@@ -13,10 +13,8 @@ namespace glsld {
         std::vector<Token> expanded;
 
         while (current_token().type != TokenType::kEndOfFile) {
-            const auto& token = current_token();
-
-            if (token.type == TokenType::kSharp && PeekToken().text == "define") {
-                expanded.push_back(token); // #
+            if (current_token().type == TokenType::kSharp && PeekToken().text == "define") {
+                expanded.push_back(current_token()); // #
                 ConsumeToken();
                 expanded.push_back(current_token()); // define
                 ConsumeToken();
@@ -31,17 +29,45 @@ namespace glsld {
                 CollectMacroReplacement(defination);
                 macros_.try_emplace(name_token.text, defination);
 
+                for (auto i = 0uz; i != defination.params.size(); ++i) {
+                    if (i == 0) {
+                        expanded.push_back(Token{
+                            .text     = "(",
+                            .location = { name_token.location.line, name_token.location.column + name_token.text.length() },
+                            .type     = TokenType::kOpenParen
+                        });
+                    }
+
+                    expanded.push_back(defination.params[i]);
+
+                    if (i + 1 == defination.params.size()) {
+                        const auto& last_token = expanded.back();
+                        expanded.push_back(Token{
+                            .text     = ")",
+                            .location = { last_token.location.line, last_token.location.column + last_token.text.length() },
+                            .type     = TokenType::kCloseParen
+                        });
+                    } else {
+                        expanded.push_back(Token{
+                            .text     = ",",
+                            .location = { defination.params[i].location.line, defination.params[i].location.column + defination.params[i].text.length() },
+                            .type     = TokenType::kComma
+                        });
+                    }
+                }
+
                 for (const auto& replaced : defination.replacement_list) {
                     expanded.push_back(replaced);
                 }
             }
 
-            if (macros_.contains(token.text)) {
-                auto it = macros_.find(token.text);
-                trace_map_.try_emplace(token.location, it->second.original_token);
+            if (macros_.contains(current_token().text)) {
+                const auto& macro_token = current_token();
+                auto it = macros_.find(macro_token.text);
+                trace_map_.try_emplace(macro_token.location, it->second.original_token);
 
                 std::unordered_set<std::string> active_macros;
-                ExpandMacro(token, active_macros, expanded);
+                ExpandMacro(macro_token, active_macros, expanded);
                 ConsumeToken();
                 continue;
             }
@@ -55,6 +81,26 @@ namespace glsld {
     }
 
     void Preprocessor::CollectMacroReplacement(MacroDefination& defination) {
+        const auto& prev_token = PeekToken(-1);
+        const auto& this_token = current_token();
+        if (this_token.type == TokenType::kOpenParen &&
+            prev_token.location.column + prev_token.text.length() == this_token.location.column)
+        {
+            defination.is_function = true;
+            ConsumeToken();
+        }
+
+        if (defination.is_function) {
+            do {
+                MatchAndConsume(TokenType::kComma);
+                const auto& param_token = current_token();
+                defination.params.push_back(param_token);
+                ConsumeToken();
+            } while (current_token().type == TokenType::kComma);
+
+            MatchAndConsume(TokenType::kCloseParen);
+        }
+
         std::size_t current_physical_line = current_token().location.line;
 
         while (current_token().type != TokenType::kEndOfFile) {
@@ -87,6 +133,19 @@ namespace glsld {
         if (macros_.find(macro_name) == macros_.end()) {
             output.push_back(macro_token);
             return;
+        }
+
+        if (it->second.is_function) {
+            ConsumeToken();
+            if (current_token().type != TokenType::kOpenParen) {
+                output.push_back(macro_token);
+                return;
+            }
+
+            // TODO: expand macro function
+            while (!MatchAndConsume(TokenType::kCloseParen)) {
+                ConsumeToken();
+            }
         }
 
         const auto& replacement_list = it->second.replacement_list;

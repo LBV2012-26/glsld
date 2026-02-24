@@ -18,6 +18,15 @@ namespace glsld {
         token_index_ = std::min(token_index_ + count, expanded_tokens_.size() - 1);
     }
 
+    inline bool Parser::MatchAndConsume(TokenType type) {
+        if (current_token().type == type) {
+            ConsumeToken();
+            return true;
+        }
+
+        return false;
+    }
+
     inline SourceLocation Parser::GetCurrentTokenEnd() const {
         const auto& token = current_token();
         return {
