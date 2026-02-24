@@ -27,8 +27,8 @@ namespace glsld {
             }
         }
 
-        Preprocessor processor(document_.macro_traces);
-        expanded_tokens_ = processor.Process(raw_tokens_);
+        Preprocessor processor(document_.macro_traces, raw_tokens_);
+        expanded_tokens_ = processor.Process();
     }
 
     void Parser::Parse() {
@@ -154,7 +154,7 @@ namespace glsld {
         auto root = std::make_unique<TranslationUnitNode>(current_scope());
         root->begin = { 1, 1 };
 
-        while (CurrentToken().type != TokenType::kEndOfFile) {
+        while (current_token().type != TokenType::kEndOfFile) {
             if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
                 return nullptr;
             }
@@ -171,12 +171,12 @@ namespace glsld {
 
     std::unique_ptr<StatementNode> Parser::ParseStatement() {
         std::vector<std::unique_ptr<AttributeNode>> attributes;
-        if (CurrentToken().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
+        if (current_token().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
             attributes = ParseAttributeList();
         }
 
         std::unique_ptr<StatementNode> node;
-        switch (CurrentToken().type) {
+        switch (current_token().type) {
         case TokenType::kPrimitive:
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
@@ -194,8 +194,8 @@ namespace glsld {
             node = ParsePreprocessor();
             break;
         default:
-            while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kSemicolon &&
-                   CurrentToken().type != TokenType::kOpenBrace || CurrentToken().type == TokenType::kCloseBrace)
+            while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kSemicolon &&
+                   current_token().type != TokenType::kOpenBrace || current_token().type == TokenType::kCloseBrace)
             {
                 ConsumeToken();
             }
@@ -214,14 +214,14 @@ namespace glsld {
     std::unique_ptr<PreprocessorNode> Parser::ParsePreprocessor() {
         // current token is '#'
         auto node = std::make_unique<PreprocessorNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         MatchAndConsume(TokenType::kSharp);
 
-        if (CurrentToken().type == TokenType::kEndOfFile) {
+        if (current_token().type == TokenType::kEndOfFile) {
             return nullptr;
         }
 
-        auto& directive_token = CurrentToken();
+        auto& directive_token = current_token();
         node->directive = std::string(directive_token.text);
         if (directive_token.type == TokenType::kKeyword) {
             // #if defined, #else
@@ -244,7 +244,7 @@ namespace glsld {
 
     std::unique_ptr<PreprocessorNode> Parser::ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line) {
         // current token is macro name after "define"
-        const auto& macro_token = CurrentToken();
+        const auto& macro_token = current_token();
 
         if (macro_token.location.line != directive_physical_line) {
             return node;
@@ -262,11 +262,11 @@ namespace glsld {
         };
 
         // macro function like #define MACRO(x)
-        if (CurrentToken().type == TokenType::kOpenParen && IsAdjacent(macro_token, CurrentToken())) {
+        if (current_token().type == TokenType::kOpenParen && IsAdjacent(macro_token, current_token())) {
             ConsumeToken();
-            while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
-                if (CurrentToken().type == TokenType::kIdentifier) {
-                    node->params.push_back(CurrentToken().text);
+            while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen) {
+                if (current_token().type == TokenType::kIdentifier) {
+                    node->params.push_back(current_token().text);
                     ConsumeToken();
                 }
                 if (!MatchAndConsume(TokenType::kComma)) {
@@ -284,7 +284,7 @@ namespace glsld {
 
     std::unique_ptr<CompoundStatementNode> Parser::ParseScope(SymbolInfo* host_symbol, ScopeKind kind) {
         auto node = std::make_unique<CompoundStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         MatchAndConsume(TokenType::kOpenBrace);
 
         node->internal_scope = EnterScope(node->begin, host_symbol, kind);
@@ -300,7 +300,7 @@ namespace glsld {
     }
 
     std::vector<std::unique_ptr<AttributeNode>> Parser::ParseAttributeList() {
-        if (CurrentToken().type != TokenType::kOpenBracket || PeekToken().type != TokenType::kOpenBracket) {
+        if (current_token().type != TokenType::kOpenBracket || PeekToken().type != TokenType::kOpenBracket) {
             return {};
         }
 
@@ -312,14 +312,14 @@ namespace glsld {
             MatchAndConsume(TokenType::kOpenBracket);
             MatchAndConsume(TokenType::kComma);
             auto node = std::make_unique<AttributeNode>(current_scope());
-            node->begin = CurrentToken().location;
+            node->begin = current_token().location;
 
             if (PeekToken().type == TokenType::kColonColon) {
-                node->namespace_ = CurrentToken();
+                node->namespace_ = current_token();
                 ConsumeToken();
             }
 
-            const auto& name_token = CurrentToken();
+            const auto& name_token = current_token();
             if (name_token.type == TokenType::kIdentifier) {
                 node->name = name_token;
 
@@ -338,7 +338,7 @@ namespace glsld {
 
             node->end = GetCurrentTokenEnd();
             attributes.push_back(std::move(node));
-        } while (CurrentToken().type == TokenType::kComma);
+        } while (current_token().type == TokenType::kComma);
 
         MatchAndConsume(TokenType::kCloseBracket);
         MatchAndConsume(TokenType::kCloseBracket);
@@ -350,24 +350,24 @@ namespace glsld {
         auto type_spec = ParseQualifiersAndType();
 
         // block, current is identifier, and next is '{'
-        if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
+        if (!type_spec.empty() && current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
             return ParseBlockBody(std::move(type_spec));
         }
 
         // function, current is identifier, and next is '('
-        if (!type_spec.empty() && CurrentToken().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
+        if (!type_spec.empty() && current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
             return ParseFunction(std::move(type_spec));
         }
 
         // common variable
-        if (!type_spec.empty() && CurrentToken().type != TokenType::kOpenParen) {
+        if (!type_spec.empty() && current_token().type != TokenType::kOpenParen) {
             return ParseVariableDeclarationList(std::move(type_spec));
         }
 
         // expression, including function calling
-        bool common_calling    = type_spec.empty() && (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kBuiltInFunction);
-        bool constructor       = !type_spec.empty() && CurrentToken().type == TokenType::kOpenParen;
-        bool is_expr_primitive = CurrentToken().text == "true" || CurrentToken().text == "false";
+        bool common_calling    = type_spec.empty() && (current_token().type == TokenType::kIdentifier || current_token().type == TokenType::kBuiltInFunction);
+        bool constructor       = !type_spec.empty() && current_token().type == TokenType::kOpenParen;
+        bool is_expr_primitive = current_token().text == "true" || current_token().text == "false";
 
         if (common_calling || constructor || is_expr_primitive) {
             if (constructor) {
@@ -386,10 +386,10 @@ namespace glsld {
         node->begin     = type_spec.begin_location();
         node->type_spec = std::move(type_spec);
 
-        const auto& name_token = CurrentToken();
+        const auto& name_token = current_token();
         ConsumeToken();
 
-        const auto& begin_location = CurrentToken().location;
+        const auto& begin_location = current_token().location;
         MatchAndConsume(TokenType::kOpenParen);
         auto* located_scope  = current_scope();
         auto* internal_scope = EnterScope(begin_location);
@@ -447,19 +447,19 @@ namespace glsld {
 
         // current token is ')'
         MatchAndConsume(TokenType::kCloseParen);
-        if (CurrentToken().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
+        if (current_token().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
             node->attributes = ParseAttributeList();
         }
 
         SymbolKind kind{};
-        if (CurrentToken().type == TokenType::kOpenBrace) {
+        if (current_token().type == TokenType::kOpenBrace) {
             // function body
             function_name = std::format("__Impl_{}", function_name);
             kind = SymbolKind::kFunctionImpl;
 
             auto body_node = std::make_unique<CompoundStatementNode>(located_scope);
             body_node->internal_scope = current_scope();
-            body_node->begin = CurrentToken().location;
+            body_node->begin = current_token().location;
 
             MatchAndConsume(TokenType::kOpenBrace);
 
@@ -493,15 +493,15 @@ namespace glsld {
         std::vector<std::unique_ptr<VariableDeclarationNode>> param_list;
 
         // Function(void)
-        if (CurrentToken().type == TokenType::kPrimitive &&
-            CurrentToken().text == "void" &&
+        if (current_token().type == TokenType::kPrimitive &&
+            current_token().text == "void" &&
             PeekToken().type == TokenType::kCloseParen)
         {
-            const auto& current_token = CurrentToken();
+            const auto& token = current_token();
             auto node = std::make_unique<VariableDeclarationNode>(current_scope());
 
-            node->type_spec.specifiers.push_back(current_token);
-            node->begin = current_token.location;
+            node->type_spec.specifiers.push_back(token);
+            node->begin = token.location;
             node->end   = GetCurrentTokenEnd();
 
             ConsumeToken();
@@ -509,14 +509,14 @@ namespace glsld {
             return param_list;
         }
 
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen) {
+        while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen) {
             auto type_spec  = ParseQualifiersAndType();
             auto node       = std::make_unique<VariableDeclarationNode>(current_scope());
             node->begin     = type_spec.begin_location();
             node->type_spec = std::move(type_spec);
 
-            if (CurrentToken().type == TokenType::kIdentifier) {
-                const auto& name_token = CurrentToken();
+            if (current_token().type == TokenType::kIdentifier) {
+                const auto& name_token = current_token();
                 node->declared_symbol  = current_scope()->AddSymbol(node.get(), name_token.text, name_token.location, SymbolKind::kParameter);
 
                 ConsumeToken();
@@ -536,12 +536,12 @@ namespace glsld {
         }
 
         if (param_list.empty()) { // void main() -> void main(void)
-            auto virtual_void_node    = std::make_unique<VariableDeclarationNode>(current_scope());
-            const auto& current_token = CurrentToken();
+            auto virtual_void_node = std::make_unique<VariableDeclarationNode>(current_scope());
+            const auto& token      = current_token();
 
-            virtual_void_node->type_spec.specifiers.emplace_back("void", current_token.location, TokenType::kPrimitive);
-            virtual_void_node->begin = current_token.location;
-            virtual_void_node->end   = current_token.location;
+            virtual_void_node->type_spec.specifiers.emplace_back("void", token.location, TokenType::kPrimitive);
+            virtual_void_node->begin = token.location;
+            virtual_void_node->end   = token.location;
 
             param_list.push_back(std::move(virtual_void_node));
         }
@@ -554,30 +554,30 @@ namespace glsld {
         TypeSpecifier type_spec;
 
         while (true) {
-            const auto& current_token = CurrentToken();
+            const auto& token = current_token();
 
-            if (current_token.type == TokenType::kPrimitive && current_token.text == "layout") {
+            if (token.type == TokenType::kPrimitive && token.text == "layout") {
                 // layout(...)
-                type_spec.specifiers.push_back(current_token);
+                type_spec.specifiers.push_back(token);
                 type_spec.layout_params = ParseLayoutQualifier();
                 continue;
-            } else if (current_token.type == TokenType::kPrimitive || current_token.type == TokenType::kBuiltInType) {
+            } else if (token.type == TokenType::kPrimitive || token.type == TokenType::kBuiltInType) {
                 // (in, out, uniform, const, struct, ...)
                 // (vec3, mat4, float, ...)
-                if (current_token.text == "true" || current_token.text == "false") {
+                if (token.text == "true" || token.text == "false") {
                     break;
                 }
 
-                type_spec.specifiers.push_back(current_token);
+                type_spec.specifiers.push_back(token);
                 ConsumeToken();
                 continue;
-            } else if (current_token.type == TokenType::kIdentifier) {
-                const auto* symbol_info = current_scope()->FindSymbol(current_token.text);
+            } else if (token.type == TokenType::kIdentifier) {
+                const auto* symbol_info = current_scope()->FindSymbol(token.text);
                 if (symbol_info == nullptr || (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface)) {
                     break; // 不是类型标识符
                 }
 
-                type_spec.specifiers.push_back(current_token);
+                type_spec.specifiers.push_back(token);
                 ConsumeToken();
             }
 
@@ -604,29 +604,29 @@ namespace glsld {
             return tokens;
         }
 
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseParen &&
-               CurrentToken().type != TokenType::kOpenBrace && CurrentToken().type != TokenType::kCloseBrace)
+        while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen &&
+               current_token().type != TokenType::kOpenBrace && current_token().type != TokenType::kCloseBrace)
         {
-            if (CurrentToken().type == TokenType::kIdentifier || CurrentToken().type == TokenType::kPrimitive) {
-                tokens.push_back(CurrentToken());
+            if (current_token().type == TokenType::kIdentifier || current_token().type == TokenType::kPrimitive) {
+                tokens.push_back(current_token());
                 ConsumeToken();
 
-                if (CurrentToken().type == TokenType::kEqual) {
-                    tokens.push_back(CurrentToken());
+                if (current_token().type == TokenType::kEqual) {
+                    tokens.push_back(current_token());
                     ConsumeToken();
 
-                    if (CurrentToken().type == TokenType::kNumberLiteral || CurrentToken().type == TokenType::kIdentifier) {
-                        tokens.push_back(CurrentToken());
+                    if (current_token().type == TokenType::kNumberLiteral || current_token().type == TokenType::kIdentifier) {
+                        tokens.push_back(current_token());
                         ConsumeToken();
                     }
                 }
 
-                if (CurrentToken().type == TokenType::kComma) {
-                    tokens.push_back(CurrentToken());
+                if (current_token().type == TokenType::kComma) {
+                    tokens.push_back(current_token());
                     ConsumeToken();
                 }
             } else {
-                tokens.push_back(CurrentToken());
+                tokens.push_back(current_token());
                 ConsumeToken();
             }
         }
@@ -637,7 +637,7 @@ namespace glsld {
 
     std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpecifier type_spec) {
         // current token is variable name or semicolon
-        if (CurrentToken().type == TokenType::kSemicolon) {
+        if (current_token().type == TokenType::kSemicolon) {
             auto node   = std::make_unique<DeclarationGroupNode>(current_scope());
             node->begin = type_spec.begin_location();
             node->end   = GetCurrentTokenEnd();
@@ -647,11 +647,11 @@ namespace glsld {
         }
 
         auto ParseSingleDeclarer = [&]() -> std::unique_ptr<VariableDeclarationNode> {
-            if (CurrentToken().type != TokenType::kIdentifier) {
+            if (current_token().type != TokenType::kIdentifier) {
                 return nullptr;
             }
 
-            const auto& name_token = CurrentToken();
+            const auto& name_token = current_token();
             auto node = std::make_unique<VariableDeclarationNode>(current_scope());
 
             node->begin           = type_spec.begin_location();
@@ -682,7 +682,7 @@ namespace glsld {
             node->declarations.push_back(std::move(first_node));
         }
 
-        while (CurrentToken().type == TokenType::kComma) {
+        while (current_token().type == TokenType::kComma) {
             ConsumeToken();
             if (auto next_node = ParseSingleDeclarer()) {
                 node->declarations.push_back(std::move(next_node));
@@ -692,7 +692,7 @@ namespace glsld {
         }
 
         // terminate with semicolon
-        if (CurrentToken().type == TokenType::kSemicolon) {
+        if (current_token().type == TokenType::kSemicolon) {
             auto end_location = GetCurrentTokenEnd();
             if (!node->declarations.empty()) {
                 node->declarations.back()->end = end_location;
@@ -709,10 +709,10 @@ namespace glsld {
 
     std::unique_ptr<ExpressionStatementNode> Parser::ParseExpressionStatement() {
         auto node   = std::make_unique<ExpressionStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         node->expr  = ParseExpression(Precedence::kLowest);
 
-        if (CurrentToken().type == TokenType::kSemicolon) {
+        if (current_token().type == TokenType::kSemicolon) {
             node->end = GetCurrentTokenEnd();
             MatchAndConsume(TokenType::kSemicolon);
         } else {
@@ -723,23 +723,23 @@ namespace glsld {
     }
 
     std::unique_ptr<ExpressionNode> Parser::ParsePrefixExpression() {
-        const auto& current_token = CurrentToken();
+        const auto& token = current_token();
 
         // ( expr )
-        if (current_token.type == TokenType::kOpenParen) {
+        if (token.type == TokenType::kOpenParen) {
             ConsumeToken();
             auto expr_node = ParseExpression(Precedence::kLowest);
 
             if (expr_node != nullptr) {
-                expr_node->begin = current_token.location;
-                expr_node->end = GetCurrentTokenEnd();
+                expr_node->begin = token.location;
+                expr_node->end   = GetCurrentTokenEnd();
             }
 
             MatchAndConsume(TokenType::kCloseParen);
             return expr_node;
         }
 
-        switch (current_token.type) {
+        switch (token.type) {
         // 字面量
         case TokenType::kNumberLiteral:
         case TokenType::kStringLiteral:
@@ -772,10 +772,10 @@ namespace glsld {
     std::unique_ptr<RawExpressionNode> Parser::ParseLiteral() {
         // current token is raw literal
         auto node = std::make_unique<RawExpressionNode>(current_scope());
-        const auto& current_token = CurrentToken();
+        const auto& token = current_token();
 
-        node->begin = current_token.location;
-        node->tokens.push_back(current_token);
+        node->begin = token.location;
+        node->tokens.push_back(token);
         ConsumeToken();
         node->end = GetPreviousTokenEnd();
 
@@ -784,11 +784,11 @@ namespace glsld {
 
     std::unique_ptr<VariableExpressionNode> Parser::ParseVariableReference() {
         auto node = std::make_unique<VariableExpressionNode>(current_scope());
-        const auto& current_token = CurrentToken();
+        const auto& token = current_token();
 
-        node->begin          = current_token.location;
-        node->original_token = current_token;
-        node->name           = current_token.text;
+        node->begin          = token.location;
+        node->original_token = token;
+        node->name           = token.text;
 
         if (PeekToken().type != TokenType::kOpenParen) {
             node->node_type = VariableExpressionNode::NodeType::kCommonVariable;
@@ -804,10 +804,10 @@ namespace glsld {
 
     std::unique_ptr<UnaryExpressionNode> Parser::ParsePrefixUnary() {
         auto node = std::make_unique<UnaryExpressionNode>(current_scope());
-        const auto& current_token = CurrentToken();
+        const auto& token = current_token();
 
-        node->begin      = current_token.location;
-        node->op         = current_token.type;
+        node->begin      = token.location;
+        node->op         = token.type;
         node->is_postfix = false;
         ConsumeToken();
         node->operand    = ParseExpression(Precedence::kPrefix);
@@ -824,10 +824,10 @@ namespace glsld {
     std::unique_ptr<InitializerListExpressionNode> Parser::ParseInitializerList() {
         // current token is {
         auto node = std::make_unique<InitializerListExpressionNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         MatchAndConsume(TokenType::kOpenBrace);
 
-        if (CurrentToken().type != TokenType::kCloseBrace) {
+        if (current_token().type != TokenType::kCloseBrace) {
             while (true) {
                 node->elements.push_back(ParseExpression(Precedence::kAssignment));
                 if (!MatchAndConsume(TokenType::kComma)) {
@@ -877,8 +877,8 @@ namespace glsld {
         node->begin  = object->begin;
         node->object = std::move(object);
 
-        if (CurrentToken().type == TokenType::kIdentifier) {
-            const auto& member_token = CurrentToken();
+        if (current_token().type == TokenType::kIdentifier) {
+            const auto& member_token = current_token();
 
             auto member_node            = std::make_unique<VariableExpressionNode>(current_scope());
             member_node->begin          = member_token.location;
@@ -903,7 +903,7 @@ namespace glsld {
         node->base  = std::move(base);
         node->index = ParseExpression(Precedence::kLowest);
 
-        if (CurrentToken().type == TokenType::kCloseBracket) {
+        if (current_token().type == TokenType::kCloseBracket) {
             node->end = GetCurrentTokenEnd();
             ConsumeToken();
         } else {
@@ -919,7 +919,7 @@ namespace glsld {
         node->begin  = callee->begin;
         node->callee = std::move(callee);
 
-        if (CurrentToken().type != TokenType::kCloseParen) {
+        if (current_token().type != TokenType::kCloseParen) {
             while (true) {
                 node->args.push_back(ParseExpression(Precedence::kAssignment));
                 if (!MatchAndConsume(TokenType::kComma)) {
@@ -991,7 +991,7 @@ namespace glsld {
         }
 
         while (true) {
-            auto op_type = CurrentToken().type;
+            auto op_type = current_token().type;
             auto op_prec = GetInfixPrecedence(op_type);
 
             if (op_prec == Precedence::kLowest || op_prec < min_prec) {
@@ -1007,7 +1007,7 @@ namespace glsld {
 
     std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(TypeSpecifier type_spec) {
         // current token is block name
-        const auto& block_name = CurrentToken();
+        const auto& block_name = current_token();
         ConsumeToken();
 
         bool is_struct = type_spec.has_keyword("struct");
@@ -1018,7 +1018,7 @@ namespace glsld {
             node->declared_symbol = current_scope()->AddSymbol(node.get(), block_name.text, block_name.location, block_kind);
             node->body            = ParseScope(node->declared_symbol, ScopeKind::kBlock);
 
-            if (CurrentToken().type != TokenType::kSemicolon) {
+            if (current_token().type != TokenType::kSemicolon) {
                 // struct MyStruct { ... } instance;
                 type_spec.specifiers.push_back(block_name);
                 node->instances = ParseVariableDeclarationList(std::move(type_spec));
@@ -1053,7 +1053,7 @@ namespace glsld {
     }
 
     std::unique_ptr<StatementNode> Parser::ParseControlFlowStatement() {
-        const auto& keyword = CurrentToken().text;
+        const auto& keyword = current_token().text;
 
         if (keyword == "if") {
             return ParseIfStatement();
@@ -1077,7 +1077,7 @@ namespace glsld {
     std::unique_ptr<IfStatementNode> Parser::ParseIfStatement() {
         // current token is "if"
         auto node = std::make_unique<IfStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         ConsumeToken();
 
         EnterScope(node->begin);
@@ -1088,7 +1088,7 @@ namespace glsld {
 
         node->then_branch = ParseStatement();
 
-        if (CurrentToken().type == TokenType::kKeyword && CurrentToken().text == "else") {
+        if (current_token().type == TokenType::kKeyword && current_token().text == "else") {
             ConsumeToken(); // else
             node->else_branch = ParseStatement();
         }
@@ -1107,13 +1107,13 @@ namespace glsld {
     std::unique_ptr<ForStatementNode> Parser::ParseForStatement() {
         // current token is "for"
         auto node = std::make_unique<ForStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         ConsumeToken();
 
         EnterScope(node->begin);
         MatchAndConsume(TokenType::kOpenParen);
 
-        if (CurrentToken().type == TokenType::kSemicolon) {
+        if (current_token().type == TokenType::kSemicolon) {
             // for (; ...
             node->init = std::make_unique<NullStatementNode>(current_scope());
             ConsumeToken();
@@ -1121,12 +1121,12 @@ namespace glsld {
             node->init = ParseStatement();
         }
 
-        if (CurrentToken().type != TokenType::kSemicolon) {
+        if (current_token().type != TokenType::kSemicolon) {
             node->condition = ParseExpression(Precedence::kLowest);
         }
         MatchAndConsume(TokenType::kSemicolon);
 
-        if (CurrentToken().type != TokenType::kCloseParen) {
+        if (current_token().type != TokenType::kCloseParen) {
             node->iteration = ParseExpression(Precedence::kLowest);
         }
         MatchAndConsume(TokenType::kCloseParen);
@@ -1146,13 +1146,13 @@ namespace glsld {
     std::unique_ptr<DoStatementNode> Parser::ParseDoStatement() {
         // current token is "do"
         auto node = std::make_unique<DoStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         ConsumeToken();
 
         EnterScope(node->begin);
         node->body = ParseStatement();
 
-        if (CurrentToken().text == "while") {
+        if (current_token().text == "while") {
             ConsumeToken();
             MatchAndConsume(TokenType::kOpenParen);
             node->condition = ParseExpression(Precedence::kLowest);
@@ -1170,7 +1170,7 @@ namespace glsld {
     std::unique_ptr<WhileStatementNode> Parser::ParseWhileStatement() {
         // current token is "while"
         auto node = std::make_unique<WhileStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         ConsumeToken();
 
         EnterScope(node->begin);
@@ -1195,7 +1195,7 @@ namespace glsld {
     std::unique_ptr<SwitchStatementNode> Parser::ParseSwitchStatement() {
         // current token is "switch"
         auto node = std::make_unique<SwitchStatementNode>(current_scope());
-        node->begin = CurrentToken().location;
+        node->begin = current_token().location;
         ConsumeToken();
 
         MatchAndConsume(TokenType::kOpenParen);
@@ -1205,8 +1205,8 @@ namespace glsld {
         if (MatchAndConsume(TokenType::kOpenBrace)) {
             EnterScope(node->begin);
 
-            while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseBrace) {
-                if (CurrentToken().text == "case" || CurrentToken().text == "default") {
+            while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseBrace) {
+                if (current_token().text == "case" || current_token().text == "default") {
                     node->cases.push_back(ParseCaseLabel());
                 } else {
                     // statements outside case/default labels
@@ -1227,19 +1227,19 @@ namespace glsld {
     std::unique_ptr<CaseStatementNode> Parser::ParseCaseLabel() {
         // current token is "case" or "default"
         auto node = std::make_unique<CaseStatementNode>(current_scope());
-        const auto& current_token = CurrentToken();
-        node->begin = current_token.location;
+        const auto& token = current_token();
+        node->begin = token.location;
         ConsumeToken();
 
-        if (current_token.text == "case") {
+        if (token.text == "case") {
             node->condition = ParseExpression(Precedence::kLowest);
-        } else if (current_token.text == "default") {
+        } else if (token.text == "default") {
             node->condition = nullptr;
         }
         MatchAndConsume(TokenType::kColon);
 
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != TokenType::kCloseBrace &&
-               CurrentToken().text != "case" && CurrentToken().text != "default")
+        while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseBrace &&
+               current_token().text != "case" && current_token().text != "default")
         {
             auto statement = ParseStatement();
             if (statement != nullptr) {
@@ -1258,14 +1258,14 @@ namespace glsld {
 
     std::unique_ptr<StatementNode> Parser::ParseJumpStatement() {
         // current token is "return", "break", "continue" or "discard"
-        const auto& keyword_token = CurrentToken();
+        const auto& keyword_token = current_token();
 
         if (keyword_token.text == "return") {
             auto node = std::make_unique<ReturnStatementNode>(current_scope());
             node->begin = keyword_token.location;
             ConsumeToken();
 
-            if (CurrentToken().type != TokenType::kSemicolon) {
+            if (current_token().type != TokenType::kSemicolon) {
                 node->return_value = ParseExpression(Precedence::kLowest);
             }
 
@@ -1296,22 +1296,22 @@ namespace glsld {
 
     std::vector<Token> Parser::CaptureDirectiveTokens(std::size_t directive_physical_line) {
         std::vector<Token> collected;
-        if (CurrentToken().type == TokenType::kEndOfFile) {
+        if (current_token().type == TokenType::kEndOfFile) {
             return collected;
         }
 
-        while (CurrentToken().type != TokenType::kEndOfFile) {
-            const auto& current_token = CurrentToken();
-            if (current_token.location.line > directive_physical_line) {
+        while (current_token().type != TokenType::kEndOfFile) {
+            const auto& token = current_token();
+            if (token.location.line > directive_physical_line) {
                 // #define MACRO sth "\"
                 if (!collected.empty() && collected.back().type == TokenType::kBackslash) {
-                    directive_physical_line = current_token.location.line;
+                    directive_physical_line = token.location.line;
                 } else {
                     break;
                 }
             }
 
-            collected.push_back(current_token);
+            collected.push_back(token);
             ConsumeToken();
         }
 
@@ -1319,7 +1319,7 @@ namespace glsld {
     }
 
     bool Parser::MatchAndConsume(TokenType type) {
-        if (CurrentToken().type == type) {
+        if (current_token().type == type) {
             ConsumeToken();
             return true;
         }
@@ -1336,7 +1336,7 @@ namespace glsld {
     std::vector<std::unique_ptr<Ty>> Parser::ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator) {
         std::vector<std::unique_ptr<Ty>> nodes;
 
-        while (CurrentToken().type != TokenType::kEndOfFile && CurrentToken().type != terminator) {
+        while (current_token().type != TokenType::kEndOfFile && current_token().type != terminator) {
             auto result = parse_func();
 
             if constexpr (IsVector<decltype(result)>) {

@@ -4,38 +4,35 @@
 #include "Analyzer/Syntax/Lexer.hpp"
 
 namespace glsld {
-    Preprocessor::Preprocessor(MacroTraceMap& trace_map)
+    Preprocessor::Preprocessor(MacroTraceMap& trace_map, std::span<const Token> raw_tokens)
         : trace_map_{ trace_map }
+        , raw_tokens_{ raw_tokens }
     {}
 
-    std::vector<Token> Preprocessor::Process(std::span<const Token> raw_tokens) {
+    std::vector<Token> Preprocessor::Process() {
         std::vector<Token> expanded;
-        std::size_t index = 0;
 
-        while (index < raw_tokens.size()) {
-            const auto& token = raw_tokens[index];
+        while (current_token().type != TokenType::kEndOfFile) {
+            const auto& token = current_token();
 
-            if (token.type == TokenType::kSharp && index + 1 < raw_tokens.size() && raw_tokens[index + 1].text == "define") {
+            if (token.type == TokenType::kSharp && PeekToken().text == "define") {
                 expanded.push_back(token); // #
-                expanded.push_back(raw_tokens[++index]); // define
+                ConsumeToken();
+                expanded.push_back(current_token()); // define
+                ConsumeToken();
 
-                if (index + 1 < raw_tokens.size()) {
-                    const auto& name_token = raw_tokens[++index];
-                    expanded.push_back(name_token); // macro name
+                const auto& name_token = current_token();
+                expanded.push_back(name_token); // macro name
 
-                    MacroDefination defination;
-                    defination.original_token = name_token;
-                    ++index;
+                MacroDefination defination;
+                defination.original_token = name_token;
+                ConsumeToken();
 
-                    CollectMacroReplacement(index, raw_tokens, defination);
-                    macros_.try_emplace(name_token.text, defination);
+                CollectMacroReplacement(defination);
+                macros_.try_emplace(name_token.text, defination);
 
-                    for (const auto& replaced : defination.replacement_list) {
-                        expanded.push_back(replaced);
-                        ++index;
-                    }
-
-                    continue;
+                for (const auto& replaced : defination.replacement_list) {
+                    expanded.push_back(replaced);
                 }
             }
 
@@ -44,23 +41,24 @@ namespace glsld {
                 trace_map_.try_emplace(token.location, it->second.original_token);
 
                 std::unordered_set<std::string> active_macros;
-                ExpandMacro(token, expanded, active_macros);
-                ++index;
+                ExpandMacro(token, active_macros, expanded);
+                ConsumeToken();
                 continue;
             }
 
-            expanded.push_back(token);
-            ++index;
+            expanded.push_back(current_token());
+            ConsumeToken();
         }
 
+        expanded.push_back(current_token());
         return expanded;
     }
 
-    void Preprocessor::CollectMacroReplacement(std::size_t index, std::span<const Token> tokens, MacroDefination& defination) {
-        std::size_t current_physical_line = tokens[index].location.line;
+    void Preprocessor::CollectMacroReplacement(MacroDefination& defination) {
+        std::size_t current_physical_line = current_token().location.line;
 
-        while (index < tokens.size()) {
-            const auto& token = tokens[index];
+        while (current_token().type != TokenType::kEndOfFile) {
+            const auto& token = current_token();
             if (token.location.line > current_physical_line) {
                 auto& replacement_list = defination.replacement_list;
                 if (!replacement_list.empty() && replacement_list.back().type == TokenType::kBackslash) {
@@ -72,13 +70,11 @@ namespace glsld {
             }
 
             defination.replacement_list.push_back(token);
-            ++index;
+            ConsumeToken();
         }
     }
 
-    void Preprocessor::ExpandMacro(const Token& macro_token, std::vector<Token>& output,
-                                   std::unordered_set<std::string>& active_macros)
-    {
+    void Preprocessor::ExpandMacro(const Token& macro_token, std::unordered_set<std::string>& active_macros, std::vector<Token>& output) {
         // current token is macro name
         const auto& macro_name = macro_token.text;
 
@@ -121,7 +117,7 @@ namespace glsld {
             new_token.location = macro_token.location;
 
             if (new_token.type == TokenType::kIdentifier) {
-                ExpandMacro(new_token, output, active_macros);
+                ExpandMacro(new_token, active_macros, output);
             } else {
                 output.push_back(new_token);
             }

@@ -1,3 +1,5 @@
+#include "Config.hpp"
+
 #include <charconv>
 #include <exception>
 #include <limits>

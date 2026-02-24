@@ -12,8 +12,6 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    StringHeteroHashTable<std::string, TokenType> Lexer::lexical_table_;
-
     Lexer::Lexer(std::string_view source)
         : source_{ source }
     {

@@ -30,6 +30,6 @@ namespace glsld {
         std::size_t      line_{ 1 };
         std::size_t      column_{ 1 };
 
-        static StringHeteroHashTable<std::string, TokenType> lexical_table_;
+        static inline StringHeteroHashTable<std::string, TokenType> lexical_table_;
     };
 }

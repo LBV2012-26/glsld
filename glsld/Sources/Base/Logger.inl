@@ -1,3 +1,5 @@
+#include "Logger.hpp"
+
 #include <utility>
 #include "Base/Hash.hpp"
 

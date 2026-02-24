@@ -2,7 +2,7 @@
 #include <algorithm>
 
 namespace glsld {
-    inline const Token& Parser::CurrentToken() const {
+    inline const Token& Parser::current_token() const {
         return expanded_tokens_[token_index_];
     }
 
@@ -19,7 +19,7 @@ namespace glsld {
     }
 
     inline SourceLocation Parser::GetCurrentTokenEnd() const {
-        const auto& token = CurrentToken();
+        const auto& token = current_token();
         return {
             .line   = token.location.line,
             .column = token.location.column + static_cast<std::size_t>(token.text.length())

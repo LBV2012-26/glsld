@@ -87,7 +87,7 @@ namespace glsld {
         std::unique_ptr<CaseStatementNode> ParseCaseLabel();
         std::unique_ptr<StatementNode> ParseJumpStatement();
 
-        const Token& CurrentToken() const;
+        const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
         std::vector<Token> CaptureDirectiveTokens(std::size_t directive_physical_line);
