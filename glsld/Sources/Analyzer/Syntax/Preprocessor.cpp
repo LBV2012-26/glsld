@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Preprocessor.hpp"
 
+#include <ranges>
+#include <utility>
 #include "Analyzer/Syntax/Lexer.hpp"
 
 namespace glsld {
@@ -59,21 +61,17 @@ namespace glsld {
                 for (const auto& replaced : defination.replacement_list) {
                     expanded.push_back(replaced);
                 }
+            } else {
+                expanded.push_back(current_token());
+                ConsumeToken();
             }
 
             if (macros_.contains(current_token().text)) {
-                const auto& macro_token = current_token();
-                auto it = macros_.find(macro_token.text);
-                trace_map_.try_emplace(macro_token.location, it->second.original_token);
-
                 std::unordered_set<std::string> active_macros;
-                ExpandMacro(macro_token, active_macros, expanded);
-                ConsumeToken();
-                continue;
+                if (ExpandMacro(active_macros, expanded)) {
+                    continue;
+                }
             }
-
-            expanded.push_back(current_token());
-            ConsumeToken();
         }
 
         expanded.push_back(current_token());
@@ -120,69 +118,288 @@ namespace glsld {
         }
     }
 
-    void Preprocessor::ExpandMacro(const Token& macro_token, std::unordered_set<std::string>& active_macros, std::vector<Token>& output) {
+    bool Preprocessor::ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output) {
         // current token is macro name
-        const auto& macro_name = macro_token.text;
+        const auto& macro_token = current_token();
 
-        if (active_macros.contains(macro_name)) {
+        auto it = macros_.find(macro_token.text);
+        if (it == macros_.end()) {
             output.push_back(macro_token);
-            return;
-        }
-
-        auto it = macros_.find(macro_name);
-        if (macros_.find(macro_name) == macros_.end()) {
-            output.push_back(macro_token);
-            return;
-        }
-
-        if (it->second.is_function) {
             ConsumeToken();
-            if (current_token().type != TokenType::kOpenParen) {
-                output.push_back(macro_token);
-                return;
+            return true;
+        }
+
+        if (active_macros.contains(macro_token.text)) {
+            return false;
+        }
+
+        trace_map_.try_emplace(macro_token.location, it->second.original_token);
+
+        active_macros.insert(macro_token.text);
+        const auto& defination = it->second;
+
+        if (!defination.is_function) {
+            ConsumeToken(); // consume macro name token
+            auto replaced = ExpandTokenSequence(defination.replacement_list, active_macros, macro_token.location);
+            output.append_range(replaced | std::views::as_rvalue);
+            active_macros.erase(macro_token.text);
+            return true;
+        }
+
+        if (PeekToken().type != TokenType::kOpenParen) {
+            active_macros.erase(macro_token.text);
+            return false;
+        }
+
+        std::vector<std::vector<Token>> arguments;
+        if (!ParseFunctionMacroInvocationFromStream(defination, arguments)) {
+            active_macros.erase(macro_token.text);
+            return false;
+        }
+
+        auto replaced = SubstituteFunctionMacro(defination, arguments, active_macros, macro_token.location);
+        output.append_range(replaced | std::views::as_rvalue);
+        active_macros.erase(macro_token.text);
+        return true;
+    }
+
+    std::vector<Token> Preprocessor::ExpandTokenSequence(std::span<const Token> input,
+                                                         std::unordered_set<std::string>& active_macros,
+                                                         SourceLocation call_site)
+    {
+        std::vector<Token> result;
+
+        auto PushAtCallSite = [&](Token token) -> void {
+            token.location = call_site;
+            result.push_back(std::move(token));
+        };
+
+        auto AppendRangeAtCallSite = [&](std::span<Token> tokens) -> void {
+            for (auto token : tokens) {
+                token.location = call_site;
             }
 
-            // TODO: expand macro function
-            while (!MatchAndConsume(TokenType::kCloseParen)) {
-                ConsumeToken();
+            result.append_range(tokens | std::views::as_rvalue);
+        };
+
+        for (auto i = 0uz; i != input.size(); ++i) {
+            const auto& token = input[i];
+
+            if (token.type != TokenType::kIdentifier) {
+                PushAtCallSite(token);
+                continue;
+            }
+
+            auto it = macros_.find(token.text);
+            if (it == macros_.end() || active_macros.contains(token.text)) {
+                PushAtCallSite(token);
+                continue;
+            }
+
+            const auto& defination = it->second;
+            const auto& macro_name = token.text;
+            active_macros.insert(macro_name);
+
+            if (!defination.is_function) {
+                auto nested = ExpandTokenSequence(defination.replacement_list, active_macros, call_site);
+                AppendRangeAtCallSite(nested);
+                active_macros.erase(macro_name);
+                continue;
+            }
+
+            if (i + 1 >= input.size() || input[i + 1].type != TokenType::kOpenParen) {
+                PushAtCallSite(token);
+                active_macros.erase(macro_name);
+                continue;
+            }
+
+            auto close_paren_index = 0uz;
+            std::vector<std::vector<Token>> arguments;
+            if (!ParseFunctionMacroInvocationInSequence(input, i + 1, close_paren_index, arguments)) {
+                PushAtCallSite(token);
+                active_macros.erase(macro_name);
+                continue;
+            }
+
+            auto replaced = SubstituteFunctionMacro(defination, arguments, active_macros, call_site);
+            AppendRangeAtCallSite(replaced);
+            i = close_paren_index;
+            active_macros.erase(macro_name);
+        }
+
+        return result;
+    }
+
+    std::vector<Token> Preprocessor::SubstituteFunctionMacro(const MacroDefination& defination,
+                                                             const std::vector<std::vector<Token>>& arguments,
+                                                             std::unordered_set<std::string>& active_macros,
+                                                             SourceLocation call_site)
+    {
+        std::unordered_map<std::string, std::size_t> param_index;
+        for (auto i = 0uz; i != defination.params.size(); ++i) {
+            param_index.try_emplace(defination.params[i].text, i);
+        }
+
+        auto argument_active_macros = active_macros;
+        argument_active_macros.erase(defination.original_token.text);
+
+        std::vector<std::vector<Token>> expanded_args(arguments.size());
+        for (auto i = 0uz; i != arguments.size(); ++i) {
+            expanded_args[i] = ExpandTokenSequence(arguments[i], argument_active_macros, call_site);
+            for (auto& token : expanded_args[i]) {
+                token.location = call_site;
             }
         }
 
-        const auto& replacement_list = it->second.replacement_list;
-        std::vector<Token> pasted_list;
-        for (auto i = 0uz; i != replacement_list.size(); ++i) {
-            if (i + 1 < replacement_list.size() && replacement_list[i + 1].type == TokenType::kSharpSharp) {
-                Token current = replacement_list[i];
-                while (i + 1 < replacement_list.size() && replacement_list[i + 1].type == TokenType::kSharpSharp) {
-                    if (i + 2 < replacement_list.size()) {
-                        Token next = replacement_list[i + 2];
-                        current = PasteTokens(current, next);
-                        i += 2;
-                    } else {
-                        break;
+        std::vector<Token> replaced;
+        for (const auto& token : defination.replacement_list) {
+            if (token.type == TokenType::kIdentifier) {
+                auto it = param_index.find(token.text);
+                if (it != param_index.end()) {
+                    const auto& arg_index = it->second;
+                    if (arg_index < expanded_args.size()) {
+                        // 复制以避免参数多次展开时出错，不能用移动
+                        replaced.append_range(expanded_args[arg_index]);
                     }
+
+                    continue;
+                }
+            }
+
+            auto copied = token;
+            copied.location = call_site;
+            replaced.push_back(copied);
+        }
+
+        auto pasted    = ApplyTokenPasting(replaced);
+        auto rescanned = ExpandTokenSequence(pasted, active_macros, call_site);
+        for (auto& token : rescanned) {
+            token.location = call_site;
+        }
+
+        return rescanned;
+    }
+
+    bool Preprocessor::ParseFunctionMacroInvocationFromStream(const MacroDefination& defination, std::vector<std::vector<Token>>& arguments) {
+        const auto name_index        = token_index_;
+        const auto open_paren_index  = token_index_ + 1;
+        auto       close_paren_index = 0uz;
+
+        if (!ParseFunctionMacroInvocationInSequence(raw_tokens_, open_paren_index, close_paren_index, arguments)) {
+            return false;
+        }
+
+        token_index_ = close_paren_index + 1;
+        return true;
+    }
+
+    bool Preprocessor::ParseFunctionMacroInvocationInSequence(std::span<const Token> input, std::size_t open_paren_index,
+                                                              std::size_t& close_paren_index, std::vector<std::vector<Token>>& arguments)
+    {
+        if (open_paren_index >= input.size() || input[open_paren_index].type != TokenType::kOpenParen) {
+            return false;
+        }
+
+        auto paren_level   = 0uz;
+        auto bracket_level = 0uz;
+        auto brace_level   = 0uz;
+        auto index         = open_paren_index + 1;
+
+        arguments.clear();
+        arguments.emplace_back();
+
+        // 空参数列表
+        if (index < input.size() && input[index].type == TokenType::kCloseParen) {
+            arguments.clear();
+            close_paren_index = index;
+            return true;
+        }
+
+        for (; index < input.size(); ++index) {
+            const auto& token = input[index];
+
+            if (token.type == TokenType::kEndOfFile) {
+                return false;
+            }
+
+            switch (token.type) {
+            case TokenType::kOpenParen:
+                ++paren_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kCloseParen:
+                if (paren_level == 0 && bracket_level == 0 && brace_level == 0) {
+                    close_paren_index = index;
+                    return true;
                 }
 
-                pasted_list.push_back(current);
-            } else {
-                pasted_list.push_back(replacement_list[i]);
+                --paren_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kOpenBracket:
+                ++bracket_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kCloseBracket:
+                if (bracket_level == 0) {
+                    return false;
+                }
+
+                --bracket_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kOpenBrace:
+                ++brace_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kCloseBrace:
+                if (brace_level == 0) {
+                    return false;
+                }
+
+                --brace_level;
+                arguments.back().push_back(token);
+                break;
+            case TokenType::kComma:
+                if (paren_level == 0 && bracket_level == 0 && brace_level == 0) {
+                    arguments.emplace_back();
+                } else {
+                    arguments.back().push_back(token);
+                }
+
+                break;
+            default:
+                arguments.back().push_back(token);
+                break;
             }
         }
 
-        active_macros.insert(macro_name);
+        return false;
+    }
 
-        for (const auto& replaced_token : pasted_list) {
-            auto new_token = replaced_token;
-            new_token.location = macro_token.location;
+    std::vector<Token> Preprocessor::ApplyTokenPasting(std::span<const Token> tokens) {
+        std::vector<Token> result;
 
-            if (new_token.type == TokenType::kIdentifier) {
-                ExpandMacro(new_token, active_macros, output);
-            } else {
-                output.push_back(new_token);
+        for (auto i = 0uz; i < tokens.size(); ++i) {
+            const auto& token = tokens[i];
+
+            if (token.type != TokenType::kSharpSharp) {
+                result.push_back(token);
+                continue;
             }
+
+            if (result.empty() || i + 1 >= tokens.size()) {
+                continue;
+            }
+
+            auto left = result.back();
+            result.pop_back();
+            const auto& right = tokens[++i];
+            auto pasted = PasteTokens(left, right);
+            result.push_back(std::move(pasted));
         }
 
-        active_macros.erase(macro_name);
+        return result;
     }
 
     Token Preprocessor::PasteTokens(const Token& left, const Token& right) {

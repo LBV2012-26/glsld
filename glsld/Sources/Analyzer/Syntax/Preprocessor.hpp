@@ -13,6 +13,10 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
+    class PreprocessorEvaluator {
+
+    };
+
     struct MacroDefination {
         bool               is_function{};
         Token              original_token;
@@ -27,7 +31,23 @@ namespace glsld {
 
     private:
         void CollectMacroReplacement(MacroDefination& defination);
-        void ExpandMacro(const Token& macro_token, std::unordered_set<std::string>& active_macros, std::vector<Token>& output);
+        bool ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output);
+
+        std::vector<Token> ExpandTokenSequence(std::span<const Token> input,
+                                               std::unordered_set<std::string>& active_macros,
+                                               SourceLocation call_site);
+
+        std::vector<Token> SubstituteFunctionMacro(const MacroDefination& defination,
+                                                   const std::vector<std::vector<Token>>& arguments,
+                                                   std::unordered_set<std::string>& active_macros,
+                                                   SourceLocation call_site);
+
+        bool ParseFunctionMacroInvocationFromStream(const MacroDefination& defination, std::vector<std::vector<Token>>& arguments);
+
+        bool ParseFunctionMacroInvocationInSequence(std::span<const Token> input, std::size_t open_paren_index,
+                                                    std::size_t& close_paren_index, std::vector<std::vector<Token>>& arguments);
+
+        std::vector<Token> ApplyTokenPasting(std::span<const Token> tokens);
         Token PasteTokens(const Token& left, const Token& right);
 
         const Token& current_token() const;

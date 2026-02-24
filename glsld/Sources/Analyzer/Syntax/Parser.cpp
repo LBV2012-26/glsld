@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include <magic_enum/magic_enum_all.hpp>
 #include "Analyzer/Syntax/Preprocessor.hpp"
 
 namespace glsld {
@@ -29,6 +30,19 @@ namespace glsld {
 
         Preprocessor processor(document_.macro_traces, raw_tokens_);
         expanded_tokens_ = processor.Process();
+
+        // temp
+        std::println("Raw Tokens:");
+        for (const auto& token : raw_tokens_) {
+            std::println("{} {} [{}:{}]", token.text, magic_enum::enum_name(token.type), token.location.line, token.location.column);
+        }
+
+        std::println("\nExpanded Tokens:");
+        for (const auto& token : expanded_tokens_) {
+            std::println("{} {} [{}:{}]", token.text, magic_enum::enum_name(token.type), token.location.line, token.location.column);
+        }
+
+        std::exit(0);
     }
 
     void Parser::Parse() {
