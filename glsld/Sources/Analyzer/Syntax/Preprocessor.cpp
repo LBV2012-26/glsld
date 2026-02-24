@@ -31,31 +31,30 @@ namespace glsld {
                 CollectMacroReplacement(defination);
                 macros_.try_emplace(name_token.text, defination);
 
-                for (auto i = 0uz; i != defination.params.size(); ++i) {
-                    if (i == 0) {
-                        expanded.push_back(Token{
-                            .text     = "(",
-                            .location = { name_token.location.line, name_token.location.column + name_token.text.length() },
-                            .type     = TokenType::kOpenParen
-                        });
+                if (defination.is_function) {
+                    expanded.push_back(Token{
+                        .text     = "(",
+                        .location = { name_token.location.line, name_token.location.column + name_token.text.length() },
+                        .type     = TokenType::kOpenParen
+                    });
+
+                    for (auto i = 0uz; i != defination.params.size(); ++i) {
+                        expanded.push_back(defination.params[i]);
+                        if (i + 1 != defination.params.size()) {
+                            expanded.push_back(Token{
+                                .text     = ",",
+                                .location = { defination.params[i].location.line, defination.params[i].location.column + defination.params[i].text.length() },
+                                .type     = TokenType::kComma
+                            });
+                        }
                     }
 
-                    expanded.push_back(defination.params[i]);
-
-                    if (i + 1 == defination.params.size()) {
-                        const auto& last_token = expanded.back();
-                        expanded.push_back(Token{
-                            .text     = ")",
-                            .location = { last_token.location.line, last_token.location.column + last_token.text.length() },
-                            .type     = TokenType::kCloseParen
-                        });
-                    } else {
-                        expanded.push_back(Token{
-                            .text     = ",",
-                            .location = { defination.params[i].location.line, defination.params[i].location.column + defination.params[i].text.length() },
-                            .type     = TokenType::kComma
-                        });
-                    }
+                    const auto& last_token = expanded.back();
+                    expanded.push_back(Token{
+                        .text     = ")",
+                        .location = { last_token.location.line, last_token.location.column + last_token.text.length() },
+                        .type     = TokenType::kCloseParen
+                    });
                 }
 
                 for (const auto& replaced : defination.replacement_list) {
@@ -90,6 +89,10 @@ namespace glsld {
 
         if (defination.is_function) {
             do {
+                if (current_token().type == TokenType::kCloseParen) {
+                    break;
+                }
+
                 MatchAndConsume(TokenType::kComma);
                 const auto& param_token = current_token();
                 defination.params.push_back(param_token);
@@ -251,15 +254,39 @@ namespace glsld {
             }
         }
 
+        auto AppendWithCallSiteWithoutMove = [&](std::vector<Token>& target, std::span<const Token> source) -> void {
+            for (auto token : source) {
+                token.location = call_site;
+                target.push_back(std::move(token));
+            }
+        };
+
+        auto IsAdjacentToTokenPaste = [&](std::size_t replace_index) -> bool {
+            const auto& replacement_list = defination.replacement_list;
+            if (replace_index > 0 && replacement_list[replace_index - 1].type == TokenType::kSharpSharp) {
+                return true;
+            }
+
+            if (replace_index + 1 < replacement_list.size() && replacement_list[replace_index + 1].type == TokenType::kSharpSharp) {
+                return true;
+            }
+
+            return false;
+        };
+
         std::vector<Token> replaced;
-        for (const auto& token : defination.replacement_list) {
+        for (auto i = 0uz; i != defination.replacement_list.size(); ++i) {
+            const auto& token = defination.replacement_list[i];
             if (token.type == TokenType::kIdentifier) {
                 auto it = param_index.find(token.text);
                 if (it != param_index.end()) {
                     const auto& arg_index = it->second;
-                    if (arg_index < expanded_args.size()) {
-                        // 复制以避免参数多次展开时出错，不能用移动
-                        replaced.append_range(expanded_args[arg_index]);
+                    if (arg_index < arguments.size()) {
+                        if (IsAdjacentToTokenPaste(i)) {
+                            AppendWithCallSiteWithoutMove(replaced, arguments[arg_index]);
+                        } else {
+                            AppendWithCallSiteWithoutMove(replaced, expanded_args[arg_index]);
+                        }
                     }
 
                     continue;

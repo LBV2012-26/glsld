@@ -25,8 +25,8 @@
 
 // 4) 函数宏（2参）
 // ```glsl
-// #define MUL(x, y) (x * y)
-// MUL(a, b);
+#define MUL(x, y) (x * y)
+MUL(a, b);
 // ```
 
 // 5) 0参数函数宏
@@ -106,9 +106,9 @@
 
 // 16) token paste 生成数字/标识符
 // ```glsl
-#define CAT(x, y) x##y
-CAT(12, 34);
-CAT(v, 2);
+// #define CAT(x, y) x##y
+// CAT(12, 34);
+// CAT(v, 2);
 // ```
 
 // **不完整输入（模拟用户打到一半）**
