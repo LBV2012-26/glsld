@@ -178,7 +178,7 @@ namespace glsld {
         };
 
         auto AppendRangeAtCallSite = [&](std::span<Token> tokens) -> void {
-            for (auto token : tokens) {
+            for (auto& token : tokens) {
                 token.location = call_site;
             }
 
