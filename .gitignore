@@ -372,3 +372,4 @@ glsld/Win64
 /glsld/Assets/a.spv
 glsld/reference.slang
 /glsld/Tools
+/glsld/Tests/Debugger.glsl
