@@ -12,6 +12,7 @@ namespace glsld {
     private:
         void BindMacroInvocations();
         void BindMacroBodyIdentifiers();
+        void BindMacroFunctionArguments();
 
         Document& document_;
     };

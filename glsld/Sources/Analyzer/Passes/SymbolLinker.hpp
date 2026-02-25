@@ -9,14 +9,12 @@
 namespace glsld {
     class SymbolLinker : public AstVisitor {
     public:
-        SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
-                     std::shared_ptr<const std::atomic<int>> vesion_pointer);
+        SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer);
 
     private:
         void VisitPreprocessor(PreprocessorNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
 
-        const DocumentSymbols& symbols_;
-        BindingMap&            bindings_;
+        Document& document_;
     };
 }

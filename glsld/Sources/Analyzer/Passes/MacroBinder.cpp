@@ -11,6 +11,7 @@ namespace glsld {
     void MacroBinder::BindMacro() {
         BindMacroInvocations();
         BindMacroBodyIdentifiers();
+        BindMacroFunctionArguments();
     }
 
     void MacroBinder::BindMacroInvocations() {
@@ -52,6 +53,25 @@ namespace glsld {
                     if (!symbol_list.empty()) {
                         document_.bindings.try_emplace(token.location, SymbolList{ symbol_list });
                     }
+                }
+            }
+        }
+    }
+
+    void MacroBinder::BindMacroFunctionArguments() {
+        for (const auto& [location, token] : document_.macro_args_traces) {
+            const auto* scope = document_.symbols.FindScopeAt(location);
+            if (scope == nullptr) {
+                continue;
+            }
+
+            const auto* symbol = scope->FindSymbol(token.text);
+            if (symbol != nullptr) {
+                document_.bindings.try_emplace(location, symbol);
+            } else {
+                const auto& symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
+                if (!symbol_list.empty()) {
+                    document_.bindings.try_emplace(location, SymbolList{ symbol_list });
                 }
             }
         }

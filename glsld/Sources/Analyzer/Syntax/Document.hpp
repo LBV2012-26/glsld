@@ -25,8 +25,9 @@ namespace glsld {
         }
     };
 
-    using BindingMap    = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
-    using MacroTraceMap = std::unordered_map<SourceLocation, Token, LocationHash>;
+    using BindingMap        = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
+    using MacroTraceMap     = std::unordered_map<SourceLocation, Token, LocationHash>;
+    using MacroArgsTraceMap = MacroTraceMap;
 
     struct InactiveRegion {
         std::size_t begin_line;
@@ -41,6 +42,7 @@ namespace glsld {
         std::unique_ptr<TranslationUnitNode> ast;
         BindingMap                           bindings;
         MacroTraceMap                        macro_traces;
+        MacroArgsTraceMap                    macro_args_traces;
         int                                  version{};
     };
 

@@ -62,13 +62,13 @@ int main() {
         auto parse_end = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
-        SymbolLinker linker(document.symbols, document.bindings, 0, nullptr);
+        SymbolLinker linker(document, 0, nullptr);
         auto link_start = std::chrono::high_resolution_clock::now();
         linker.Traverse(document.ast.get());
         auto link_end = std::chrono::high_resolution_clock::now();
         auto link_duration = link_end - link_start;
 
-        TypeResolver resolver(document.symbols, document.bindings, 0, nullptr);
+        TypeResolver resolver(document, 0, nullptr);
         auto resolve_start = std::chrono::high_resolution_clock::now();
         resolver.Traverse(document.ast.get());
         auto resolve_end = std::chrono::high_resolution_clock::now();

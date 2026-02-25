@@ -34,11 +34,11 @@ namespace glsld {
         }
 
         if (Cancelled()) return;
-        SymbolLinker linker(document->symbols, document->bindings, version_replica, version);
+        SymbolLinker linker(*document, version_replica, version);
         linker.Traverse(document->ast.get());
 
         if (Cancelled()) return;
-        TypeResolver resolver(document->symbols, document->bindings, version_replica, version);
+        TypeResolver resolver(*document, version_replica, version);
         resolver.Traverse(document->ast.get());
 
         if (Cancelled()) return;

@@ -28,21 +28,8 @@ namespace glsld {
             }
         }
 
-        Preprocessor processor(document_.macro_traces, raw_tokens_);
+        Preprocessor processor(document_.macro_traces, document_.macro_args_traces, raw_tokens_);
         expanded_tokens_ = processor.Process();
-
-        // temp
-        std::println("Raw Tokens:");
-        for (const auto& token : raw_tokens_) {
-            std::println("{} {} [{}:{}]", token.text, magic_enum::enum_name(token.type), token.location.line, token.location.column);
-        }
-
-        std::println("\nExpanded Tokens:");
-        for (const auto& token : expanded_tokens_) {
-            std::println("{} {} [{}:{}]", token.text, magic_enum::enum_name(token.type), token.location.line, token.location.column);
-        }
-
-        std::exit(0);
     }
 
     void Parser::Parse() {
@@ -263,9 +250,6 @@ namespace glsld {
         if (macro_token.location.line != directive_physical_line) {
             return node;
         }
-
-        raw_tokens_[token_index_].type      = TokenType::kIdentifier;
-        expanded_tokens_[token_index_].type = TokenType::kIdentifier;
 
         node->symbol = document_.symbols.root_scope()->AddSymbol(node.get(), macro_token.text, macro_token.location, SymbolKind::kMacro);
         ConsumeToken();

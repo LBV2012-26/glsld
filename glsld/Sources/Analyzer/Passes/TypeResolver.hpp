@@ -16,7 +16,7 @@
 namespace glsld {
     class TypeResolver : public AstVisitor {
     public:
-        TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
+        TypeResolver(Document& document, int version_replica,
                      std::shared_ptr<const std::atomic<int>> version_pointer);
 
     private:
@@ -42,7 +42,6 @@ namespace glsld {
         TypeInfo ResolveBinaryOperationType(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
         TypeInfo ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
 
-        const DocumentSymbols& symbols_;
-        BindingMap&            bindings_;
+        Document& document_;
     };
 }

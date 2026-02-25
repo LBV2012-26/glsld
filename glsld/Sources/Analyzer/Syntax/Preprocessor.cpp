@@ -6,8 +6,9 @@
 #include "Analyzer/Syntax/Lexer.hpp"
 
 namespace glsld {
-    Preprocessor::Preprocessor(MacroTraceMap& trace_map, std::span<const Token> raw_tokens)
+    Preprocessor::Preprocessor(MacroTraceMap& trace_map, MacroArgsTraceMap& args_trace_map, std::span<const Token> raw_tokens)
         : trace_map_{ trace_map }
+        , args_trace_map_{ args_trace_map }
         , raw_tokens_{ raw_tokens }
     {}
 
@@ -243,12 +244,12 @@ namespace glsld {
             param_index.try_emplace(defination.params[i].text, i);
         }
 
-        auto argument_active_macros = active_macros;
-        argument_active_macros.erase(defination.original_token.text);
+        auto arguments_active_macros = active_macros;
+        arguments_active_macros.erase(defination.original_token.text);
 
         std::vector<std::vector<Token>> expanded_args(arguments.size());
         for (auto i = 0uz; i != arguments.size(); ++i) {
-            expanded_args[i] = ExpandTokenSequence(arguments[i], argument_active_macros, call_site);
+            expanded_args[i] = ExpandTokenSequence(arguments[i], arguments_active_macros, call_site);
             for (auto& token : expanded_args[i]) {
                 token.location = call_site;
             }
@@ -342,6 +343,11 @@ namespace glsld {
             return true;
         }
 
+        auto PushArgument = [&](const Token& token) -> void {
+            arguments.back().push_back(token);
+            args_trace_map_.try_emplace(token.location, token);
+        };
+
         for (; index < input.size(); ++index) {
             const auto& token = input[index];
 
@@ -352,7 +358,7 @@ namespace glsld {
             switch (token.type) {
             case TokenType::kOpenParen:
                 ++paren_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kCloseParen:
                 if (paren_level == 0 && bracket_level == 0 && brace_level == 0) {
@@ -361,11 +367,11 @@ namespace glsld {
                 }
 
                 --paren_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kOpenBracket:
                 ++bracket_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kCloseBracket:
                 if (bracket_level == 0) {
@@ -373,11 +379,11 @@ namespace glsld {
                 }
 
                 --bracket_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kOpenBrace:
                 ++brace_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kCloseBrace:
                 if (brace_level == 0) {
@@ -385,18 +391,18 @@ namespace glsld {
                 }
 
                 --brace_level;
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             case TokenType::kComma:
                 if (paren_level == 0 && bracket_level == 0 && brace_level == 0) {
                     arguments.emplace_back();
                 } else {
-                    arguments.back().push_back(token);
+                    PushArgument(token);
                 }
 
                 break;
             default:
-                arguments.back().push_back(token);
+                PushArgument(token);
                 break;
             }
         }

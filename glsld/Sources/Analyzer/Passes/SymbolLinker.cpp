@@ -5,16 +5,14 @@
 #include <variant>
 
 namespace glsld {
-    SymbolLinker::SymbolLinker(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
-                               std::shared_ptr<const std::atomic<int>> vesion_pointer)
+    SymbolLinker::SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer)
         : AstVisitor(version_replica, vesion_pointer)
-        , symbols_{ symbols }
-        , bindings_{ bindings }
+        , document_{ document }
     {}
 
     void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
         if (node->directive == "define" && node->symbol != nullptr) {
-            bindings_.try_emplace(node->symbol->location, node->symbol);
+            document_.bindings.try_emplace(node->symbol->location, node->symbol);
         }
     }
 
@@ -36,7 +34,7 @@ namespace glsld {
             node->linked_symbols = scope->FindSymbol(node->name);
             break;
         case kFunctionCallee: {
-            auto function_result = symbols_.FindFunctionsByOriginalName(node->name);
+            auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);
 
             if (function_result.empty()) {
                 // constructor calling, like "BufferReference ref = BufferReference(device_address);"
@@ -53,10 +51,12 @@ namespace glsld {
         }
 
         if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
-            bindings_.try_emplace(node->begin, node->linked_symbols);
+            document_.bindings.try_emplace(node->begin, node->linked_symbols);
         } else if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
             const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
-            bindings_.try_emplace(node->original_token.location, symbol);
+            if (!document_.macro_traces.contains(node->original_token.location)) {
+                document_.bindings.try_emplace(node->original_token.location, symbol);
+            }
         }
     }
 }

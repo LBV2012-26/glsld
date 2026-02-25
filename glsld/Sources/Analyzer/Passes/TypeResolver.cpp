@@ -273,11 +273,9 @@ namespace glsld {
         };
     }
 
-    TypeResolver::TypeResolver(const DocumentSymbols& symbols, BindingMap& bindings, int version_replica,
-                               std::shared_ptr<const std::atomic<int>> version_pointer)
+    TypeResolver::TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
         : AstVisitor(version_replica, version_pointer)
-        , symbols_{ symbols }
-        , bindings_{ bindings }
+        , document_{ document }
     {}
 
     void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
@@ -286,12 +284,12 @@ namespace glsld {
         }
 
         auto* function_symbol = node->declared_symbol;
-        bindings_.try_emplace(function_symbol->location, function_symbol);
+        document_.bindings.try_emplace(function_symbol->location, function_symbol);
         function_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
         const auto* block_symbol = function_symbol->type_info.block_symbol;
         if (function_symbol->type_info.block_symbol != nullptr) {
-            bindings_.try_emplace(function_symbol->type_info.typename_token.location, block_symbol);
+            document_.bindings.try_emplace(function_symbol->type_info.typename_token.location, block_symbol);
         }
 
         function_symbol->param_typeinfos.clear();
@@ -319,7 +317,7 @@ namespace glsld {
         }
 
         auto* variable_symbol = node->declared_symbol;
-        bindings_.try_emplace(variable_symbol->location, variable_symbol);
+        document_.bindings.try_emplace(variable_symbol->location, variable_symbol);
         variable_symbol->type_info = ExtractTypeInfo(node->type_spec);
 
         if (node->init == nullptr) {
@@ -340,7 +338,7 @@ namespace glsld {
 
     void TypeResolver::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
         if (node->declared_symbol != nullptr) {
-            bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
+            document_.bindings.try_emplace(node->declared_symbol->location, node->declared_symbol);
         }
 
         AstVisitor::VisitInterfaceDeclaration(node);
@@ -348,7 +346,7 @@ namespace glsld {
 
     void TypeResolver::VisitStructDeclaration(StructDeclarationNode* node) {
         if (node->declared_symbol != nullptr) {
-            bindings_.try_emplace(node->declared_symbol->location, node->declared_symbol);
+            document_.bindings.try_emplace(node->declared_symbol->location, node->declared_symbol);
         }
 
         AstVisitor::VisitStructDeclaration(node);
@@ -557,10 +555,10 @@ namespace glsld {
             auto resolved = ResolveOverload(candidates, call_arg_types);
             if (std::holds_alternative<const SymbolInfo*>(resolved)) {
                 const auto* best_match = std::get<const SymbolInfo*>(resolved);
-                callee_node->linked_symbols   = best_match;
-                callee_node->evaluated_type   = best_match->type_info;
-                node->evaluated_type          = best_match->type_info;
-                bindings_[callee_node->begin] = best_match;
+                callee_node->linked_symbols            = best_match;
+                callee_node->evaluated_type            = best_match->type_info;
+                node->evaluated_type                   = best_match->type_info;
+                document_.bindings[callee_node->begin] = best_match;
             } else if (std::holds_alternative<SymbolList>(resolved)) {
                 callee_node->linked_symbols = std::get<SymbolList>(resolved);
             } else {
@@ -579,7 +577,7 @@ namespace glsld {
 
                 callee_node->evaluated_type = symbol->type_info;
                 node->evaluated_type = symbol->type_info;
-                bindings_[callee_node->begin] = symbol;
+                document_.bindings[callee_node->begin] = symbol;
             }
         }
     }
@@ -642,7 +640,7 @@ namespace glsld {
                 node->member->linked_symbols = member_symbol;
                 node->evaluated_type = member_symbol->type_info;
 
-                bindings_.try_emplace(node->member->begin, member_symbol);
+                document_.bindings.try_emplace(node->member->begin, member_symbol);
             }
         } else if (object_type.is_builtin()) {
             node->evaluated_type = ResolveSwizzleType(object_type, node->member->name);
@@ -706,7 +704,7 @@ namespace glsld {
 
             if (type_symbol != nullptr && is_block) {
                 info.block_symbol = type_symbol;
-                bindings_.try_emplace(typename_token.location, type_symbol);
+                document_.bindings.try_emplace(typename_token.location, type_symbol);
             }
         }
 

@@ -14,112 +14,6 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    namespace {
-        int GetSymbolSemanticHighlight(SymbolKind kind) {
-            int type_index = -1;
-
-            switch (kind) {
-            case SymbolKind::kAttribute:
-                type_index = 1;
-                break;
-            case SymbolKind::kInterface:
-                type_index = 4;
-                break;
-            case SymbolKind::kStruct:
-                type_index = 5;
-                break;
-            case SymbolKind::kParameter:
-                type_index = 7;
-                break;
-            case SymbolKind::kVariable:
-                type_index = 8;
-                break;
-            case SymbolKind::kFunctionDecl:
-            case SymbolKind::kFunctionImpl:
-                type_index = 12;
-                break;
-            case SymbolKind::kMacro:
-                type_index = 14;
-                break;
-            case SymbolKind::kPreprocessor:
-                type_index = 15;
-                break;
-            default:
-                break;
-            }
-
-            return type_index;
-        }
-
-        int GetTokenSemanticHighlight(TokenType type) {
-            int type_index = -1;
-
-            switch (type) {
-            case TokenType::kPrimitive:
-                type_index = 23;
-                break;
-            case TokenType::kBuiltInType:
-                type_index = 1;
-                break;
-            case TokenType::kBuiltInFunction:
-                type_index = 12;
-                break;
-            case TokenType::kKeyword:
-            case TokenType::kPreprocessor:
-            case TokenType::kSharp:
-                type_index = 15;
-                break;
-            case TokenType::kNumberLiteral:
-                type_index = 19;
-                break;
-            default:
-                break;
-            }
-
-            return type_index;
-        }
-
-        const SymbolInfo* ResolveFunctionJump(const Document* snapshot, const SymbolInfo* symbol) {
-            std::string name = symbol->name;
-            if (symbol->kind == SymbolKind::kFunctionImpl) {
-                if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
-                    name.replace(pos, 7, "__Decl_");
-                }
-            } else if (symbol->kind == SymbolKind::kFunctionDecl) {
-                if (auto pos = name.find("__Decl_"); pos != std::string::npos) {
-                    name.replace(pos, 7, "__Impl_");
-                }
-            }
-
-            if (snapshot != nullptr) {
-                const auto* resolved_symbol = snapshot->symbols.root_scope()->FindSymbol(name);
-                return resolved_symbol;
-            }
-
-            return nullptr;
-        }
-
-        int MapSymbolKindToLspCompletion(SymbolKind kind, bool is_const = false) {
-            switch (kind) {
-            case SymbolKind::kVariable:
-                return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
-            case SymbolKind::kParameter:
-                return 6;  // Variable
-            case SymbolKind::kStruct:
-                return 22; // Struct
-            case SymbolKind::kInterface:
-                return 8;  // Interface
-            case SymbolKind::kFunctionDecl:
-            case SymbolKind::kFunctionImpl:
-                return 3;  // Function
-            case SymbolKind::kMacro:
-                return 9;  // Module (或者 Constant)
-            default:
-                return 1;  // Text
-            }
-        }
-    }
-
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
         nlohmann::json symbols = nlohmann::json::array();
 
@@ -225,63 +119,115 @@ namespace glsld {
         std::uint32_t last_line = 0;
         std::uint32_t last_char = 0;
 
+        auto GetSymbolSemanticHighlight = [](SymbolKind kind) -> int {
+            int type_index = -1;
+
+            switch (kind) {
+            case SymbolKind::kAttribute:    type_index = 1; break;
+            case SymbolKind::kInterface:    type_index = 4; break;
+            case SymbolKind::kStruct:       type_index = 5; break;
+            case SymbolKind::kParameter:    type_index = 7; break;
+            case SymbolKind::kVariable:     type_index = 8; break;
+
+            case SymbolKind::kFunctionDecl:
+            case SymbolKind::kFunctionImpl:
+                type_index = 12;
+                break;
+
+            case SymbolKind::kMacro:        type_index = 14; break;
+            case SymbolKind::kPreprocessor: type_index = 15; break;
+            default:
+                break;
+            }
+
+            return type_index;
+        };
+
+        auto GetTokenSemanticHighlight = [](TokenType type) -> int {
+            int type_index = -1;
+
+            switch (type) {
+            case TokenType::kPrimitive:       type_index = 23; break;
+            case TokenType::kBuiltInType:     type_index = 1; break;
+            case TokenType::kBuiltInFunction: type_index = 12;break;
+
+            case TokenType::kKeyword:
+            case TokenType::kPreprocessor:
+            case TokenType::kSharp:
+                type_index = 15;
+                break;
+
+            case TokenType::kNumberLiteral: type_index = 19; break;
+            default:
+                break;
+            }
+
+            return type_index;
+        };
+
+        auto EmitSemanticData = [&](int type_index, int modifiers, const Token& token) -> void {
+            if (type_index == -1) {
+                return;
+            }
+
+            std::size_t line       = token.location.line   - 1;
+            std::size_t character  = token.location.column - 1;
+            std::size_t length     = token.text.length();
+            std::size_t delta_line = line - last_line;
+            std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
+
+            data.push_back(static_cast<std::uint32_t>(delta_line));
+            data.push_back(static_cast<std::uint32_t>(delta_char));
+            data.push_back(static_cast<std::uint32_t>(length));
+            data.push_back(static_cast<std::uint32_t>(type_index));
+            data.push_back(modifiers);
+
+            last_line = static_cast<std::uint32_t>(line);
+            last_char = static_cast<std::uint32_t>(character);
+        };
+
         for (const auto& token : snapshot->raw_tokens) {
             std::uint32_t modifiers = 0;
             int type_index = -1;
 
-            if (token.type == TokenType::kIdentifier) {
-                auto it = snapshot->bindings.find(token.location);
-                if (it == snapshot->bindings.end()) {
-                    continue;
-                }
-
-                const SymbolInfo* symbol = nullptr;
-                if (std::holds_alternative<SymbolList>(it->second)) {
-                    const auto& symbols = std::get<SymbolList>(it->second);
-                    if (!symbols.empty()) {
-                        symbol = symbols.front();
-                    }
-                } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
-                    symbol = std::get<const SymbolInfo*>(it->second);
-                }
-
-                if (symbol == nullptr) {
-                    continue;
-                }
-
-                type_index = GetSymbolSemanticHighlight(symbol->kind);
-
-                if (token.location.line   == symbol->location.line &&
-                    token.location.column == symbol->location.column)
-                {
-                    modifiers |= (1 << 0); // declaration
-                }
-
-                if (token.type == TokenType::kIdentifier &&
-                    symbol->located_scope->kind() == ScopeKind::kGlobalTransparent)
-                {
-                    modifiers |= (1 << 3); // static
-                }
-            } else {
+            auto it = snapshot->bindings.find(token.location);
+            if (it == snapshot->bindings.end()) {
                 type_index = GetTokenSemanticHighlight(token.type);
+                EmitSemanticData(type_index, modifiers, token);
+                continue;
             }
 
-            if (type_index != -1) {
-                std::size_t line       = token.location.line   - 1;
-                std::size_t character  = token.location.column - 1;
-                std::size_t length     = token.text.length();
-                std::size_t delta_line = line - last_line;
-                std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
-
-                data.push_back(static_cast<std::uint32_t>(delta_line));
-                data.push_back(static_cast<std::uint32_t>(delta_char));
-                data.push_back(static_cast<std::uint32_t>(length));
-                data.push_back(static_cast<std::uint32_t>(type_index));
-                data.push_back(modifiers);
-
-                last_line = static_cast<std::uint32_t>(line);
-                last_char = static_cast<std::uint32_t>(character);
+            const SymbolInfo* symbol = nullptr;
+            if (std::holds_alternative<SymbolList>(it->second)) {
+                const auto& symbols = std::get<SymbolList>(it->second);
+                if (!symbols.empty()) {
+                    symbol = symbols.front();
+                }
+            } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
+                symbol = std::get<const SymbolInfo*>(it->second);
             }
+
+            if (symbol == nullptr) {
+                type_index = GetTokenSemanticHighlight(token.type);
+                EmitSemanticData(type_index, modifiers, token);
+                continue;
+            }
+
+            type_index = GetSymbolSemanticHighlight(symbol->kind);
+
+            if (token.location.line   == symbol->location.line &&
+                token.location.column == symbol->location.column)
+            {
+                modifiers |= (1 << 0); // declaration
+            }
+
+            if (token.type == TokenType::kIdentifier &&
+                symbol->located_scope->kind() == ScopeKind::kGlobalTransparent)
+            {
+                modifiers |= (1 << 3); // static
+            }
+
+            EmitSemanticData(type_index, modifiers, token);
         }
 
         return data;
@@ -303,6 +249,26 @@ namespace glsld {
             }
         }
 
+        auto ResolveFunctionJump = [snapshot](const auto* symbol) -> const SymbolInfo* {
+            std::string name = symbol->name;
+            if (symbol->kind == SymbolKind::kFunctionImpl) {
+                if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
+                    name.replace(pos, 7, "__Decl_");
+                }
+            } else if (symbol->kind == SymbolKind::kFunctionDecl) {
+                if (auto pos = name.find("__Decl_"); pos != std::string::npos) {
+                    name.replace(pos, 7, "__Impl_");
+                }
+            }
+
+            if (snapshot != nullptr) {
+                const auto* resolved_symbol = snapshot->symbols.root_scope()->FindSymbol(name);
+                return resolved_symbol;
+            }
+
+            return nullptr;
+        };
+
         if (cursor_token != nullptr) {
             auto it = snapshot->bindings.find(cursor_token->location);
             if (it != snapshot->bindings.end() && std::holds_alternative<const SymbolInfo*>(it->second)) {
@@ -311,7 +277,7 @@ namespace glsld {
                     if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
                         linked_symbol->kind == SymbolKind::kFunctionImpl)
                     {
-                        const auto* resolved_symbol = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                        const auto* resolved_symbol = ResolveFunctionJump(linked_symbol);
                         if (resolved_symbol != nullptr) {
                             results.push_back(resolved_symbol);
                         } else {
@@ -374,6 +340,22 @@ namespace glsld {
 
         nlohmann::json items = nlohmann::json::array();
         std::unordered_set<std::string, StringViewHeteroHash, StringViewHeteroEqual> existing_labels;
+
+        auto MapSymbolKindToLspCompletion = [](SymbolKind kind, bool is_const = false) -> int {
+            switch (kind) {
+            case SymbolKind::kVariable:  return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
+            case SymbolKind::kParameter: return 6;  // Variable
+            case SymbolKind::kStruct:    return 22; // Struct
+            case SymbolKind::kInterface: return 8;  // Interface
+
+            case SymbolKind::kFunctionDecl:
+            case SymbolKind::kFunctionImpl:
+                return 3;  // Function
+
+            case SymbolKind::kMacro:     return 9;  // Module (或者 Constant)
+            default:                     return 1;  // Text
+            }
+        };
 
         for (const auto* symbol : visible_symbols) {
             nlohmann::json item;

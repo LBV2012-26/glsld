@@ -26,7 +26,7 @@ namespace glsld {
 
     class Preprocessor {
     public:
-        Preprocessor(MacroTraceMap& trace_map, std::span<const Token> raw_tokens);
+        Preprocessor(MacroTraceMap& trace_map, MacroArgsTraceMap& args_trace_map, std::span<const Token> raw_tokens);
         std::vector<Token> Process();
 
     private:
@@ -57,6 +57,7 @@ namespace glsld {
 
         StringHeteroHashTable<std::string, MacroDefination> macros_;
         MacroTraceMap&                                      trace_map_;
+        MacroArgsTraceMap&                                  args_trace_map_;
         std::span<const Token>                              raw_tokens_;
         std::size_t                                         token_index_{};
     };
