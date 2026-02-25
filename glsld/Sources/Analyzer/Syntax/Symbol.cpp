@@ -95,6 +95,12 @@ namespace glsld {
             }
 
             for (const auto& child : scope->children_) {
+                if (child->kind_ != ScopeKind::kGlobalTransparent &&
+                    child->kind_ != ScopeKind::kBlockTransparent)
+                {
+                    continue;
+                }
+
                 const auto* symbol = child->FindSymbolInCurrentScope(name);
                 if (symbol != nullptr && (symbol->kind == SymbolKind::kStruct || symbol->kind == SymbolKind::kInterface)) {
                     return symbol;
