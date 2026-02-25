@@ -102,6 +102,7 @@ namespace glsld {
         void LeaveScope(SourceLocation location);
 
         std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames);
+        std::size_t GetNextAnonymousId();
 
         Scope* current_scope();
 
@@ -112,6 +113,7 @@ namespace glsld {
         std::vector<PreprocessorNode*>          preprocessor_references_;
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
+        std::size_t                             anonymous_block_index_{};
         int                                     version_replica_{};
         std::shared_ptr<const std::atomic<int>> version_pointer_;
     };

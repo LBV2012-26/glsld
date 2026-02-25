@@ -350,19 +350,23 @@ namespace glsld {
         // current token is qualifier, type or identifier
         auto type_spec = ParseQualifiersAndType();
 
-        // block, current is identifier, and next is '{'
-        if (!type_spec.empty() && current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) {
-            return ParseBlockBody(std::move(type_spec));
-        }
+        if (!type_spec.empty()) {
+            // block, current is identifier, and next is '{', or current is '{'
+            if ((current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenBrace) ||
+                (current_token().type == TokenType::kOpenBrace  && type_spec.has_keyword("struct")))
+            {
+                return ParseBlockBody(std::move(type_spec));
+            }
 
-        // function, current is identifier, and next is '('
-        if (!type_spec.empty() && current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
-            return ParseFunction(std::move(type_spec));
-        }
+            // function, current is identifier, and next is '('
+            if (current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
+                return ParseFunction(std::move(type_spec));
+            }
 
-        // common variable
-        if (!type_spec.empty() && current_token().type != TokenType::kOpenParen) {
-            return ParseVariableDeclarationList(std::move(type_spec));
+            // common variable
+            if (current_token().type != TokenType::kOpenParen) {
+                return ParseVariableDeclarationList(std::move(type_spec));
+            }
         }
 
         // expression, including function calling
@@ -1011,21 +1015,34 @@ namespace glsld {
     }
 
     std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(TypeSpecifier type_spec) {
-        // current token is block name
-        const auto& block_name = current_token();
-        ConsumeToken();
+        std::string    name;
+        SourceLocation name_location;
+
+        if (current_token().type == TokenType::kIdentifier) {
+            // current token is block name
+            const auto& block_name = current_token();
+            name = block_name.text;
+            name_location = block_name.location;
+            ConsumeToken();
+        } else { // anonymous
+            name = std::format("__AnonymousStruct_{}", GetNextAnonymousId());
+            name_location = current_token().location;
+        }
 
         bool is_struct = type_spec.has_keyword("struct");
 
         auto ParseBody = [&](auto& node) -> void {
             node->begin           = type_spec.begin_location();
             auto block_kind       = is_struct ? SymbolKind::kStruct : SymbolKind::kInterface;
-            node->declared_symbol = current_scope()->AddSymbol(node.get(), block_name.text, block_name.location, block_kind);
+            node->declared_symbol = current_scope()->AddSymbol(node.get(), name, name_location, block_kind);
             node->body            = ParseScope(node->declared_symbol, ScopeKind::kBlock);
 
             if (current_token().type != TokenType::kSemicolon) {
                 // struct MyStruct { ... } instance;
-                type_spec.specifiers.push_back(block_name);
+                type_spec.specifiers.push_back({
+                    .text = name, .location = name_location, .type = TokenType::kIdentifier
+                });
+
                 node->instances = ParseVariableDeclarationList(std::move(type_spec));
             } else {
                 MatchAndConsume(TokenType::kSemicolon);

@@ -46,4 +46,8 @@ namespace glsld {
     inline Scope* Parser::current_scope() {
         return scope_stack_.top();
     }
+
+    inline std::size_t Parser::GetNextAnonymousId() {
+        return anonymous_block_index_++;
+    }
 }

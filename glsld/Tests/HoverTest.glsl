@@ -16,6 +16,13 @@ layout(std140, set = 0, binding = 1) uniform MyUniformBuffer { // without set, a
     mat4 my_matrix;
 } ubo;
 
+layout(location = 1) in FragInput {
+	mat3 tbn_matrix;
+	vec2 tex_coord;
+	vec3 frag_pos;
+	vec4 light_space_frag_pos;
+} input;
+
 struct LightData {
     vec3 position;
 };
