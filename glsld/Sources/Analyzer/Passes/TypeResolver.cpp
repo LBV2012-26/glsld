@@ -285,7 +285,7 @@ namespace glsld {
 
         auto* function_symbol = node->declared_symbol;
         document_.bindings.try_emplace(function_symbol->location, function_symbol);
-        function_symbol->type_info = ExtractTypeInfo(node->type_spec);
+        function_symbol->type_info = ExtractTypeInfo(node->type_spec, node->located_scope);
 
         const auto* block_symbol = function_symbol->type_info.block_symbol;
         if (function_symbol->type_info.block_symbol != nullptr) {
@@ -300,7 +300,7 @@ namespace glsld {
             if (param_node->declared_symbol != nullptr) { // 是否无参数只有类型
                 param_typeinfo = param_node->declared_symbol->type_info;
             } else {
-                param_typeinfo = ExtractTypeInfo(param_node->type_spec);
+                param_typeinfo = ExtractTypeInfo(param_node->type_spec, param_node->located_scope);
             }
 
             function_symbol->param_typeinfos.push_back(param_typeinfo);
@@ -318,7 +318,7 @@ namespace glsld {
 
         auto* variable_symbol = node->declared_symbol;
         document_.bindings.try_emplace(variable_symbol->location, variable_symbol);
-        variable_symbol->type_info = ExtractTypeInfo(node->type_spec);
+        variable_symbol->type_info = ExtractTypeInfo(node->type_spec, node->located_scope);
 
         if (node->init == nullptr) {
             return;
@@ -666,7 +666,7 @@ namespace glsld {
         return dimensions;
     }
 
-    TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec) {
+    TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec, const Scope* located_scope) {
         if (type_spec.typename_token().type == TokenType::kUnknown) {
             return {};
         }
@@ -694,18 +694,13 @@ namespace glsld {
         }
 
         if (typename_token.type == TokenType::kIdentifier) {
-            auto* type_symbol = current_scope_->FindSymbol(typename_token.text);
+            auto* type_symbol = located_scope->FindTypeSymbol(typename_token.text);
             if (type_symbol == nullptr) {
                 return {};
             }
 
-            bool is_block = type_symbol->kind == SymbolKind::kInterface
-                         || type_symbol->kind == SymbolKind::kStruct;
-
-            if (type_symbol != nullptr && is_block) {
-                info.block_symbol = type_symbol;
-                document_.bindings.try_emplace(typename_token.location, type_symbol);
-            }
+            info.block_symbol = type_symbol;
+            document_.bindings.try_emplace(typename_token.location, type_symbol);
         }
 
         info.type_desc = ParseTypeDescriptor(typename_token.text);

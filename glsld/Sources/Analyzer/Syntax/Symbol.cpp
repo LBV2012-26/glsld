@@ -78,32 +78,28 @@ namespace glsld {
     {}
 
     const SymbolInfo* Scope::FindSymbol(std::string_view name) const {
-        if (auto symbol = FindSymbolInCurrentScope(name)) {
-            return symbol;
-        }
-
-        if (parent_ != nullptr) {
-            return parent_->FindSymbol(name);
+        for (const auto* scope = this; scope != nullptr; scope = scope->parent_) {
+            if (const auto* symbol = scope->FindSymbolInCurrentScope(name)) {
+                return symbol;
+            }
         }
 
         return nullptr;
     }
 
-    const SymbolInfo* Scope::FindSymbolForHighlighting(std::string_view name) const {
-        if (auto symbol = FindSymbolInCurrentScope(name)) {
-            return symbol;
-        }
-
-        std::string decl_pattern = std::format("__Decl_{}", name);
-        std::string impl_pattern = std::format("__Impl_{}", name);
-        for (const auto& [mangled_name, info] : symbols_) {
-            if (mangled_name.starts_with(decl_pattern) || mangled_name.starts_with(impl_pattern)) {
-                return &info;
+    const SymbolInfo* Scope::FindTypeSymbol(std::string_view name) const {
+        for (const auto* scope = this; scope != nullptr; scope = scope->parent_) {
+            const auto* symbol = scope->FindSymbolInCurrentScope(name);
+            if (symbol != nullptr && (symbol->kind == SymbolKind::kStruct || symbol->kind == SymbolKind::kInterface)) {
+                return symbol;
             }
-        }
 
-        if (parent_ != nullptr) {
-            return parent_->FindSymbolForHighlighting(name);
+            for (const auto& child : scope->children_) {
+                const auto* symbol = child->FindSymbolInCurrentScope(name);
+                if (symbol != nullptr && (symbol->kind == SymbolKind::kStruct || symbol->kind == SymbolKind::kInterface)) {
+                    return symbol;
+                }
+            }
         }
 
         return nullptr;

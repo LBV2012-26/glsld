@@ -191,6 +191,9 @@ namespace glsld {
         case TokenType::kOpenBrace:
             node = ParseScope();
             break;
+        case TokenType::kOpenParen:
+            node = ParseExpressionStatement();
+            break;
         case TokenType::kSharp:
             node = ParsePreprocessor();
             break;
@@ -573,6 +576,10 @@ namespace glsld {
                 const auto* symbol_info = current_scope()->FindSymbol(token.text);
                 if (symbol_info == nullptr || (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface)) {
                     break; // 不是类型标识符
+                }
+
+                if (PeekToken().type != TokenType::kIdentifier) {
+                    break;
                 }
 
                 type_spec.specifiers.push_back(token);

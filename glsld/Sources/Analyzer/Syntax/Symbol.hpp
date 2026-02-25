@@ -99,7 +99,7 @@ namespace glsld {
         Scope& operator=(Scope&&) noexcept = default;
 
         const SymbolInfo* FindSymbol(std::string_view name) const;
-        const SymbolInfo* FindSymbolForHighlighting(std::string_view name) const;
+        const SymbolInfo* FindTypeSymbol(std::string_view name) const;
         const SymbolInfo* FindSymbolInCurrentScope(std::string_view name) const;
         void GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const;
 

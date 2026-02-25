@@ -34,7 +34,7 @@ namespace glsld {
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         std::vector<std::int64_t> DeduceArraySizesFromArgs(const CallExpressionNode* call_node);
-        TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec);
+        TypeInfo ExtractTypeInfo(const TypeSpecifier& type_spec, const Scope* located_scope);
         TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);
         TypeInfo ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle);
