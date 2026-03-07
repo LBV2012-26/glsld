@@ -16,7 +16,7 @@
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope);
     std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot);
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location);
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function);
     std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot);
     nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location);
     nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location);

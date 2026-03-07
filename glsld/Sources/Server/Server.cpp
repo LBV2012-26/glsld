@@ -283,7 +283,7 @@ namespace glsld {
         const auto snapshot = ValidateAndGetDocument(uri);
 
         auto target  = ConvertToParserPosition(position);
-        auto symbols = GetDefinitionSymbols(snapshot, target);
+        auto symbols = GetDefinitionSymbols(snapshot, target, true);
         if (symbols.empty()) {
             return nlohmann::json::array();
         }
@@ -322,7 +322,7 @@ namespace glsld {
         const auto snapshot = ValidateAndGetDocument(uri);
 
         auto target  = ConvertToParserPosition(position);
-        auto symbols = GetDefinitionSymbols(snapshot, target);
+        auto symbols = GetDefinitionSymbols(snapshot, target, false);
         if (symbols.empty()) {
             return {};
         }

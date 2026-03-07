@@ -233,7 +233,7 @@ namespace glsld {
         return data;
     }
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -260,7 +260,6 @@ namespace glsld {
 
             for (const auto& current_symbol : snapshot->symbols.FindFunctionsByOriginalName(base_name)) {
                 if (current_symbol->kind != target_kind ||
-                    utils::UnmangleFunctionName(current_symbol->name) != base_name ||
                     current_symbol->param_typeinfos.size() != symbol->param_typeinfos.size())
                 {
                     continue;
@@ -290,6 +289,11 @@ namespace glsld {
                     if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
                         linked_symbol->kind == SymbolKind::kFunctionImpl)
                     {
+                        if (!toggle_function) {
+                            results.push_back(linked_symbol);
+                            return results;
+                        }
+
                         bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
                         if (clicked_on_defination) {
                             const auto* toggled = ResolveFunctionJump(linked_symbol);
