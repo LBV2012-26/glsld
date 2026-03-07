@@ -9,7 +9,7 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
-    class ConstantEvaluator : public AstVisitor {
+    class ConstantEvaluator final : public AstVisitor {
     public:
         ConstantEvaluator();
 

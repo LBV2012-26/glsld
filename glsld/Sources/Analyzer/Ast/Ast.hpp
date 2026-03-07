@@ -68,7 +68,7 @@ namespace glsld {
     };
 
     struct ExpressionNode;
-    struct AttributeNode : public AstNode {
+    struct AttributeNode final : public AstNode {
         Token namespace_;
         Token name;
         std::unique_ptr<ExpressionNode> argument;
@@ -90,7 +90,7 @@ namespace glsld {
         using AstNode::AstNode;
     };
 
-    struct PreprocessorNode : public StatementNode {
+    struct PreprocessorNode final : public StatementNode {
         std::string              directive;
         std::vector<Token>       tokens;
         std::vector<std::string> params;
@@ -108,7 +108,7 @@ namespace glsld {
         using StatementNode::StatementNode;
     };
 
-    struct CompoundStatementNode : public StatementNode {
+    struct CompoundStatementNode final : public StatementNode {
         std::vector<std::unique_ptr<StatementNode>> children;
 
         using StatementNode::StatementNode;
@@ -118,7 +118,7 @@ namespace glsld {
         }
     };
 
-    struct IfStatementNode : public StatementNode {
+    struct IfStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> condition;
         std::unique_ptr<StatementNode>  then_branch;
         std::unique_ptr<StatementNode>  else_branch;
@@ -130,7 +130,7 @@ namespace glsld {
         }
     };
 
-    struct ForStatementNode : public StatementNode {
+    struct ForStatementNode final : public StatementNode {
         std::unique_ptr<StatementNode>  init;
         std::unique_ptr<ExpressionNode> condition;
         std::unique_ptr<ExpressionNode> iteration;
@@ -143,7 +143,7 @@ namespace glsld {
         }
     };
 
-    struct WhileStatementNode : public StatementNode {
+    struct WhileStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> condition;
         std::unique_ptr<StatementNode>  body;
 
@@ -154,7 +154,7 @@ namespace glsld {
         }
     };
 
-    struct DoStatementNode : public StatementNode {
+    struct DoStatementNode final : public StatementNode {
         std::unique_ptr<StatementNode>  body;
         std::unique_ptr<ExpressionNode> condition;
 
@@ -165,7 +165,7 @@ namespace glsld {
         }
     };
 
-    struct SwitchStatementNode : public StatementNode {
+    struct SwitchStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> condition;
         std::vector<std::unique_ptr<StatementNode>> cases;
 
@@ -176,7 +176,7 @@ namespace glsld {
         }
     };
 
-    struct CaseStatementNode : public StatementNode {
+    struct CaseStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> condition; // nullptr for "default"
         std::vector<std::unique_ptr<StatementNode>> body;
 
@@ -187,7 +187,7 @@ namespace glsld {
         }
     };
 
-    struct ReturnStatementNode : public StatementNode {
+    struct ReturnStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> return_value;
 
         using StatementNode::StatementNode;
@@ -197,7 +197,7 @@ namespace glsld {
         }
     };
 
-    struct BreakStatementNode : public StatementNode {
+    struct BreakStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
@@ -205,7 +205,7 @@ namespace glsld {
         }
     };
 
-    struct ContinueStatementNode : public StatementNode {
+    struct ContinueStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
@@ -213,7 +213,7 @@ namespace glsld {
         }
     };
 
-    struct DiscardStatementNode : public StatementNode {
+    struct DiscardStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
@@ -221,7 +221,7 @@ namespace glsld {
         }
     };
 
-    struct ExpressionStatementNode : public StatementNode {
+    struct ExpressionStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
 
         std::unique_ptr<ExpressionNode> expr;
@@ -231,7 +231,7 @@ namespace glsld {
         }
     };
 
-    struct NullStatementNode : public StatementNode {
+    struct NullStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
 
         AstNodeKind kind() const override {
@@ -239,7 +239,7 @@ namespace glsld {
         }
     };
 
-    struct InitializerListExpressionNode : public ExpressionNode {
+    struct InitializerListExpressionNode final : public ExpressionNode {
         std::vector<std::unique_ptr<ExpressionNode>> elements;
 
         using ExpressionNode::ExpressionNode;
@@ -249,7 +249,7 @@ namespace glsld {
         }
     };
 
-    struct BinaryExpressionNode : public ExpressionNode {
+    struct BinaryExpressionNode final : public ExpressionNode {
         TokenType                       op{};
         std::unique_ptr<ExpressionNode> left;
         std::unique_ptr<ExpressionNode> right;
@@ -261,7 +261,7 @@ namespace glsld {
         }
     };
 
-    struct UnaryExpressionNode : public ExpressionNode {
+    struct UnaryExpressionNode final : public ExpressionNode {
         TokenType                       op{};
         bool                            is_postfix{ false };
         std::unique_ptr<ExpressionNode> operand;
@@ -273,7 +273,7 @@ namespace glsld {
         }
     };
 
-    struct TernaryExpressionNode : public ExpressionNode {
+    struct TernaryExpressionNode final : public ExpressionNode {
         std::unique_ptr<ExpressionNode> condition;
         std::unique_ptr<ExpressionNode> true_expr;
         std::unique_ptr<ExpressionNode> false_expr;
@@ -285,7 +285,7 @@ namespace glsld {
         }
     };
 
-    struct CallExpressionNode : public ExpressionNode {
+    struct CallExpressionNode final : public ExpressionNode {
         std::unique_ptr<ExpressionNode>              callee;
         std::vector<std::unique_ptr<ExpressionNode>> args;
 
@@ -296,7 +296,7 @@ namespace glsld {
         }
     };
 
-    struct IndexExpressionNode : public ExpressionNode {
+    struct IndexExpressionNode final : public ExpressionNode {
         std::unique_ptr<ExpressionNode> base;
         std::unique_ptr<ExpressionNode> index;
 
@@ -307,7 +307,7 @@ namespace glsld {
         }
     };
 
-    struct VariableExpressionNode : public ExpressionNode {
+    struct VariableExpressionNode final : public ExpressionNode {
         enum class NodeType {
             kCommonVariable,
             kFunctionCallee,
@@ -326,7 +326,7 @@ namespace glsld {
         }
     };
 
-    struct RawExpressionNode : public ExpressionNode {
+    struct RawExpressionNode final : public ExpressionNode {
         std::vector<Token> tokens;
 
         using ExpressionNode::ExpressionNode;
@@ -336,7 +336,7 @@ namespace glsld {
         }
     };
 
-    struct MemberAccessExpressionNode : public ExpressionNode {
+    struct MemberAccessExpressionNode final : public ExpressionNode {
         std::unique_ptr<ExpressionNode>         object;
         std::unique_ptr<VariableExpressionNode> member;
 
@@ -371,7 +371,7 @@ namespace glsld {
         }
     };
 
-    struct VariableDeclarationNode : public DeclarationNode {
+    struct VariableDeclarationNode final : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
         TypeSpecifier                   type_spec;
 
@@ -382,7 +382,7 @@ namespace glsld {
         }
     };
 
-    struct DeclarationGroupNode : public StatementNode {
+    struct DeclarationGroupNode final : public StatementNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> declarations;
 
         using StatementNode::StatementNode;
@@ -392,7 +392,7 @@ namespace glsld {
         }
     };
 
-    struct FunctionDeclarationNode : public DeclarationNode {
+    struct FunctionDeclarationNode final : public DeclarationNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> params;
         std::unique_ptr<CompoundStatementNode>                body;
         TypeSpecifier                                         type_spec;
@@ -404,7 +404,7 @@ namespace glsld {
         }
     };
 
-    struct InterfaceDeclarationNode : public DeclarationNode {
+    struct InterfaceDeclarationNode final : public DeclarationNode {
         std::unique_ptr<CompoundStatementNode> body;
         std::unique_ptr<DeclarationGroupNode>  instances;
         TypeSpecifier                          type_spec;
@@ -416,7 +416,7 @@ namespace glsld {
         }
     };
 
-    struct StructDeclarationNode : public DeclarationNode {
+    struct StructDeclarationNode final : public DeclarationNode {
         std::unique_ptr<CompoundStatementNode> body;
         std::unique_ptr<DeclarationGroupNode>  instances;
 
@@ -427,7 +427,7 @@ namespace glsld {
         }
     };
 
-    struct TranslationUnitNode : public AstNode {
+    struct TranslationUnitNode final : public AstNode {
         std::vector<std::unique_ptr<StatementNode>> statements;
         std::vector<PreprocessorNode*> preprocessor_references;
 

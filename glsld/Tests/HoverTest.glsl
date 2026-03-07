@@ -21,7 +21,7 @@ layout(location = 1) in FragInput {
 	vec2 tex_coord;
 	vec3 frag_pos;
 	vec4 light_space_frag_pos;
-} input;
+} input_data;
 
 struct LightData {
     vec3 position;
@@ -69,10 +69,12 @@ void main() {
 
     const int max_iter = 10;
     #define MIN_ITER max_iter
-    [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]] for (int i = 0; i != max_iter; ++i);
+    
+    [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]]
+    for (int i = 0; i != max_iter; ++i);
 
     LightData mddata[max_iter][5];
-    vec3 data = mddata[ReturnArray(mdarray)[0]][3].position;
+    vec3 data = mddata[ReturnArray(mdarray)[0]][3].position + input_data.frag_pos;
 
     LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
 

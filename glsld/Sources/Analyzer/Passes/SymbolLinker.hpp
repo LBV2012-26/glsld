@@ -7,7 +7,7 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
-    class SymbolLinker : public AstVisitor {
+    class SymbolLinker final : public AstVisitor {
     public:
         SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer);
 

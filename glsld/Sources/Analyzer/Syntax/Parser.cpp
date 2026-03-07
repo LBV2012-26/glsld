@@ -1,8 +1,10 @@
 #include "stdafx.h"
 #include "Parser.hpp"
 
+#include <algorithm>
 #include <concepts>
 #include <format>
+#include <iterator>
 #include <stdexcept>
 #include <utility>
 
@@ -412,17 +414,6 @@ namespace glsld {
                     param_typename += " " + specifier.text;
                 }
             }
-
-            // if (!param_typename.contains("in")    && !param_typename.contains("out") &&
-            //     !param_typename.contains("inout") && !param_typename.contains("void"))
-            // { // default as "in" if no in/out/inout qualifier
-            //     auto const_pos = param_typename.find("const");
-            //     if (const_pos == std::string::npos) {
-            //         param_typename = "in " + param_typename;
-            //     } else {
-            //         param_typename.insert(const_pos + 6, "in ");
-            //     }
-            // }
 
             for (const auto& array_size : param->type_spec.array_sizes) {
                 if (array_size == nullptr) {

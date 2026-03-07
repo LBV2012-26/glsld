@@ -60,6 +60,7 @@ namespace glsld {
         std::vector<Token>        qualifiers;
 
         bool operator==(const TypeInfo& other) const;
+        bool CompareWithoutQualifiers(const TypeInfo& other) const;
         bool is_builtin() const;
         bool is_valid() const;
         bool is_array() const;

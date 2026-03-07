@@ -250,20 +250,33 @@ namespace glsld {
         }
 
         auto ResolveFunctionJump = [snapshot](const auto* symbol) -> const SymbolInfo* {
-            std::string name = symbol->name;
-            if (symbol->kind == SymbolKind::kFunctionImpl) {
-                if (auto pos = name.find("__Impl_"); pos != std::string::npos) {
-                    name.replace(pos, 7, "__Decl_");
-                }
-            } else if (symbol->kind == SymbolKind::kFunctionDecl) {
-                if (auto pos = name.find("__Decl_"); pos != std::string::npos) {
-                    name.replace(pos, 7, "__Impl_");
-                }
+            if (symbol == nullptr) {
+                return nullptr;
             }
 
-            if (snapshot != nullptr) {
-                const auto* resolved_symbol = snapshot->symbols.root_scope()->FindSymbol(name);
-                return resolved_symbol;
+            auto base_name   = utils::UnmangleFunctionName(symbol->name);
+            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl
+                                             ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
+
+            for (const auto& current_symbol : snapshot->symbols.FindFunctionsByOriginalName(base_name)) {
+                if (current_symbol->kind != target_kind ||
+                    utils::UnmangleFunctionName(current_symbol->name) != base_name ||
+                    current_symbol->param_typeinfos.size() != symbol->param_typeinfos.size())
+                {
+                    continue;
+                }
+
+                bool signature_matched = true;
+                for (auto i = 0uz; i != symbol->param_typeinfos.size(); ++i) {
+                    if (!symbol->param_typeinfos[i].CompareWithoutQualifiers(current_symbol->param_typeinfos[i])) {
+                        signature_matched = false;
+                        break;
+                    }
+                }
+
+                if (signature_matched) {
+                    return current_symbol;
+                }
             }
 
             return nullptr;
@@ -277,11 +290,17 @@ namespace glsld {
                     if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
                         linked_symbol->kind == SymbolKind::kFunctionImpl)
                     {
-                        const auto* resolved_symbol = ResolveFunctionJump(linked_symbol);
-                        if (resolved_symbol != nullptr) {
-                            results.push_back(resolved_symbol);
+                        bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
+                        if (clicked_on_defination) {
+                            const auto* toggled = ResolveFunctionJump(linked_symbol);
+                            results.push_back(toggled ? toggled : linked_symbol);
                         } else {
-                            results.push_back(linked_symbol);
+                            if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
+                                const auto* impl = ResolveFunctionJump(linked_symbol);
+                                results.push_back(impl ? impl : linked_symbol);
+                            } else {
+                                results.push_back(linked_symbol);
+                            }
                         }
                     } else {
                         results.push_back(linked_symbol);
@@ -445,10 +464,12 @@ namespace glsld {
 
                     specifiers += ")";
                 } else {
+                    std::string specifier_text = specifier.text.contains("__AnonymousStruct_")
+                                               ? "<anonymous>" : specifier.text;
                     if (specifiers.empty()) {
-                        specifiers = specifier.text;
+                        specifiers = specifier_text;
                     } else {
-                        specifiers += " " + specifier.text;
+                        specifiers += " " + specifier_text;
                     }
                 }
             }

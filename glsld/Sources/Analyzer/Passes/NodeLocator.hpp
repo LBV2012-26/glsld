@@ -20,7 +20,7 @@ namespace glsld {
         AstNode* deepest_node_;
     };
 
-    class ContextLocator : public LeafLocator {
+    class ContextLocator final : public LeafLocator {
     public:
         using LeafLocator::LeafLocator;
         void Traverse(AstNode* node) override;

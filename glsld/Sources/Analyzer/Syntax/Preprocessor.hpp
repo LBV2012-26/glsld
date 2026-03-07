@@ -30,7 +30,7 @@ namespace glsld {
         std::vector<Token> Process();
 
     private:
-        void CollectMacroReplacement(MacroDefination& defination);
+        MacroDefination CollectMacroReplacement(std::size_t current_physical_line);
         bool ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output);
 
         std::vector<Token> ExpandTokenSequence(std::span<const Token> input,

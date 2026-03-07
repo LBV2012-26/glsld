@@ -14,12 +14,13 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
-    class TypeResolver : public AstVisitor {
+    class TypeResolver final : public AstVisitor {
     public:
         TypeResolver(Document& document, int version_replica,
                      std::shared_ptr<const std::atomic<int>> version_pointer);
 
     private:
+        void VisitTranslationUnit(TranslationUnitNode* node) override;
         void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;
@@ -43,5 +44,6 @@ namespace glsld {
         TypeInfo ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
 
         Document& document_;
+        bool is_signature_pass_{ true };
     };
 }

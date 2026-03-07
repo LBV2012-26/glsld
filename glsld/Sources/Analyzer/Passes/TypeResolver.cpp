@@ -247,36 +247,20 @@ namespace glsld {
 
             return MatchResult::kAmbiguous;
         }
-
-        bool CompareTypeInfoIgnoreQualifiers(const TypeInfo& lhs, const TypeInfo& rhs) {
-            if (lhs.typename_token.text != rhs.typename_token.text ||
-                lhs.typename_token.type != rhs.typename_token.type)
-            {
-                return false;
-            }
-
-            if (lhs.block_symbol != rhs.block_symbol) {
-                return false;
-            }
-
-            if (lhs.array_sizes.size() != rhs.array_sizes.size()) {
-                return false;
-            }
-
-            for (auto i = 0uz; i != lhs.array_sizes.size(); ++i) {
-                if (lhs.array_sizes[i] != rhs.array_sizes[i]) {
-                    return false;
-                }
-            }
-
-            return true;
-        };
     }
 
     TypeResolver::TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
         : AstVisitor(version_replica, version_pointer)
         , document_{ document }
     {}
+
+    void TypeResolver::VisitTranslationUnit(TranslationUnitNode* node) {
+        is_signature_pass_ = true;
+        AstVisitor::VisitTranslationUnit(node);
+
+        is_signature_pass_ = false;
+        AstVisitor::VisitTranslationUnit(node);
+    }
 
     void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         if (node->declared_symbol == nullptr) {
@@ -304,6 +288,10 @@ namespace glsld {
             }
 
             function_symbol->param_typeinfos.push_back(param_typeinfo);
+        }
+
+        if (is_signature_pass_) {
+            return;
         }
 
         if (node->body != nullptr) {
@@ -432,10 +420,10 @@ namespace glsld {
             Traverse(node->false_expr.get());
 
         if (node->true_expr != nullptr && node->false_expr != nullptr) {
-            auto true_type  = node->true_expr->evaluated_type;
-            auto false_type = node->false_expr->evaluated_type;
+            const auto& true_type  = node->true_expr->evaluated_type;
+            const auto& false_type = node->false_expr->evaluated_type;
 
-            if (CompareTypeInfoIgnoreQualifiers(true_type, false_type)) {
+            if (true_type.CompareWithoutQualifiers(false_type)) {
                 node->evaluated_type = true_type;
             } else if (TryImplicityConvert(true_type, false_type) != MatchGrade::kFailed) {
                 node->evaluated_type = false_type;
@@ -995,7 +983,7 @@ namespace glsld {
                 const auto& call_type   = normalized_call_args[i];
                 const auto& target_type = param_typeinfos[i];
 
-                if (CompareTypeInfoIgnoreQualifiers(call_type, target_type)) {
+                if (call_type.CompareWithoutQualifiers(target_type)) {
                     current_grades.push_back(MatchGrade::kExactMatch);
                 } else {
                     auto match_grade = TryImplicityConvert(call_type, target_type);

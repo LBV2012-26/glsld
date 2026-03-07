@@ -6,7 +6,7 @@
 #include "Analyzer/Syntax/Document.hpp"
 
 namespace glsld {
-    class InlayHintVisitor : public AstVisitor {
+    class InlayHintVisitor final : public AstVisitor {
     public:
         InlayHintVisitor();
 

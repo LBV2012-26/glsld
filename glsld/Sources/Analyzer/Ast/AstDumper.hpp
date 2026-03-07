@@ -5,7 +5,7 @@
 #include "Analyzer/Ast/AstVisitor.hpp"
 
 namespace glsld {
-    class AstDumper : public AstVisitor {
+    class AstDumper final : public AstVisitor {
     public:
         using Base = AstVisitor;
         using Base::Base;

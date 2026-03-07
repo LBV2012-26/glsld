@@ -33,6 +33,22 @@ namespace glsld {
     }
 
     bool TypeInfo::operator==(const TypeInfo& other) const {
+        if (!CompareWithoutQualifiers(other)) {
+            return false;
+        }
+
+        for (auto i = 0uz; i != qualifiers.size(); ++i) {
+            if (qualifiers[i].text != other.qualifiers[i].text ||
+                qualifiers[i].type != other.qualifiers[i].type)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool TypeInfo::CompareWithoutQualifiers(const TypeInfo& other) const {
         if (typename_token.text != other.typename_token.text ||
             typename_token.type != other.typename_token.type)
         {
@@ -49,18 +65,6 @@ namespace glsld {
 
         for (auto i = 0uz; i != array_sizes.size(); ++i) {
             if (array_sizes[i] != other.array_sizes[i]) {
-                return false;
-            }
-        }
-
-        if (qualifiers.size() != other.qualifiers.size()) {
-            return false;
-        }
-
-        for (auto i = 0uz; i != qualifiers.size(); ++i) {
-            if (qualifiers[i].text != other.qualifiers[i].text ||
-                qualifiers[i].type != other.qualifiers[i].type)
-            {
                 return false;
             }
         }

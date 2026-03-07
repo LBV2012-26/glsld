@@ -23,13 +23,12 @@ namespace glsld {
                 ConsumeToken();
 
                 const auto& name_token = current_token();
+                if (name_token.type != TokenType::kIdentifier) {
+                    continue;
+                }
+
                 expanded.push_back(name_token); // macro name
-
-                MacroDefination defination;
-                defination.original_token = name_token;
-                ConsumeToken();
-
-                CollectMacroReplacement(defination);
+                MacroDefination defination = CollectMacroReplacement(name_token.location.line);
                 macros_.try_emplace(name_token.text, defination);
 
                 if (defination.is_function) {
@@ -59,6 +58,14 @@ namespace glsld {
                 }
 
                 for (const auto& replaced : defination.replacement_list) {
+                    if (!expanded.empty() && expanded.back().location.line < replaced.location.line) {
+                        expanded.push_back(Token{
+                            .text     = "\\",
+                            .location = { expanded.back().location.line, expanded.back().location.column + expanded.back().text.length() + 1 },
+                            .type     = TokenType::kBackslash
+                        });
+                    }
+
                     expanded.push_back(replaced);
                 }
             } else {
@@ -78,11 +85,17 @@ namespace glsld {
         return expanded;
     }
 
-    void Preprocessor::CollectMacroReplacement(MacroDefination& defination) {
-        const auto& prev_token = PeekToken(-1);
-        const auto& this_token = current_token();
-        if (this_token.type == TokenType::kOpenParen &&
-            prev_token.location.column + prev_token.text.length() == this_token.location.column)
+    MacroDefination Preprocessor::CollectMacroReplacement(std::size_t current_physical_line) {
+        // current token is macro name
+        const auto& name_token  = current_token();
+        const auto& next_token = PeekToken(1);
+
+        MacroDefination defination;
+        defination.original_token = name_token;
+        ConsumeToken();
+
+        if (next_token.type == TokenType::kOpenParen &&
+            name_token.location.column + name_token.text.length() == next_token.location.column)
         {
             defination.is_function = true;
             ConsumeToken();
@@ -103,8 +116,6 @@ namespace glsld {
             MatchAndConsume(TokenType::kCloseParen);
         }
 
-        std::size_t current_physical_line = current_token().location.line;
-
         while (current_token().type != TokenType::kEndOfFile) {
             const auto& token = current_token();
             if (token.location.line > current_physical_line) {
@@ -120,6 +131,8 @@ namespace glsld {
             defination.replacement_list.push_back(token);
             ConsumeToken();
         }
+
+        return defination;
     }
 
     bool Preprocessor::ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output) {
