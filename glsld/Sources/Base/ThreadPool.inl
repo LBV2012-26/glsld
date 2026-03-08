@@ -39,7 +39,7 @@ namespace glsld {
         return future;
     }
 
-    inline int ThreadPool::max_thread_count() const {
+    inline std::uint32_t ThreadPool::max_thread_count() const {
         return max_thread_count_;
     }
 }

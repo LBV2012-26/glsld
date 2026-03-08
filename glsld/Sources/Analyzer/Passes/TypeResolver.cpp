@@ -1092,7 +1092,7 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op) {
-        if (left_type == right_type) {
+        if (left_type.CompareWithoutQualifiers(right_type)) {
             return left_type;
         }
 
