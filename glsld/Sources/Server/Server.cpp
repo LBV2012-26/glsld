@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Server.hpp"
 
+#include <cstddef>
 #include <cstdio>
 #include <charconv>
 #include <exception>
@@ -115,6 +116,10 @@ namespace glsld {
 
         router_.RegisterRequest("textDocument/inlayHint", [this](Context& context) -> nlohmann::json {
             return HandleInlayHints(context);
+        });
+
+        router_.RegisterRequest("textDocument/signatureHelp", [this](Context& context) -> nlohmann::json {
+            return HandleSignatureHelp(context);
         });
 
         router_.RegisterRequest("textDocument/completion", [this](Context& context) -> nlohmann::json {
@@ -244,6 +249,10 @@ namespace glsld {
         capabilities["hoverProvider"]      = true;
         capabilities["inlayHintProvider"]  = true;
 
+        capabilities["signatureHelpProvider"] = {
+            { "triggerCharacters", { "(", "," } }
+        };
+
         capabilities["completionProvider"] = {
             { "triggerCharacters", { "." } }
         };
@@ -370,6 +379,82 @@ namespace glsld {
         }
 
         return response;
+    }
+
+    nlohmann::json LspServer::HandleSignatureHelp(Context& context) {
+        const auto& uri      = context.params["textDocument"]["uri"];
+        const auto& position = context.params["position"];
+
+        const auto snapshot = ValidateAndGetDocument(uri);
+        auto target = ConvertToParserPosition(position);
+
+        auto signature_help = GetSignatureHelp(snapshot, target);
+        if (!signature_help) {
+            return {};
+        }
+
+        auto ExtractParameterOffsets = [](std::string_view label) -> auto {
+            std::vector<std::pair<std::size_t, std::size_t>> offsets;
+
+            auto begin = label.find('(');
+            auto end   = label.find(')');
+
+            if (begin == std::string_view::npos || end == std::string_view::npos || end <= begin) {
+                return offsets;
+            }
+
+            auto current = begin + 1;
+            auto inner = label.substr(current, end - current);
+            if (inner.empty() || inner == "void") {
+                return offsets;
+            }
+
+            for (auto i = current; i != end; ++i) {
+                if (label[i] == ',') {
+                    offsets.emplace_back(current, i);
+                    current = i + 1;
+
+                    while (current < end && label[current] == ' ') {
+                        ++current;
+                    }
+                }
+            }
+
+            if (current < end) {
+                offsets.emplace_back(current, end);
+            }
+
+            return offsets;
+        };
+
+        nlohmann::json response = nlohmann::json::array();
+        for (const auto& condidate : signature_help->candidates) {
+            const auto* symbol = condidate.symbol;
+            nlohmann::json item;
+
+            auto label = FormatSymbol(symbol);
+            item["label"] = label;
+
+            auto offsets = ExtractParameterOffsets(label);
+            nlohmann::json params = nlohmann::json::array();
+            for (const auto& offset : offsets) {
+                params.push_back({
+                    { "label", { offset.first, offset.second } }
+                });
+            }
+            item["parameters"] = params;
+            response.push_back(item);
+        }
+
+        if (response.empty()) {
+            return {};
+        }
+
+        return {
+            { "signatures", response },
+            { "activeSignature", 0 },
+            { "activeParameter", signature_help->active_param_index }
+        };
     }
 
     nlohmann::json LspServer::HandleCompletion(Context& context) {

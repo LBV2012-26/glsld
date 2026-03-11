@@ -351,6 +351,62 @@ namespace glsld {
         return visitor.hints();
     }
 
+    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        if (snapshot == nullptr) {
+            return std::nullopt;
+        }
+
+        SignatureLocator locator(location);
+        locator.Traverse(snapshot->ast.get());
+        const auto* node = locator.result();
+
+        if (node == nullptr) {
+            return std::nullopt;
+        }
+
+        const auto* callee = static_cast<const VariableExpressionNode*>(node->callee.get());
+        auto candidates = snapshot->symbols.FindFunctionsByOriginalName(utils::UnmangleFunctionName(callee->name));
+        if (candidates.empty()) {
+            return std::nullopt;
+        }
+
+        auto open_paren_loc = callee->end;
+        auto it = std::ranges::lower_bound(snapshot->raw_tokens, open_paren_loc, std::ranges::less{}, &Token::location);
+        int active_param_index = 0;
+        int paren_level        = 0;
+        while (it != snapshot->raw_tokens.end() && it->location < location) {
+            if (it->type == TokenType::kOpenParen) {
+                ++paren_level;
+            } else if (it->type == TokenType::kCloseParen) {
+                --paren_level;
+            } else if (paren_level == 1 && it->type == TokenType::kComma) {
+                ++active_param_index;
+            }
+
+            ++it;
+        }
+
+        std::vector<TypeInfo> current_arg_types;
+        for (auto i = 0uz; i <= active_param_index && i < node->args.size(); ++i) {
+            if (node->args[i] != nullptr) {
+                current_arg_types.push_back(node->args[i]->evaluated_type);
+            } else {
+                current_arg_types.push_back({
+                    .typename_token = {
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
+                    }
+                });
+            }
+        }
+
+        auto ranked_candidates = TypeResolver::RankSignatureCandidates(candidates, current_arg_types);
+        return SignatureHelpResult{
+            .candidates = std::move(ranked_candidates),
+            .active_param_index = active_param_index
+        };
+    }
+
     nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
         if (snapshot == nullptr) {
             return {};

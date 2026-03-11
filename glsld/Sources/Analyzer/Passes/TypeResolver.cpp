@@ -123,18 +123,13 @@ namespace glsld {
             return type_info;
         }
 
-        enum class MatchGrade {
-            kFailed      = 0,
-            kTypeUpgrade = 1,
-            kBitsUpgrade = 2,
-            kExactMatch  = 3
-        };
-
         MatchGrade TryImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
-            if (from.typename_token.text == "unknown" || to.typename_token.text == "unknown" ||
-                from.typename_token.text == ""        || to.typename_token.text == "")
-            {
+            if (from.typename_token.text == "" || to.typename_token.text == "") {
                 return MatchGrade::kFailed;
+            }
+
+            if (from.typename_token.type == TokenType::kUnknown || to.typename_token.type == TokenType::kUnknown) {
+                return MatchGrade::kWildcard;
             }
 
             if (from == to) {
@@ -217,11 +212,6 @@ namespace glsld {
             kAmbiguous
         };
 
-        struct CandidateScore {
-            const SymbolInfo* symbol;
-            std::vector<MatchGrade> param_grades;
-        };
-
         MatchResult CompareCandidates(const CandidateScore& lhs, const CandidateScore& rhs) {
             bool lhs_better = false;
             bool rhs_better = false;
@@ -253,6 +243,72 @@ namespace glsld {
         : AstVisitor(version_replica, version_pointer)
         , document_{ document }
     {}
+
+    std::vector<CandidateScore>
+    TypeResolver::RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types)
+    {
+        std::vector<TypeInfo> normalized_call_args(call_arg_types.begin(), call_arg_types.end());
+        if (normalized_call_args.empty()) {
+            normalized_call_args.push_back(TypeInfo{
+                .typename_token = Token{
+                    .text = "void",
+                    .type = TokenType::kPrimitive
+                }
+            });
+        }
+
+        std::vector<CandidateScore> possible_matches;
+        std::vector<CandidateScore> failed_matches;
+
+        for (const auto* symbol : candidates) {
+            const auto& param_typeinfos = symbol->param_typeinfos;
+            if (normalized_call_args.size() > param_typeinfos.size()) {
+                failed_matches.push_back({
+                    .symbol = symbol,
+                    .param_grades = {}
+                });
+                continue;
+            }
+
+            std::vector<MatchGrade> current_grades;
+            bool match_failed = false;
+
+            for (auto i = 0uz; i != normalized_call_args.size(); ++i) {
+                const auto& call_type   = normalized_call_args[i];
+                const auto& target_type = param_typeinfos[i];
+
+                if (call_type.CompareWithoutQualifiers(target_type)) {
+                    current_grades.push_back(MatchGrade::kExactMatch);
+                } else {
+                    auto match_grade = TryImplicityConvert(call_type, target_type);
+                    if (match_grade != MatchGrade::kFailed) {
+                        current_grades.push_back(match_grade);
+                    } else {
+                        match_failed = true;
+                        break;
+                    }
+                }
+            }
+
+            CandidateScore score{
+                .symbol       = symbol,
+                .param_grades = std::move(current_grades)
+            };
+
+            if (!match_failed) {
+                possible_matches.push_back(std::move(score));
+            } else {
+                failed_matches.push_back(std::move(score));
+            }
+        }
+
+        std::ranges::sort(possible_matches, [](const auto& lhs, const auto& rhs) {
+            return CompareCandidates(lhs, rhs) == MatchResult::kLhsBetter;
+        });
+
+        possible_matches.append_range(failed_matches | std::views::as_rvalue);
+        return possible_matches;
+    }
 
     void TypeResolver::VisitTranslationUnit(TranslationUnitNode* node) {
         is_signature_pass_ = true;
@@ -446,6 +502,13 @@ namespace glsld {
             if (arg != nullptr) {
                 Traverse(arg.get());
                 call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
+            } else {
+                call_arg_types.push_back({
+                    .typename_token{
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
+                    },
+                });
             }
         }
 
@@ -997,7 +1060,7 @@ namespace glsld {
             }
 
             if (!match_failed) {
-                possible_matches.push_back(CandidateScore{
+                possible_matches.push_back({
                     .symbol       = symbol,
                     .param_grades = std::move(current_grades)
                 });

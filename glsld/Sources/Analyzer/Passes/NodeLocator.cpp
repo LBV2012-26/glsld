@@ -5,7 +5,6 @@ namespace glsld {
     LeafLocator::LeafLocator(SourceLocation target)
         : AstVisitor(0, nullptr)
         , target_{ target }
-        , deepest_node_{ nullptr }
     {}
 
     void LeafLocator::Traverse(AstNode * node) {
@@ -76,5 +75,32 @@ namespace glsld {
     void ContextLocator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         deepest_node_ = node->object.get();
         // AstVisitor::VisitMemberAccessExpression(node);
+    }
+
+    SignatureLocator::SignatureLocator(SourceLocation cursor)
+        : AstVisitor(0, nullptr)
+        , cursor_{ cursor }
+    {}
+
+    void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {
+        if (node == nullptr) {
+            return;
+        }
+
+        if (cursor_ > node->callee->end && cursor_ <= node->end) {
+            best_match_ = node;
+        }
+
+        AstVisitor::VisitCallExpression(node);
+
+        if (best_match_ != nullptr || node->begin.line > cursor_.line ||
+            (node->begin.line == cursor_.line && node->begin.column > cursor_.column))
+        {
+            return;
+        }
+    }
+
+    const CallExpressionNode* const SignatureLocator::result() const {
+        return best_match_;
     }
 }

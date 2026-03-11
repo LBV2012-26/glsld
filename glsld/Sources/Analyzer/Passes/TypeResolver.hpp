@@ -14,10 +14,26 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
+    enum class MatchGrade {
+        kFailed      = 0,
+        kWildcard    = 1,
+        kTypeUpgrade = 2,
+        kBitsUpgrade = 3,
+        kExactMatch  = 4
+    };
+
+    struct CandidateScore {
+        const SymbolInfo*       symbol;
+        std::vector<MatchGrade> param_grades;
+    };
+
     class TypeResolver final : public AstVisitor {
     public:
         TypeResolver(Document& document, int version_replica,
                      std::shared_ptr<const std::atomic<int>> version_pointer);
+
+        static std::vector<CandidateScore>
+        RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
     private:
         void VisitTranslationUnit(TranslationUnitNode* node) override;

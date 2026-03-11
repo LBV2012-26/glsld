@@ -17,7 +17,7 @@ namespace glsld {
         bool IsPositionDeeper(const AstNode* node) const;
 
         SourceLocation target_;
-        AstNode* deepest_node_;
+        AstNode* deepest_node_{ nullptr };
     };
 
     class ContextLocator final : public LeafLocator {
@@ -27,5 +27,17 @@ namespace glsld {
 
     private:
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
+    };
+
+    class SignatureLocator final : public AstVisitor {
+    public:
+        SignatureLocator(SourceLocation cursor);
+
+        void VisitCallExpression(CallExpressionNode* node) override;
+        const CallExpressionNode* const result() const;
+
+    private:
+        SourceLocation      cursor_;
+        CallExpressionNode* best_match_{ nullptr };
     };
 }
