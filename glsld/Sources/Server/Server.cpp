@@ -428,8 +428,7 @@ namespace glsld {
         };
 
         nlohmann::json response = nlohmann::json::array();
-        for (const auto& condidate : signature_help->candidates) {
-            const auto* symbol = condidate.symbol;
+        for (const auto* symbol : signature_help->candidates) {
             nlohmann::json item;
 
             auto label = FormatSymbol(symbol);
@@ -452,7 +451,7 @@ namespace glsld {
 
         return {
             { "signatures", response },
-            { "activeSignature", 0 },
+            { "activeSignature", signature_help->active_signature_index },
             { "activeParameter", signature_help->active_param_index }
         };
     }

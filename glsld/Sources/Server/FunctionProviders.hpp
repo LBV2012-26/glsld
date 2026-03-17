@@ -22,7 +22,8 @@ namespace glsld {
     std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot);
 
     struct SignatureHelpResult {
-        std::vector<CandidateScore> candidates;
+        SymbolList candidates;
+        int active_signature_index{};
         int active_param_index{};
     };
 

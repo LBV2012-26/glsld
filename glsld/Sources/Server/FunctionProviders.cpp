@@ -400,10 +400,11 @@ namespace glsld {
             }
         }
 
-        auto ranked_candidates = TypeResolver::RankSignatureCandidates(candidates, current_arg_types);
+        int active_signature_index = TypeResolver::RankSignatureCandidates(candidates, current_arg_types);
         return SignatureHelpResult{
-            .candidates = std::move(ranked_candidates),
-            .active_param_index = active_param_index
+            .candidates             = std::move(candidates),
+            .active_signature_index = active_signature_index,
+            .active_param_index     = active_param_index
         };
     }
 

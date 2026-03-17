@@ -216,7 +216,9 @@ namespace glsld {
             bool lhs_better = false;
             bool rhs_better = false;
 
-            for (auto i = 0uz; i != lhs.param_grades.size(); ++i) {
+            auto min_size = std::min(lhs.param_grades.size(), rhs.param_grades.size());
+
+            for (auto i = 0uz; i != min_size; ++i) {
                 if (lhs.param_grades[i] > rhs.param_grades[i])
                     lhs_better = true;
                 if (rhs.param_grades[i] > lhs.param_grades[i])
@@ -229,6 +231,12 @@ namespace glsld {
                 return MatchResult::kRhsBetter;
 
             if (!lhs_better && !rhs_better) {
+                if (lhs.symbol->param_typeinfos.size() < rhs.symbol->param_typeinfos.size()) {
+                    return MatchResult::kLhsBetter;
+                } else if (lhs.symbol->param_typeinfos.size() > rhs.symbol->param_typeinfos.size()) {
+                    return MatchResult::kRhsBetter;
+                }
+
                 if (lhs.symbol->kind == SymbolKind::kFunctionImpl && rhs.symbol->kind == SymbolKind::kFunctionDecl)
                     return MatchResult::kLhsBetter;
                 if (rhs.symbol->kind == SymbolKind::kFunctionImpl && lhs.symbol->kind == SymbolKind::kFunctionDecl)
@@ -244,12 +252,10 @@ namespace glsld {
         , document_{ document }
     {}
 
-    std::vector<CandidateScore>
-    TypeResolver::RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types)
-    {
+    int TypeResolver::RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types) {
         std::vector<TypeInfo> normalized_call_args(call_arg_types.begin(), call_arg_types.end());
         if (normalized_call_args.empty()) {
-            normalized_call_args.push_back(TypeInfo{
+            normalized_call_args.push_back({
                 .typename_token = Token{
                     .text = "void",
                     .type = TokenType::kPrimitive
@@ -257,21 +263,27 @@ namespace glsld {
             });
         }
 
-        std::vector<CandidateScore> possible_matches;
-        std::vector<CandidateScore> failed_matches;
+        struct ScoreResult {
+            CandidateScore score;
+            bool match_successful{ false };
+        };
+
+        std::vector<ScoreResult> score_results;
 
         for (const auto* symbol : candidates) {
             const auto& param_typeinfos = symbol->param_typeinfos;
             if (normalized_call_args.size() > param_typeinfos.size()) {
-                failed_matches.push_back({
-                    .symbol = symbol,
-                    .param_grades = {}
+                score_results.push_back({
+                    .score = {
+                        .symbol = symbol,
+                        .param_grades = {}
+                    },
+                    .match_successful = false
                 });
                 continue;
             }
 
             std::vector<MatchGrade> current_grades;
-            bool match_failed = false;
 
             for (auto i = 0uz; i != normalized_call_args.size(); ++i) {
                 const auto& call_type   = normalized_call_args[i];
@@ -281,12 +293,7 @@ namespace glsld {
                     current_grades.push_back(MatchGrade::kExactMatch);
                 } else {
                     auto match_grade = TryImplicityConvert(call_type, target_type);
-                    if (match_grade != MatchGrade::kFailed) {
-                        current_grades.push_back(match_grade);
-                    } else {
-                        match_failed = true;
-                        break;
-                    }
+                    current_grades.push_back(match_grade);
                 }
             }
 
@@ -295,19 +302,32 @@ namespace glsld {
                 .param_grades = std::move(current_grades)
             };
 
-            if (!match_failed) {
-                possible_matches.push_back(std::move(score));
-            } else {
-                failed_matches.push_back(std::move(score));
+            ScoreResult result{
+                .score            = std::move(score),
+                .match_successful = true
+            };
+
+            score_results.push_back(std::move(result));
+        }
+
+        int index = -1;
+        for (auto i = 0uz; i != score_results.size(); ++i) {
+            if (!score_results[i].match_successful) {
+                continue;
+            }
+
+            if (index == -1) {
+                index = static_cast<int>(i);
+                continue;
+            }
+
+            auto compare_result = CompareCandidates(score_results[index].score, score_results[i].score);
+            if (compare_result == MatchResult::kRhsBetter) {
+                index = static_cast<int>(i);
             }
         }
 
-        std::ranges::sort(possible_matches, [](const auto& lhs, const auto& rhs) {
-            return CompareCandidates(lhs, rhs) == MatchResult::kLhsBetter;
-        });
-
-        possible_matches.append_range(failed_matches | std::views::as_rvalue);
-        return possible_matches;
+        return index == -1 ? 0 : index;
     }
 
     void TypeResolver::VisitTranslationUnit(TranslationUnitNode* node) {

@@ -32,8 +32,7 @@ namespace glsld {
         TypeResolver(Document& document, int version_replica,
                      std::shared_ptr<const std::atomic<int>> version_pointer);
 
-        static std::vector<CandidateScore>
-        RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
+        static int RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
     private:
         void VisitTranslationUnit(TranslationUnitNode* node) override;

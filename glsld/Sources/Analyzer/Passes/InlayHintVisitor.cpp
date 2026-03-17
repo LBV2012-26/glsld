@@ -31,6 +31,10 @@ namespace glsld {
                 const auto& param = func_decl->params[i];
                 const auto& arg   = node->args[i];
 
+                if (arg == nullptr) {
+                    continue;
+                }
+
                 if (param->declared_symbol != nullptr && !param->declared_symbol->name.empty()) {
                     const auto& type_info = param->declared_symbol->type_info;
                     std::string label = param->declared_symbol->name;
