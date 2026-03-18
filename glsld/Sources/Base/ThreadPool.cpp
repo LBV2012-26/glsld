@@ -15,11 +15,11 @@ namespace glsld {
         workers_.reserve(max_thread_count_);
         threads_.reserve(max_thread_count_);
 
-        for (std::size_t i = 0; i != max_thread_count_; ++i) {
+        for (auto i = 0uz; i != max_thread_count_; ++i) {
             workers_.emplace_back(std::make_unique<Worker>());
         }
 
-        for (std::size_t i = 0; i != max_thread_count_; ++i) {
+        for (auto i = 0uz; i != max_thread_count_; ++i) {
             threads_.emplace_back([this, i]() -> void {
                 Worker& worker = *workers_[i];
                 while (true) {

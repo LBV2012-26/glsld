@@ -36,6 +36,10 @@ namespace glsld {
         return false;
     }
 
+    inline SymbolInfo::operator bool() const {
+        return !name.empty();
+    }
+
     inline const auto& Scope::host_symbol() const {
         return host_symbol_;
     }

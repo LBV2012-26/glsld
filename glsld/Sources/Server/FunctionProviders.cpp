@@ -110,16 +110,8 @@ namespace glsld {
         return symbols;
     }
 
-    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot) {
-        if (snapshot == nullptr) {
-            return {};
-        }
-
-        std::vector<std::uint32_t> data;
-        std::uint32_t last_line = 0;
-        std::uint32_t last_char = 0;
-
-        auto GetSymbolSemanticHighlight = [](SymbolKind kind) -> int {
+    namespace {
+        int GetSymbolSemanticHighlight(SymbolKind kind) {
             int type_index = -1;
 
             switch (kind) {
@@ -143,13 +135,13 @@ namespace glsld {
             return type_index;
         };
 
-        auto GetTokenSemanticHighlight = [](TokenType type) -> int {
+        int GetTokenSemanticHighlight(TokenType type) {
             int type_index = -1;
 
             switch (type) {
             case TokenType::kPrimitive:       type_index = 23; break;
-            case TokenType::kBuiltInType:     type_index = 1; break;
-            case TokenType::kBuiltInFunction: type_index = 12;break;
+            case TokenType::kBuiltInType:     type_index = 1;  break;
+            case TokenType::kBuiltInFunction: type_index = 12; break;
 
             case TokenType::kKeyword:
             case TokenType::kPreprocessor:
@@ -157,13 +149,23 @@ namespace glsld {
                 type_index = 15;
                 break;
 
-            case TokenType::kNumberLiteral: type_index = 19; break;
+            case TokenType::kNumberLiteral:   type_index = 19; break;
             default:
                 break;
             }
 
             return type_index;
         };
+    }
+
+    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        std::vector<std::uint32_t> data;
+        std::uint32_t last_line = 0;
+        std::uint32_t last_char = 0;
 
         auto EmitSemanticData = [&](int type_index, int modifiers, const Token& token) -> void {
             if (type_index == -1) {
@@ -233,30 +235,14 @@ namespace glsld {
         return data;
     }
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function) {
-        if (snapshot == nullptr) {
-            return {};
-        }
-
-        SymbolList results;
-        const Token* cursor_token = nullptr;
-
-        auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
-        if (it != snapshot->raw_tokens.begin()) {
-            cursor_token = &*std::prev(it);
-            if (!utils::IsPositionInToken(*cursor_token, location)) {
-                cursor_token = nullptr;
-            }
-        }
-
-        auto ResolveFunctionJump = [snapshot](const auto* symbol) -> const SymbolInfo* {
+    namespace {
+        const SymbolInfo* ResolveFunctionJump(const Document* snapshot, const SymbolInfo* symbol) {
             if (symbol == nullptr) {
                 return nullptr;
             }
 
             auto base_name   = utils::UnmangleFunctionName(symbol->name);
-            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl
-                                             ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
+            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
 
             for (const auto& current_symbol : snapshot->symbols.FindFunctionsByOriginalName(base_name)) {
                 if (current_symbol->kind != target_kind ||
@@ -280,6 +266,23 @@ namespace glsld {
 
             return nullptr;
         };
+    }
+
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        SymbolList results;
+        const Token* cursor_token = nullptr;
+
+        auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
+        if (it != snapshot->raw_tokens.begin()) {
+            cursor_token = &*std::prev(it);
+            if (!utils::IsPositionInToken(*cursor_token, location)) {
+                cursor_token = nullptr;
+            }
+        }
 
         if (cursor_token != nullptr) {
             auto it = snapshot->bindings.find(cursor_token->location);
@@ -296,11 +299,11 @@ namespace glsld {
 
                         bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
                         if (clicked_on_defination) {
-                            const auto* toggled = ResolveFunctionJump(linked_symbol);
+                            const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
                             results.push_back(toggled ? toggled : linked_symbol);
                         } else {
                             if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
-                                const auto* impl = ResolveFunctionJump(linked_symbol);
+                                const auto* impl = ResolveFunctionJump(snapshot.get(), linked_symbol);
                                 results.push_back(impl ? impl : linked_symbol);
                             } else {
                                 results.push_back(linked_symbol);
@@ -408,20 +411,8 @@ namespace glsld {
         };
     }
 
-    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
-        if (snapshot == nullptr) {
-            return {};
-        }
-
-        const auto* located_scope = snapshot->symbols.FindScopeAt(location);
-
-        std::vector<const SymbolInfo*> visible_symbols;
-        located_scope->GetVisibleSymbols(visible_symbols);
-
-        nlohmann::json items = nlohmann::json::array();
-        std::unordered_set<std::string, StringViewHeteroHash, StringViewHeteroEqual> existing_labels;
-
-        auto MapSymbolKindToLspCompletion = [](SymbolKind kind, bool is_const = false) -> int {
+    namespace {
+        int MapSymbolKindToLspCompletion(SymbolKind kind, bool is_const = false) {
             switch (kind) {
             case SymbolKind::kVariable:  return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
             case SymbolKind::kParameter: return 6;  // Variable
@@ -436,6 +427,20 @@ namespace glsld {
             default:                     return 1;  // Text
             }
         };
+    }
+
+    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        const auto* located_scope = snapshot->symbols.FindScopeAt(location);
+
+        std::vector<const SymbolInfo*> visible_symbols;
+        located_scope->GetVisibleSymbols(visible_symbols);
+
+        nlohmann::json items = nlohmann::json::array();
+        std::unordered_set<std::string, StringViewHeteroHash, StringViewHeteroEqual> existing_labels;
 
         for (const auto* symbol : visible_symbols) {
             nlohmann::json item;
@@ -497,12 +502,8 @@ namespace glsld {
         return items;
     }
 
-    std::string FormatSymbol(const SymbolInfo* symbol) {
-        if (symbol == nullptr) {
-            return "";
-        }
-
-        auto GetVariableSpecifiers = [](const auto* node) -> std::string {
+    namespace {
+        std::string GetVariableSpecifiers(const auto* node) {
             std::string specifiers;
 
             for (auto i = 0uz; i < node->type_spec.specifiers.size(); ++i) {
@@ -550,6 +551,12 @@ namespace glsld {
 
             return specifiers;
         };
+    }
+
+    std::string FormatSymbol(const SymbolInfo* symbol) {
+        if (symbol == nullptr) {
+            return "";
+        }
 
         std::string result;
         switch (symbol->kind) {

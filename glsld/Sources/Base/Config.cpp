@@ -7,6 +7,16 @@
 #include "Base/Logger.hpp"
 
 namespace glsld {
+    ConfigBase::ConfigBase(std::string_view name, std::string_view description)
+        : name_{ name }
+        , description_{ description }
+    {}
+
+    void Config::LoadFromFile(std::string_view filename) {
+        YAML::Node root = YAML::LoadFile(std::string(filename));
+        LoadFromYaml(root);
+    }
+
     namespace {
         void ListAllMember(std::string_view prefix, const YAML::Node& node,
                            std::vector<std::pair<std::string, YAML::Node>>& output)
@@ -20,21 +30,10 @@ namespace glsld {
 
             if (node.IsMap()) {
                 for (auto it = node.begin(); it != node.end(); ++it) {
-                    ListAllMember(prefix.empty() ? it->first.Scalar() : std::string(prefix) + "." + it->first.Scalar(),
-                                  it->second, output);
+                    ListAllMember(prefix.empty() ? it->first.Scalar() : std::string(prefix) + "." + it->first.Scalar(), it->second, output);
                 }
             }
         }
-    }
-
-    ConfigBase::ConfigBase(std::string_view name, std::string_view description)
-        : name_{ name }
-        , description_{ description }
-    {}
-
-    void Config::LoadFromFile(std::string_view filename) {
-        YAML::Node root = YAML::LoadFile(std::string(filename));
-        LoadFromYaml(root);
     }
 
     void Config::LoadFromYaml(const YAML::Node& root) {

@@ -76,10 +76,6 @@ namespace glsld {
         return true;
     }
 
-    SymbolInfo::operator bool() const {
-        return !name.empty();
-    }
-
     Scope::Scope(Scope* parent)
         : parent_{ parent }
         , index_{ parent ? parent->index_ + 1 : 0 }

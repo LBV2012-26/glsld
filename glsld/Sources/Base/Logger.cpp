@@ -11,25 +11,6 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    namespace {
-        spdlog::sink_ptr CreateSink(const LogSinkConfig& sink_define) {
-            if (sink_define.type == "stdout_color_sink_mt") {
-                auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-                sink->set_color(spdlog::level::trace, FOREGROUND_BLUE);
-                return sink;
-            }
-
-            if (sink_define.type == "basic_file_sink_mt") {
-                if (sink_define.filename.empty()) {
-                    return nullptr;
-                }
-                return std::make_shared<spdlog::sinks::basic_file_sink_mt>(utils::GetFilePath(sink_define.filename), true);
-            }
-
-            return nullptr;
-        }
-    }
-
     bool LoggerConfig::operator==(const LoggerConfig& other) const {
         if (name != other.name || pattern != other.pattern || level != other.level || sinks.size() != other.sinks.size()) {
             return false;
@@ -94,6 +75,25 @@ namespace glsld {
                 GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "Logger [{}] removed.", old_config.name);
                 spdlog::drop(old_config.name);
             }
+        }
+    }
+
+    namespace {
+        spdlog::sink_ptr CreateSink(const LogSinkConfig& sink_define) {
+            if (sink_define.type == "stdout_color_sink_mt") {
+                auto sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+                sink->set_color(spdlog::level::trace, FOREGROUND_BLUE);
+                return sink;
+            }
+
+            if (sink_define.type == "basic_file_sink_mt") {
+                if (sink_define.filename.empty()) {
+                    return nullptr;
+                }
+                return std::make_shared<spdlog::sinks::basic_file_sink_mt>(utils::GetFilePath(sink_define.filename), true);
+            }
+
+            return nullptr;
         }
     }
 

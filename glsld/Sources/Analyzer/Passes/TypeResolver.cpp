@@ -71,26 +71,6 @@ namespace glsld {
             }
         }
 
-        TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type) {
-            if (base_type.type_desc.family == BaseFamily::kUnknown ||
-                base_type.type_desc.family == BaseFamily::kVoid ||
-                base_type.type_desc.family == BaseFamily::kOpaque)
-            {
-                return base_type;
-            }
-
-            TypeInfo canonical_info = base_type;
-
-            using enum TypeDescriptor::ArithmeticStructure;
-            if (base_type.type_desc.arithmetic_structure() == kMatrix) {
-                SeparateType(canonical_info, true);
-            } else if (base_type.type_desc.arithmetic_structure() == kVector) {
-                SeparateType(canonical_info, false);
-            }
-
-            return canonical_info;
-        }
-
         TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc) {
             if (type_desc.family == BaseFamily::kUnknown) {
                 return {
@@ -653,12 +633,34 @@ namespace glsld {
         }
     }
 
+    namespace {
+        TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type) {
+            if (base_type.type_desc.family == BaseFamily::kUnknown ||
+                base_type.type_desc.family == BaseFamily::kVoid    ||
+                base_type.type_desc.family == BaseFamily::kOpaque)
+            {
+                return base_type;
+            }
+
+            TypeInfo canonical_info = base_type;
+
+            using enum TypeDescriptor::ArithmeticStructure;
+            if (base_type.type_desc.arithmetic_structure() == kMatrix) {
+                SeparateType(canonical_info, true);
+            } else if (base_type.type_desc.arithmetic_structure() == kVector) {
+                SeparateType(canonical_info, false);
+            }
+
+            return canonical_info;
+        };
+    }
+
     void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
         Traverse(node->base.get());
         Traverse(node->index.get());
 
         const auto& base_type = node->base->evaluated_type;
-        auto& evaluated_type = node->evaluated_type;
+        auto& evaluated_type  = node->evaluated_type;
 
         if (base_type.is_array()) {
             evaluated_type = base_type;

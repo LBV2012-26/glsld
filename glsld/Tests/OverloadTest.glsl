@@ -390,7 +390,7 @@ void main() {
 
     // test non-literal overloads
     TestOverloadFunction(int16arg, int32arg, int64arg, float32arg);
-    TestOverloadFunction(int16arg, uint32arg, uint64arg, float16arg);
+    TestOverloadFunction(uint16arg, uint32arg, uint64arg, float16arg);
 
     // test bits upgrade
     TestOverloadFunction(int8arg);
