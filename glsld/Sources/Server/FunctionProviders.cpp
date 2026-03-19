@@ -14,6 +14,37 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
+    namespace {
+        const SymbolInfo* FindFunctionCounterpart(const SymbolList& symbol_list, const SymbolInfo* symbol) {
+            if (symbol == nullptr) {
+                return nullptr;
+            }
+
+            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
+
+            for (const auto& counterpart : symbol_list) {
+                if (counterpart->kind != target_kind ||
+                    counterpart->param_typeinfos.size() != symbol->param_typeinfos.size()) {
+                    continue;
+                }
+
+                bool signature_matched = true;
+                for (auto i = 0uz; i != symbol->param_typeinfos.size(); ++i) {
+                    if (!symbol->param_typeinfos[i].CompareWithoutQualifiers(counterpart->param_typeinfos[i])) {
+                        signature_matched = false;
+                        break;
+                    }
+                }
+
+                if (signature_matched) {
+                    return counterpart;
+                }
+            }
+
+            return nullptr;
+        };
+    }
+
     nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
         nlohmann::json symbols = nlohmann::json::array();
 
@@ -30,7 +61,7 @@ namespace glsld {
 
         auto ConvertToSelectionRange = [](const auto& location, std::string_view name) -> nlohmann::json {
             return {
-                { "start", { { "line", location.line - 1 }, { "character", location.column - 1 } } },
+                { "start", { { "line", location.line - 1 }, { "character", location.column                 - 1 } } },
                 { "end",   { { "line", location.line - 1 }, { "character", location.column + name.length() - 1 } } }
             };
         };
@@ -241,30 +272,10 @@ namespace glsld {
                 return nullptr;
             }
 
-            auto base_name   = utils::UnmangleFunctionName(symbol->name);
-            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
+            auto base_name = utils::UnmangleFunctionName(symbol->name);
+            const auto& candidates = snapshot->symbols.FindFunctionsByOriginalName(base_name);
 
-            for (const auto& current_symbol : snapshot->symbols.FindFunctionsByOriginalName(base_name)) {
-                if (current_symbol->kind != target_kind ||
-                    current_symbol->param_typeinfos.size() != symbol->param_typeinfos.size())
-                {
-                    continue;
-                }
-
-                bool signature_matched = true;
-                for (auto i = 0uz; i != symbol->param_typeinfos.size(); ++i) {
-                    if (!symbol->param_typeinfos[i].CompareWithoutQualifiers(current_symbol->param_typeinfos[i])) {
-                        signature_matched = false;
-                        break;
-                    }
-                }
-
-                if (signature_matched) {
-                    return current_symbol;
-                }
-            }
-
-            return nullptr;
+            return FindFunctionCounterpart(candidates, symbol);
         };
     }
 
@@ -354,6 +365,24 @@ namespace glsld {
         return visitor.hints();
     }
 
+    namespace {
+        SymbolList DeduplicateSignatures(const SymbolList& condidates) {
+            SymbolList unique_signatures;
+
+            for (const auto* condidate : condidates) {
+                if (condidate->kind == SymbolKind::kFunctionDecl &&
+                    FindFunctionCounterpart(condidates, condidate) != nullptr)
+                {
+                    continue;
+                }
+
+                unique_signatures.push_back(condidate);
+            }
+
+            return unique_signatures;
+        }
+    }
+
     std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, SourceLocation location) {
         if (snapshot == nullptr) {
             return std::nullopt;
@@ -403,9 +432,11 @@ namespace glsld {
             }
         }
 
-        int active_signature_index = TypeResolver::RankSignatureCandidates(candidates, current_arg_types);
+        auto unique_candidates = DeduplicateSignatures(candidates);
+        int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
+
         return SignatureHelpResult{
-            .candidates             = std::move(candidates),
+            .candidates             = std::move(unique_candidates),
             .active_signature_index = active_signature_index,
             .active_param_index     = active_param_index
         };
