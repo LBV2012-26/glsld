@@ -30,7 +30,7 @@ namespace glsld {
             }
         }
 
-        Preprocessor processor(document_.macro_traces, document_.macro_args_traces, raw_tokens_);
+        Preprocessor processor(document_.macro_traces, document_.macro_args_traces, document_.inactive_regions, raw_tokens_);
         expanded_tokens_ = processor.Process();
     }
 

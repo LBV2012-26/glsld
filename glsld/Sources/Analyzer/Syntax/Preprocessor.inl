@@ -2,6 +2,10 @@
 #include <algorithm>
 
 namespace glsld {
+    inline bool Preprocessor::IsCurrentBranchActive() const {
+        return condition_stack_.empty() || condition_stack_.top().current_active;
+    }
+
     inline const Token& Preprocessor::current_token() const {
         return raw_tokens_[token_index_];
     }
