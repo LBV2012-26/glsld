@@ -1153,7 +1153,6 @@ namespace glsld {
                 || token.type == TokenType::kBuiltInType;
         };
 
-        // 1.折叠 defined
         for (auto i = 0uz; i != input.size();) {
             const auto& token = input[i];
 
