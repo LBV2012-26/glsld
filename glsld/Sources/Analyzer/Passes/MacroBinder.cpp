@@ -12,6 +12,7 @@ namespace glsld {
         BindMacroInvocations();
         BindMacroBodyIdentifiers();
         BindMacroFunctionArguments();
+        BindConditionalMacros();
     }
 
     void MacroBinder::BindMacroInvocations() {
@@ -73,6 +74,60 @@ namespace glsld {
                 if (!symbol_list.empty()) {
                     document_.bindings.try_emplace(location, SymbolList{ symbol_list });
                 }
+            }
+        }
+    }
+
+    void MacroBinder::BindConditionalMacros() {
+        if (document_.ast == nullptr) {
+            return;
+        }
+
+        const auto* root_scope = document_.symbols.root_scope();
+        auto TryBindMacroIdentifier = [root_scope, this](const Token& token) -> void {
+            if (token.type != TokenType::kIdentifier) {
+                return;
+            }
+
+            const auto* symbol = root_scope->FindSymbol(token.text);
+            if (symbol == nullptr || symbol->kind != SymbolKind::kMacro) {
+                return;
+            }
+
+            document_.bindings.try_emplace(token.location, symbol);
+        };
+
+        const auto& references = document_.ast->preprocessor_references;
+        for (const auto* node : references) {
+            if (node == nullptr) {
+                continue;
+            }
+
+            if (node->directive != "if"    && node->directive != "elif" &&
+                node->directive != "ifdef" && node->directive != "ifndef")
+            {
+                continue;
+            }
+
+            const auto& tokens = node->tokens;
+            for (auto i = 0uz; i != tokens.size(); ++i) {
+                const auto& token = tokens[i];
+
+                if (token.text == "defined") {
+                    auto j = i + 1;
+                    if (j < tokens.size() && tokens[j].type == TokenType::kOpenParen) {
+                        ++j;
+                    }
+
+                    if (j < tokens.size() && tokens[j].type == TokenType::kIdentifier) {
+                        TryBindMacroIdentifier(tokens[j]);
+                        ++j;
+                    }
+
+                    continue;
+                }
+
+                TryBindMacroIdentifier(token);
             }
         }
     }

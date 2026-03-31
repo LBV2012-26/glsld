@@ -13,6 +13,7 @@ namespace glsld {
         void BindMacroInvocations();
         void BindMacroBodyIdentifiers();
         void BindMacroFunctionArguments();
+        void BindConditionalMacros();
 
         Document& document_;
     };
