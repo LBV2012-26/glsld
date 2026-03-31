@@ -2,10 +2,12 @@
 #include "Preprocessor.hpp"
 
 #include <cmath>
+#include <algorithm>
 #include <charconv>
 #include <limits>
 #include <ranges>
 #include <utility>
+
 #include "Analyzer/Syntax/Lexer.hpp"
 
 namespace glsld {
@@ -547,7 +549,9 @@ namespace glsld {
             ConsumeToken();
         }
 
-        expanded.push_back(current_token()); // push_back EOF token
+        const auto& eof_token = current_token();
+        FinalizeInactiveRegions(eof_token.location.line);
+        expanded.push_back(eof_token); // push_back EOF token
         return expanded;
     }
 
@@ -963,7 +967,14 @@ namespace glsld {
         if (directive_text == "if"   || directive_text == "ifdef" || directive_text == "ifndef" ||
             directive_text == "elif" || directive_text == "else"  || directive_text == "endif")
         {
-            HandleConditionalDirective(directive_text, body, sharp_token.location.line);
+            bool was_active = IsCurrentBranchActive();
+            bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line);
+            bool now_active = IsCurrentBranchActive();
+
+            if (handled) {
+                UpdateInactiveRegions(was_active, now_active, sharp_token.location.line);
+            }
+
             output.push_back(sharp_token);
             output.push_back(directive_token);
             ProcessLineSplicing(body);
@@ -1225,5 +1236,53 @@ namespace glsld {
         }
 
         return final_tokens;
+    }
+
+    void Preprocessor::AppendInactiveRegion(std::size_t begin_line, std::size_t end_line) {
+        if (begin_line == 0 || end_line == 0 || begin_line > end_line) {
+            return;
+        }
+
+        if (!inactive_regions_.empty()) {
+            auto& last = inactive_regions_.back();
+            if (begin_line <= last.end_line + 1) {
+                last.end_line = std::max(last.end_line, end_line);
+                return;
+            }
+        }
+
+        inactive_regions_.push_back({
+            .begin_line = begin_line,
+            .end_line   = end_line
+        });
+    }
+
+    void Preprocessor::UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line) {
+        if (was_active == now_active) {
+            return;
+        }
+
+        if (was_active && !now_active) {
+            // 从激活进入失活：从该条件指令下一行开始
+            open_inactive_begin_line_ = directive_line + 1;
+            return;
+        }
+
+        // 从失活进入激活：到该条件指令上一行结束
+        if (open_inactive_begin_line_.has_value()) {
+            auto begin_line = *open_inactive_begin_line_;
+            auto end_line   = (directive_line > 0) ? (directive_line - 1) : 0;
+            AppendInactiveRegion(begin_line, end_line);
+            open_inactive_begin_line_.reset();
+        }
+    }
+
+    void Preprocessor::FinalizeInactiveRegions(std::size_t eof_line) {
+        if (!open_inactive_begin_line_.has_value()) {
+            return;
+        }
+
+        AppendInactiveRegion(*open_inactive_begin_line_, eof_line);
+        open_inactive_begin_line_.reset();
     }
 }

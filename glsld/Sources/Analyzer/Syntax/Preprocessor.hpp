@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <stack>
 #include <string>
@@ -64,6 +65,9 @@ namespace glsld {
         bool HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::size_t sharp_line);
         bool EvaluateIfCondition(std::span<const Token> expr_tokens);
         std::vector<Token> ExpandIfExpression(std::span<const Token> input, std::unordered_set<std::string>& active_macros);
+        void AppendInactiveRegion(std::size_t begin_line, std::size_t end_line);
+        void UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line);
+        void FinalizeInactiveRegions(std::size_t eof_line);
 
         const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
@@ -75,6 +79,7 @@ namespace glsld {
         MacroTraceMap&                                      trace_map_;
         MacroArgsTraceMap&                                  args_trace_map_;
         std::vector<InactiveRegion>&                        inactive_regions_;
+        std::optional<std::size_t>                          open_inactive_begin_line_;
         std::span<const Token>                              raw_tokens_;
         std::size_t                                         token_index_{};
     };
