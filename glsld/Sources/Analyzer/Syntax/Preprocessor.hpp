@@ -59,7 +59,7 @@ namespace glsld {
         Token PasteTokens(const Token& left, const Token& right);
 
         bool IsCurrentBranchActive() const;
-        bool HandleDirectiveAtSharp(std::vector<Token>& output);
+        void HandleDirectiveAtSharp(std::vector<Token>& output);
         void ParseDefineFromBody(std::span<const Token> body_tokens);
         bool HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::size_t sharp_line);
         bool EvaluateIfCondition(std::span<const Token> expr_tokens);

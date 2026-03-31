@@ -469,11 +469,13 @@ namespace glsld {
 
             const Token& current_token() const {
                 if (token_index_ >= tokens_.size()) {
-                    return Token{
+                    static const Token kEofToken{
                         .text     = {},
                         .location = {},
                         .type     = TokenType::kEndOfFile
                     };
+
+                    return kEofToken;
                 }
 
                 return tokens_[token_index_];
@@ -927,20 +929,34 @@ namespace glsld {
         return token;
     }
 
-    bool Preprocessor::HandleDirectiveAtSharp(std::vector<Token>& output) {
+    void Preprocessor::HandleDirectiveAtSharp(std::vector<Token>& output) {
         // current token is #
         const auto& sharp_token = current_token();
         ConsumeToken();
 
         if (current_token().type == TokenType::kEndOfFile) {
             output.push_back(sharp_token);
-            return true;
+            return;
         }
 
         const auto& directive_token = current_token();
         const auto& directive_text  = directive_token.text;
         const auto  directive_line  = directive_token.location.line;
         ConsumeToken();
+
+        auto ProcessLineSplicing = [](auto& body) -> void {
+            for (auto i = 0uz; i < body.size(); ++i) {
+                if (i + 1 < body.size() && body[i].location.line < body[i + 1].location.line) {
+                    body.insert(body.begin() + i + 1, Token{
+                        .text     = "\\",
+                        .location = SourceLocation{ body[i].location.line, body[i].location.column + body[i].text.length() + 1 },
+                        .type     = TokenType::kBackslash
+                    });
+
+                    ++i;
+                }
+            }
+        };
 
         auto body = CaptureDirectiveBodyTokens(directive_line);
 
@@ -950,12 +966,13 @@ namespace glsld {
             HandleConditionalDirective(directive_text, body, sharp_token.location.line);
             output.push_back(sharp_token);
             output.push_back(directive_token);
+            ProcessLineSplicing(body);
             output.append_range(body | std::views::as_rvalue);
-            return true;
+            return;
         }
 
         if (!IsCurrentBranchActive()) {
-            return true;
+            return;
         }
 
         if (directive_text == "define") {
@@ -970,8 +987,8 @@ namespace glsld {
 
         output.push_back(sharp_token);
         output.push_back(directive_token);
+        ProcessLineSplicing(body);
         output.append_range(body | std::views::as_rvalue);
-        return true;
     }
 
     void Preprocessor::ParseDefineFromBody(std::span<const Token> body_tokens) {
