@@ -232,7 +232,8 @@ namespace glsld {
             "async",
             "modification",
             "documentation",
-            "defaultLibrary"
+            "defaultLibrary",
+            "inactive"
         };
 
         capabilities["semanticTokensProvider"] = {

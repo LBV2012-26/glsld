@@ -14,6 +14,12 @@ namespace glsld {
 
     void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {
         const SymbolInfo* symbol = nullptr;
+
+        if (node->callee == nullptr || node->callee->kind() != AstNodeKind::kVariableExpression) {
+            AstVisitor::VisitCallExpression(node);
+            return;
+        }
+
         const auto* callee_node = static_cast<const VariableExpressionNode*>(node->callee.get());
         if (std::holds_alternative<const SymbolInfo*>(callee_node->linked_symbols)) {
             symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols);

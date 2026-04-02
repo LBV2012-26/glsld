@@ -79,7 +79,6 @@ GitHub:
 https://github.com/baopinshui/NPGS/blob/master/NPGS/Sources/Engine/Shaders/BlackHole_common.glsl
 
 ================================================================================
-
 */
 
 // =============================================================================
@@ -94,54 +93,60 @@ https://github.com/baopinshui/NPGS/blob/master/NPGS/Sources/Engine/Shaders/Black
 // 你可以在这里调整数值
 // -----------------------------------------------------------------------------
 #define iFovRadians  60.0 * 0.01745329
-#define iGrid           0      // 0:关, 1:黑体 2:固定色
-#define iObserverMode   0      // 0:静态观者, 1:落体观者
+#define iGrid           0      // 0: Off, 1: Blackbody, 2: Fixed Color (0:关, 1:黑体, 2:固定色)
+#define iObserverMode   0      // 0: Static Observer, 1: Free-falling Observer (0:静态观者, 1:落体观者)
 
-#define iBlackHoleTime          (2.0*iTime)  // 使用 Shadertoy 时间
-#define iBlackHoleMassSol       (1e7)     // 太阳质量倍数
-#define iSpin                   0.99      // 自旋 必须与BufferB中iSpin一致！It must be modified synchronously with iSpin in BufferB！
-#define iQ                      0.0      // 电荷
+#define iBlackHoleTime          (2.0*iTime) 
+#define iBlackHoleMassSol       (1e7)     // Mass in Solar Masses (太阳质量倍数)
+#define iSpin                   0.99      // Spin, must be synced with iSpin in BufferB! (自旋，必须与BufferB中iSpin一致！)
+#define iQ                      0.0      // Electric Charge (电荷)
 
-#define iMu                     1.0      // 吸积物质比荷
-#define iAccretionRate          (5e-4)      // 吸积率
+#define iMu                     1.0      // Specific Charge of Accreting Matter (吸积物质比荷)
+#define iAccretionRate          (5e-4)      // Accretion Rate (吸积率)
 
-#define iInterRadiusRs          1.5      // 吸积盘内半径
-#define iOuterRadiusRs          25.0     // 吸积盘外半径
-#define iThinRs                 0.75     // 吸积盘半厚度
-#define iHopper                 0.24      // 厚度斜率
-#define iBrightmut              1.0      // 亮度
-#define iDarkmut                0.5     // 不透明度
-#define iReddening              0.3      // 红化
-#define iSaturation             0.5      // 饱和度
+#define iInterRadiusRs          1.5      // Accretion Disk Inner Radius (吸积盘内半径)
+#define iOuterRadiusRs          25.0     // Accretion Disk Outer Radius (吸积盘外半径)
+#define iThinRs                 0.75     // Accretion Disk Half-Thickness (吸积盘半厚度)
+#define iHopper                 0.24      // Thickness Slope/Hopper (厚度斜率)
+#define iBrightmut              1.0      // Brightness Multiplier (亮度)
+#define iDarkmut                0.5     // Opacity/Darkness (不透明度)
+#define iReddening              0.3      // Reddening Factor (红化)
+#define iSaturation             0.5      // Saturation (饱和度)
 #define iBlackbodyIntensityExponent 0.5
 #define iRedShiftColorExponent      3.0
 #define iRedShiftIntensityExponent  4.0
 
-#define iPhotonRingBoost             7.0 //光子环亮度增亮
-#define iPhotonRingColorTempBoost    2.0 //光子环颜色增蓝
-#define iBoostRot                    0.75 //增强在自旋非0的非对称程度
+#define iPhotonRingBoost             7.0 // Photon Ring Brightness Boost (光子环亮度增亮)
+#define iPhotonRingColorTempBoost    2.0 // Photon Ring Color Temperature Boost (Blue Shift) (光子环颜色增蓝)
+#define iBoostRot                    0.75 // Boost Asymmetry for Non-zero Spin (增强在自旋非0时的非对称程度)
 
 #define iJetRedShiftIntensityExponent 2.0
 #define iJetBrightmut           1.0
 #define iJetSaturation          0.0
 #define iJetShiftMax            3.0
 
-#define ENABLE_HEAT_HAZE        1       // 1 = 开启热浪折射
-#define HAZE_STRENGTH           0.03    // 折射强度
-#define HAZE_SCALE              5.2     // 噪声频率
-#define HAZE_DENSITY_THRESHOLD  0.1     // 密度阈值
-#define HAZE_LAYER_THICKNESS    0.8     // 厚度范围倍数
-#define HAZE_RADIAL_EXPAND      0.8     // 径向范围倍数
-#define HAZE_ROT_SPEED          0.2     // 盘热气旋转速度系数 (相对于开普勒速度)
-#define HAZE_FLOW_SPEED         0.15     // 喷流速度系数
-#define HAZE_PROBE_STEPS        12      // 试探步数
-#define HAZE_STEP_SIZE          0.06    // 每步长度 (Rg)
-#define HAZE_DEBUG_MASK         0       // 1 = 显示热气遮罩 Debug
-#define HAZE_DEBUG_VECTOR       0       // 1 = 显示力场向量 Debug
+#define ENABLE_HEAT_HAZE        1       // 1 = Enable Heat Haze Refraction (1 = 开启热浪折射)
+#define HAZE_STRENGTH           0.2    // Refraction Strength (折射强度)
+#define HAZE_SCALE              5.2     // Noise Frequency (噪声频率)
+#define HAZE_DENSITY_THRESHOLD  0.1     // Density Threshold (密度阈值)
+#define HAZE_LAYER_THICKNESS    0.8     // Layer Thickness Multiplier (厚度范围倍数)
+#define HAZE_RADIAL_EXPAND      0.8     // Radial Expansion Multiplier (径向范围倍数)
+#define HAZE_ROT_SPEED          0.2     // Disk Hot Gas Rotation Speed (Relative to Keplerian) (盘热气旋转速度系数，相对于开普勒速度)
+#define HAZE_FLOW_SPEED         0.15     // Jet Flow Speed Coefficient (喷流速度系数)
+#define HAZE_PROBE_STEPS        10      // Probe Steps (试探步数)
+#define HAZE_STEP_SIZE          0.05    // Step Size in Rg (每步长度，单位Rg)
+#define HAZE_DEBUG_MASK         0       // 1 = Show Heat Gas Mask Debug (1 = 显示热气遮罩调试)
+#define HAZE_DEBUG_VECTOR       0       // 1 = Show Force Field Vector Debug (1 = 显示力场向量调试)
 #define HAZE_DISK_DENSITY_REF   (iBrightmut * 30.0) 
 #define HAZE_JET_DENSITY_REF    (iJetBrightmut * 1.0)
 
-#define iBlendWeight            0.5      //TAA前后帧混合权重
+#define iBlendWeight            0.5      // TAA Blend Weight (TAA前后帧混合权重)
+
+
+
+#define ENABLE_SHADOW_CULLING     1       // 1:开启剔除优化, 0:关闭 (To compare performance)
+#define DEBUG_SHADOW_CULLING      0       // 1:显示绿色调试层, 0:正常黑色 (To visualize culling)
+#define SHADOW_SIZE_MULTIPLIER    0.995     // 阴影半径微调系数 (Multiplier for shadow radius)
 
 vec3 FragUvToDir(vec2 FragUv, float Fov, vec2 NdcResolution)
 {
@@ -830,7 +835,6 @@ vec4 LowerIndex(vec4 P_contra, KerrGeometry geo) {
     return P_flat + geo.f * L_dot_P * geo.l_down;
 }
 
-
 //初始化光子动量P_u，以向心矢量为主轴做施密特正交化
 vec4 GetInitialMomentum(
     vec3 RayDir,          
@@ -1134,6 +1138,7 @@ void StepGeodesicRK4_Optimized(
 
     vec4 finalX = s0.X + (dt / 6.0) * (k1.X + 2.0 * k2.X + 2.0 * k3.X + k4.X);
     vec4 finalP = s0.P + (dt / 6.0) * (k1.P + 2.0 * k2.P + 2.0 * k3.P + k4.P);
+
     
     float finalSign = GetIntermediateSign(s0.X, finalX, r_sign, PhysicalSpinA);
     if(finalSign>0.0){//antiverse侧修正有可能造成数值问题，暂时关停
@@ -2255,6 +2260,138 @@ vec4 GridColorSimple(vec4 BaseColor, vec4 RayPos, vec4 LastRayPos,
 
     return CurrentResult;
 }
+
+// =============================================================================
+// [修改3]辅助函数：KN阴影计算
+// =============================================================================
+
+// 判断吸积盘是否“视觉上存在”
+bool IsAccretionDiskVisible(float InterR, float OuterR, float Thin, float Hopper, float Bright, float Dark)
+{
+    // 条件1: 内半径大于等于外半径 -> 不存在
+    if (InterR >= OuterR) return false;
+    // 条件2: 几何厚度为0 (Thin<=0 且 Hopper==0) -> 不存在
+    if (Thin <= 0.0 && Hopper == 0.0) return false;
+    // 条件3: 既不发光也不遮挡 (Bright<=0 且 Dark<0) -> 不存在
+    // 注意: Darkmut通常是正数表示遮挡能力，题目说 Dark<0 视为“没有”，遵照执行
+    if (Bright <= 0.0 && Dark < 0.0) return false;
+    
+    return true;
+}
+
+// 判断喷流是否“视觉上存在”
+bool IsJetVisible(float AccretionRate, float JetBright)
+{
+    // 吸积率过低 或 亮度<=0 -> 不存在
+    if (AccretionRate < 1e-2) return false;
+    if (JetBright <= 0.0) return false;
+    return true;
+}
+
+// 求解极轴视角的临界半径 (三次方程最大实根)
+// x^3 + Px + K = 0, x = r - M
+float SolveCubicMaxReal(float P, float K) {
+    if (P >= 0.0) return 0.0; // 理论上黑洞情形P均为负
+    float sqrt_term = sqrt(-P / 3.0);
+    // 限制 acos 输入在 [-1, 1] 防止 NaN
+    float val = (3.0 * K) / (2.0 * P) * sqrt(-3.0 / P);
+    float acos_term = acos(clamp(val, -1.0, 1.0));
+    return 2.0 * sqrt_term * cos(acos_term / 3.0);
+}
+
+// 求解赤道视角光子球参数 u (四次方程)
+float SolveQuarticU(float M, float Q, float a, float sign_term, bool is_max_root) {
+    float M2 = M * M;
+    float Q2 = Q * Q;
+    
+    // 系数
+    float c2 = 2.0 * Q2 - 3.0 * M2;
+    float c1 = sign_term * (-2.0 * a * M2); // 注意：文档说"减号版本"即系数为负
+    float c0 = Q2 * Q2 - M2 * Q2;
+    
+    // 初始猜测：
+    // 对于顺行(A, 小根)，u 较小 (r 接近 M 或 2M)
+    // 对于逆行(B, 大根)，u 较大 (r 接近 3M 或 4M)
+    float u = is_max_root ? 2.2 * M : 0.8 * M; 
+    
+    // 牛顿迭代求解多项式根 (多项式非常平滑，收敛极快)
+    for(int i=0; i<8; i++) {
+        float u2 = u * u;
+        float u3 = u2 * u;
+        
+        float f  = u2 * u2 + c2 * u2 + c1 * u + c0;
+        float df = 4.0 * u3 + 2.0 * c2 * u + c1;
+        
+        if (abs(df) < 1e-6) break;
+        u = u - f / df;
+    }
+    return abs(u); // u = sqrt(...) 必须为正
+}
+
+// 将静态观测者的正弦值转换为落体观测者
+float GetDropFrameAngle(float SinThetaStat, float CosThetaStat, float r, float M, float Q, float a, int ObserverMode) {
+    // 1. 静态观者 (ObserverMode == 0)
+    // 用 atan2 计算角度，自动处理 CosThetaStat < 0 (钝角) 的情况
+    if (ObserverMode == 0) {
+        return atan(SinThetaStat, CosThetaStat);
+    }
+    
+    // 2. 自由落体观者 (ObserverMode == 1)
+    // 虽然Static Observer 是固定在 KS 坐标系下的，而非 ZAMO，但因为一些误差，这里denominator_v直接使用r*r会出问题。
+    float numerator_v = 2.0 * M * r - Q * Q;
+    float denominator_v = r * r - 2.0*r*a*a; // -2.0*r*a*a是为了修正误差
+    
+    float v_sq = numerator_v / max(1e-9, denominator_v);
+    v_sq = min(0.9999, max(0.0, v_sq)); 
+    float v = sqrt(v_sq);
+    
+    // 应用相对论光行差
+    // sin(θ') = sin(θ) * sqrt(1-v^2) / (1 + v*cos(θ))
+    // cos(θ') = (cos(θ) + v) / (1 + v*cos(θ))
+    
+    float denom = 1.0 + v * CosThetaStat;
+    float sin_fall = SinThetaStat * sqrt(max(0.0, 1.0 - v_sq));
+    float cos_fall = CosThetaStat + v;
+    
+    // 使用 atan2 自动处理所有象限和归一化问题
+    return atan(sin_fall, cos_fall);
+}
+
+// 计算 Reissner-Nordstrom (a=0) 黑洞的阴影半张角 (弧度)
+float GetShadowHalfAngleRN(float r, float M, float Q, int ObserverMode)
+{
+    float M2 = M * M;
+    float Q2 = Q * Q;
+    float r2 = r * r;
+    
+    // 1. 光子球半径 r_ps
+    float term_root = sqrt(max(0.0, 9.0 * M2 - 8.0 * Q2));
+    float r_ps = 0.5 * (3.0 * M + term_root);
+    
+    // 2. 临界碰撞参数 b_c
+    float metric_factor_ps = 1.0 - 2.0 * M / r_ps + Q2 / (r_ps * r_ps);
+    float b_c = r_ps / sqrt(max(1e-6, metric_factor_ps));
+    
+    // 3. 计算静态观者的 Sine 和 Cosine
+    // f(r) = 1 - 2M/r + Q^2/r^2
+    float f_r = 1.0 - 2.0 * M / r + Q2 / r2;
+    float sqrt_f = sqrt(max(0.0, f_r));
+    
+    // Sin = (b_c / r) * sqrt(f)
+    float sin_theta_stat = (b_c / r) * sqrt_f;
+    
+    // 判断光子球内外来决定 Cos 的符号
+    // r < r_ps 时，阴影遮挡超过半个天空，为钝角 (Cos < 0)
+    // 增加一个微小的 epsilon 防止 r == r_ps 时闪烁
+    float cos_sign = (r >= r_ps - 1e-4) ? 1.0 : -1.0;
+    
+    // 计算 Cos: sqrt(1 - sin^2)
+    float cos_theta_stat = cos_sign * sqrt(max(0.0, 1.0 - sin_theta_stat * sin_theta_stat));
+    
+    // 4. 转换坐标系
+    return GetDropFrameAngle(sin_theta_stat, cos_theta_stat, r, M, Q, 0.0, ObserverMode);
+}
+
 // =============================================================================
 // SECTION7: main
 // =============================================================================
@@ -2280,6 +2417,9 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
     res.FreqShift = 0.0;
     res.Status    = 0.0; // Default: Stop
     res.AccumColor = vec4(0.0);
+    
+    // [修改4] 标记：是否触发了带吸积盘的延迟剔除
+    bool bDeferredShadowCulling = false;
 
     float Fov = tan(iFovRadians / 2.0);
     vec2 Jitter = vec2(RandomStep(FragUv, fract(iTime * 1.0 + 0.5)), RandomStep(FragUv, fract(iTime * 1.0))) / Resolution;
@@ -2345,7 +2485,7 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
     bool bWaitCalBack = false;
     float DistanceToBlackHole = length(RayPosLocal);
     
-    // [修改]加一个量，追踪光线路径上的全局最小半径
+    // 加一个量，追踪光线路径上的全局最小半径
     float GlobalMinGeoR = 10000.0;
     
     if (DistanceToBlackHole > RaymarchingBoundary) //跳过与包围盒间空隙
@@ -2368,18 +2508,24 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
 
 
     vec4 X = vec4(RayPosLocal, 0.0);
-    vec4 P_cov = vec4(-1.0);
+    
+    //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
+    vec4 P_cov = vec4(0.0,0.0,0.0,-1.0);
+
     float E_conserved = 1.0;
     vec3 RayDir = RayDirWorld_Geo;
     vec3 LastDir = RayDir;
     vec3 LastPos = RayPosLocal;
     float GravityFade = CubicInterpolate(max(min(1.0 - (length(RayPosLocal) - 100.0) / (RaymarchingBoundary - 100.0), 1.0), 0.0));
 
+    // [修改6]注释掉这段
+    /*
     if (bShouldContinueMarchRay) {
        P_cov = GetInitialMomentum(RayDir, X, iObserverMode, iUniverseSign, PhysicalSpinA, PhysicalQ, GravityFade);
        //P_cov=vec4(-RayDir,-1.0);//debug
     }
     E_conserved = -P_cov.w;
+    */
     
     #if ENABLE_HEAT_HAZE == 1
     {
@@ -2521,31 +2667,32 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
                 }
             #endif
 
+            // [修改7]替换掉下面这节
             // 4. 物理偏转应用
             float forceMagSq = dot(avgHazeForce, avgHazeForce);
             if (forceMagSq > 1e-10)
             {
-                // 投影到垂直平面，只改变方向
+                // 投影到垂直平面，确保只改变方向不改变速度大小
                 vec3 forcePerp = avgHazeForce - dot(avgHazeForce, rayDirNorm) * rayDirNorm;
                 
-                // 施加力度系数
+                // 计算总偏转量。可能需要微调系数以保持视觉强度正常
                 vec3 deflection = forcePerp * HAZE_STRENGTH * 25.0; 
-                
-                // 修改初始动量 (协变动量空间部分 P_i)
-                P_cov.xyz += deflection;
-                
-                // 重新归一化以保持能量守恒 (E_conserved = -P_t 保持不变，但 P^u P_u = 0 需要维持)
-                // 原代码后续循环依赖 P_cov 且会重新计算 E，这里简单微扰动量方向即可。
-                // 实际上，为了保持光子性质 (null geodesic)，改变 P.xyz 后 P_t (或 E) 可能不再匹配。
-                // 但由于后续 StepGeodesicRK4 会用 E 重新校准 P，这里只需直接加上扰动。
-                
-                // 同步更新 RayDir (用于第一步步进方向)
+
+                // 系数 0.1 是为了防止极端扭曲导致数值爆炸，可以根据画面效果微调这个 0.1
                 RayDir = normalize(RayDir + deflection * 0.1); 
+                
+                // 同步更新 LastDir
                 LastDir = RayDir;
             }
         }
     }
     #endif
+    
+    // [修改8]在这里补上P_cov和E_conserved的计算
+    if (bShouldContinueMarchRay) {
+       P_cov = GetInitialMomentum(RayDir, X, iObserverMode, iUniverseSign, PhysicalSpinA, PhysicalQ, GravityFade);
+    }
+    E_conserved = -P_cov.w;
     
     //ApplyHamiltonianCorrectionFORTEST(P_cov, X, E_conserved, PhysicalSpinA, PhysicalQ, GravityFade, CurrentUniverseSign);//debug
     // -------------------------------------------------------------------------
@@ -2613,6 +2760,270 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
     }
     
     float ProgradePhotonRadius = r;
+    
+    // -------------------------------------------------------------------------
+    // [修改9] 阴影剔除逻辑
+    // -------------------------------------------------------------------------
+    #if ENABLE_SHADOW_CULLING == 1
+    // 条件：非裸奇点、在universe侧、距离足够远(>RN视界或KN逆行光子轨道)、当前还需要继续步进
+    float AbsSpinA = abs(CONST_M * iSpin);
+    bool bIsRot = AbsSpinA > 1e-5;
+    
+    // 初步判定是否需要尝试剔除：
+    // 1. 非裸奇点 (视界存在)
+    // 2. 在正宇宙 (CurrentUniverseSign > 0)
+    // 3. 当前光线还需要继续步进 (bShouldContinueMarchRay)
+    if (!bIsNakedSingularity && CurrentUniverseSign > 0.0 && bShouldContinueMarchRay && iGrid==0)
+    {
+        // 预计算剔除启动的阈值半径
+        float CullingStartRadius;
+        
+        if (!bIsRot) {
+            // 纯RN/史瓦西黑洞：允许进入光子球内部，直到非常接近视界
+            CullingStartRadius = 1.005 * EventHorizonR;
+        } else {
+            // 旋转黑洞：计算逆行光子轨道半径 r_B (凸出侧)
+            // 使用 SolveQuarticU 计算 r_B (对应参数 +1.0)
+            float u_B_calc = SolveQuarticU(CONST_M, PhysicalQ, AbsSpinA, 1.0, true);
+            float r_B_calc = (u_B_calc * u_B_calc + PhysicalQ * PhysicalQ) / CONST_M;
+
+            CullingStartRadius = r_B_calc + 0.05;
+        }
+        // 只有当相机(或当前光线起点)在安全半径外，才进行剔除
+        if (CameraStartR > CullingStartRadius)
+        {
+ // 计算视线与黑洞中心的夹角
+            vec3 ToCenterDir = -normalize(RayPosLocal); // 局部系下黑洞在原点
+            float CosAlpha = dot(normalize(RayDir), ToCenterDir);
+            float RayAngle = acos(clamp(CosAlpha, -1.0, 1.0)); // 当前像素视线与黑洞中心的夹角
+
+            // 估算阴影的大致可能张角，仅在这个区域内进行进一步计算
+            float SafetyFactor = 2.5 + 1.1 * abs(iSpin) - iQ;
+            float MaxShadowAngleEstimate = SafetyFactor * (2.0 * CONST_M) / max(1e-6, CameraStartR);
+            if (RayAngle < MaxShadowAngleEstimate || CameraStartR < 3.0*EventHorizonR) // 只有大致朝向黑洞或在光子球里才计算
+            {
+                float RayAngle = acos(CosAlpha); // 当前像素视线与黑洞中心的夹角
+                bool bHitShadow = false; // 是否命中阴影
+                
+                if (!bIsRot)
+                {
+                    // === 情况 1: 纯RN或纯史瓦西黑洞 (a=0) ===
+                    float ShadowHalfAngle = GetShadowHalfAngleRN(CameraStartR, CONST_M, PhysicalQ, iObserverMode);
+                    ShadowHalfAngle *= SHADOW_SIZE_MULTIPLIER;
+                    
+                    if (RayAngle < ShadowHalfAngle) bHitShadow = true;
+                }
+                else
+                {
+                    // === 情况 2: 有自旋黑洞 (a!=0) ===
+                    float M = CONST_M;
+                    float Q = PhysicalQ;
+                    float a = PhysicalSpinA; // 保留原始符号用于手性判断
+                    float a_abs = AbsSpinA;  // 几何计算绝对值
+                    float Q2 = Q*Q;
+                    float a2 = a_abs*a_abs;
+                    float r = CameraStartR;
+                    
+                    // --- 1. 极轴视角 ---
+                    float P = a2 + 2.0*Q2 - 3.0*M*M;
+                    float K = 2.0*Q2*M + 2.0*M*a2 - 2.0*M*M*M;
+                    float x_pole = SolveCubicMaxReal(P, K);
+                    float r_p = M + x_pole;
+                    float b_pole = sqrt(max(0.0, (2.0*r_p*(r_p*r_p + a2))/(r_p - M))); // 碰撞参数
+                    
+                    float Delta_r = r*r - 2.0*M*r + a2 + Q2;
+                    
+                    float SinOF_Stat = b_pole * sqrt(max(0.0, Delta_r)) / (r*r + a2);
+                    // 极轴视角在剔除区(r > r_B > r_ps) 总是锐角
+                    float CosOF_Stat = sqrt(max(0.0, 1.0 - SinOF_Stat * SinOF_Stat));
+                    
+                    float AngleOF = GetDropFrameAngle(SinOF_Stat, CosOF_Stat, r, M, Q, a_abs, iObserverMode);
+                    float LatFactor = abs(X.y) / length(X.xyz);
+
+                    if (LatFactor > 0.9999)
+                    {
+                        float effectiveMult = SHADOW_SIZE_MULTIPLIER;
+                        if (RayAngle < AngleOF * effectiveMult) bHitShadow = true;
+                    }
+                    else
+                    {
+                        
+                        // --- 2. 赤道视角 (Equator View) ---
+                        // A点 (缺口/顺行): 对应方程减号项(-2a...), 且取较小根
+                        float u_A = SolveQuarticU(M, Q, a_abs, -1.0, true); 
+                        float r_A_rad = (u_A * u_A + Q2) / M;
+                        
+                        float u_B = SolveQuarticU(M, Q, a_abs, 1.0, true); 
+                        float r_B_rad = (u_B * u_B + Q2) / M;
+                        
+                        float safe_a = max(1e-5, a_abs);
+                        // Xi_A (缺口侧)
+                        // Formula: xi = (r^2(3M-r) - a^2(M+r) - 2Q^2r) / (a(r-M))
+                        float num_A = r_A_rad * r_A_rad * (3.0 * M - r_A_rad) - a2 * (M + r_A_rad) - 2.0 * Q2 * r_A_rad;
+                        float xi_A = num_A / max(1e-9, safe_a * (r_A_rad - M));
+                        // Xi_B (凸起侧)
+                        float num_B = r_B_rad * r_B_rad * (3.0 * M - r_B_rad) - a2 * (M + r_B_rad) - 2.0 * Q2 * r_B_rad;
+                        float xi_B = num_B / max(1e-9, safe_a * (r_B_rad - M));
+                        
+                        float Mr_Q2_Shadow = 2.0 * M * r - Q2;
+                        float Sigma_Shadow = r * r; 
+                        // 计算 BL 度规分量 (用于静态投影公式)
+                        float g_tt_stat = -(1.0 - Mr_Q2_Shadow / Sigma_Shadow);
+                        float gtphi_stat = -a_abs * Mr_Q2_Shadow / Sigma_Shadow; 
+                        float D_cyl = gtphi_stat * gtphi_stat - g_tt_stat * (Sigma_Shadow + a2 + Mr_Q2_Shadow * a2 / Sigma_Shadow);
+                        float InvSqrtD = 1.0 / sqrt(max(1e-9, D_cyl));
+                        // 计算坐标系扭曲近似修正，Kerr-Schild 坐标系的径向与 Boyer-Lindquist 不同，存在 phi 方向的偏移。近似修正 a * r / Delta
+                        float TwistCorrection = safe_a * r / max(1e-5, Delta_r);
+                        
+                        float SinOA_Stat = abs((xi_A + TwistCorrection) * g_tt_stat + gtphi_stat) * InvSqrtD;
+                        float SinOB_Stat = abs((xi_B + TwistCorrection) * g_tt_stat + gtphi_stat) * InvSqrtD;
+                        
+                        // 计算 Cos (锐角)
+                        float CosOA_Stat = sqrt(max(0.0, 1.0 - SinOA_Stat * SinOA_Stat));
+                        float CosOB_Stat = sqrt(max(0.0, 1.0 - SinOB_Stat * SinOB_Stat));
+                        
+                        // 中心偏移 E
+                        // 经测试，若使用近似公式 a*(rE+M)/(rE-M) ，则结果偏大 (偏向B点)，且a*越大、相机r越小，偏差越明显。此外，使用2.0*a将偏B，使用1.0*a将偏A。故取中间值 a(近时)到a*5/3(远时) 作为基准。
+                        // 同时也叠加 TwistCorrection (因为坐标系扭曲是全局的)。
+                        float xi_E_Corrected = (1.6666-2.0/r) * safe_a + TwistCorrection;
+                        float SinOE_Stat = abs(xi_E_Corrected * g_tt_stat + gtphi_stat) * InvSqrtD;
+                        float CosOE_Stat = sqrt(max(0.0, 1.0 - SinOE_Stat * SinOE_Stat));
+                        
+                        // 转换为落体视角角度
+                        float AngleOA0 = GetDropFrameAngle(SinOA_Stat, CosOA_Stat, r, M, Q, a_abs, iObserverMode);
+                        float AngleOB0 = GetDropFrameAngle(SinOB_Stat, CosOB_Stat, r, M, Q, a_abs, iObserverMode);
+                        float AngleOE0 = GetDropFrameAngle(SinOE_Stat, CosOE_Stat, r, M, Q, a_abs, iObserverMode);
+                        // 垂直半轴 EC 在数学上可证明和相同Q的RN黑洞完全一致
+                        float AngleEC0 = GetShadowHalfAngleRN(r, M, Q, iObserverMode);
+                        
+                        // --- 3. 混合 ---
+                        // 调试：如何选择混合函数。需要是一些凹函数。
+                        float MixWA = clamp(tan(LatFactor*1.48)/10.98338,0.0,1.0);//指数函数在这里会前期太小、后期太大，所以用tan
+                        float MixWB = pow(LatFactor, 2.5);//基本确定2.5
+                        float MixWE = pow(LatFactor, 6.0);//基本确定6.0
+                        float MixWCD = pow(LatFactor, 0.75);//基本确定0.75
+                        
+                        float AngleOA = mix(AngleOA0, AngleOF, MixWA);
+                        float AngleOB = mix(AngleOB0, AngleOF, MixWB);
+                        float AngleEC = mix(AngleEC0, AngleOF, MixWCD);
+                        float AngleOE = mix(AngleOE0, 0.0,     MixWE);
+                        
+                        // --- 4. 视平面判定 (Screen Space Check) ---
+                        // 局部系，Y是自旋轴。ToCenterDir是视线反向
+                        vec3 SpinAxis = vec3(0.0, 1.0, 0.0);
+                        vec3 ScreenUp = normalize(SpinAxis - dot(SpinAxis, ToCenterDir) * ToCenterDir);
+                        vec3 ScreenRight = cross(ToCenterDir, ScreenUp);
+                        vec3 VecToPixel = normalize(RayDir - dot(RayDir, ToCenterDir) * ToCenterDir);
+                        float ProjU = dot(VecToPixel, ScreenRight);
+                        float ProjV = dot(VecToPixel, ScreenUp);
+                        float x_ang = ProjU * RayAngle;
+                        float y_ang = ProjV * RayAngle;
+                        
+                        // 手性：a>0 时，凸起(B)在U轴正向(Right)，缺口(A)在U轴负向(Left)，E 点向 B 侧偏移
+                        float SignChirality = sign(a); 
+                        if (abs(a) < 1e-9) SignChirality = 1.0;
+                        // E 的位置 (在 U 轴上的坐标)
+                        float CenterEx = SignChirality * AngleOE;
+                        float dx = x_ang - CenterEx;
+                        float dy = y_ang;
+                        
+                        float RadiusA_from_E = AngleOA + AngleOE;
+                        float RadiusB_from_E = max(1e-5, AngleOB - AngleOE);
+                        
+                        float CurrentHRadius;
+                        float CurrentVRadius = AngleEC;
+                        
+                        // DEBUG：绘制关键点 A, B, C, D, E, O
+                        #if DEBUG_SHADOW_CULLING == 1
+                        vec2 currP = vec2(x_ang, y_ang);
+                        float dotSize = 0.002; // 调试点大小（弧度）
+                        
+                        // O是白色
+                        vec2 ptO = vec2(0.0, 0.0);
+                        if (length(currP - ptO) < dotSize) {
+                            res.AccumColor = vec4(1.0, 1.0, 1.0, 1.0);
+                            res.Status = 3.0; return res;
+                        }
+                        
+                        // C、D、E是蓝色
+                        vec2 ptE = vec2(CenterEx, 0.0);
+                        vec2 ptC = vec2(CenterEx,  AngleEC);
+                        vec2 ptD = vec2(CenterEx, -AngleEC);
+                        if (length(currP - ptE) < dotSize || length(currP - ptC) < dotSize || length(currP - ptD) < dotSize) {
+                            res.AccumColor = vec4(0.0, 0.5, 1.0, 1.0);
+                            res.Status = 3.0; return res;
+                        }
+                        
+                        // A、B是红色
+                        vec2 ptA = vec2(CenterEx - SignChirality * RadiusA_from_E, 0.0);
+                        vec2 ptB = vec2(CenterEx + SignChirality * RadiusB_from_E, 0.0);
+                        if (length(currP - ptA) < dotSize || length(currP - ptB) < dotSize) {
+                            res.AccumColor = vec4(1.0, 0.0, 0.0, 1.0);
+                            res.Status = 3.0; return res;
+                        }
+                        #endif
+                        
+                        // 判断是在 E 的 "A侧" 还是 "B侧"
+                        if (dx * SignChirality > 0.0) {
+                            CurrentHRadius = RadiusB_from_E; // B侧 (凸起)
+                        } else {
+                            CurrentHRadius = RadiusA_from_E; // A侧 (缺口)
+                            // A侧修正系数
+                            float a_star = a_abs / CONST_M; 
+                            float f4 = clamp(1.0-((r-30.0)/(80.0-30.0)),0.0,1.0); // 相机距离较远时，避免拉伸
+                            float f3 = clamp((a_star - 0.9) / 0.1, 0.0, 1.0); // a*不高时，D形不明显，边缘还是接近椭圆的。所以，修正仅在 a* > 0.9 时生效，1.0时达到最大
+                            float f2 = pow(1.0 - LatFactor, 1.0); // 随相机纬度变化。在到达极轴时，应完全没有修正，变回圆形
+                            float u = clamp(abs(dx) / RadiusA_from_E, 0.0, 1.0); // u=1表示在A点(边缘)，u=0表示在E点。
+                            float f1 = 0.36 * pow(u, 3.5); // 使用 pow 确保靠近中心时修正迅速消失
+                            // 缩放使得原本在椭圆外的点被包含进阴影，形成比半椭圆更丰满的"D"形
+                            CurrentVRadius *= (1.0 + f1 * f2 * f3 * f4);
+                            float f5 = (1.0-2.0*LatFactor)*(1.0-pow(abs(iQ),0.1));
+                            CurrentHRadius *= 1.0+25.0*f4*f5*clamp(a_star - 0.98,0.0,0.02)*clamp(a_star - 0.98,0.0,0.02);
+                        }
+                        
+                        float dist_sq = (dx*dx) / (CurrentHRadius*CurrentHRadius) + (dy*dy) / (CurrentVRadius*CurrentVRadius);
+                        if (dist_sq < SHADOW_SIZE_MULTIPLIER * SHADOW_SIZE_MULTIPLIER) bHitShadow = true;
+                    }
+                }
+                
+                // --- 执行剔除 ---
+
+                if (bHitShadow)
+                {
+                    bool bHasDisk = IsAccretionDiskVisible(iInterRadiusRs, iOuterRadiusRs, iThinRs, iHopper, iBrightmut, iDarkmut);
+                    bool bHasJet  = IsJetVisible(iAccretionRate, iJetBrightmut);
+                    
+                    if (!bHasDisk && !bHasJet)
+                    {
+                        // 纯黑洞，无盘无喷流：立即返回黑色
+                        #if DEBUG_SHADOW_CULLING == 1
+                            res.AccumColor = vec4(0.0, 0.5, 0.0, 1.0); 
+                            res.Status = 3.0; 
+                        #else
+                            res.AccumColor = vec4(0.0, 0.0, 0.0, 1.0); 
+                            res.Status = 3.0;
+                        #endif
+                        res.CurrentSign = CurrentUniverseSign;
+                        res.EscapeDir = vec3(0.0);
+                        res.FreqShift = 0.0;
+                        return res; 
+                    }
+                    else
+                    {
+                        // 有盘或喷流，改终结半径，延迟剔除
+                        float SafeCullRadius = max(iInterRadiusRs, 1.05 * EventHorizonR);
+                        if (SafeCullRadius > TerminationR)
+                        {
+                            TerminationR = SafeCullRadius;
+                            bDeferredShadowCulling = true; // 标记：这是因为剔除而提升的终结半径
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #endif
+
 
     float MaxStep=150.0+300.0/(1.0+1000.0*(1.0-iSpin*iSpin-iQ*iQ)*(1.0-iSpin*iSpin-iQ*iQ));
     if(bIsNakedSingularity) MaxStep=450.0;//150.0+300.0/(1.0+10.0*(1.0-iSpin*iSpin-iQ*iQ)*(1.0-iSpin*iSpin-iQ*iQ));
@@ -2708,7 +3119,7 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
             }
         }
         
-        //对动量和位置及其导数做自适应步长。对电荷做自适应步长（Q贡献r^-2项
+        //对动量和位置及其导数做自适应步长。对电荷做自适应步长（Q贡献r^-2项）
         float rho = length(RayPos.xz);
         float DistRing = sqrt(RayPos.y * RayPos.y + pow(rho - abs(PhysicalSpinA), 2.0));
         float Vel_Mag = length(k1.X); 
@@ -2767,7 +3178,7 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
 
         //吸积盘和喷流
-        if (CurrentUniverseSign > 0.0) 
+        if (CurrentUniverseSign > 0.0)
         {
            Result = DiskColor(Result, ActualStepLength, X, LastX, RayDir, LastDir, P_cov, E_conserved,
                              iInterRadiusRs, iOuterRadiusRs, iThinRs, iHopper, iBrightmut, iDarkmut, iReddening, iSaturation, DiskArgument, 
@@ -2808,6 +3219,40 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
     //结果打包
     res.CurrentSign = CurrentUniverseSign;
     res.AccumColor  = Result;
+    
+    // [修改10] 阴影剔除的 Debug 颜色
+    // 如果被剔除，且 Result 的透明度没满（说明没被盘完全挡住），则补上剔除色
+    #if ENABLE_SHADOW_CULLING == 1
+    if (bDeferredShadowCulling && !bIsNakedSingularity)
+    {
+        // 检查是否是因为撞到了我们设定的 TerminationR 而退出的
+        // 使用 length(RayPos) 而不是 geo.r，确保变量可见性
+        float FinalR = length(RayPos);
+        
+        // 判定条件：位置在截断半径内，或者已经不再继续步进（说明撞击了物体）
+        // 宽松一点的容差 +0.1，防止边界闪烁
+        if (FinalR <= TerminationR + 0.1 || !bShouldContinueMarchRay)
+        {
+            #if DEBUG_SHADOW_CULLING == 1
+                // 混合前 clamp Alpha，防止负数
+                // 逻辑：(已有颜色) + (绿色 * 剩余透明度)
+                float RemainingAlpha = max(0.0, 1.0 - res.AccumColor.a);
+                res.AccumColor.rgb += vec3(0.0, 0.5, 0.0) * RemainingAlpha;
+                res.AccumColor.a = 1.0; // 强制不透明
+                
+                res.Status = 3.0; // 标记为实体
+            #else
+                // 正常模式：补齐黑色
+                res.AccumColor.a = 1.0;
+                res.Status = 3.0;
+            #endif
+            
+            // 如果触发了剔除，直接返回，不再执行下面的 Status 1.0/2.0 判断
+            return res;
+        }
+    }
+    #endif
+
 
     // 状态位定义:
     // 0.0 = Absorbed/Lost (视界/超时，且未被体积光完全遮挡)
@@ -2848,16 +3293,14 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
 
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
     vec3 CamUpWorld    = texelFetch(iChannel2, ivec2(iBufWidth - 1, 0), 0).xyz;
     float iUniverseSign = texelFetch(iChannel2, ivec2(iBufWidth - 6, 0), 0).y;
-    
+
     if (iUniverseSign == 0.0) iUniverseSign = 1.0;
     if (iFrame <= 5||length(CamRightWorld) < 0.01) {
         CamPosWorld =  vec3(-2.0, -3.6, 22.0); 

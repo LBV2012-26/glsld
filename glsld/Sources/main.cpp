@@ -28,7 +28,7 @@ int main() {
 
     int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
     if (result == IDOK) {
-        Config::LoadFromFile(utils::GetFilePath("Win64/config.yml"));
+        Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
         GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "GLSL Analyzer started.");
@@ -80,10 +80,10 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        AstDumper dumper(0, nullptr);
-        dumper.Traverse(document.ast.get());
+        // AstDumper dumper(0, nullptr);
+        // dumper.Traverse(document.ast.get());
 
-        document.symbols.Dump();
+        // document.symbols.Dump();
 
         std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
@@ -91,5 +91,7 @@ int main() {
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
+        std::println("Total time: {}ms",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration + parse_duration + link_duration + resolve_duration + bind_duration).count());
     }
 }

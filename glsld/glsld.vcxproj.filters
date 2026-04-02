@@ -65,6 +65,7 @@
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
+    <None Include="Win64\glsld.yml" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">

@@ -199,7 +199,7 @@ namespace glsld {
         std::uint32_t last_char = 0;
 
         auto EmitSemanticData = [&](int type_index, int modifiers, const Token& token) -> void {
-            if (type_index == -1) {
+            if (type_index == -1 && modifiers == 0) {
                 return;
             }
 
@@ -219,8 +219,30 @@ namespace glsld {
             last_char = static_cast<std::uint32_t>(character);
         };
 
+        auto IsInactive = [&](std::size_t line) -> bool {
+            if (snapshot->inactive_regions.empty()) {
+                return false;
+            }
+
+            const auto& regions = snapshot->inactive_regions;
+            auto it = std::ranges::upper_bound(regions, line, std::ranges::less{}, [](InactiveRegion region) -> std::size_t {
+                return region.begin_line;
+            });
+
+            if (it == regions.begin()) {
+                return false;
+            }
+
+            --it;
+            return it->begin_line <= line && line <= it->end_line;
+        };
+
         for (const auto& token : snapshot->raw_tokens) {
             std::uint32_t modifiers = 0;
+            if (IsInactive(token.location.line)) {
+                modifiers |= (1 << 10); // inactive
+            }
+
             int type_index = -1;
 
             auto it = snapshot->bindings.find(token.location);
