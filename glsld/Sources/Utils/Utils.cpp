@@ -26,6 +26,8 @@ namespace glsld::utils {
             if (paren != std::string_view::npos) {
                 raw_name = raw_name.substr(0, paren);
             }
+        } else {
+            return {};
         }
 
         return raw_name;
