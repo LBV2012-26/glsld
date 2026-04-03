@@ -74,14 +74,14 @@ namespace glsld {
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
 
-        StringHeteroHashTable<std::string, MacroDefination> macros_;
-        std::stack<ConditionalFrame>                        condition_stack_;
-        MacroTraceMap&                                      trace_map_;
-        MacroArgsTraceMap&                                  args_trace_map_;
-        std::vector<InactiveRegion>&                        inactive_regions_;
-        std::optional<std::size_t>                          open_inactive_begin_line_;
-        std::span<const Token>                              raw_tokens_;
-        std::size_t                                         token_index_{};
+        StringHeteroHashTable<MacroDefination> macros_;
+        std::stack<ConditionalFrame>           condition_stack_;
+        MacroTraceMap&                         trace_map_;
+        MacroArgsTraceMap&                     args_trace_map_;
+        std::vector<InactiveRegion>&           inactive_regions_;
+        std::optional<std::size_t>             open_inactive_begin_line_;
+        std::span<const Token>                 raw_tokens_;
+        std::size_t                            token_index_{};
     };
 }
 

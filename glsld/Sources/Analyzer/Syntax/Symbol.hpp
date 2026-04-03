@@ -119,13 +119,13 @@ namespace glsld {
         SymbolInfo  RemoveSymbol(std::string_view name);
         void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
-        Scope*                                         parent_;
-        SymbolInfo*                                    host_symbol_{ nullptr };
-        std::size_t                                    index_;
-        std::pair<SourceLocation, SourceLocation>      interval_;
-        std::vector<std::unique_ptr<Scope>>            children_;
-        StringHeteroHashTable<std::string, SymbolInfo> symbols_;
-        ScopeKind                                      kind_{ ScopeKind::kGlobalTransparent };
+        Scope*                                    parent_;
+        SymbolInfo*                               host_symbol_{ nullptr };
+        std::size_t                               index_;
+        std::pair<SourceLocation, SourceLocation> interval_;
+        std::vector<std::unique_ptr<Scope>>       children_;
+        StringHeteroHashTable<SymbolInfo>         symbols_;
+        ScopeKind                                 kind_{ ScopeKind::kGlobalTransparent };
     };
 
     class DocumentSymbols {

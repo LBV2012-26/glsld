@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <concepts>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -23,9 +22,8 @@ namespace glsld {
         }
     };
 
-    template <typename Key, typename Value>
-    requires std::same_as<Key, std::string>
-    using StringHeteroHashTable = std::unordered_map<Key, Value, StringViewHeteroHash, StringViewHeteroEqual>;
+    template <typename Value>
+    using StringHeteroHashTable = std::unordered_map<std::string, Value, StringViewHeteroHash, StringViewHeteroEqual>;
 
     template <typename Ty>
     inline void HashCombine(std::size_t& seed, const Ty& value) {

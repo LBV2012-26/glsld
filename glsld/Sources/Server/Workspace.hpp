@@ -20,7 +20,7 @@ namespace glsld {
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
 
     private:
-        StringHeteroHashTable<std::string, std::shared_ptr<Document>> documents_;
-        mutable std::shared_mutex mutex_;
+        StringHeteroHashTable<std::shared_ptr<Document>> documents_;
+        mutable std::shared_mutex                        mutex_;
     };
 }

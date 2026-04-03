@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />

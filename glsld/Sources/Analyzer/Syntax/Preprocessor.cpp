@@ -14,7 +14,7 @@ namespace glsld {
     namespace {
         class ConditionEvaluator {
         public:
-            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashTable<std::string, MacroDefination>& macros)
+            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashTable<MacroDefination>& macros)
                 : tokens_{ tokens }
                 , macros_{ macros }
             {}
@@ -509,10 +509,10 @@ namespace glsld {
                 return false;
             }
 
-            std::span<const Token>                                     tokens_;
-            const StringHeteroHashTable<std::string, MacroDefination>& macros_;
-            std::size_t                                                token_index_{};
-            int                                                        suppress_depth_{};
+            std::span<const Token>                        tokens_;
+            const StringHeteroHashTable<MacroDefination>& macros_;
+            std::size_t                                   token_index_{};
+            int                                           suppress_depth_{};
         };
     }
 

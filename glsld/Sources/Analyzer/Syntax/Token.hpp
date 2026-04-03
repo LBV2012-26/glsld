@@ -87,8 +87,9 @@ namespace glsld {
     };
 
     struct SourceLocation {
-        std::size_t line{};
-        std::size_t column{};
+        std::size_t   line{};
+        std::size_t   column{};
+        std::uint32_t file_index{};
 
         bool operator==(const SourceLocation& other) const {
             return line == other.line && column == other.column;

@@ -24,6 +24,7 @@
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -65,7 +66,6 @@
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
-    <None Include="Win64\glsld.yml" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">

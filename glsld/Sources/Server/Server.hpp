@@ -64,7 +64,7 @@ namespace glsld {
         Workspace                       workspace_;
         ThreadPool                      thread_pool_;
 
-        StringHeteroHashTable<std::string, PendingUpdate> pending_updates_;
-        StringHeteroHashTable<std::string, std::shared_ptr<std::atomic<int>>> document_versions_;
+        StringHeteroHashTable<PendingUpdate>                     pending_updates_;
+        StringHeteroHashTable<std::shared_ptr<std::atomic<int>>> document_versions_;
     };
 }
