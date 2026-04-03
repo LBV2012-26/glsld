@@ -40,6 +40,7 @@ namespace glsld {
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;
         void VisitStructDeclaration(StructDeclarationNode* node) override;
+        void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
         void VisitTernaryExpression(TernaryExpressionNode* node) override;

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "TypeResolver.hpp"
 
+#include <cctype>
 #include <cstddef>
 #include <algorithm>
 #include <charconv>
@@ -116,9 +117,7 @@ namespace glsld {
                 throw std::logic_error("This path should not be reached since exact matches are handled separately.");
             }
 
-            if (from.is_array() != to.is_array() ||
-                from.block_symbol != nullptr || to.block_symbol != nullptr)
-            {
+            if (from.is_array() || to.is_array()) {
                 return MatchGrade::kFailed;
             }
 
@@ -370,12 +369,20 @@ namespace glsld {
 
         Traverse(node->init.get());
 
-        variable_symbol->type_info.array_sizes.resize(node->type_spec.array_sizes.size());
-        node->init->evaluated_type.array_sizes.resize(node->type_spec.array_sizes.size());
+        const auto& init_type  = node->init->evaluated_type;
+        const auto& init_sizes = init_type.array_sizes;
+        auto& decl_sizes = variable_symbol->type_info.array_sizes;
 
-        for (auto i = 0uz; i != node->type_spec.array_sizes.size(); ++i) {
-            if (node->type_spec.array_sizes[i] == nullptr) {
-                variable_symbol->type_info.array_sizes[i] = node->init->evaluated_type.array_sizes[i];
+        if (!decl_sizes.empty() && !init_sizes.empty()) {
+            for (auto i = 0uz; i != decl_sizes.size(); ++i) {
+                if (decl_sizes[i] == std::numeric_limits<std::int64_t>::min()) {
+                    if (i < init_sizes.size()) {
+                        decl_sizes[i] = init_sizes[i];
+                    }
+                } else {
+                    // 显式指定了大小
+                    // do nothing
+                }
             }
         }
     }
@@ -394,6 +401,61 @@ namespace glsld {
         }
 
         AstVisitor::VisitStructDeclaration(node);
+    }
+
+    void TypeResolver::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+        if (node->elements.empty()) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        TypeInfo common_type;
+        bool is_first   = true;
+        bool type_error = false;
+
+        for (const auto& element : node->elements) {
+            if (element == nullptr) {
+                continue;
+            }
+
+            Traverse(element.get());
+            const auto& element_type = element->evaluated_type;
+
+            if (is_first) {
+                common_type = element_type;
+                is_first = false;
+            } else {
+                if (common_type.CompareWithoutQualifiers(element_type)) {
+                    continue; // 类型相同，继续检查下一个元素
+                } else if (TryImplicityConvert(element_type, common_type) != MatchGrade::kFailed) {
+                    continue; // 元素类型可以隐式转换为当前公共类型，继续检查下一个元素
+                } else if (TryImplicityConvert(common_type, element_type) != MatchGrade::kFailed) {
+                    common_type = element_type; // 有一个高级类型，必须提升 common_type
+                } else {
+                    type_error = true; // 类型不兼容，标记错误
+                    break;
+                }
+            }
+        }
+
+        if (type_error || common_type.typename_token.type == TokenType::kUnknown) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+        } else {
+            node->evaluated_type = common_type;
+            node->evaluated_type.array_sizes.insert(node->evaluated_type.array_sizes.begin(),
+                                                    static_cast<std::int64_t>(node->elements.size()));
+        }
     }
 
     void TypeResolver::VisitBinaryExpression(BinaryExpressionNode* node) {
@@ -758,6 +820,7 @@ namespace glsld {
 
         for (const auto& size : type_spec.array_sizes) {
             if (size == nullptr) {
+                info.array_sizes.push_back(std::numeric_limits<std::int64_t>::min());
                 continue;
             }
 
@@ -915,101 +978,74 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::SniffLiteralType(const Token& token) {
+        auto BuildType = [](std::string_view name, BaseFamily family, int bits) -> TypeInfo {
+            return TypeInfo{
+                .typename_token{
+                    .text = std::string(name),
+                    .type = name.contains("_t") ? TokenType::kBuiltInType : TokenType::kPrimitive
+                },
+                .type_desc{
+                    .family        = family,
+                    .bits          = bits,
+                    .vector_count  = 1,
+                    .vector_length = 1
+                }
+            };
+        };
+
         if (token.type == TokenType::kNumberLiteral) {
             std::string_view text = token.text;
-
-            if (text.ends_with("lf") || text.ends_with("LF") || text.ends_with("Lf") || text.ends_with("lF")) {
-                return {
-                    .typename_token{
-                        .text = "double",
-                        .type = TokenType::kPrimitive
-                    },
-                    .type_desc{
-                        .family        = BaseFamily::kFloat,
-                        .bits          = 64,
-                        .vector_count  = 1,
-                        .vector_length = 1
+            if (text.empty()) {
+                return TypeInfo{
+                    .typename_token = Token{
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
                     }
                 };
             }
 
-            if (text.ends_with("hf") || text.ends_with("HF") || text.ends_with("Hf") || text.ends_with("hF")) {
-                return {
-                    .typename_token{
-                        .text = "half",
-                        .type = TokenType::kPrimitive
-                    },
-                    .type_desc{
-                        .family        = BaseFamily::kFloat,
-                        .bits          = 16,
-                        .vector_count  = 1,
-                        .vector_length = 1
-                    }
-                };
-            }
-
-            if (text.contains('.') || text.contains('e') || text.contains('E') ||
-                text.ends_with('f') || text.ends_with('F'))
-            {
-                return {
-                    .typename_token{
-                        .text = "float",
-                        .type = TokenType::kPrimitive
-                    },
-                    .type_desc{
-                        .family        = BaseFamily::kFloat,
-                        .bits          = 32,
-                        .vector_count  = 1,
-                        .vector_length = 1
-                    }
-                };
-            }
-
-            if (text.find('.') == std::string_view::npos) {
-                if (text.ends_with('u') || text.ends_with('U')) {
-                    return {
-                        .typename_token{
-                            .text = "uint",
-                            .type = TokenType::kPrimitive
-                        },
-                        .type_desc{
-                            .family        = BaseFamily::kUint,
-                            .bits          = 32,
-                            .vector_count  = 1,
-                            .vector_length = 1
-                        }
-                    };
-                } else {
-                    return {
-                        .typename_token{
-                            .text = "int",
-                            .type = TokenType::kPrimitive
-                        },
-                        .type_desc{
-                            .family        = BaseFamily::kInt,
-                            .bits          = 32,
-                            .vector_count  = 1,
-                            .vector_length = 1
-                        }
-                    };
+            auto EndsWith = [text](std::string_view suffix) -> bool {
+                if (text.length() < suffix.length()) {
+                    return false;
                 }
+
+                auto actual_suffix = text.substr(text.length() - suffix.length());
+                for (auto i = 0uz; i != suffix.length(); ++i) {
+                    if (std::tolower(actual_suffix[i]) != std::tolower(suffix[i])) {
+                        return false;
+                    }
+                }
+
+                return true;
+            };
+
+            if (EndsWith("lf"))
+                return BuildType("double", BaseFamily::kFloat, 64);
+            if (EndsWith("hf"))
+                return BuildType("float16_t", BaseFamily::kFloat, 16);
+            if (EndsWith("ul"))
+                return BuildType("uint64_t", BaseFamily::kUint, 64);
+            if (EndsWith("us"))
+                return BuildType("uint16_t", BaseFamily::kUint, 16);
+            if (EndsWith("f"))
+                return BuildType("float", BaseFamily::kFloat, 32);
+            if (EndsWith("u"))
+                return BuildType("uint", BaseFamily::kUint, 32);
+            if (EndsWith("l"))
+                return BuildType("int64_t", BaseFamily::kInt, 64);
+            if (EndsWith("s"))
+                return BuildType("int16_t", BaseFamily::kInt, 16);
+
+            if (text.find_first_of(".eE") != std::string_view::npos) {
+                return BuildType("float", BaseFamily::kFloat, 32);
             }
+
+            return BuildType("int", BaseFamily::kInt, 32);
         }
 
         if (token.type == TokenType::kPrimitive) {
             if (token.text == "true" || token.text == "false") {
-                return {
-                    .typename_token{
-                        .text = "bool",
-                        .type = TokenType::kPrimitive
-                    },
-                    .type_desc{
-                        .family        = BaseFamily::kBool,
-                        .bits          = 32,
-                        .vector_count  = 1,
-                        .vector_length = 1
-                    }
-                };
+                return BuildType("bool", BaseFamily::kBool, 32);
             }
         }
 

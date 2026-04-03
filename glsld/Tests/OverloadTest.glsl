@@ -49,6 +49,53 @@ void TestOverloadFunction(float16_t float16arg) {}
 void TestOverloadFunction(float32_t float32arg) {}
 void TestOverloadFunction(float64_t float64arg) {}
 
+void TestOverloadFunction(int intArray1D_2[2]) {}
+void TestOverloadFunction(int intArray1D_3[3]) {}
+void TestOverloadFunction(int intArray2D_2x3[2][3]) {}
+void TestOverloadFunction(uint uintArray1D_2[2]) {}
+void TestOverloadFunction(uint uintArray1D_4[4]) {}
+void TestOverloadFunction(uint16_t uint16Array1D_3[3]) {}
+void TestOverloadFunction(float floatArray1D_5[5]) {}
+void TestOverloadFunction(float floatArray2D_2x3[2][3]) {}
+void TestOverloadFunction(float floatArray2D_3x4[3][4]) {}
+void TestOverloadFunction(float floatArray3D_2x2x3[2][2][3]) {}
+void TestOverloadFunction(double doubleArray1D_4[4]) {}
+void TestOverloadFunction(vec2 vec2Array1D_3[3]) {}
+void TestOverloadFunction(vec2 vec2Array1D_4[4]) {}
+void TestOverloadFunction(vec2 vec2Array3D_2x2x2[2][2][2]) {}
+void TestOverloadFunction(dvec2 dvec2Array1D_2[2]) {}
+void TestOverloadFunction(ivec3 ivec3Array1D_2[2]) {}
+void TestOverloadFunction(vec3 vec3Array1D_2[2]) {}
+void TestOverloadFunction(vec3 vec3Array2D_2x2[2][2]) {}
+void TestOverloadFunction(vec4 vec4Array1D_2[2]) {}
+void TestOverloadFunction(mat2 mat2Array1D_2[2]) {}
+void TestOverloadFunction(mat2 mat2Array2D_2x2[2][2]) {}
+void TestOverloadFunction(mat3 mat3Array1D_2[2]) {}
+void TestOverloadFunction(mat4 mat4Array1D_2[2]) {}
+
+struct InnerData {
+    float fVal;
+    int iVal;
+    vec3 v3;
+    mat2 m2[2];
+    int arr2d[2][3];
+};
+
+struct MiddleData {
+    InnerData inner;
+    vec4 v4Array[3];
+    mat4 m4;
+};
+
+struct OuterData {
+    MiddleData middle[2];
+    dvec2 d2;
+};
+
+void TestOverloadFunction(InnerData inner_data) {}
+void TestOverloadFunction(MiddleData middle_data) {}
+void TestOverloadFunction(OuterData outer_data) {}
+
 float GetFloat() { return 1.0f; }
 double GetDouble() { return 1.0lf; }
 int GetInt() { return 1; }
@@ -440,6 +487,21 @@ void main() {
     dvec2 dv2Array[2] = dvec2[](dvec2(1.0lf, 2.0lf), dvec2(3.0lf, 4.0lf));
     ivec3 iv3Array[2] = ivec3[](ivec3(1, 2, 3), ivec3(4, 5, 6));
     mat3 m3Array[2] = mat3[](mat3(1.0f), mat3(2.0f));
+    // additional arrays to test whole-array overload matching
+    uint uintArray1D[2] = uint[2](1u, 2u);
+    uint uintArray1D_4[4] = uint[4](1u, 2u, 3u, 4u);
+    mat4 m4Array[2] = mat4[](mat4(1.0f), mat4(2.0f));
+
+    // also test overloads that accept whole arrays
+    TestOverloadFunction(v2Array);
+    TestOverloadFunction(v3Array);
+    TestOverloadFunction(v4Array);
+    TestOverloadFunction(dv2Array);
+    TestOverloadFunction(iv3Array);
+    TestOverloadFunction(m3Array);
+    TestOverloadFunction(uintArray1D);
+    TestOverloadFunction(uintArray1D_4);
+    TestOverloadFunction(m4Array);
 
     TestOverloadFunction(v2Array[0] + v2Array[1]);
     TestOverloadFunction(v3Array[0] - v3Array[1]);
@@ -567,6 +629,338 @@ void main() {
     TestOverloadFunction(((GetVec4().xy + GetVec2()) * GetFloat()).xy);
     TestOverloadFunction(((GetVec3().zyx - GetVec3()) / GetFloat()).xyz);
     TestOverloadFunction(((GetVec2().yx + GetVec2().xy) * GetFloat()).xy);
+
+    // --- Test array types with different dimensions and element types ---
+
+    // 1D arrays
+    int intArray1D_2[2] = int[2](1, 2);
+    int intArray1D_3[3] = int[3](1, 2, 3);
+    float floatArray1D[5] = float[5](1.0f, 2.0f, 3.0f, 4.0f, 5.0f);
+    double doubleArray1D[4] = double[4](1.0lf, 2.0lf, 3.0lf, 4.0lf);
+
+    TestOverloadFunction(floatArray1D); // Test array parameter overload
+    TestOverloadFunction(intArray1D_2); // Test array parameter overload (size 2)
+    TestOverloadFunction(intArray1D_3); // Test array parameter overload (size 3)
+
+    // 1D arrays of scalar types with different precision
+    int8_t int8Array1D[3] = int8_t[3](int8_t(1), int8_t(2), int8_t(3));
+    uint16_t uint16Array1D[3] = uint16_t[3](uint16_t(1), uint16_t(2), uint16_t(3));
+    float32_t float32Array1D[3] = float32_t[3](1.0f, 2.0f, 3.0f);
+    float64_t float64Array1D[3] = float64_t[3](1.0lf, 2.0lf, 3.0lf);
+
+    TestOverloadFunction(int8Array1D[0]);
+    TestOverloadFunction(uint16Array1D[1]);
+
+    // 1D arrays of vectors
+    vec2 vec2Array1D[4] = vec2[4](vec2(1.0f, 2.0f), vec2(3.0f, 4.0f), vec2(5.0f, 6.0f), vec2(7.0f, 8.0f));
+    vec3 vec3Array1D[3] = vec3[3](vec3(1.0f, 2.0f, 3.0f), vec3(4.0f, 5.0f, 6.0f), vec3(7.0f, 8.0f, 9.0f));
+
+    TestOverloadFunction(vec2Array1D); // Test array parameter overload
+
+    // 2D arrays
+    int intArray2D[2][3] = int[2][3](
+        int[3](1, 2, 3),
+        int[3](4, 5, 6)
+    );
+
+    float floatArray2D[3][4] = float[3][4](
+        float[4](1.0f, 2.0f, 3.0f, 4.0f),
+        float[4](5.0f, 6.0f, 7.0f, 8.0f),
+        float[4](9.0f, 10.0f, 11.0f, 12.0f)
+    );
+
+    TestOverloadFunction(intArray2D); // Test array parameter overload
+
+    vec3 vec3Array2D[2][2] = vec3[2][2](
+        vec3[2](vec3(1.0f), vec3(2.0f)),
+        vec3[2](vec3(3.0f), vec3(4.0f))
+    );
+
+    mat2 mat2Array2D[2][2] = mat2[2][2](
+        mat2[2](mat2(1.0f), mat2(2.0f)),
+        mat2[2](mat2(3.0f), mat2(4.0f))
+    );
+
+    TestOverloadFunction(vec3Array2D); // Test array parameter overload
+    TestOverloadFunction(mat2Array2D); // Test array parameter overload
+
+    // 3D arrays
+    float floatArray3D[2][2][3] = float[2][2][3](
+        float[2][3](
+            float[3](1.0f, 2.0f, 3.0f),
+            float[3](4.0f, 5.0f, 6.0f)
+        ),
+        float[2][3](
+            float[3](7.0f, 8.0f, 9.0f),
+            float[3](10.0f, 11.0f, 12.0f)
+        )
+    );
+
+    vec2 vec2Array3D[2][2][2] = vec2[2][2][2](
+        vec2[2][2](
+            vec2[2](vec2(1.0f), vec2(2.0f)),
+            vec2[2](vec2(3.0f), vec2(4.0f))
+        ),
+        vec2[2][2](
+            vec2[2](vec2(5.0f), vec2(6.0f)),
+            vec2[2](vec2(7.0f), vec2(8.0f))
+        )
+    );
+
+    vec2 vec2Array2D[2][2] = vec2[2][2](
+        vec2[2](vec2(1.0f), vec2(2.0f)),
+        vec2[2](vec2(3.0f), vec2(4.0f))
+    );
+
+    vec3 vec3Array3D[2][2][2] = vec3[2][2][2](
+        vec3[2][2](
+            vec3[2](vec3(1.0f), vec3(2.0f)),
+            vec3[2](vec3(3.0f), vec3(4.0f))
+        ),
+        vec3[2][2](
+            vec3[2](vec3(5.0f), vec3(6.0f)),
+            vec3[2](vec3(7.0f), vec3(8.0f))
+        )
+    );
+
+    // Test access and operations
+    TestOverloadFunction(floatArray3D[0][1][2]);
+    TestOverloadFunction(vec2Array3D[1][0][0]);
+
+    TestOverloadFunction(vec2Array3D[0][0][0]);
+    TestOverloadFunction(vec2Array3D[1][0][0]);
+
+    // 3D arrays with arithmetic operations
+    TestOverloadFunction(vec2Array3D[0][0][0] + vec2Array3D[1][1][1]);
+    TestOverloadFunction(vec3Array3D[0][1][0] * vec3Array3D[1][0][1]);
+
+    // 3D arrays with complex indexing and operations
+    TestOverloadFunction((vec2Array3D[0][1][1] + vec2Array3D[1][0][0]).xy);
+    TestOverloadFunction((vec3Array3D[0][0][0] - vec3Array3D[1][1][1]).xyz);
+
+    // Mixed operations: cross-dimensional access
+    TestOverloadFunction(floatArray1D[0] + floatArray2D[0][0] + floatArray3D[0][0][0]);
+    TestOverloadFunction(vec2Array1D[0] + vec2Array2D[0][0] + vec2Array3D[0][0][0]);
+
+    // Array elements with constructor calls
+    TestOverloadFunction(vec2(floatArray2D[0][0], floatArray2D[1][1]));
+    TestOverloadFunction(vec3(floatArray3D[0][0][0], floatArray3D[1][0][1], floatArray3D[0][1][0]));
+    TestOverloadFunction(ivec2(intArray2D[0][0], intArray2D[1][1]));
+
+    // Array elements in complex expressions
+    TestOverloadFunction(floatArray2D[0][0] * floatArray2D[1][2] + floatArray3D[1][1][2]);
+    TestOverloadFunction(vec2Array2D[0][0] * vec2Array3D[1][0][1] + vec2Array1D[2]);
+
+    // --- 1. 整数类型 (int / uint / uint16_t) ---
+
+    // int[2]
+    int i2[2] = int[2](1, 2);
+    TestOverloadFunction(i2);                           // 变量
+    TestOverloadFunction(int[2](3, 4));                 // 构造函数
+    TestOverloadFunction(int[](5, 6));                  // 无维度构造
+
+    // int[3]
+    int i3[3] = int[3](1, 2, 3);
+    TestOverloadFunction(i3);
+    TestOverloadFunction(int[3](4, 5, 6));
+    TestOverloadFunction(int[](7, 8, 9));
+
+    // int[2][3] (多维数组)
+    int i2x3[2][3] = int[2][3](int[3](1, 2, 3), int[3](4, 5, 6));
+    TestOverloadFunction(i2x3);
+    TestOverloadFunction(int[2][3](int[3](1, 1, 1), int[3](2, 2, 2)));
+    TestOverloadFunction(int[][3](int[3](0, 0, 0), int[3](0, 0, 0)));
+
+    // uint[2] / uint[4]
+    uint u4[4] = uint[4](1u, 2u, 3u, 4u);
+    TestOverloadFunction(u4);
+    TestOverloadFunction(uint[2](10u, 20u));
+    TestOverloadFunction(uint[](100u, 200u, 300u, 400u));
+
+    // uint16_t[3]
+    uint16_t u16_3[3] = uint16_t[3](1us, 2us, 3us);
+    TestOverloadFunction(u16_3);
+    TestOverloadFunction(uint16_t[3](4us, 5us, 6us));
+    TestOverloadFunction(uint16_t[](7us, 8us, 9us));
+
+    // int[2] 与 int[3]
+    int arrI2[2] = {10, 20};
+    TestOverloadFunction(arrI2);
+    TestOverloadFunction({30, 40});        // 直接传入 int[2]
+    TestOverloadFunction({1, 2, 3});       // 直接传入 int[3]
+
+    // int[2][3] (多维数组嵌套)
+    TestOverloadFunction({{1, 2, 3}, {4, 5, 6}}); 
+
+    // uint[2] 与 uint[4]
+    uint arrU4[4] = {1u, 2u, 3u, 4u};
+    TestOverloadFunction(arrU4);
+    TestOverloadFunction({10u, 20u});      // 对应 uint[2]
+
+    // uint16_t[3]
+    TestOverloadFunction({10us, 20us, 30us});
+
+    // --- 2. 浮点类型 (float / double) ---
+
+    // float[5]
+    float f5[5] = float[5](1.0, 2.0, 3.0, 4.0, 5.0);
+    TestOverloadFunction(f5);
+    TestOverloadFunction(float[5](0.1, 0.2, 0.3, 0.4, 0.5));
+    TestOverloadFunction(float[](1.1, 2.2, 3.3, 4.4, 5.5));
+
+    // float[2][2][3] (三维数组)
+    float f3D[2][2][3]; // 初始化略
+    TestOverloadFunction(f3D);
+    TestOverloadFunction(float[2][2][3](
+        float[2][3](float[3](1, 1, 1), float[3](1, 1, 1)),
+        float[2][3](float[3](2, 2, 2), float[3](2, 2, 2))
+    ));
+    TestOverloadFunction(float[][][](
+        float[][](float[](0, 0, 0), float[](0, 0, 0)),
+        float[][](float[](0, 0, 0), float[](0, 0, 0))
+    ));
+
+    // double[4]
+    double d4[4] = double[4](1.0LF, 2.0LF, 3.0LF, 4.0LF);
+    TestOverloadFunction(d4);
+    TestOverloadFunction(double[4](0.0LF, 0.0LF, 0.0LF, 0.0LF));
+    TestOverloadFunction(double[](9.0LF, 8.0LF, 7.0LF, 6.0LF));
+
+    // float[5]
+    TestOverloadFunction({1.1, 2.2, 3.3, 4.4, 5.5});
+
+    // float[2][3] 与 float[3][4]
+    float arrF2x3[2][3] = {{1., 2., 3.}, {4., 5., 6.}};
+    TestOverloadFunction(arrF2x3);
+    TestOverloadFunction({{0.,0.,0.,0.}, {1.,1.,1.,1.}, {2.,2.,2.,2.}}); // 对应 float[3][4]
+
+    // float[2][2][3] (三维)
+    TestOverloadFunction({
+        {{1.,1.,1.}, {2.,2.,2.}}, 
+        {{3.,3.,3.}, {4.,4.,4.}}
+    });
+
+    // double[4]
+    TestOverloadFunction({1.0LF, 2.0LF, 3.0LF, 4.0LF});
+
+    // --- 3. 向量类型 (vec2, ivec3, vec3, vec4, dvec2) ---
+
+    // vec2[3]
+    vec2 v2_3[3] = vec2[3](vec2(0), vec2(1), vec2(2));
+    TestOverloadFunction(v2_3);
+    TestOverloadFunction(vec2[3](vec2(1.1), vec2(2.2), vec2(3.3)));
+    TestOverloadFunction(vec2[](vec2(0.5), vec2(0.6), vec2(0.7)));
+
+    // vec2[2][2][2] (三维向量数组)
+    vec2 v2_3D[2][2][2];
+    TestOverloadFunction(v2_3D);
+    TestOverloadFunction(vec2[2][2][2](
+        vec2[2][2](vec2[2](vec2(1), vec2(1)), vec2[2](vec2(1), vec2(1))),
+        vec2[2][2](vec2[2](vec2(1), vec2(1)), vec2[2](vec2(1), vec2(1)))
+    ));
+
+    // ivec3[2] / vec3[2] / vec4[2]
+    vec3 v3_2[2] = vec3[2](vec3(1, 0, 0), vec3(0, 1, 0));
+    TestOverloadFunction(v3_2);
+    TestOverloadFunction(ivec3[2](ivec3(1), ivec3(2)));
+    TestOverloadFunction(vec4[](vec4(1), vec4(0)));
+
+    // dvec2[2]
+    dvec2 dv2_2[2] = dvec2[2](dvec2(1.0LF), dvec2(2.0LF));
+    TestOverloadFunction(dv2_2);
+    TestOverloadFunction(dvec2[2](dvec2(0), dvec2(1)));
+    TestOverloadFunction(dvec2[](dvec2(5), dvec2(6)));
+
+    // vec2[3] 与 vec2[4]
+    TestOverloadFunction({vec2(0), vec2(1), vec2(2)});
+    vec2 arrV2_4[4] = {vec2(0), vec2(0.5), vec2(0.8), vec2(1.0)};
+    TestOverloadFunction(arrV2_4);
+
+    // vec2[2][2][2] (三维向量数组)
+    TestOverloadFunction({
+        {{vec2(0), vec2(0)}, {vec2(1), vec2(1)}},
+        {{vec2(2), vec2(2)}, {vec2(3), vec2(3)}}
+    });
+
+    // ivec3[2], vec3[2], vec4[2], dvec2[2]
+    TestOverloadFunction({ivec3(1), ivec3(2)});
+    TestOverloadFunction({vec3(0.1), vec3(0.2)});
+    TestOverloadFunction({vec4(0), vec4(1)});
+    TestOverloadFunction({dvec2(1.0LF), dvec2(2.0LF)});
+
+    // vec3[2][2]
+    TestOverloadFunction({{vec3(0), vec3(0)}, {vec3(1), vec3(1)}});
+
+    // --- 4. 矩阵类型 (mat2, mat3, mat4) ---
+
+    // mat2[2][2] (多维矩阵数组)
+    mat2 m2x2x2[2][2] = mat2[2][2](
+        mat2[2](mat2(1.0), mat2(1.0)),
+        mat2[2](mat2(1.0), mat2(1.0))
+    );
+    TestOverloadFunction(m2x2x2);
+    TestOverloadFunction(mat2[2][2](mat2[2](mat2(0), mat2(0)), mat2[2](mat2(0), mat2(0))));
+    TestOverloadFunction(mat2[][](mat2[2](mat2(1), mat2(1)), mat2[2](mat2(1), mat2(1))));
+
+    // mat3[2] / mat4[2]
+    mat4 m4_2[2] = mat4[2](mat4(1.0), mat4(1.0));
+    TestOverloadFunction(m4_2);
+    TestOverloadFunction(mat3[2](mat3(1), mat3(1)));
+    TestOverloadFunction(mat4[](mat4(2), mat4(2)));
+
+    // mat3[2] 与 mat4[2]
+    TestOverloadFunction({mat3(1.0), mat3(1.0)});
+    mat4 arrM4[2] = {mat4(0), mat4(1)};
+    TestOverloadFunction(arrM4);
+
+    // mat2[2][2] (多维矩阵数组)
+    TestOverloadFunction({
+        {mat2(1), mat2(1)},
+        {mat2(0), mat2(0)}
+    });
+
+    // 链式调用与复杂数据结构测试
+    InnerData localInner;
+    localInner.fVal = 1.0f;
+    localInner.iVal = 42;
+    localInner.v3 = vec3(1.0, 2.0, 3.0);
+    localInner.m2[0] = mat2(1.0);
+    localInner.arr2d[0][0] = 7;
+
+    MiddleData localMiddle;
+    localMiddle.inner = localInner;
+    localMiddle.v4Array[0] = vec4(1.0);
+    localMiddle.m4 = mat4(1.0);
+
+    OuterData localOuter;
+    localOuter.middle[0] = localMiddle;
+    localOuter.middle[1] = localMiddle;
+    localOuter.d2 = dvec2(0.5, 0.5);
+
+    // 各种重载匹配测试
+    TestOverloadFunction(localInner);                             // 匹配 InnerData
+    TestOverloadFunction(localMiddle);                            // 匹配 MiddleData
+    TestOverloadFunction(localOuter);                             // 匹配 OuterData
+    
+    TestOverloadFunction(localOuter.middle[1]);                   // 匹配 MiddleData
+    TestOverloadFunction(localOuter.middle[0].inner);             // 匹配 InnerData
+    TestOverloadFunction(localOuter.middle[0].inner.v3);          // 匹配 vec3
+    TestOverloadFunction(localOuter.middle[0].inner.m2[1]);       // 匹配 mat2
+    TestOverloadFunction(localOuter.middle[0].v4Array[2]);        // 匹配 vec4
+    TestOverloadFunction(localOuter.middle[0].v4Array[2].xyz);    // 匹配 vec3
+    TestOverloadFunction(localOuter.middle[1].m4[0]);             // 匹配 vec4 (mat4 的列是 vec4)
+    TestOverloadFunction(localOuter.middle[1].m4[0].x);           // 匹配 float32_t
+    
+    // 数组重载匹配
+    TestOverloadFunction(localOuter.middle[0].inner.m2);          // 匹配 mat2[2]
+    TestOverloadFunction(localOuter.middle[0].inner.arr2d);       // 匹配 int[2][3]
+    TestOverloadFunction(localOuter.middle[0].inner.arr2d[0]);    // 匹配 int[3]
+    TestOverloadFunction(localOuter.middle[0].inner.arr2d[1][2]); // 匹配 int32_t
+
+    // 运算 + 链式调用
+    TestOverloadFunction(localOuter.middle[0].inner.v3 + vec3(1.0));                    // 匹配 vec3
+    TestOverloadFunction(localOuter.middle[1].m4 * localOuter.middle[0].inner.v3.xyzz); // 匹配 vec4
+    TestOverloadFunction(dot(localOuter.middle[0].inner.v3, vec3(0.5)));                // 匹配 float32_t
 
 #define TEST TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 }
