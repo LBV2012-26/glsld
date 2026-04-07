@@ -92,7 +92,7 @@ namespace glsld {
         std::uint32_t file_index{};
 
         bool operator==(const SourceLocation& other) const {
-            return line == other.line && column == other.column;
+            return line == other.line && column == other.column && file_index == other.file_index;
         }
 
         auto operator<=>(const SourceLocation& other) const {

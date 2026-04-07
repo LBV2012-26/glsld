@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -11,7 +11,7 @@
 namespace glsld {
     class Lexer {
     public:
-        Lexer(std::string_view source);
+        Lexer(std::string_view source, std::uint32_t file_index = 0);
 
         Token AcquireNextToken();
 
@@ -21,7 +21,6 @@ namespace glsld {
         Token Capture(TokenType type, std::size_t length = 1);
         void BuildLexicalTable();
         void LoadLexicalFile(std::string_view filename, TokenType type);
-        void InsertTable(std::span<const std::string_view> words, TokenType type);
         void SkipWhitespaceAndComments();
         void Advance(std::size_t count = 1);
 
@@ -29,6 +28,7 @@ namespace glsld {
         std::size_t      position_{};
         std::size_t      line_{ 1 };
         std::size_t      column_{ 1 };
+        std::uint32_t    file_index_{};
 
         static inline StringHeteroHashTable<TokenType> lexical_table_;
     };

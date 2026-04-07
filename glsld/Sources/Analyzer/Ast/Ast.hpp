@@ -337,8 +337,8 @@ namespace glsld {
     };
 
     struct MemberAccessExpressionNode final : public ExpressionNode {
-        std::unique_ptr<ExpressionNode>         object;
-        std::unique_ptr<VariableExpressionNode> member;
+        std::unique_ptr<ExpressionNode> object;
+        std::unique_ptr<ExpressionNode> member;
 
         using ExpressionNode::ExpressionNode;
 

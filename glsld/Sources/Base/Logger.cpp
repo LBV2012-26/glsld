@@ -2,11 +2,11 @@
 #include "logger.hpp"
 
 #include <algorithm>
-#include <unordered_map>
-
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
 #include "Base/Config.hpp"
+#include "Base/Hash.hpp"
 #include "Base/YamlTypes.hpp"
 #include "Utils/Utils.hpp"
 
@@ -54,7 +54,7 @@ namespace glsld {
     void LoggerManager::OnConfigChange(const std::unordered_set<LoggerConfig>& old_configs,
                                        const std::unordered_set<LoggerConfig>& new_configs)
     {
-        std::unordered_map<std::string, LoggerConfig> new_configs_map;
+        StringHeteroHashTable<LoggerConfig> new_configs_map;
         for (const auto& config : new_configs) {
             new_configs_map.try_emplace(config.name, config);
         }

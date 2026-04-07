@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <string_view>
 #include <utility>
@@ -26,8 +27,8 @@ int main() {
 
     using namespace glsld;
 
-    int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
-    if (result == IDOK) {
+    //int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
+    if (false) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
@@ -36,16 +37,17 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        std::ifstream shader_file("Tests/Debugger.glsl", std::ios::ate | std::ios::binary);
+        auto filename = "Tests/Debugger.glsl";
+        std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::cerr << "Failed to open test GLSL source." << std::endl;
             return EXIT_FAILURE;
         }
 
-        auto size = shader_file.tellg();
-        shader_file.seekg(0);
-
+        auto size = std::filesystem::file_size(filename);
         std::vector<char> source_buffer(size);
+
+        shader_file.seekg(0);
         shader_file.read(source_buffer.data(), size);
 
         std::string_view shader_source(source_buffer);
@@ -80,10 +82,10 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        AstDumper dumper(0, nullptr);
-        dumper.Traverse(document.ast.get());
+        //AstDumper dumper(0, nullptr);
+        //dumper.Traverse(document.ast.get());
 
-        document.symbols.Dump();
+        //document.symbols.Dump();
 
         std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),

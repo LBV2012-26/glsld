@@ -187,6 +187,7 @@ namespace glsld {
     std::vector<const SymbolInfo*> DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
         std::vector<const SymbolInfo*> results;
 
+        // TODO: cache find results
         for (const auto& [mangled_name, symbol] : root_scope_->symbols_) {
             if (utils::UnmangleFunctionName(mangled_name) == base_name) {
                 results.push_back(&symbol);

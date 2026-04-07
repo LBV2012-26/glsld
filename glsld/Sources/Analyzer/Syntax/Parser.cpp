@@ -19,6 +19,8 @@ namespace glsld {
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
     {
+        raw_tokens_.reserve(source.length() / 5);
+
         while (true) {
             if (version_pointer_ != nullptr && version_replica != version_pointer_->load()) {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
@@ -877,9 +879,8 @@ namespace glsld {
         node->begin  = object->begin;
         node->object = std::move(object);
 
-        if (current_token().type == TokenType::kIdentifier) {
-            const auto& member_token = current_token();
-
+        const auto& member_token = current_token();
+        if (member_token.type == TokenType::kIdentifier) {
             auto member_node            = std::make_unique<VariableExpressionNode>(current_scope());
             member_node->begin          = member_token.location;
             member_node->original_token = member_token;
@@ -888,8 +889,12 @@ namespace glsld {
             member_node->end            = GetCurrentTokenEnd();
 
             node->member = std::move(member_node);
-
             ConsumeToken();
+        } else if (member_token.type == TokenType::kBuiltInFunction) { // array.length();
+            auto callee_expr = ParseVariableReference();
+            auto callee_node = ParseFunctionCall(std::move(callee_expr));
+
+            node->member = std::move(callee_node);
         }
 
         node->end = GetPreviousTokenEnd();

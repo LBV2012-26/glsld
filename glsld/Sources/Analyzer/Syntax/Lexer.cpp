@@ -6,14 +6,16 @@
 #include <fstream>
 #include <ios>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    Lexer::Lexer(std::string_view source)
+    Lexer::Lexer(std::string_view source, std::uint32_t file_index)
         : source_{ source }
+        , file_index_{ file_index }
     {
         BuildLexicalTable();
     }
@@ -21,7 +23,11 @@ namespace glsld {
     Token Lexer::AcquireNextToken() {
         SkipWhitespaceAndComments();
 
-        const SourceLocation location{ line_, column_ };
+        const SourceLocation location{
+            .line       = line_,
+            .column     = column_,
+            .file_index = file_index_
+        };
 
         if (position_ >= source_.length()) {
             return { {}, location, TokenType::kEndOfFile };
@@ -160,10 +166,20 @@ namespace glsld {
     }
 
     Token Lexer::Capture(TokenType type, std::size_t length) {
-        const SourceLocation location{ line_, column_ };
+        const SourceLocation location{
+            .line       = line_,
+            .column     = column_,
+            .file_index = file_index_
+        };
+
         std::string text(source_.substr(position_, length));
         Advance(length);
-        return { text, location, type };
+
+        return {
+            .text     = text,
+            .location = location,
+            .type     = type
+        };
     }
 
     void Lexer::BuildLexicalTable() {
@@ -206,12 +222,8 @@ namespace glsld {
         };
 
         auto words = ExtractWords(buffer);
-        InsertTable(words, type);
-    }
-
-    void Lexer::InsertTable(std::span<const std::string_view> words, TokenType type) {
-        for (auto& word : words) {
-            lexical_table_.try_emplace(std::string(word), type);
+        for (auto word : words) {
+            lexical_table_.emplace(word, type);
         }
     }
 

@@ -8,5 +8,5 @@
     "spdlog",
     "yaml-cpp"
   ],
-  "builtin-baseline": "a9f0cd0345fb29cd227d802f1fd1917c28f8e5a3"
+  "builtin-baseline": "81e3c888ef717a026eb57bb2f3cb0dbd30246271"
 }

@@ -419,7 +419,7 @@ namespace glsld {
         }
 
         const auto* callee = static_cast<const VariableExpressionNode*>(node->callee.get());
-        auto candidates = snapshot->symbols.FindFunctionsByOriginalName(utils::UnmangleFunctionName(callee->name));
+        auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
         if (candidates.empty()) {
             return std::nullopt;
         }

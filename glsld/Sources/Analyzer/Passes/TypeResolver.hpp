@@ -14,11 +14,10 @@
 
 namespace glsld {
     enum class MatchGrade {
-        kFailed      = 0,
-        kWildcard    = 1,
-        kTypeUpgrade = 2,
-        kBitsUpgrade = 3,
-        kExactMatch  = 4
+        kFailed     = 0,
+        kWildcard   = 1,
+        kImplicitly = 2,
+        kExactMatch = 4
     };
 
     struct CandidateScore {

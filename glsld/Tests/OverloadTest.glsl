@@ -961,8 +961,6 @@ void main() {
     TestOverloadFunction(localOuter.middle[0].inner.v3 + vec3(1.0));                    // 匹配 vec3
     TestOverloadFunction(localOuter.middle[1].m4 * localOuter.middle[0].inner.v3.xyzz); // 匹配 vec4
     TestOverloadFunction(dot(localOuter.middle[0].inner.v3, vec3(0.5)));                // 匹配 float32_t
-
-#define TEST TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 }
 
 void TestOverloadFunction() {}

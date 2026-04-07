@@ -146,7 +146,7 @@ namespace glsld {
             // 相同 Family，允许位宽提升
             if (from_desc.family == to_desc.family) {
                 if (from_desc.bits <= to_desc.bits) {
-                    return MatchGrade::kBitsUpgrade;
+                    return MatchGrade::kImplicitly;
                 } else {
                     return MatchGrade::kFailed;
                 }
@@ -156,7 +156,7 @@ namespace glsld {
             if (from_desc.family == BaseFamily::kInt) {
                 if (to_desc.family == BaseFamily::kUint || to_desc.family == BaseFamily::kFloat) {
                     if (from_desc.bits <= to_desc.bits) {
-                        return MatchGrade::kTypeUpgrade;
+                        return MatchGrade::kImplicitly;
                     } else {
                         return MatchGrade::kFailed;
                     }
@@ -169,7 +169,7 @@ namespace glsld {
             if (from_desc.family == BaseFamily::kUint) {
                 if (to_desc.family == BaseFamily::kFloat) {
                     if (from_desc.bits <= to_desc.bits) {
-                        return MatchGrade::kTypeUpgrade;
+                        return MatchGrade::kImplicitly;
                     } else {
                         return MatchGrade::kFailed;
                     }
@@ -192,27 +192,33 @@ namespace glsld {
         };
 
         MatchResult CompareCandidates(const CandidateScore& lhs, const CandidateScore& rhs) {
-            bool lhs_better = false;
-            bool rhs_better = false;
+            int lhs_better = 0;
+            int rhs_better = 0;
 
             auto min_size = std::min(lhs.param_grades.size(), rhs.param_grades.size());
 
             for (auto i = 0uz; i != min_size; ++i) {
                 if (lhs.param_grades[i] > rhs.param_grades[i])
-                    lhs_better = true;
+                    ++lhs_better;
                 if (rhs.param_grades[i] > lhs.param_grades[i])
-                    rhs_better = true;
+                    ++rhs_better;
             }
 
-            if (lhs_better && !rhs_better)
+            if (lhs_better > 0 && rhs_better == 0)
                 return MatchResult::kLhsBetter;
-            if (rhs_better && !lhs_better)
+            if (rhs_better > 0 && lhs_better == 0)
                 return MatchResult::kRhsBetter;
 
-            if (!lhs_better && !rhs_better) {
+            if (lhs_better > 0 && rhs_better > 0) {
                 if (lhs.symbol->param_typeinfos.size() < rhs.symbol->param_typeinfos.size()) {
                     return MatchResult::kLhsBetter;
                 } else if (lhs.symbol->param_typeinfos.size() > rhs.symbol->param_typeinfos.size()) {
+                    return MatchResult::kRhsBetter;
+                }
+
+                if (lhs_better > rhs_better) {
+                    return MatchResult::kLhsBetter;
+                } else if (rhs_better > lhs_better) {
                     return MatchResult::kRhsBetter;
                 }
 
@@ -380,7 +386,7 @@ namespace glsld {
                         decl_sizes[i] = init_sizes[i];
                     }
                 } else {
-                    // 显式指定了大小
+                    // 显式指定了数组维度
                     // do nothing
                 }
             }
@@ -765,20 +771,30 @@ namespace glsld {
         Traverse(node->object.get());
         // Traverse(node->member.get()); SymbolLinker 不知道结构体内部作用域，遍历了也鸡毛用没有
 
-        auto object_type = node->object->evaluated_type;
+        const auto& object_type  = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
 
-        if (block_symbol != nullptr  && block_symbol->internal_scope != nullptr && node->member != nullptr) {
-            const auto* member_symbol = block_symbol->internal_scope->FindSymbol(node->member->name);
+        if (block_symbol != nullptr && block_symbol->internal_scope != nullptr && node->member != nullptr) {
+            if (node->member->kind() == AstNodeKind::kVariableExpression) {
+                auto* member_node = static_cast<VariableExpressionNode*>(node->member.get());
+                const auto* member_symbol = block_symbol->internal_scope->FindSymbol(member_node->name);
 
-            if (member_symbol != nullptr) {
-                node->member->linked_symbols = member_symbol;
-                node->evaluated_type = member_symbol->type_info;
+                if (member_symbol != nullptr) {
+                    member_node->linked_symbols = member_symbol;
+                    node->evaluated_type = member_symbol->type_info;
 
-                document_.bindings.try_emplace(node->member->begin, member_symbol);
+                    document_.bindings.try_emplace(member_node->begin, member_symbol);
+                }
+            } else { // node->member->kind() == AstNodeKind::kCallExpression
+                // do nothing, GLSL not support member function
             }
         } else if (object_type.is_builtin()) {
-            node->evaluated_type = ResolveSwizzleType(object_type, node->member->name);
+            if (node->member == nullptr || node->member->kind() != AstNodeKind::kVariableExpression) {
+                return;
+            }
+
+            const auto* member_node = static_cast<const VariableExpressionNode*>(node->member.get());
+            node->evaluated_type = ResolveSwizzleType(object_type, member_node->name);
         }
     }
 

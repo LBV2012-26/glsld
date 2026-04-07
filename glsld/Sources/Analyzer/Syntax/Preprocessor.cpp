@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "Analyzer/Syntax/Lexer.hpp"
+#include "Base/Hash.hpp"
 
 namespace glsld {
     namespace {
@@ -51,7 +52,10 @@ namespace glsld {
 
             std::int64_t ParseNumberLiteral(std::string_view text) {
                 auto IsSuffix = [](char ch) -> bool {
-                    return ch == 'u' || ch == 'U' || ch == 'l' || ch == 'L' || ch == 'f' || ch == 'F';
+                    return ch == 'u' || ch == 'U' ||
+                           ch == 'l' || ch == 'L' ||
+                           ch == 's' || ch == 'S' ||
+                           ch == 'f' || ch == 'F';
                 };
 
                 auto end = text.size();
@@ -526,6 +530,7 @@ namespace glsld {
 
     std::vector<Token> Preprocessor::Process() {
         std::vector<Token> expanded;
+        expanded.reserve(raw_tokens_.size() * 1.1);
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (current_token().type == TokenType::kSharp) {
@@ -727,7 +732,7 @@ namespace glsld {
                                                              std::unordered_set<std::string>& active_macros,
                                                              SourceLocation call_site)
     {
-        std::unordered_map<std::string, std::size_t> param_index;
+        StringHeteroHashTable<std::size_t> param_index;
         for (auto i = 0uz; i != defination.params.size(); ++i) {
             param_index.try_emplace(defination.params[i].text, i);
         }
