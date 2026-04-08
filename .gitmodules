@@ -1,0 +1,3 @@
+[submodule "glsld/Externals/mimalloc"]
+	path = glsld/Externals/mimalloc
+	url = https://github.com/microsoft/mimalloc.git
