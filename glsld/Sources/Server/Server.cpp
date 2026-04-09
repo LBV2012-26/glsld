@@ -41,6 +41,7 @@ namespace glsld {
 
     LspServer::LspServer()
         : thread_pool_{ std::thread::hardware_concurrency() }
+        , workspace_{ thread_pool_ }
     {
         RegisterHandlers();
     }

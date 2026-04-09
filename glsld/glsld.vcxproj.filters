@@ -25,6 +25,8 @@
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
+    <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
+    <ClCompile Include="Sources\Base\IncludeLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -57,6 +59,7 @@
     <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
+    <ClInclude Include="Sources\Base\IncludeLoader.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

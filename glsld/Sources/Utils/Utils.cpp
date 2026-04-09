@@ -125,7 +125,7 @@ namespace glsld::utils {
     }
 
     bool IsPositionInToken(const Token& token, SourceLocation position) {
-        if (token.location.file_index != position.file_index) {
+        if (token.location.source != position.source) {
             return false;
         }
 
@@ -145,7 +145,7 @@ namespace glsld::utils {
             return false;
         }
 
-        if (symbol->location.file_index != position.file_index) {
+        if (symbol->location.source != position.source) {
             return false;
         }
 

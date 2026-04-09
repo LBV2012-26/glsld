@@ -11,8 +11,17 @@
 #include "Analyzer/Syntax/Parser.hpp"
 
 namespace glsld {
-    void Workspace::UpdateDocument(std::string_view uri, std::string_view context, int version_replica,
-                                   std::shared_ptr<const std::atomic<int>> version, bool open_document)
+    Workspace::Workspace(ThreadPool& thread_pool)
+        : thread_pool_{ thread_pool }
+        , include_loader_{ thread_pool }
+    {}
+
+    void Workspace::UpdateDocument(
+        std::string_view uri,
+        std::string_view context,
+        int version_replica,
+        std::shared_ptr<const std::atomic<int>> version,
+        bool open_document)
     {
         auto document = std::make_shared<Document>();
         document->version = version_replica;
@@ -22,7 +31,7 @@ namespace glsld {
         };
 
         try {
-            Parser parser(context, *document, version_replica, version);
+            Parser parser(context, include_loader_, uri, {}, *document, version_replica, version);
             parser.Parse();
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr

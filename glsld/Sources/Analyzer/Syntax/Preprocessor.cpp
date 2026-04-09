@@ -127,7 +127,7 @@ namespace glsld {
                     return static_cast<std::int64_t>(magnitude);
                 }
 
-                constexpr std::uint64_t kMinAbsolute = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1ull;
+                constexpr auto kMinAbsolute = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1ull;
                 if (magnitude > kMinAbsolute) {
                     return std::numeric_limits<std::int64_t>::min();
                 }
@@ -520,17 +520,31 @@ namespace glsld {
         };
     }
 
-    Preprocessor::Preprocessor(MacroTraceMap& trace_map, MacroArgsTraceMap& args_trace_map,
-                               std::vector<InactiveRegion>& inactive_regions, std::span<const Token> raw_tokens)
-        : trace_map_{ trace_map }
+    Preprocessor::Preprocessor(std::span<const Token> raw_tokens,
+                               MacroTraceMap& trace_map,
+                               MacroArgsTraceMap& args_trace_map,
+                               std::vector<InactiveRegion>& inactive_regions,
+                               IncludeLoader& include_loader,
+                               std::span<const std::filesystem::path> include_dirs,
+                               SourceReference source,
+                               std::vector<std::string> parent_stack)
+        : raw_tokens_{ raw_tokens }
+        , trace_map_{ trace_map }
         , args_trace_map_{ args_trace_map }
         , inactive_regions_{ inactive_regions }
-        , raw_tokens_{ raw_tokens }
-    {}
+        , include_loader_{ include_loader }
+        , include_dirs_{ include_dirs }
+        , source_{ source }
+        , include_stack_{ std::move(parent_stack) }
+    {
+        if (include_stack_.empty()) {
+            include_stack_.push_back(source_->normalized_path);
+        }
+    }
 
     std::vector<Token> Preprocessor::Process() {
         std::vector<Token> expanded;
-        expanded.reserve(raw_tokens_.size() * 1.1);
+        expanded.reserve(static_cast<std::size_t>(raw_tokens_.size() * 1.1));
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (current_token().type == TokenType::kSharp) {
@@ -660,9 +674,10 @@ namespace glsld {
         return true;
     }
 
-    std::vector<Token> Preprocessor::ExpandTokenSequence(std::span<const Token> input,
-                                                         std::unordered_set<std::string>& active_macros,
-                                                         SourceLocation call_site)
+    std::vector<Token> Preprocessor::ExpandTokenSequence(
+        std::span<const Token> input,
+        std::unordered_set<std::string>& active_macros,
+        SourceLocation call_site)
     {
         std::vector<Token> result;
 
@@ -727,10 +742,11 @@ namespace glsld {
         return result;
     }
 
-    std::vector<Token> Preprocessor::SubstituteFunctionMacro(const MacroDefination& defination,
-                                                             const std::vector<std::vector<Token>>& arguments,
-                                                             std::unordered_set<std::string>& active_macros,
-                                                             SourceLocation call_site)
+    std::vector<Token> Preprocessor::SubstituteFunctionMacro(
+        const MacroDefination& defination,
+        const std::vector<std::vector<Token>>& arguments,
+        std::unordered_set<std::string>& active_macros,
+        SourceLocation call_site)
     {
         StringHeteroHashTable<std::size_t> param_index;
         for (auto i = 0uz; i != defination.params.size(); ++i) {
@@ -761,7 +777,9 @@ namespace glsld {
                 return true;
             }
 
-            if (replace_index + 1 < replacement_list.size() && replacement_list[replace_index + 1].type == TokenType::kSharpSharp) {
+            if (replace_index + 1 < replacement_list.size() &&
+                replacement_list[replace_index + 1].type == TokenType::kSharpSharp)
+            {
                 return true;
             }
 
@@ -801,7 +819,10 @@ namespace glsld {
         return rescanned;
     }
 
-    bool Preprocessor::ParseFunctionMacroInvocationFromStream(const MacroDefination& defination, std::vector<std::vector<Token>>& arguments) {
+    bool Preprocessor::ParseFunctionMacroInvocationFromStream(
+        const MacroDefination& defination,
+        std::vector<std::vector<Token>>& arguments)
+    {
         const auto name_index        = token_index_;
         const auto open_paren_index  = token_index_ + 1;
         auto       close_paren_index = 0uz;
@@ -814,8 +835,11 @@ namespace glsld {
         return true;
     }
 
-    bool Preprocessor::ParseFunctionMacroInvocationInSequence(std::span<const Token> input, std::size_t open_paren_index,
-                                                              std::size_t& close_paren_index, std::vector<std::vector<Token>>& arguments)
+    bool Preprocessor::ParseFunctionMacroInvocationInSequence(
+        std::span<const Token> input,
+        std::size_t open_paren_index,
+        std::size_t& close_paren_index,
+        std::vector<std::vector<Token>>& arguments)
     {
         if (open_paren_index >= input.size() || input[open_paren_index].type != TokenType::kOpenParen) {
             return false;
@@ -931,8 +955,8 @@ namespace glsld {
     Token Preprocessor::PasteTokens(const Token& left, const Token& right) {
         std::string new_text = left.text + right.text;
 
-        Lexer lexer(new_text);
-        Token token = lexer.AcquireNextToken();
+        // Lexer lexer(new_text);
+        Token token /*= lexer.AcquireNextToken()*/;
         token.location = left.location;
 
         return token;
@@ -953,12 +977,16 @@ namespace glsld {
         const auto  directive_line  = directive_token.location.line;
         ConsumeToken();
 
-        auto ProcessLineSplicing = [](auto& body) -> void {
+        auto ProcessLineSplicing = [this](auto& body) -> void {
             for (auto i = 0uz; i < body.size(); ++i) {
                 if (i + 1 < body.size() && body[i].location.line < body[i + 1].location.line) {
                     body.insert(body.begin() + i + 1, Token{
                         .text     = "\\",
-                        .location = SourceLocation{ body[i].location.line, body[i].location.column + body[i].text.length() + 1 },
+                        .location = SourceLocation{
+                            .source = source_,
+                            .line   = body[i].location.line,
+                            .column = body[i].location.column + body[i].text.length() + 1
+                        },
                         .type     = TokenType::kBackslash
                     });
 
@@ -988,6 +1016,12 @@ namespace glsld {
         }
 
         if (!IsCurrentBranchActive()) {
+            return;
+        }
+
+        if (directive_text == "include") {
+            auto included = ExpandIncludeDirective(body);
+            output.append_range(included | std::views::as_rvalue);
             return;
         }
 
@@ -1065,7 +1099,11 @@ namespace glsld {
         macros_.insert_or_assign(defination.original_token.text, std::move(defination));
     }
 
-    bool Preprocessor::HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::size_t sharp_line) {
+    bool Preprocessor::HandleConditionalDirective(
+        std::string_view directive,
+        std::span<const Token> body_tokens,
+        std::size_t sharp_line)
+    {
         if (directive == "if") {
             bool parent_active = IsCurrentBranchActive();
             bool condition     = parent_active && EvaluateIfCondition(body_tokens);
@@ -1164,7 +1202,10 @@ namespace glsld {
         return evaluator.Evaluate();
     }
 
-    std::vector<Token> Preprocessor::ExpandIfExpression(std::span<const Token> input, std::unordered_set<std::string>& active_macros) {
+    std::vector<Token> Preprocessor::ExpandIfExpression(
+        std::span<const Token> input,
+        std::unordered_set<std::string>& active_macros)
+    {
         std::vector<Token> normalized;
         normalized.reserve(input.size());
 
@@ -1224,7 +1265,8 @@ namespace glsld {
             ++i;
         }
 
-        auto expanded = ExpandTokenSequence(normalized, active_macros, normalized.empty() ? SourceLocation{} : normalized.front().location);
+        auto expanded = ExpandTokenSequence(
+            normalized, active_macros, normalized.empty() ? SourceLocation{} : normalized.front().location);
 
         std::vector<Token> final_tokens;
         final_tokens.reserve(expanded.size());
@@ -1289,5 +1331,49 @@ namespace glsld {
 
         AppendInactiveRegion(*open_inactive_begin_line_, eof_line);
         open_inactive_begin_line_.reset();
+    }
+
+    std::vector<Token> Preprocessor::ExpandIncludeDirective(std::span<const Token> body_tokens) {
+        std::unordered_set<std::string> active_macros;
+        SourceLocation call_site;
+        if (!body_tokens.empty()) {
+            call_site = body_tokens.front().location;
+        }
+
+        auto expanded_body = ExpandTokenSequence(body_tokens, active_macros, call_site);
+        auto future        = include_loader_.Include(source_->uri, expanded_body, include_dirs_);
+        auto snapshot      = future.get();
+
+        if (snapshot == nullptr || !snapshot->valid()) {
+            return {};
+        }
+
+        if (std::ranges::find(include_stack_, snapshot->normalized_path) != include_stack_.end()) {
+            return {};
+        }
+
+        auto include_file = std::make_shared<SourceFile>(snapshot->normalized_path, snapshot->uri);
+
+        Preprocessor subprocessor(
+            snapshot->tokens,
+            trace_map_,
+            args_trace_map_,
+            inactive_regions_,
+            include_loader_,
+            include_dirs_,
+            include_file,
+            include_stack_
+        );
+
+        subprocessor.macros_ = macros_;
+
+        auto expanded = subprocessor.Process();
+        macros_ = std::move(subprocessor.macros_);
+
+        if (!expanded.empty() && expanded.back().type == TokenType::kEndOfFile) {
+            expanded.pop_back();
+        }
+
+        return expanded;
     }
 }

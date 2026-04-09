@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <stack>
@@ -13,6 +14,7 @@
 #include "Analyzer/Syntax/Token.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Base/Hash.hpp"
+#include "Base/IncludeLoader.hpp"
 
 namespace glsld {
     struct ConditionalFrame {
@@ -32,8 +34,14 @@ namespace glsld {
 
     class Preprocessor {
     public:
-        Preprocessor(MacroTraceMap& trace_map, MacroArgsTraceMap& args_trace_map,
-                     std::vector<InactiveRegion>& inactive_regions, std::span<const Token> raw_tokens);
+        Preprocessor(std::span<const Token> raw_tokens,
+                     MacroTraceMap& trace_map,
+                     MacroArgsTraceMap& args_trace_map,
+                     std::vector<InactiveRegion>& inactive_regions,
+                     IncludeLoader& include_loader,
+                     std::span<const std::filesystem::path> include_dirs,
+                     SourceReference source,
+                     std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();
 
@@ -42,19 +50,26 @@ namespace glsld {
         std::vector<Token> CaptureDirectiveBodyTokens(std::size_t directive_physical_line);
         bool ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output);
 
-        std::vector<Token> ExpandTokenSequence(std::span<const Token> input,
-                                               std::unordered_set<std::string>& active_macros,
-                                               SourceLocation call_site);
+        std::vector<Token> ExpandTokenSequence(
+            std::span<const Token> input,
+            std::unordered_set<std::string>& active_macros,
+            SourceLocation call_site);
 
-        std::vector<Token> SubstituteFunctionMacro(const MacroDefination& defination,
-                                                   const std::vector<std::vector<Token>>& arguments,
-                                                   std::unordered_set<std::string>& active_macros,
-                                                   SourceLocation call_site);
+        std::vector<Token> SubstituteFunctionMacro(
+            const MacroDefination& defination,
+            const std::vector<std::vector<Token>>& arguments,
+            std::unordered_set<std::string>& active_macros,
+            SourceLocation call_site);
 
-        bool ParseFunctionMacroInvocationFromStream(const MacroDefination& defination, std::vector<std::vector<Token>>& arguments);
+        bool ParseFunctionMacroInvocationFromStream(
+            const MacroDefination& defination,
+            std::vector<std::vector<Token>>& arguments);
 
-        bool ParseFunctionMacroInvocationInSequence(std::span<const Token> input, std::size_t open_paren_index,
-                                                    std::size_t& close_paren_index, std::vector<std::vector<Token>>& arguments);
+        bool ParseFunctionMacroInvocationInSequence(
+            std::span<const Token> input,
+            std::size_t open_paren_index,
+            std::size_t& close_paren_index,
+            std::vector<std::vector<Token>>& arguments);
 
         std::vector<Token> ApplyTokenPasting(std::span<const Token> tokens);
         Token PasteTokens(const Token& left, const Token& right);
@@ -68,20 +83,26 @@ namespace glsld {
         void AppendInactiveRegion(std::size_t begin_line, std::size_t end_line);
         void UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line);
         void FinalizeInactiveRegions(std::size_t eof_line);
+        std::vector<Token> ExpandIncludeDirective(std::span<const Token> body_tokens);
 
         const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
 
+        std::span<const Token>                 raw_tokens_;
         StringHeteroHashTable<MacroDefination> macros_;
         std::stack<ConditionalFrame>           condition_stack_;
         MacroTraceMap&                         trace_map_;
         MacroArgsTraceMap&                     args_trace_map_;
         std::vector<InactiveRegion>&           inactive_regions_;
         std::optional<std::size_t>             open_inactive_begin_line_;
-        std::span<const Token>                 raw_tokens_;
         std::size_t                            token_index_{};
+
+        IncludeLoader&                         include_loader_;
+        std::span<const std::filesystem::path> include_dirs_;
+        SourceReference                        source_;
+        std::vector<std::string>               include_stack_;
     };
 }
 

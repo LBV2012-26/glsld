@@ -13,9 +13,16 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    Lexer::Lexer(std::string_view source, std::uint32_t file_index)
+    Lexer::Lexer(std::string_view source,
+                 IncludeLoader& include_loader,
+                 std::string_view current_uri,
+                 std::span<const std::filesystem::path> include_dirs,
+                 SourceReference source_ref)
         : source_{ source }
-        , file_index_{ file_index }
+        , include_loader_{ include_loader }
+        , current_uri_{ current_uri }
+        , include_dirs_{ include_dirs }
+        , source_ref_{ source_ref }
     {
         BuildLexicalTable();
     }
@@ -23,10 +30,14 @@ namespace glsld {
     Token Lexer::AcquireNextToken() {
         SkipWhitespaceAndComments();
 
+        if (position_ < source_.length() && source_[position_] == '#') {
+            TryPrefetchInclude();
+        }
+
         const SourceLocation location{
-            .line       = line_,
-            .column     = column_,
-            .file_index = file_index_
+            .source = source_ref_,
+            .line   = line_,
+            .column = column_
         };
 
         if (position_ >= source_.length()) {
@@ -99,6 +110,53 @@ namespace glsld {
         return { std::string(source_.substr(position_ - 1, 1)), location, TokenType::kUnknown };
     }
 
+    void Lexer::TryPrefetchInclude() {
+        if (position_ > source_.length() || source_[position_] != '#') {
+            return;
+        }
+
+        auto index = position_ + 1;
+
+        auto SkipWhitespace = [&index, this]() {
+            while (index < source_.length() && (source_[index] == ' ' || source_[index] == '\t' || source_[index] == '\r')) {
+                ++index;
+            }
+        };
+
+        SkipWhitespace();
+
+        static constexpr std::string_view kInclude = "include";
+        if (index + kInclude.length() > source_.length()) {
+            return;
+        }
+
+        for (auto i = 0; i != kInclude.length(); ++i) {
+            if (source_[index + i] != kInclude[i]) {
+                return;
+            }
+        }
+
+        index += kInclude.length();
+        SkipWhitespace();
+
+        if (index >= source_.length()) {
+            return;
+        }
+
+        if (source_[index] == '"' || source_[index] == '<') {
+            char delimiter = source_[index] == '"' ? '"' : '>';
+
+            auto end = index + 1;
+            while (end < source_.length() && source_[end] != delimiter && source_[end] != '\n') {
+                ++end;
+            }
+
+            if (end < source_.length() && source_[end] == delimiter) {
+                include_loader_.Prefetch(current_uri_, source_.substr(index, end - index + 1), include_dirs_);
+            }
+        }
+    }
+
     Token Lexer::DetectToken(unsigned char current_char) {
         switch (current_char) {
         // X
@@ -167,9 +225,9 @@ namespace glsld {
 
     Token Lexer::Capture(TokenType type, std::size_t length) {
         const SourceLocation location{
-            .line       = line_,
-            .column     = column_,
-            .file_index = file_index_
+            .source = source_ref_,
+            .line   = line_,
+            .column = column_
         };
 
         std::string text(source_.substr(position_, length));
@@ -187,12 +245,12 @@ namespace glsld {
             return;
         }
 
-        LoadLexicalFile(utils::GetFilePath("Assets/glslFunctions.txt"), TokenType::kBuiltInFunction);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslKeywords.txt"), TokenType::kKeyword);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslFunctions.txt"),     TokenType::kBuiltInFunction);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslKeywords.txt"),      TokenType::kKeyword);
         LoadLexicalFile(utils::GetFilePath("Assets/glslPreprocessors.txt"), TokenType::kPreprocessor);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslPrimitives.txt"), TokenType::kPrimitive);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslTypes.txt"), TokenType::kBuiltInType);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslVariables.txt"), TokenType::kBuiltInVariable);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslPrimitives.txt"),    TokenType::kPrimitive);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslTypes.txt"),         TokenType::kBuiltInType);
+        LoadLexicalFile(utils::GetFilePath("Assets/glslVariables.txt"),     TokenType::kBuiltInVariable);
     }
 
     void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {

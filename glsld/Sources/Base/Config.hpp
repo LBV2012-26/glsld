@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>

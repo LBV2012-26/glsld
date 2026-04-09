@@ -61,8 +61,8 @@ namespace glsld {
         mutable std::condition_variable ready_condition_;
         mutable std::mutex              update_mutex_;
         Router                          router_;
-        Workspace                       workspace_;
         ThreadPool                      thread_pool_;
+        Workspace                       workspace_;
 
         StringHeteroHashTable<PendingUpdate>                     pending_updates_;
         StringHeteroHashTable<std::shared_ptr<std::atomic<int>>> document_versions_;

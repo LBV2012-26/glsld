@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include <mimalloc.h>
 #include <fcntl.h>
 #include "Windows.h"
 
@@ -21,14 +23,53 @@
 #include "Server/Server.hpp"
 #include "Utils/Utils.hpp"
 
+namespace {
+    void InitLargetPage() {
+        HANDLE token = nullptr;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
+            TOKEN_PRIVILEGES token_privileges{};
+            LUID luid{};
+
+            if (LookupPrivilegeValue(nullptr, SE_LOCK_MEMORY_NAME, &luid)) {
+                token_privileges.PrivilegeCount           = 1;
+                token_privileges.Privileges[0].Luid       = luid;
+                token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+                AdjustTokenPrivileges(token, FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr);
+            }
+
+            CloseHandle(token);
+        }
+
+        constexpr auto kMemorySize = 160uz * 1024 * 1024;
+        LPVOID memory = nullptr;
+        int try_alloc = 0;
+
+        do {
+            ++try_alloc;
+            memory = VirtualAlloc(nullptr, kMemorySize, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
+        } while (memory == nullptr && try_alloc < 100);
+
+        mi_manage_os_memory(memory, kMemorySize, true, true, true, -1);
+    }
+}
+
+extern "C" {
+    void mainCRTStartup();
+
+    void Main() {
+        // InitLargetPage();
+        mainCRTStartup();
+    }
+}
+
 int main() {
     std::ignore = _setmode(_fileno(stdin), _O_BINARY);
     std::ignore = _setmode(_fileno(stdout), _O_BINARY);
 
     using namespace glsld;
 
-    //int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
-    if (false) {
+    int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
+    if (result == IDOK) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
@@ -52,10 +93,12 @@ int main() {
 
         std::string_view shader_source(source_buffer);
 
+        ThreadPool thread_pool;
+        IncludeLoader loader(thread_pool);
         Document document;
 
         auto lexer_start = std::chrono::high_resolution_clock::now();
-        Parser parser(shader_source, document, 0, nullptr);
+        Parser parser(shader_source, loader, "file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl", {}, document, 0, nullptr);
         auto lexer_end = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
@@ -82,10 +125,10 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        //AstDumper dumper(0, nullptr);
-        //dumper.Traverse(document.ast.get());
+        AstDumper dumper(0, nullptr);
+        dumper.Traverse(document.ast.get());
 
-        //document.symbols.Dump();
+        document.symbols.Dump();
 
         std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),

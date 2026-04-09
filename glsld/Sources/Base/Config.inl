@@ -4,7 +4,6 @@
 #include <exception>
 #include <limits>
 #include <mutex>
-#include <stdexcept>
 #include <typeinfo>
 
 #include "Base/Logger.hpp"

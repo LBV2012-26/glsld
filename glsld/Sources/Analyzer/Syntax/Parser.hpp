@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <span>
 #include <stack>
@@ -14,11 +15,17 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/IncludeLoader.hpp"
 
 namespace glsld {
     class Parser {
     public:
-        Parser(std::string_view source, Document& document, int version_replica,
+        Parser(std::string_view source,
+               IncludeLoader& include_loader,
+               std::string_view current_uri,
+               std::span<const std::filesystem::path> include_dirs,
+               Document& document,
+               int version_replica,
                std::shared_ptr<const std::atomic<int>> version_pointer);
 
         void Parse();
@@ -106,6 +113,7 @@ namespace glsld {
 
         Scope* current_scope();
 
+        SourceReference                         source_ref_;
         Lexer                                   lexer_;
         Document&                               document_;
         std::vector<Token>                      raw_tokens_;

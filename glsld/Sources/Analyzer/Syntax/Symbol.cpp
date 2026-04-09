@@ -254,8 +254,7 @@ namespace glsld {
             std::println("Symbols:");
             for (const auto& [name, symbol] : scope->symbols_) {
                 utils::PrintIndent(indent_level + 2);
-                std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name,
-                             magic_enum::enum_name(symbol.kind), symbol.location.line);
+                std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name, magic_enum::enum_name(symbol.kind), symbol.location.line);
             }
         }
 

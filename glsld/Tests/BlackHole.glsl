@@ -142,8 +142,6 @@ https://github.com/baopinshui/NPGS/blob/master/NPGS/Sources/Engine/Shaders/Black
 
 #define iBlendWeight            0.5      // TAA Blend Weight (TAA前后帧混合权重)
 
-
-
 #define ENABLE_SHADOW_CULLING     1       // 1:开启剔除优化, 0:关闭 (To compare performance)
 #define DEBUG_SHADOW_CULLING      0       // 1:显示绿色调试层, 0:正常黑色 (To visualize culling)
 #define SHADOW_SIZE_MULTIPLIER    0.995     // 阴影半径微调系数 (Multiplier for shadow radius)
@@ -946,8 +944,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -991,7 +987,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -1011,8 +1006,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -2521,7 +2515,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -3308,10 +3301,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -3326,7 +3316,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -3352,7 +3342,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -4171,8 +4161,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -4216,7 +4204,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -4236,8 +4223,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -5746,7 +5732,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -6533,10 +6518,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -6551,7 +6533,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -6577,7 +6559,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -7396,8 +7378,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -7441,7 +7421,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -7461,8 +7440,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -8971,7 +8949,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -9758,10 +9735,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -9776,7 +9750,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -9802,7 +9776,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -10621,8 +10595,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -10666,7 +10638,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -10686,8 +10657,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -12196,7 +12166,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -12983,10 +12952,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -13001,7 +12967,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -13027,7 +12993,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -13846,8 +13812,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -13891,7 +13855,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -13911,8 +13874,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -15421,7 +15383,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -16208,10 +16169,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -16226,7 +16184,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -16252,7 +16210,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -17071,8 +17029,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -17116,7 +17072,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -17136,8 +17091,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -18646,7 +18600,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -19433,10 +19386,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -19451,7 +19401,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -19477,7 +19427,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -20296,8 +20246,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -20341,7 +20289,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -20361,8 +20308,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -21871,7 +21817,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -22658,10 +22603,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -22676,7 +22618,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -22702,7 +22644,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -23521,8 +23463,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -23566,7 +23506,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -23586,8 +23525,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -25096,7 +25034,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -25883,10 +25820,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -25901,7 +25835,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -25927,7 +25861,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -26746,8 +26680,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -26791,7 +26723,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -26811,8 +26742,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -28321,7 +28251,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -29108,10 +29037,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -29126,7 +29052,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -29152,7 +29078,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -29971,8 +29897,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -30016,7 +29940,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -30036,8 +29959,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -31546,7 +31468,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -32333,10 +32254,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -32351,7 +32269,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -32377,7 +32295,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -33196,8 +33114,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -33241,7 +33157,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -33261,8 +33176,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -34771,7 +34685,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -35558,10 +35471,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -35576,7 +35486,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -35602,7 +35512,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -36421,8 +36331,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -36466,7 +36374,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -36486,8 +36393,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -37996,7 +37902,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -38783,10 +38688,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -38801,7 +38703,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -38827,7 +38729,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -39646,8 +39548,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -39691,7 +39591,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -39711,8 +39610,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -41221,7 +41119,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -42008,10 +41905,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -42026,7 +41920,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -42052,7 +41946,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -42871,8 +42765,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -42916,7 +42808,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -42936,8 +42827,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -44446,7 +44336,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -45233,10 +45122,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -45251,7 +45137,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -45277,7 +45163,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -46096,8 +45982,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -46141,7 +46025,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -46161,8 +46044,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -47671,7 +47553,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -48458,10 +48339,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -48476,7 +48354,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -48502,7 +48380,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
@@ -49321,8 +49199,6 @@ vec4 GetInitialMomentum(
     float n3 = sqrt(max(1e-9, dot(e3, e3_d)));
     e3 /= n3;
 
-
-
     vec4 P_up = U_up - (k_r * e1 + k_theta * e2 + k_phi * e3);
 
     // 返回协变动量 P_mu
@@ -49366,7 +49242,6 @@ void ApplyHamiltonianCorrection(inout vec4 P, vec4 X, float E, float PhysicalSpi
         if (abs(denom) > 1e-9) {
             float k1 = (-Coeff_B + sqrtDisc) / denom;
             float k2 = (-Coeff_B - sqrtDisc) / denom;
-            
 
             float dist1 = abs(k1 - 1.0);
             float dist2 = abs(k2 - 1.0);
@@ -49386,8 +49261,7 @@ void ApplyHamiltonianCorrectionFORTEST(inout vec4 P, vec4 X, float E, float Phys
     
     KerrGeometry geo;
     ComputeGeometryScalars(X.xyz, PhysicalSpinA, PhysicalQ, fade, r_sign, geo);
-    
-    
+
     float L_dot_p_s = dot(geo.l_up.xyz, p);
     float Pt = P.w; 
     
@@ -50896,7 +50770,6 @@ TraceResult TraceRay(vec2 FragUv, vec2 Resolution,
         }
     }
 
-
     vec4 X = vec4(RayPosLocal, 0.0);
     
     //[修改5]初始化一个默认的 P_cov 防止未初始化报错，但不调用 GetInitialMomentum，因为 RayDir 还没被 Heat Haze 扭曲
@@ -51683,10 +51556,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
 
     vec2 iResolution = iResolution.xy;
     vec2 Uv = FragCoord.xy / iResolution.xy;
-    
 
-
-    
     int  iBufWidth     = int(iChannelResolution[2].x);
     vec3 CamPosWorld   = texelFetch(iChannel2, ivec2(iBufWidth - 3, 0), 0).xyz;
     vec3 CamRightWorld = texelFetch(iChannel2, ivec2(iBufWidth - 2, 0), 0).xyz;
@@ -51701,7 +51571,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
         CamUpWorld    = normalize(cross(CamRightWorld, fwd));
     }
     vec3 CamBackWorld  = normalize(cross(CamRightWorld, CamUpWorld));
-    
+
     mat3 CamRotMat = mat3(CamRightWorld, CamUpWorld, CamBackWorld);
     mat4 iInverseCamRot = mat4(CamRotMat); 
 
@@ -51727,7 +51597,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
 
-    vec4 FinalColor     = res.AccumColor;
+    vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;

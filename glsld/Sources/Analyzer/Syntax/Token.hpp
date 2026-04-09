@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <compare>
+#include <memory>
 #include <string>
 
 namespace glsld {
@@ -86,13 +87,24 @@ namespace glsld {
         kColonColon              // ::
     };
 
+    struct SourceFile {
+        std::string normalized_path;
+        std::string uri;
+
+        bool operator==(const SourceFile& other) const {
+            return normalized_path == other.normalized_path && uri == other.uri;
+        }
+    };
+
+    using SourceReference = std::shared_ptr<SourceFile>;
+
     struct SourceLocation {
-        std::size_t   line{};
-        std::size_t   column{};
-        std::uint32_t file_index{};
+        SourceReference source{ nullptr };
+        std::size_t     line{};
+        std::size_t     column{};
 
         bool operator==(const SourceLocation& other) const {
-            return line == other.line && column == other.column && file_index == other.file_index;
+            return source == other.source && line == other.line && column == other.column;
         }
 
         auto operator<=>(const SourceLocation& other) const {

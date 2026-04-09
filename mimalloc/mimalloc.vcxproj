@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{3b09a4cf-6d0f-4055-9e9c-3ee3924770b2}</ProjectGuid>
-    <RootNamespace>glslanalyzer</RootNamespace>
+    <ProjectGuid>{de3ee8f6-d071-4c6a-8528-9d8c9b0a035e}</ProjectGuid>
+    <RootNamespace>mimalloc</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,14 +40,14 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <MSVCPreviewEnabled>true</MSVCPreviewEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -72,17 +72,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(ProjectDir)Win64\</OutDir>
-    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(ProjectDir)Win64\</OutDir>
-    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg">
-    <VcpkgEnableManifest>true</VcpkgEnableManifest>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -115,21 +104,16 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(SolutionDir)glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;MI_DEFAULT_ARENA_EAGER_COMMIT=1;_DEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <EntryPointSymbol>Main</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -138,101 +122,20 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(SolutionDir)glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;MI_DEFAULT_ARENA_EAGER_COMMIT=1;NDEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <EntryPointSymbol>Main</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Sources\Base\IncludeLoader.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
-    <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
-    <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Symbol.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Lexer.cpp" />
-    <ClCompile Include="Sources\Base\Config.cpp" />
-    <ClCompile Include="Sources\Base\Logger.cpp" />
-    <ClCompile Include="Sources\Base\ThreadPool.cpp" />
-    <ClCompile Include="Sources\main.cpp" />
-    <ClCompile Include="Sources\Server\JsonResponse.cpp" />
-    <ClCompile Include="Sources\Server\Router.cpp" />
-    <ClCompile Include="Sources\Server\Server.cpp" />
-    <ClCompile Include="Sources\stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="Sources\Utils\Utils.cpp" />
-    <ClCompile Include="Sources\Server\Workspace.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Sources\Base\IncludeLoader.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
-    <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Symbol.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Lexer.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
-    <ClInclude Include="Sources\Base\Config.hpp" />
-    <ClInclude Include="Sources\Base\ConfigIniter.hpp" />
-    <ClInclude Include="Sources\Base\Logger.hpp" />
-    <ClInclude Include="Sources\Base\ThreadPool.hpp" />
-    <ClInclude Include="Sources\Base\YamlTypes.hpp" />
-    <ClInclude Include="Sources\Server\Context.hpp" />
-    <ClInclude Include="Sources\Server\JsonResponse.hpp" />
-    <ClInclude Include="Sources\Server\Router.hpp" />
-    <ClInclude Include="Sources\Server\Server.hpp" />
-    <ClInclude Include="Sources\stdafx.h" />
-    <ClInclude Include="Sources\Utils\Utils.hpp" />
-    <ClInclude Include="Sources\xstdafx.h" />
-    <ClInclude Include="Sources\Server\Workspace.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Sources\Analyzer\Syntax\Parser.inl" />
-    <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
-    <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
-    <None Include="Sources\Base\Config.inl" />
-    <None Include="Sources\Base\Logger.inl" />
-    <None Include="Sources\Base\ThreadPool.inl" />
-    <None Include="vcpkg.json" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\mimalloc\mimalloc.vcxproj">
-      <Project>{de3ee8f6-d071-4c6a-8528-9d8c9b0a035e}</Project>
-    </ProjectReference>
+    <ClCompile Include="..\glsld\Externals\mimalloc\src\static.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
