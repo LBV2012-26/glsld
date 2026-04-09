@@ -37,12 +37,12 @@ namespace glsld {
         }
 
         auto normalized = utils::NormalizePath(*resolved_path);
-        auto key        = normalized.string();
+        auto filename   = normalized.string();
 
         {
             std::shared_lock lock(mutex_);
 
-            auto cache_it = cache_.find(key);
+            auto cache_it = cache_.find(filename);
             if (cache_it != cache_.end()) {
                 std::error_code ec;
                 auto latest = std::filesystem::last_write_time(normalized, ec);
@@ -51,7 +51,7 @@ namespace glsld {
                 }
             }
 
-            auto inflight_it = inflight_.find(key);
+            auto inflight_it = inflight_.find(filename);
             if (inflight_it != inflight_.end()) {
                 return inflight_it->second;
             }
@@ -60,7 +60,7 @@ namespace glsld {
         {
             std::unique_lock lock(mutex_);
 
-            auto cache_it = cache_.find(key);
+            auto cache_it = cache_.find(filename);
             if (cache_it != cache_.end()) {
                 std::error_code ec;
                 auto latest = std::filesystem::last_write_time(normalized, ec);
@@ -71,22 +71,22 @@ namespace glsld {
                 cache_.erase(cache_it);
             }
 
-            auto inflight_it = inflight_.find(key);
+            auto inflight_it = inflight_.find(filename);
             if (inflight_it != inflight_.end()) {
                 return inflight_it->second;
             }
         }
 
-        auto task = [this, normalized, key, include_dirs = std::move(include_dirs)]()
+        auto task = [this, normalized, filename, include_dirs = std::move(include_dirs)]()
             -> Snapshot
         {
             auto loaded = LoadIncludeFile(normalized, include_dirs);
             {
                 std::unique_lock lock(mutex_);
-                inflight_.erase(key);
+                inflight_.erase(filename);
 
                 if (loaded != nullptr && loaded->valid()) {
-                    cache_[key] = loaded;
+                    cache_[filename] = loaded;
                 }
             }
 
@@ -100,7 +100,7 @@ namespace glsld {
             future = thread_pool_.Submit(std::move(task)).share();
         }
 
-        inflight_[key] = future;
+        inflight_[filename] = future;
         return future;
     }
 
@@ -131,13 +131,13 @@ namespace glsld {
         std::string_view include_expr,
         std::span<const std::filesystem::path> include_dirs)
     {
-        (void)Include(includer_uri, include_expr, include_dirs);
+        std::ignore = Include(includer_uri, include_expr, include_dirs);
     }
 
-    void IncludeLoader::Invalidate(std::string_view normalized_path) {
+    void IncludeLoader::Invalidate(std::string_view filename) {
         std::unique_lock lock(mutex_);
-        cache_.erase(normalized_path);
-        inflight_.erase(normalized_path);
+        cache_.erase(filename);
+        inflight_.erase(filename);
     }
 
     void IncludeLoader::Clear() {
@@ -258,8 +258,8 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs)
     {
         auto snapshot = std::make_shared<IncludeFileSnapshot>();
-        snapshot->normalized_path = normalized_path.string();
-        snapshot->uri             = utils::PathToUri(normalized_path);
+        snapshot->filename = normalized_path.string();
+        snapshot->uri      = utils::PathToUri(normalized_path);
 
         std::error_code ec;
         snapshot->write_time = std::filesystem::last_write_time(normalized_path, ec);
@@ -276,8 +276,8 @@ namespace glsld {
         }
 
         try {
-            auto source = std::make_shared<SourceFile>(snapshot->normalized_path, snapshot->uri);
-            Lexer lexer(snapshot->source, *this, snapshot->uri, include_dirs, std::move(source));
+            auto source_ref = std::make_shared<SourceFile>(snapshot->filename, snapshot->uri);
+            Lexer lexer(snapshot->source, *this, snapshot->uri, include_dirs, std::move(source_ref));
 
             do {
                 auto token = lexer.AcquireNextToken();

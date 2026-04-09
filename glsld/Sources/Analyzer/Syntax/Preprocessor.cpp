@@ -526,7 +526,7 @@ namespace glsld {
                                std::vector<InactiveRegion>& inactive_regions,
                                IncludeLoader& include_loader,
                                std::span<const std::filesystem::path> include_dirs,
-                               SourceReference source,
+                               SourceReference source_ref,
                                std::vector<std::string> parent_stack)
         : raw_tokens_{ raw_tokens }
         , trace_map_{ trace_map }
@@ -534,11 +534,11 @@ namespace glsld {
         , inactive_regions_{ inactive_regions }
         , include_loader_{ include_loader }
         , include_dirs_{ include_dirs }
-        , source_{ source }
+        , source_ref_{ source_ref }
         , include_stack_{ std::move(parent_stack) }
     {
         if (include_stack_.empty()) {
-            include_stack_.push_back(source_->normalized_path);
+            include_stack_.push_back(std::string(source_ref_->filename()));
         }
     }
 
@@ -569,7 +569,7 @@ namespace glsld {
         }
 
         const auto& eof_token = current_token();
-        FinalizeInactiveRegions(eof_token.location.line);
+        FinalizeInactiveRegions(eof_token.location.line());
         expanded.push_back(eof_token); // push_back EOF token
         return expanded;
     }
@@ -584,7 +584,7 @@ namespace glsld {
         ConsumeToken();
 
         if (next_token.type == TokenType::kOpenParen &&
-            name_token.location.column + name_token.text.length() == next_token.location.column)
+            name_token.location.column() + name_token.text.length() == next_token.location.column())
         {
             defination.is_function = true;
             ConsumeToken();
@@ -613,10 +613,10 @@ namespace glsld {
         std::vector<Token> body;
         while (current_token().type != TokenType::kEndOfFile) {
             const auto& token = current_token();
-            if (token.location.line > directive_physical_line) {
+            if (token.location.line() > directive_physical_line) {
                 if (!body.empty() && body.back().type == TokenType::kBackslash) {
                     body.pop_back();
-                    directive_physical_line = token.location.line;
+                    directive_physical_line = token.location.line();
                 } else {
                     break;
                 }
@@ -677,7 +677,7 @@ namespace glsld {
     std::vector<Token> Preprocessor::ExpandTokenSequence(
         std::span<const Token> input,
         std::unordered_set<std::string>& active_macros,
-        SourceLocation call_site)
+        const SourceLocation& call_site)
     {
         std::vector<Token> result;
 
@@ -746,7 +746,7 @@ namespace glsld {
         const MacroDefination& defination,
         const std::vector<std::vector<Token>>& arguments,
         std::unordered_set<std::string>& active_macros,
-        SourceLocation call_site)
+        const SourceLocation& call_site)
     {
         StringHeteroHashTable<std::size_t> param_index;
         for (auto i = 0uz; i != defination.params.size(); ++i) {
@@ -974,19 +974,19 @@ namespace glsld {
 
         const auto& directive_token = current_token();
         const auto& directive_text  = directive_token.text;
-        const auto  directive_line  = directive_token.location.line;
+        const auto  directive_line  = directive_token.location.line();
         ConsumeToken();
 
         auto ProcessLineSplicing = [this](auto& body) -> void {
             for (auto i = 0uz; i < body.size(); ++i) {
-                if (i + 1 < body.size() && body[i].location.line < body[i + 1].location.line) {
+                if (i + 1 < body.size() && body[i].location.line() < body[i + 1].location.line()) {
                     body.insert(body.begin() + i + 1, Token{
                         .text     = "\\",
-                        .location = SourceLocation{
-                            .source = source_,
-                            .line   = body[i].location.line,
-                            .column = body[i].location.column + body[i].text.length() + 1
-                        },
+                        .location = SourceLocation(
+                            source_ref_,
+                            body[i].location.line(),
+                            body[i].location.column() + body[i].text.length() + 1
+                        ),
                         .type     = TokenType::kBackslash
                     });
 
@@ -1001,11 +1001,11 @@ namespace glsld {
             directive_text == "elif" || directive_text == "else"  || directive_text == "endif")
         {
             bool was_active = IsCurrentBranchActive();
-            bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line);
+            bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line());
             bool now_active = IsCurrentBranchActive();
 
             if (handled) {
-                UpdateInactiveRegions(was_active, now_active, sharp_token.location.line);
+                UpdateInactiveRegions(was_active, now_active, sharp_token.location.line());
             }
 
             output.push_back(sharp_token);
@@ -1020,6 +1020,12 @@ namespace glsld {
         }
 
         if (directive_text == "include") {
+            output.push_back(sharp_token);
+            output.push_back(directive_token);
+
+            ProcessLineSplicing(body);
+            output.append_range(body);
+
             auto included = ExpandIncludeDirective(body);
             output.append_range(included | std::views::as_rvalue);
             return;
@@ -1048,8 +1054,8 @@ namespace glsld {
         defination.original_token = body_tokens[index++];
 
         auto IsAdjacent = [](const Token& lhs, const Token& rhs) -> bool {
-            return lhs.location.line  == rhs.location.line &&
-                   lhs.location.column + lhs.text.length() == rhs.location.column;
+            return lhs.location.line()  == rhs.location.line() &&
+                   lhs.location.column() + lhs.text.length() == rhs.location.column();
         };
 
         if (index < body_tokens.size() &&
@@ -1212,7 +1218,7 @@ namespace glsld {
         auto MakeNumber = [](std::string text, SourceLocation location) -> Token {
             return Token{
                 .text     = std::move(text),
-                .location = location,
+                .location = std::move(location),
                 .type     = TokenType::kNumberLiteral
             };
         };
@@ -1299,6 +1305,7 @@ namespace glsld {
         }
 
         inactive_regions_.push_back({
+            .source_ref = source_ref_,
             .begin_line = begin_line,
             .end_line   = end_line
         });
@@ -1341,18 +1348,18 @@ namespace glsld {
         }
 
         auto expanded_body = ExpandTokenSequence(body_tokens, active_macros, call_site);
-        auto future        = include_loader_.Include(source_->uri, expanded_body, include_dirs_);
+        auto future        = include_loader_.Include(source_ref_->uri(), expanded_body, include_dirs_);
         auto snapshot      = future.get();
 
         if (snapshot == nullptr || !snapshot->valid()) {
             return {};
         }
 
-        if (std::ranges::find(include_stack_, snapshot->normalized_path) != include_stack_.end()) {
+        if (std::ranges::find(include_stack_, snapshot->filename) != include_stack_.end()) {
             return {};
         }
 
-        auto include_file = std::make_shared<SourceFile>(snapshot->normalized_path, snapshot->uri);
+        auto include_file = std::make_shared<SourceFile>(snapshot->filename, snapshot->uri);
 
         Preprocessor subprocessor(
             snapshot->tokens,

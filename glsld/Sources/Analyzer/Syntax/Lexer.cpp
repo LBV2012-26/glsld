@@ -34,11 +34,7 @@ namespace glsld {
             TryPrefetchInclude();
         }
 
-        const SourceLocation location{
-            .source = source_ref_,
-            .line   = line_,
-            .column = column_
-        };
+        const SourceLocation location(source_ref_, line_, column_);
 
         if (position_ >= source_.length()) {
             return { {}, location, TokenType::kEndOfFile };
@@ -224,11 +220,7 @@ namespace glsld {
     }
 
     Token Lexer::Capture(TokenType type, std::size_t length) {
-        const SourceLocation location{
-            .source = source_ref_,
-            .line   = line_,
-            .column = column_
-        };
+        const SourceLocation location(source_ref_, line_, column_);
 
         std::string text(source_.substr(position_, length));
         Advance(length);

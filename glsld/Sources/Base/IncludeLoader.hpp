@@ -16,7 +16,7 @@
 
 namespace glsld {
     struct IncludeFileSnapshot {
-        std::string                     normalized_path;
+        std::string                     filename;
         std::string                     uri;
         std::string                     source;
         std::string                     error;
@@ -50,7 +50,7 @@ namespace glsld {
             std::string_view include_expr,
             std::span<const std::filesystem::path> include_dirs);
 
-        void Invalidate(std::string_view normalized_path);
+        void Invalidate(std::string_view filename);
         void Clear();
 
     private:

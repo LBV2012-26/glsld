@@ -224,6 +224,7 @@
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
+    <None Include="Sources\Analyzer\Syntax\Token.inl" />
     <None Include="Sources\Base\Config.inl" />
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />

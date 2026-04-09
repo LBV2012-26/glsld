@@ -40,7 +40,7 @@ namespace glsld {
                      std::vector<InactiveRegion>& inactive_regions,
                      IncludeLoader& include_loader,
                      std::span<const std::filesystem::path> include_dirs,
-                     SourceReference source,
+                     SourceReference source_ref,
                      std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();
@@ -53,13 +53,13 @@ namespace glsld {
         std::vector<Token> ExpandTokenSequence(
             std::span<const Token> input,
             std::unordered_set<std::string>& active_macros,
-            SourceLocation call_site);
+            const SourceLocation& call_site);
 
         std::vector<Token> SubstituteFunctionMacro(
             const MacroDefination& defination,
             const std::vector<std::vector<Token>>& arguments,
             std::unordered_set<std::string>& active_macros,
-            SourceLocation call_site);
+            const SourceLocation& call_site);
 
         bool ParseFunctionMacroInvocationFromStream(
             const MacroDefination& defination,
@@ -101,7 +101,7 @@ namespace glsld {
 
         IncludeLoader&                         include_loader_;
         std::span<const std::filesystem::path> include_dirs_;
-        SourceReference                        source_;
+        SourceReference                        source_ref_;
         std::vector<std::string>               include_stack_;
     };
 }

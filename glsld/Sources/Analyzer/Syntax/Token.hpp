@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstddef>
-#include <compare>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace glsld {
     enum class TokenType {
@@ -87,42 +87,50 @@ namespace glsld {
         kColonColon              // ::
     };
 
-    struct SourceFile {
-        std::string normalized_path;
-        std::string uri;
+    class SourceFile {
+    public:
+        SourceFile(std::string_view filename, std::string_view uri);
 
-        bool operator==(const SourceFile& other) const {
-            return normalized_path == other.normalized_path && uri == other.uri;
-        }
+        bool operator==(const SourceFile& other) const;
+
+        std::string_view filename() const;
+        std::string_view uri() const;
+
+    private:
+        friend class SourceLocation;
+
+        std::string filename_;
+        std::string uri_;
+        std::size_t cached_hash_{};
     };
 
     using SourceReference = std::shared_ptr<SourceFile>;
 
-    struct SourceLocation {
-        SourceReference source{ nullptr };
-        std::size_t     line{};
-        std::size_t     column{};
+    class SourceLocation {
+    public:
+        SourceLocation() = default;
+        SourceLocation(SourceReference source_ref, std::size_t line, std::size_t column);
 
-        bool operator==(const SourceLocation& other) const {
-            return source == other.source && line == other.line && column == other.column;
-        }
+        bool operator==(const SourceLocation& other) const;
+        auto operator<=>(const SourceLocation& other) const;
 
-        auto operator<=>(const SourceLocation& other) const {
-            if (line < other.line) {
-                return std::strong_ordering::less;
-            } else if (line > other.line) {
-                return std::strong_ordering::greater;
-            } else {
-                // line == other.line
-                if (column < other.column) {
-                    return std::strong_ordering::less;
-                } else if (column > other.column) {
-                    return std::strong_ordering::greater;
-                } else {
-                    return std::strong_ordering::equal;
-                }
-            }
-        }
+        SourceReference source_ref() const;
+        std::string_view filename() const;
+        std::string_view uri() const;
+        std::size_t line() const;
+        std::size_t column() const;
+
+    private:
+        friend struct LocationHash;
+
+        SourceReference source_ref_{ nullptr };
+        std::size_t     line_{};
+        std::size_t     column_{};
+        std::size_t     cached_hash_{};
+    };
+
+    struct LocationHash {
+        std::size_t operator()(const SourceLocation& location) const;
     };
 
     struct Token {
@@ -131,3 +139,5 @@ namespace glsld {
         TokenType      type{ TokenType::kUnknown };
     };
 }
+
+#include "Token.inl"

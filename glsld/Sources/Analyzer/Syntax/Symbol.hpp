@@ -132,15 +132,15 @@ namespace glsld {
     public:
         DocumentSymbols();
 
-        const Scope* FindScopeAt(SourceLocation location) const;
-        const SymbolInfo* FindSymbolAt(std::string_view name, SourceLocation location) const;
+        const Scope* FindScopeAt(const SourceLocation& location) const;
+        const SymbolInfo* FindSymbolAt(std::string_view name, const SourceLocation& location) const;
         std::vector<const SymbolInfo*> FindFunctionsByOriginalName(std::string_view base_name) const;
         void Dump() const;
 
         Scope* const root_scope() const;
 
     private:
-        const Scope* FindScopeRecursive(const Scope* current, SourceLocation location) const;
+        const Scope* FindScopeRecursive(const Scope* current, const SourceLocation& location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
         std::unique_ptr<Scope> root_scope_;

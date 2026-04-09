@@ -28,16 +28,13 @@ namespace glsld {
     {
         raw_tokens_.reserve(source.length() / 5);
 
-        while (true) {
+        do {
             if (version_pointer_ != nullptr && version_replica != version_pointer_->load()) {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
             }
 
             raw_tokens_.push_back(lexer_.AcquireNextToken());
-            if (raw_tokens_.back().type == TokenType::kEndOfFile) {
-                break;
-            }
-        }
+        } while (raw_tokens_.back().type != TokenType::kEndOfFile);
 
         Preprocessor processor(
             raw_tokens_,
@@ -172,12 +169,8 @@ namespace glsld {
     }
 
     std::unique_ptr<TranslationUnitNode> Parser::ParserMainTask() {
-        auto root   = std::make_unique<TranslationUnitNode>(current_scope());
-        root->begin = {
-            .source = source_ref_,
-            .line   = 1,
-            .column = 1
-        };
+        auto root = std::make_unique<TranslationUnitNode>(current_scope());
+        root->begin = SourceLocation(source_ref_, 1, 1);
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
@@ -260,9 +253,9 @@ namespace glsld {
         ConsumeToken();
 
         if (directive_token.text == "define") {
-            node = ParseDefine(std::move(node), directive_token.location.line);
+            node = ParseDefine(std::move(node), directive_token.location.filename(), directive_token.location.line());
         } else {
-            node->tokens = CaptureDirectiveTokens(directive_token.location.line);
+            node->tokens = CaptureDirectiveTokens(directive_token.location.filename(), directive_token.location.line());
             node->end    = GetPreviousTokenEnd();
         }
 
@@ -270,11 +263,15 @@ namespace glsld {
         return node;
     }
 
-    std::unique_ptr<PreprocessorNode> Parser::ParseDefine(std::unique_ptr<PreprocessorNode> node, std::size_t directive_physical_line) {
+    std::unique_ptr<PreprocessorNode> Parser::ParseDefine(
+        std::unique_ptr<PreprocessorNode> node,
+        std::string_view target_file,
+        std::size_t directive_physical_line)
+    {
         // current token is macro name after "define"
         const auto& macro_token = current_token();
 
-        if (macro_token.location.line != directive_physical_line) {
+        if (macro_token.location.line() != directive_physical_line) {
             return node;
         }
 
@@ -282,8 +279,8 @@ namespace glsld {
         ConsumeToken();
 
         auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
-            return first.location.line == second.location.line &&
-                (first.location.column + first.text.length() == second.location.column);
+            return first.location.line() == second.location.line() &&
+                (first.location.column() + first.text.length() == second.location.column());
         };
 
         // macro function like #define MACRO(x)
@@ -302,7 +299,7 @@ namespace glsld {
             MatchAndConsume(TokenType::kCloseParen);
         }
 
-        node->tokens = CaptureDirectiveTokens(directive_physical_line);
+        node->tokens = CaptureDirectiveTokens(target_file, directive_physical_line);
         node->end    = GetPreviousTokenEnd();
         return node;
     }
@@ -1332,7 +1329,7 @@ namespace glsld {
         return nullptr;
     }
 
-    std::vector<Token> Parser::CaptureDirectiveTokens(std::size_t directive_physical_line) {
+    std::vector<Token> Parser::CaptureDirectiveTokens(std::string_view target_file, std::size_t directive_physical_line) {
         std::vector<Token> collected;
         if (current_token().type == TokenType::kEndOfFile) {
             return collected;
@@ -1340,10 +1337,14 @@ namespace glsld {
 
         while (current_token().type != TokenType::kEndOfFile) {
             const auto& token = current_token();
-            if (token.location.line > directive_physical_line) {
+            if (token.location.filename() != target_file) {
+                break;
+            }
+
+            if (token.location.line() > directive_physical_line) {
                 // #define MACRO sth "\"
                 if (!collected.empty() && collected.back().type == TokenType::kBackslash) {
-                    directive_physical_line = token.location.line;
+                    directive_physical_line = token.location.line();
                 } else {
                     break;
                 }
@@ -1393,7 +1394,7 @@ namespace glsld {
 
         Scope* new_scope_ptr           = new_scope.get();
         new_scope_ptr->kind_           = kind;
-        new_scope_ptr->interval_.first = location;
+        new_scope_ptr->interval_.first = std::move(location);
         new_scope_ptr->host_symbol_    = host_symbol;
 
         current_scope()->children_.push_back(std::move(new_scope));
@@ -1404,7 +1405,7 @@ namespace glsld {
 
     void Parser::LeaveScope(SourceLocation location) {
         if (scope_stack_.size() > 1) {
-            current_scope()->interval_.second = location;
+            current_scope()->interval_.second = std::move(location);
             scope_stack_.pop();
         }
     }

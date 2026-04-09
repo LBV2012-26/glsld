@@ -529,7 +529,7 @@ namespace glsld {
     }
 
     std::string AstDumper::FormatRange(AstNode* node) const {
-        return std::format("[{}:{}-{}:{}]", node->begin.line, node->begin.column, node->end.line, node->end.column);
+        return std::format("[{}:{}-{}:{}]", node->begin.line(), node->begin.column(), node->end.line(), node->end.column());
     }
 
     std::string AstDumper::TypeToString(TypeSpecifier& type_spec) const {

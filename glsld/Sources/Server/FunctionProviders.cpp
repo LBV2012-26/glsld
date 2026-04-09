@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <iterator>
 #include <ranges>
-#include <string_view>
 #include <unordered_set>
 #include <variant>
 
@@ -45,7 +44,7 @@ namespace glsld {
         };
     }
 
-    nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope) {
+    nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope) {
         nlohmann::json symbols = nlohmann::json::array();
 
         if (scope == nullptr) {
@@ -54,15 +53,15 @@ namespace glsld {
 
         auto ConvertToLspRange = [](const auto& begin, const auto& end) -> nlohmann::json {
             return {
-                { "start", { { "line", begin.line - 1 }, { "character", begin.column - 1 } } },
-                { "end",   { { "line", end.line   - 1 }, { "character", end.column   - 1 } } }
+                { "start", { { "line", begin.line() - 1 }, {"character", begin.column() - 1 } } },
+                { "end",   { { "line", end.line()   - 1 }, {"character", end.column()   - 1 } } }
             };
         };
 
         auto ConvertToSelectionRange = [](const auto& location, std::string_view name) -> nlohmann::json {
             return {
-                { "start", { { "line", location.line - 1 }, { "character", location.column                 - 1 } } },
-                { "end",   { { "line", location.line - 1 }, { "character", location.column + name.length() - 1 } } }
+                { "start", { { "line", location.line() - 1 }, { "character", location.column()                 - 1 } } },
+                { "end",   { { "line", location.line() - 1 }, { "character", location.column() + name.length() - 1 } } }
             };
         };
 
@@ -80,6 +79,10 @@ namespace glsld {
         std::unordered_set<const Scope*> handled_scopes;
 
         for (const auto& [name, info] : scope->symbols()) {
+            if (info.location.uri() != uri) {
+                continue;
+            }
+
             nlohmann::json symbol_node;
 
             int symbol_kind = ConvertSymbolKind(info.kind);
@@ -98,7 +101,7 @@ namespace glsld {
             const Scope* child_scope = nullptr;
             if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
                 for (const auto& child : scope->children()) {
-                    if (child->interval().first.line == info.location.line) {
+                    if (child->interval().first.line() == info.location.line()) {
                         child_scope = child.get();
                         handled_scopes.insert(child_scope);
                         break;
@@ -113,7 +116,7 @@ namespace glsld {
             if (child_scope != nullptr) {
                 symbol_node["range"] = ConvertToLspRange(info.location, child_scope->interval().second);
                 if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
-                    auto children = ConvertScopeToDocumentSymbols(child_scope);
+                    auto children = ConvertScopeToDocumentSymbols(uri, child_scope);
                     if (!children.empty()) {
                         symbol_node["children"] = children;
                     }
@@ -131,7 +134,7 @@ namespace glsld {
                  child_scope->kind() == ScopeKind::kBlockTransparent) &&
                 !handled_scopes.contains(child_scope.get()))
             {
-                auto transparent_children = ConvertScopeToDocumentSymbols(child_scope.get());
+                auto transparent_children = ConvertScopeToDocumentSymbols(uri, child_scope.get());
                 for (const auto& child : transparent_children) {
                     symbols.push_back(child);
                 }
@@ -189,7 +192,7 @@ namespace glsld {
         };
     }
 
-    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot) {
+    std::vector<std::uint32_t> GetSemanticData(std::string_view uri, std::shared_ptr<const Document> snapshot) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -203,8 +206,8 @@ namespace glsld {
                 return;
             }
 
-            std::size_t line       = token.location.line   - 1;
-            std::size_t character  = token.location.column - 1;
+            std::size_t line       = token.location.line()   - 1;
+            std::size_t character  = token.location.column() - 1;
             std::size_t length     = token.text.length();
             std::size_t delta_line = line - last_line;
             std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
@@ -234,12 +237,17 @@ namespace glsld {
             }
 
             --it;
+
+            if (it->source_ref->uri() != uri) {
+                return false;
+            }
+
             return it->begin_line <= line && line <= it->end_line;
         };
 
         for (const auto& token : snapshot->raw_tokens) {
             std::uint32_t modifiers = 0;
-            if (IsInactive(token.location.line)) {
+            if (IsInactive(token.location.line())) {
                 modifiers |= (1 << 10); // inactive
             }
 
@@ -270,8 +278,8 @@ namespace glsld {
 
             type_index = GetSymbolSemanticHighlight(symbol->kind);
 
-            if (token.location.line   == symbol->location.line &&
-                token.location.column == symbol->location.column)
+            if (token.location.line()   == symbol->location.line() &&
+                token.location.column() == symbol->location.column())
             {
                 modifiers |= (1 << 0); // declaration
             }
@@ -289,6 +297,18 @@ namespace glsld {
     }
 
     namespace {
+        bool IsPositionInToken(const Token& token, const SourceLocation& position) {
+            if (token.location.line() != position.line()) {
+                return false;
+            }
+
+            std::size_t start_column = token.location.column();
+            std::size_t end_column   = start_column + token.text.length();
+
+            // [start_column, end_column]
+            return position.column() >= start_column && position.column() <= end_column;
+        }
+
         const SymbolInfo* ResolveFunctionJump(const Document* snapshot, const SymbolInfo* symbol) {
             if (symbol == nullptr) {
                 return nullptr;
@@ -301,7 +321,7 @@ namespace glsld {
         };
     }
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function) {
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -312,7 +332,7 @@ namespace glsld {
         auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
         if (it != snapshot->raw_tokens.begin()) {
             cursor_token = &*std::prev(it);
-            if (!utils::IsPositionInToken(*cursor_token, location)) {
+            if (!IsPositionInToken(*cursor_token, location)) {
                 cursor_token = nullptr;
             }
         }
@@ -405,7 +425,7 @@ namespace glsld {
         }
     }
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return std::nullopt;
         }
@@ -482,7 +502,7 @@ namespace glsld {
         };
     }
 
-    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -520,7 +540,7 @@ namespace glsld {
         return items;
     }
 
-    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location) {
+    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }

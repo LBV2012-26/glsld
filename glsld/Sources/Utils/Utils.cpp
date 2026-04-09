@@ -123,41 +123,4 @@ namespace glsld::utils {
             std::print("  "); // 2 spaces per indent level
         }
     }
-
-    bool IsPositionInToken(const Token& token, SourceLocation position) {
-        if (token.location.source != position.source) {
-            return false;
-        }
-
-        if (token.location.line != position.line) {
-            return false;
-        }
-
-        std::size_t start_column = token.location.column;
-        std::size_t end_column   = start_column + token.text.length();
-
-        // [start_column, end_column]
-        return position.column >= start_column && position.column <= end_column;
-    }
-
-    bool IsPositionInFunctionName(const SymbolInfo* symbol, SourceLocation position) {
-        if (symbol == nullptr) {
-            return false;
-        }
-
-        if (symbol->location.source != position.source) {
-            return false;
-        }
-
-        if (symbol->location.line != position.line) {
-            return false;
-        }
-
-        auto raw_name = UnmangleFunctionName(symbol->name);
-
-        std::size_t start_column = symbol->location.column;
-        std::size_t end_column   = start_column + raw_name.length();
-
-        return position.column >= start_column && position.column <= end_column;
-    }
 }

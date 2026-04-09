@@ -40,14 +40,14 @@ namespace {
             CloseHandle(token);
         }
 
-        constexpr auto kMemorySize = 160uz * 1024 * 1024;
+        constexpr auto kMemorySize = 256uz * 1024 * 1024;
         LPVOID memory = nullptr;
         int try_alloc = 0;
 
         do {
             ++try_alloc;
             memory = VirtualAlloc(nullptr, kMemorySize, MEM_RESERVE | MEM_COMMIT | MEM_LARGE_PAGES, PAGE_READWRITE);
-        } while (memory == nullptr && try_alloc < 100);
+        } while (memory == nullptr);
 
         mi_manage_os_memory(memory, kMemorySize, true, true, true, -1);
     }

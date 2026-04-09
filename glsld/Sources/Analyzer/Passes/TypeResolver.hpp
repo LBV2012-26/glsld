@@ -27,8 +27,7 @@ namespace glsld {
 
     class TypeResolver final : public AstVisitor {
     public:
-        TypeResolver(Document& document, int version_replica,
-                     std::shared_ptr<const std::atomic<int>> version_pointer);
+        TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer);
 
         static int RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 

@@ -1,10 +1,12 @@
 #include "stdafx.h"
 #include "NodeLocator.hpp"
 
+#include <utility>
+
 namespace glsld {
     LeafLocator::LeafLocator(SourceLocation target)
         : AstVisitor(0, nullptr)
-        , target_{ target }
+        , target_{ std::move(target) }
     {}
 
     void LeafLocator::Traverse(AstNode * node) {
@@ -17,7 +19,9 @@ namespace glsld {
             AstVisitor::Traverse(node);
         }
 
-        if (node->begin.line > target_.line || (node->begin.line == target_.line && node->begin.column > target_.column)) {
+        if (node->begin.line() > target_.line() ||
+            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
+        {
             // No need to continue traversing siblings, as they will be after the target position.
             return;
         }
@@ -65,8 +69,8 @@ namespace glsld {
             AstVisitor::Traverse(node);
         }
 
-        if (deepest_node_ != nullptr || node->begin.line > target_.line ||
-            (node->begin.line == target_.line && node->begin.column > target_.column))
+        if (deepest_node_ != nullptr || node->begin.line() > target_.line() ||
+            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
         {
             return;
         }
@@ -79,7 +83,7 @@ namespace glsld {
 
     SignatureLocator::SignatureLocator(SourceLocation cursor)
         : AstVisitor(0, nullptr)
-        , cursor_{ cursor }
+        , cursor_{ std::move(cursor) }
     {}
 
     void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {
@@ -93,8 +97,8 @@ namespace glsld {
 
         AstVisitor::VisitCallExpression(node);
 
-        if (best_match_ != nullptr || node->begin.line > cursor_.line ||
-            (node->begin.line == cursor_.line && node->begin.column > cursor_.column))
+        if (best_match_ != nullptr || node->begin.line() > cursor_.line() ||
+            (node->begin.line() == cursor_.line() && node->begin.column() > cursor_.column()))
         {
             return;
         }

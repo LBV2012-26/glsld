@@ -171,11 +171,11 @@ namespace glsld {
         : root_scope_{ std::make_unique<Scope>(nullptr) }
     {}
 
-    const Scope* DocumentSymbols::FindScopeAt(SourceLocation location) const {
+    const Scope* DocumentSymbols::FindScopeAt(const SourceLocation& location) const {
         return FindScopeRecursive(root_scope_.get(), location);
     }
 
-    const SymbolInfo* DocumentSymbols::FindSymbolAt(std::string_view name, SourceLocation location) const {
+    const SymbolInfo* DocumentSymbols::FindSymbolAt(std::string_view name, const SourceLocation& location) const {
         const auto* scope = FindScopeAt(location);
         if (scope != nullptr) {
             return scope->FindSymbol(name);
@@ -209,7 +209,7 @@ namespace glsld {
         std::println("==============================================");
     }
 
-    const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, SourceLocation location) const {
+    const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, const SourceLocation& location) const {
         auto Comparer = [](const SourceLocation& source_loc, const SourceLocation& scope_loc) -> bool {
             return source_loc < scope_loc;
         };
@@ -218,7 +218,7 @@ namespace glsld {
             return scope->interval_.first;
         };
 
-        auto IsLocationInScope = [](const Scope* scope, SourceLocation location) -> bool {
+        auto IsLocationInScope = [](const Scope* scope, const SourceLocation& location) -> bool {
             return (scope->interval_.first <= location) && (location < scope->interval_.second);
         };
 
@@ -246,15 +246,15 @@ namespace glsld {
                      scope->host_symbol_ ? scope->host_symbol_->name : "<null>",
                      reinterpret_cast<std::uintptr_t>(scope),
                      reinterpret_cast<std::uintptr_t>(scope->parent_),
-                     scope->interval_.first.line, scope->interval_.first.column,
-                     scope->interval_.second.line, scope->interval_.second.column);
+                     scope->interval_.first.line(), scope->interval_.first.column(),
+                     scope->interval_.second.line(), scope->interval_.second.column());
 
         if (!scope->symbols_.empty()) {
             utils::PrintIndent(indent_level + 1);
             std::println("Symbols:");
             for (const auto& [name, symbol] : scope->symbols_) {
                 utils::PrintIndent(indent_level + 2);
-                std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name, magic_enum::enum_name(symbol.kind), symbol.location.line);
+                std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name, magic_enum::enum_name(symbol.kind), symbol.location.line());
             }
         }
 

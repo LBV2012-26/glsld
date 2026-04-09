@@ -12,7 +12,7 @@ namespace glsld {
         BindMacroInvocations();
         BindMacroBodyIdentifiers();
         BindMacroFunctionArguments();
-        BindConditionalMacros();
+        BindMacroAfterDirective();
     }
 
     void MacroBinder::BindMacroInvocations() {
@@ -29,8 +29,8 @@ namespace glsld {
     }
 
     void MacroBinder::BindMacroBodyIdentifiers() {
-        const auto& preprocessor_references = document_.ast->preprocessor_references;
-        for (const auto* node : preprocessor_references) {
+        const auto& references = document_.ast->preprocessor_references;
+        for (const auto* node : references) {
             if (node->directive != "define") {
                 continue;
             }
@@ -78,7 +78,7 @@ namespace glsld {
         }
     }
 
-    void MacroBinder::BindConditionalMacros() {
+    void MacroBinder::BindMacroAfterDirective() {
         if (document_.ast == nullptr) {
             return;
         }
@@ -104,7 +104,7 @@ namespace glsld {
             }
 
             if (node->directive != "if"    && node->directive != "elif" &&
-                node->directive != "ifdef" && node->directive != "ifndef")
+                node->directive != "ifdef" && node->directive != "ifndef" && node->directive != "include")
             {
                 continue;
             }

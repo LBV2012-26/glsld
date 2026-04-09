@@ -5,6 +5,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -16,9 +17,9 @@
 #include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
-    nlohmann::json ConvertScopeToDocumentSymbols(const Scope* const scope);
-    std::vector<std::uint32_t> GetSemanticData(std::shared_ptr<const Document> snapshot);
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, SourceLocation location, bool toggle_function);
+    nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope);
+    std::vector<std::uint32_t> GetSemanticData(std::string_view uri, std::shared_ptr<const Document> snapshot);
+    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
     std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot);
 
     struct SignatureHelpResult {
@@ -27,9 +28,9 @@ namespace glsld {
         int active_param_index{};
     };
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, SourceLocation location);
+    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
 
-    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location);
-    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, SourceLocation location);
+    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
     std::string FormatSymbol(const SymbolInfo* symbol);
 }

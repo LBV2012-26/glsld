@@ -68,7 +68,7 @@ namespace glsld {
     inline SymbolInfo* Scope::AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind) {
         SymbolInfo symbol{
             .name          = std::string(name),
-            .location      = location,
+            .location      = std::move(location),
             .kind          = kind,
             .located_scope = this,
             .node          = node

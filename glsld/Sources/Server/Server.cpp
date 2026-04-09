@@ -8,6 +8,7 @@
 #include <iostream>
 #include <print>
 #include <span>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -23,18 +24,13 @@ namespace glsld {
             std::size_t line      = position["line"];
             std::size_t character = position["character"];
 
-            SourceLocation target{
-                .line   = line      + 1,
-                .column = character + 1
-            };
-
-            return target;
+            return SourceLocation(nullptr, line + 1, character + 1);
         }
 
-        nlohmann::json ConvertToLspPosition(SourceLocation location) {
+        nlohmann::json ConvertToLspPosition(const SourceLocation& location) {
             return {
-                { "line",      location.line   - 1 },
-                { "character", location.column - 1 }
+                { "line",      location.line()   - 1 },
+                { "character", location.column() - 1 }
             };
         }
     }
@@ -276,14 +272,14 @@ namespace glsld {
         const auto& uri = context.params["textDocument"]["uri"];
         const auto snapshot = ValidateAndGetDocument(uri);
 
-        return ConvertScopeToDocumentSymbols(snapshot->symbols.root_scope());
+        return ConvertScopeToDocumentSymbols(uri, snapshot->symbols.root_scope());
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
         const auto& uri = context.params["textDocument"]["uri"];
         const auto snapshot = ValidateAndGetDocument(uri);
 
-        auto data = GetSemanticData(snapshot);
+        auto data = GetSemanticData(uri, snapshot);
         return { { "data", data } };
     }
 
@@ -302,8 +298,8 @@ namespace glsld {
         auto response_array = nlohmann::json::array();
 
         for (const auto& symbol : symbols) {
-            std::size_t start_line  = symbol->location.line   - 1;
-            std::size_t start_char  = symbol->location.column - 1;
+            std::size_t start_line  = symbol->location.line()   - 1;
+            std::size_t start_char  = symbol->location.column() - 1;
 
             std::string symbol_name = symbol->name;
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
@@ -314,7 +310,7 @@ namespace glsld {
 
             nlohmann::json result;
 
-            result["uri"]                         = uri;
+            result["uri"]                         = symbol->location.uri();
             result["range"]["start"]["line"]      = start_line;
             result["range"]["start"]["character"] = start_char;
             result["range"]["end"]["line"]        = start_line;
