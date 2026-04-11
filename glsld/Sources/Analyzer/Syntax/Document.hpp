@@ -2,16 +2,14 @@
 
 #include <cstddef>
 #include <memory>
-#include <optional>
 #include <string>
-#include <string_view>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/Source.hpp"
 
 namespace glsld {
     using BindingMap        = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
@@ -19,30 +17,24 @@ namespace glsld {
     using MacroArgsTraceMap = MacroTraceMap;
 
     struct InactiveRegion {
-        SourceReference source_ref{ nullptr };
-        std::size_t     begin_line{};
-        std::size_t     end_line{};
+        std::size_t begin_line{};
+        std::size_t end_line{};
     };
 
-    class FileTable {
-    public:
-        static SourceReference Intern(std::string_view filename, std::string_view uri);
-        static SourceReference Intern(std::string_view uri);
-
-    private:
-        static inline StringHeteroHashTable<SourceReference> sources_;
-    };
+    using InactiveRegionMap = std::unordered_map<const SourceFile*, std::vector<InactiveRegion>, SourceFileHash>;
 
     struct Document {
-        DocumentSymbols                      symbols;
-        std::vector<Token>                   raw_tokens;
-        std::vector<Token>                   expanded_tokens;
-        std::vector<InactiveRegion>          inactive_regions;
-        std::unique_ptr<TranslationUnitNode> ast;
-        BindingMap                           bindings;
-        MacroTraceMap                        macro_traces;
-        MacroArgsTraceMap                    macro_args_traces;
-        int                                  version{};
+        using AstRoot = std::unique_ptr<TranslationUnitNode>;
+
+        DocumentSymbols    symbols;
+        std::vector<Token> raw_tokens;
+        std::vector<Token> expanded_tokens;
+        InactiveRegionMap  inactive_regions;
+        AstRoot            ast;
+        BindingMap         bindings;
+        MacroTraceMap      macro_traces;
+        MacroArgsTraceMap  macro_args_traces;
+        int                version{};
     };
 
     struct InlayHint {

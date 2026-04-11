@@ -14,7 +14,7 @@
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
         : thread_pool_{ thread_pool }
-        , include_loader_{ thread_pool }
+        , include_loader_{ source_table_, thread_pool }
     {
         // auto include_dirs = Config::Lookup("include_dirs", std::vector<std::filesystem::path>(), "Include directories for GLSL source files");
     }
@@ -33,14 +33,15 @@ namespace glsld {
             return version_replica != version->load();
         };
 
+        const auto* source_file = source_table_.InternByUri(uri);
+
         try {
-            Parser parser(context, include_loader_, uri, include_dirs_, *document, version_replica, version);
+            Parser parser(source_table_, source_file, context, include_loader_, include_dirs_, version_replica, version, *document);
             parser.Parse();
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
                 return;
             }
-
         } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
             return;
         }

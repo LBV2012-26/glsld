@@ -3,6 +3,14 @@
 #include <utility>
 
 namespace glsld {
+    inline const SourceFile* Workspace::InternSource(std::string_view uri) {
+        return source_table_.InternByUri(uri);
+    }
+
+    inline const SourceFile* Workspace::GetSource(std::string_view uri) const {
+        return source_table_.GetByUri(uri);
+    }
+
     inline void Workspace::AddIncludeDirectory(std::filesystem::path directory) {
         include_dirs_.push_back(std::move(directory));
     }

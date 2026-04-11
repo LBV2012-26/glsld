@@ -12,6 +12,7 @@
 
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
+#include "Base/Source.hpp"
 #include "Base/ThreadPool.hpp"
 
 namespace glsld {
@@ -33,7 +34,7 @@ namespace glsld {
         using Snapshot       = std::shared_ptr<const IncludeFileSnapshot>;
         using SnapshotFuture = std::shared_future<Snapshot>;
 
-        explicit IncludeLoader(ThreadPool& thread_pool);
+        IncludeLoader(SourceTable& source_table, ThreadPool& thread_pool);
 
         SnapshotFuture Include(
             std::string_view includer_uri,
@@ -79,6 +80,7 @@ namespace glsld {
 
         SnapshotFuture MakeReadyFuture(Snapshot snapshot) const;
 
+        SourceTable&                          source_table_;
         ThreadPool&                           thread_pool_;
         std::shared_mutex                     mutex_;
         StringHeteroHashTable<Snapshot>       cache_;

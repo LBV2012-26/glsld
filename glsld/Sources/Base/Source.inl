@@ -1,19 +1,11 @@
-#include "Token.hpp"
+#include "Source.hpp"
 
 #include <compare>
 #include <utility>
 
-#include "Base/Hash.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
-    inline SourceFile::SourceFile(std::string_view filename, std::string_view uri)
-        : filename_{ filename }
-        , uri_{ uri }
-    {
-        HashCombine(cached_hash_, filename_);
-        HashCombine(cached_hash_, uri_);
-    }
-
     inline bool SourceFile::operator==(const SourceFile& other) const {
         return cached_hash_ == other.cached_hash_;
     }
@@ -25,36 +17,25 @@ namespace glsld {
     inline std::string_view SourceFile::uri() const {
         return uri_;
     }
- 
-    inline SourceLocation::SourceLocation(SourceReference source_ref, std::size_t line, std::size_t column)
-        : source_ref_{ std::move(source_ref) }
-        , line_{ line }
-        , column_{ column }
-    {
-        if (source_ref_ == nullptr) {
-            return;
-        }
 
-        HashCombine(cached_hash_, line_);
-        HashCombine(cached_hash_, column_);
-        HashCombine(cached_hash_, source_ref_->cached_hash_);
+    inline std::size_t SourceFileHash::operator()(const SourceFile* source) const {
+        return source->cached_hash_;
     }
 
     inline bool SourceLocation::operator==(const SourceLocation& other) const {
-        return source_ref_->cached_hash_ == other.source_ref_->cached_hash_ &&
-               line_ == other.line_ && column_ == other.column_;
+        return *source_ == *other.source_ && line_ == other.line_ && column_ == other.column_;
     }
 
-    inline SourceReference SourceLocation::source_ref() const {
-        return source_ref_;
+    inline const SourceFile* SourceLocation::source_file() const {
+        return source_;
     }
 
     inline std::string_view SourceLocation::filename() const {
-        return source_ref_ != nullptr ? source_ref_->filename() : std::string_view();
+        return source_->filename();
     }
 
     inline std::string_view SourceLocation::uri() const {
-        return source_ref_ != nullptr ? source_ref_->uri() : std::string_view();
+        return source_->uri();
     }
 
     inline std::size_t SourceLocation::line() const {

@@ -16,17 +16,19 @@
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/IncludeLoader.hpp"
+#include "Base/Source.hpp"
 
 namespace glsld {
     class Parser {
     public:
-        Parser(std::string_view source,
+        Parser(SourceTable& source_table,
+               const SourceFile* source_file,
+               std::string_view source,
                IncludeLoader& include_loader,
-               std::string_view current_uri,
                std::span<const std::filesystem::path> include_dirs,
-               Document& document,
                int version_replica,
-               std::shared_ptr<const std::atomic<int>> version_pointer);
+               std::shared_ptr<const std::atomic<int>> version_pointer,
+               Document& document);
 
         void Parse();
 
@@ -113,9 +115,8 @@ namespace glsld {
 
         Scope* current_scope();
 
-        SourceReference                         source_ref_;
+        const SourceFile*                       source_file_;
         Lexer                                   lexer_;
-        Document&                               document_;
         std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
         std::vector<PreprocessorNode*>          preprocessor_references_;
@@ -124,6 +125,7 @@ namespace glsld {
         std::size_t                             anonymous_block_index_{};
         int                                     version_replica_{};
         std::shared_ptr<const std::atomic<int>> version_pointer_;
+        Document&                               document_;
     };
 }
 

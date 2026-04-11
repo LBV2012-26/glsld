@@ -82,7 +82,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = "Tests/BlackHole.glsl";
+        auto filename = "Tests/Debugger.glsl";
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::println(stderr, "Failed to open test GLSL source.");
@@ -98,15 +98,18 @@ int main() {
         std::string_view shader_source(source_buffer);
 
         ThreadPool thread_pool;
-        IncludeLoader loader(thread_pool);
+        SourceTable source_table;
+        IncludeLoader loader(source_table, thread_pool);
         Document document;
 
         std::array include_dirs{
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
         };
 
+        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
+
         auto lexer_start = std::chrono::high_resolution_clock::now();
-        Parser parser(shader_source, loader, "file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl", include_dirs, document, 0, nullptr);
+        Parser parser(source_table, source_file, shader_source, loader, include_dirs, 0, nullptr, document);
         auto lexer_end = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 

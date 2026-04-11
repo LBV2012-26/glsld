@@ -13,8 +13,9 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    IncludeLoader::IncludeLoader(ThreadPool& thread_pool)
-        : thread_pool_{ thread_pool }
+    IncludeLoader::IncludeLoader(SourceTable& source_table, ThreadPool& thread_pool)
+        : source_table_{ source_table }
+        , thread_pool_{ thread_pool }
     {}
 
     IncludeLoader::SnapshotFuture IncludeLoader::Include(
@@ -291,8 +292,8 @@ namespace glsld {
         }
 
         try {
-            auto source_ref = std::make_shared<SourceFile>(snapshot->filename, snapshot->uri);
-            Lexer lexer(snapshot->source, *this, snapshot->uri, include_dirs, std::move(source_ref));
+            const auto* source_file = source_table_.Intern(snapshot->filename, snapshot->uri);
+            Lexer lexer(source_file, snapshot->source, *this, include_dirs);
 
             do {
                 auto token = lexer.AcquireNextToken();

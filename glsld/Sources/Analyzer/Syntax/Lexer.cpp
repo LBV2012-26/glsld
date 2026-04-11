@@ -8,22 +8,22 @@
 #include <ios>
 #include <ranges>
 #include <span>
+#include <string>
 #include <stdexcept>
 #include <vector>
 
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    Lexer::Lexer(std::string_view source,
+    Lexer::Lexer(const SourceFile* source_file,
+                 std::string_view source,
                  IncludeLoader& include_loader,
-                 std::string_view current_uri,
-                 std::span<const std::filesystem::path> include_dirs,
-                 SourceReference source_ref)
-        : source_{ source }
+                 std::span<const std::filesystem::path> include_dirs)
+
+        : source_file_{ source_file }
+        , source_{ source }
         , include_loader_{ include_loader }
-        , current_uri_{ current_uri }
         , include_dirs_{ include_dirs }
-        , source_ref_{ source_ref }
     {
         BuildLexicalTable();
     }
@@ -35,7 +35,7 @@ namespace glsld {
             TryPrefetchInclude();
         }
 
-        const SourceLocation location(source_ref_, line_, column_);
+        const SourceLocation location(source_file_, line_, column_);
 
         if (position_ >= source_.length()) {
             return {
@@ -151,14 +151,14 @@ namespace glsld {
             return;
         }
 
-        auto include_expr = FindIncludeExprAfterSharp(position_);
-        if (!include_expr.has_value()) {
+        auto include_expr_range = FindIncludeExprAfterSharp(position_);
+        if (!include_expr_range.has_value()) {
             return;
         }
 
-        auto [include_begin, include_end] = *include_expr;
-        std::string_view include_path = source_.substr(include_begin, include_end - include_begin);
-        include_loader_.Prefetch(current_uri_, include_path, include_dirs_);
+        auto [include_begin, include_end] = *include_expr_range;
+        std::string_view include_expr = source_.substr(include_begin, include_end - include_begin);
+        include_loader_.Prefetch(source_file_->uri(), include_expr, include_dirs_);
     }
 
     std::optional<std::pair<std::size_t, std::size_t>> Lexer::FindIncludeExprAfterSharp(std::size_t sharp_index) const {
@@ -313,7 +313,7 @@ namespace glsld {
     }
 
     Token Lexer::Capture(TokenType type, std::size_t length) {
-        const SourceLocation location(source_ref_, line_, column_);
+        const SourceLocation location(source_file_, line_, column_);
 
         std::string text(source_.substr(position_, length));
         Advance(length);

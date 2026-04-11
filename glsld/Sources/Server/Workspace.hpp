@@ -12,12 +12,16 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/Hash.hpp"
 #include "Base/IncludeLoader.hpp"
+#include "Base/Source.hpp"
 #include "Base/ThreadPool.hpp"
 
 namespace glsld {
     class Workspace {
     public:
         explicit Workspace(ThreadPool& thread_pool);
+
+        const SourceFile* InternSource(std::string_view uri);
+        const SourceFile* GetSource(std::string_view uri) const;
 
         void UpdateDocument(
             std::string_view uri,
@@ -38,6 +42,7 @@ namespace glsld {
     private:
         StringHeteroHashTable<std::shared_ptr<Document>> documents_;
         ThreadPool&                                      thread_pool_;
+        SourceTable                                      source_table_;
         IncludeLoader                                    include_loader_;
         std::vector<std::filesystem::path>               include_dirs_;
         mutable std::shared_mutex                        mutex_;

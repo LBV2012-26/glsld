@@ -16,10 +16,11 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/Source.hpp"
 
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope);
-    std::vector<std::uint32_t> GetSemanticData(std::string_view uri, std::shared_ptr<const Document> snapshot);
+    std::vector<std::uint32_t> GetSemanticData(const SourceFile* source_file, std::shared_ptr<const Document> snapshot);
 
     std::optional<std::string> GotoInclude(
         std::shared_ptr<const Document> snapshot,

@@ -13,18 +13,20 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    Parser::Parser(std::string_view source,
-               IncludeLoader& include_loader,
-               std::string_view current_uri,
-               std::span<const std::filesystem::path> include_dirs,
-               Document& document,
-               int version_replica,
-               std::shared_ptr<const std::atomic<int>> version_pointer)
-        : source_ref_{ FileTable::Intern(current_uri) }
-        , lexer_{ source, include_loader, current_uri, include_dirs, source_ref_ }
-        , document_{ document }
+    Parser::Parser(SourceTable& source_table,
+                   const SourceFile* source_file,
+                   std::string_view source,
+                   IncludeLoader& include_loader,
+                   std::span<const std::filesystem::path> include_dirs,
+                   int version_replica,
+                   std::shared_ptr<const std::atomic<int>> version_pointer,
+                   Document& document)
+
+        : source_file_{ source_file }
+        , lexer_{ source_file_, source, include_loader, include_dirs }
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
+        , document_{ document }
     {
         raw_tokens_.reserve(source.length() / 5);
 
@@ -37,13 +39,14 @@ namespace glsld {
         } while (raw_tokens_.back().type != TokenType::kEndOfFile);
 
         Preprocessor processor(
+            source_table,
+            source_file_,
+            include_loader,
+            include_dirs,
             raw_tokens_,
             document_.macro_traces,
             document_.macro_args_traces,
-            document_.inactive_regions,
-            include_loader,
-            include_dirs,
-            source_ref_
+            document_.inactive_regions
         );
 
         expanded_tokens_ = processor.Process();
@@ -170,7 +173,7 @@ namespace glsld {
 
     std::unique_ptr<TranslationUnitNode> Parser::ParserMainTask() {
         auto root = std::make_unique<TranslationUnitNode>(current_scope());
-        root->begin = SourceLocation(source_ref_, 1, 1);
+        root->begin = SourceLocation(source_file_, 1, 1);
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {

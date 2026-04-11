@@ -1,9 +1,7 @@
 #pragma once
 
-#include <cstddef>
-#include <memory>
 #include <string>
-#include <string_view>
+#include "Base/Source.hpp"
 
 namespace glsld {
     enum class TokenType {
@@ -87,57 +85,9 @@ namespace glsld {
         kColonColon              // ::
     };
 
-    class SourceFile {
-    public:
-        SourceFile(std::string_view filename, std::string_view uri);
-
-        bool operator==(const SourceFile& other) const;
-
-        std::string_view filename() const;
-        std::string_view uri() const;
-
-    private:
-        friend class SourceLocation;
-
-        std::string filename_;
-        std::string uri_;
-        std::size_t cached_hash_{};
-    };
-
-    using SourceReference = std::shared_ptr<SourceFile>;
-
-    class SourceLocation {
-    public:
-        SourceLocation() = default;
-        SourceLocation(SourceReference source_ref, std::size_t line, std::size_t column);
-
-        bool operator==(const SourceLocation& other) const;
-        auto operator<=>(const SourceLocation& other) const;
-
-        SourceReference source_ref() const;
-        std::string_view filename() const;
-        std::string_view uri() const;
-        std::size_t line() const;
-        std::size_t column() const;
-
-    private:
-        friend struct LocationHash;
-
-        SourceReference source_ref_{ nullptr };
-        std::size_t     line_{};
-        std::size_t     column_{};
-        std::size_t     cached_hash_{};
-    };
-
-    struct LocationHash {
-        std::size_t operator()(const SourceLocation& location) const;
-    };
-
     struct Token {
         std::string    text{ "unknown" };
         SourceLocation location;
         TokenType      type{ TokenType::kUnknown };
     };
 }
-
-#include "Token.inl"

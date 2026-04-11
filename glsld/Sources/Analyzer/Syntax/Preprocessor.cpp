@@ -520,25 +520,28 @@ namespace glsld {
         };
     }
 
-    Preprocessor::Preprocessor(std::span<const Token> raw_tokens,
-                               MacroTraceMap& trace_map,
-                               MacroArgsTraceMap& args_trace_map,
-                               std::vector<InactiveRegion>& inactive_regions,
+    Preprocessor::Preprocessor(SourceTable& source_table,
+                               const SourceFile* source_file,
                                IncludeLoader& include_loader,
                                std::span<const std::filesystem::path> include_dirs,
-                               SourceReference source_ref,
+                               std::span<const Token> raw_tokens,
+                               MacroTraceMap& macro_traces,
+                               MacroArgsTraceMap& macro_args_traces,
+                               InactiveRegionMap& inactive_regions,
                                std::vector<std::string> parent_stack)
-        : raw_tokens_{ raw_tokens }
-        , trace_map_{ trace_map }
-        , args_trace_map_{ args_trace_map }
-        , inactive_regions_{ inactive_regions }
+
+        : source_table_{ source_table }
+        , source_file_{ source_file }
         , include_loader_{ include_loader }
         , include_dirs_{ include_dirs }
-        , source_ref_{ source_ref }
         , include_stack_{ std::move(parent_stack) }
+        , raw_tokens_{ raw_tokens }
+        , macro_traces_{ macro_traces }
+        , macro_args_traces_{ macro_args_traces }
+        , inactive_regions_{ inactive_regions }
     {
         if (include_stack_.empty()) {
-            include_stack_.push_back(std::string(source_ref_->filename()));
+            include_stack_.push_back(std::string(source_file_->filename()));
         }
     }
 
@@ -644,7 +647,7 @@ namespace glsld {
             return false;
         }
 
-        trace_map_.try_emplace(macro_token.location, it->second.original_token);
+        macro_traces_.try_emplace(macro_token.location, it->second.original_token);
 
         active_macros.insert(macro_token.text);
         const auto& defination = it->second;
@@ -862,7 +865,7 @@ namespace glsld {
 
         auto PushArgument = [&](const Token& token) -> void {
             arguments.back().push_back(token);
-            args_trace_map_.try_emplace(token.location, token);
+            macro_args_traces_.try_emplace(token.location, token);
         };
 
         for (; index < input.size(); ++index) {
@@ -983,7 +986,7 @@ namespace glsld {
                     body.insert(body.begin() + i + 1, Token{
                         .text     = "\\",
                         .location = SourceLocation(
-                            source_ref_,
+                            source_file_,
                             body[i].location.line(),
                             body[i].location.column() + body[i].text.length() + 1
                         ),
@@ -1296,16 +1299,17 @@ namespace glsld {
             return;
         }
 
-        if (!inactive_regions_.empty()) {
-            auto& last = inactive_regions_.back();
+        auto& inactive_region = inactive_regions_[source_file_];
+
+        if (!inactive_region.empty()) {
+            auto& last = inactive_region.back();
             if (begin_line <= last.end_line + 1) {
                 last.end_line = std::max(last.end_line, end_line);
                 return;
             }
         }
 
-        inactive_regions_.push_back({
-            .source_ref = source_ref_,
+        inactive_region.push_back({
             .begin_line = begin_line,
             .end_line   = end_line
         });
@@ -1348,7 +1352,7 @@ namespace glsld {
         }
 
         auto expanded_body = ExpandTokenSequence(body_tokens, active_macros, call_site);
-        auto future        = include_loader_.Include(source_ref_->uri(), expanded_body, include_dirs_);
+        auto future        = include_loader_.Include(source_file_->uri(), expanded_body, include_dirs_);
         auto snapshot      = future.get();
 
         if (snapshot == nullptr || !snapshot->valid()) {
@@ -1359,20 +1363,21 @@ namespace glsld {
             return {};
         }
 
-        auto include_file = std::make_shared<SourceFile>(snapshot->filename, snapshot->uri);
+        const auto* include_file = source_table_.Intern(snapshot->filename, snapshot->uri);
 
         Preprocessor subprocessor(
-            snapshot->tokens,
-            trace_map_,
-            args_trace_map_,
-            inactive_regions_,
+            source_table_,
+            include_file,
             include_loader_,
             include_dirs_,
-            include_file,
+            snapshot->tokens,
+            macro_traces_,
+            macro_args_traces_,
+            inactive_regions_,
             include_stack_
         );
 
-        subprocessor.macros_ = macros_;
+        subprocessor.macros_ = std::move(macros_);
 
         auto expanded = subprocessor.Process();
         macros_ = std::move(subprocessor.macros_);

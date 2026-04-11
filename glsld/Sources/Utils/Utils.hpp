@@ -3,8 +3,6 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
-#include "Analyzer/Syntax/Symbol.hpp"
-#include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld::utils {
     std::string GetFilePath(std::string_view filename);

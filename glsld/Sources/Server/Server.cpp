@@ -14,17 +14,18 @@
 
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Logger.hpp"
+#include "Base/Source.hpp"
 #include "Server/FunctionProviders.hpp"
 #include "Server/JsonResponse.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
-        SourceLocation ConvertToParserPosition(auto source_ref, const auto& position) {
+        SourceLocation ConvertToParserPosition(const SourceFile* source_file, const auto& position) {
             std::size_t line      = position["line"];
             std::size_t character = position["character"];
 
-            return SourceLocation(source_ref, line + 1, character + 1);
+            return SourceLocation(source_file, line + 1, character + 1);
         }
 
         nlohmann::json ConvertToLspPosition(const SourceLocation& location) {
@@ -279,7 +280,8 @@ namespace glsld {
         const auto& uri = context.params["textDocument"]["uri"];
         const auto snapshot = ValidateAndGetDocument(uri);
 
-        auto data = GetSemanticData(uri, snapshot);
+        const auto* source_file = workspace_.GetSource(uri);
+        auto data = GetSemanticData(source_file, snapshot);
         return { { "data", data } };
     }
 
@@ -289,7 +291,7 @@ namespace glsld {
 
         const auto snapshot = ValidateAndGetDocument(uri);
 
-        auto target  = ConvertToParserPosition(FileTable::Intern(uri), position);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         if (auto include = GotoInclude(snapshot, target, workspace_.include_dirs())) {
             nlohmann::json result;
@@ -341,7 +343,7 @@ namespace glsld {
 
         const auto snapshot = ValidateAndGetDocument(uri);
 
-        auto target  = ConvertToParserPosition(FileTable::Intern(uri), position);
+        auto target  = ConvertToParserPosition(workspace_.InternSource(uri), position);
         auto symbols = GetDefinitionSymbols(snapshot, target, false);
         if (symbols.empty()) {
             return {};
@@ -397,7 +399,7 @@ namespace glsld {
         const auto& position = context.params["position"];
 
         const auto snapshot = ValidateAndGetDocument(uri);
-        auto target = ConvertToParserPosition(FileTable::Intern(uri), position);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         auto signature_help = GetSignatureHelp(snapshot, target);
         if (!signature_help) {
@@ -472,18 +474,23 @@ namespace glsld {
         const auto& position = context.params["position"];
 
         const auto snapshot = ValidateAndGetDocument(uri);
-        auto target = ConvertToParserPosition(FileTable::Intern(uri), position);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         if (context.params["context"]["triggerCharacter"] == ".") {
             return GetFieldCompletionItems(snapshot, target);
         }
 
-        if (context.params["context"]["triggerKind"] == 1 ||
-            context.params["context"]["triggerCharacter"] == "\"" ||
+        if (context.params["context"]["triggerCharacter"] == "\"" ||
             context.params["context"]["triggerCharacter"] == "<"  ||
             context.params["context"]["triggerCharacter"] == "/")
         {
             return GetIncludeCompletionItems(snapshot, target, workspace_.include_dirs());
+        }
+
+        if (auto include_items = GetIncludeCompletionItems(snapshot, target, workspace_.include_dirs());
+            !include_items.empty())
+        {
+            return include_items;
         }
 
         return GetCompletionItems(snapshot, target);

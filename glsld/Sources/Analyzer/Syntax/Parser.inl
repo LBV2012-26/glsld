@@ -30,7 +30,7 @@ namespace glsld {
     inline SourceLocation Parser::GetCurrentTokenEnd() const {
         const auto& token = current_token();
         return SourceLocation(
-            token.location.source_ref(),
+            token.location.source_file(),
             token.location.line(),
             token.location.column() + static_cast<std::size_t>(token.text.length())
         );
@@ -39,7 +39,7 @@ namespace glsld {
     inline SourceLocation Parser::GetPreviousTokenEnd() const {
         const auto& token = PeekToken(-1);
         return SourceLocation(
-            token.location.source_ref(),
+            token.location.source_file(),
             token.location.line(),
             token.location.column() + static_cast<std::size_t>(token.text.length())
         );

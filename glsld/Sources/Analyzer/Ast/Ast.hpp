@@ -69,8 +69,8 @@ namespace glsld {
 
     struct ExpressionNode;
     struct AttributeNode final : public AstNode {
-        Token namespace_;
-        Token name;
+        Token                           namespace_;
+        Token                           name;
         std::unique_ptr<ExpressionNode> argument;
 
         using AstNode::AstNode;
@@ -166,7 +166,7 @@ namespace glsld {
     };
 
     struct SwitchStatementNode final : public StatementNode {
-        std::unique_ptr<ExpressionNode> condition;
+        std::unique_ptr<ExpressionNode>             condition;
         std::vector<std::unique_ptr<StatementNode>> cases;
 
         using StatementNode::StatementNode;
@@ -177,7 +177,7 @@ namespace glsld {
     };
 
     struct CaseStatementNode final : public StatementNode {
-        std::unique_ptr<ExpressionNode> condition; // nullptr for "default"
+        std::unique_ptr<ExpressionNode>             condition; // nullptr for "default"
         std::vector<std::unique_ptr<StatementNode>> body;
 
         using StatementNode::StatementNode;
@@ -348,8 +348,8 @@ namespace glsld {
     };
 
     struct TypeSpecifier {
-        std::vector<Token> specifiers;
-        std::vector<Token> layout_params;
+        std::vector<Token>                           specifiers;
+        std::vector<Token>                           layout_params;
         std::vector<std::shared_ptr<ExpressionNode>> array_sizes;
 
         Token typename_token() const {

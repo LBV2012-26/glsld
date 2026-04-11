@@ -5,22 +5,21 @@
 #include <filesystem>
 #include <optional>
 #include <span>
-#include <string>
 #include <string_view>
 #include <utility>
 
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
 #include "Base/IncludeLoader.hpp"
+#include "Base/Source.hpp"
 
 namespace glsld {
     class Lexer {
     public:
-        Lexer(std::string_view source,
+        Lexer(const SourceFile* source_file,
+              std::string_view source,
               IncludeLoader& include_loader,
-              std::string_view current_uri,
-              std::span<const std::filesystem::path> include_dirs = {},
-              SourceReference source_ref = nullptr);
+              std::span<const std::filesystem::path> include_dirs);
 
         Token AcquireNextToken();
 
@@ -36,14 +35,13 @@ namespace glsld {
         void SkipWhitespaceAndComments();
         void Advance(std::size_t count = 1);
 
+        const SourceFile*                              source_file_;
         std::string_view                               source_;
         IncludeLoader&                                 include_loader_;
-        std::string                                    current_uri_;
         std::span<const std::filesystem::path>         include_dirs_;
         std::size_t                                    position_{};
         std::size_t                                    line_{ 1 };
         std::size_t                                    column_{ 1 };
-        SourceReference                                source_ref_;
 
         static inline StringHeteroHashTable<TokenType> lexical_table_;
     };

@@ -157,10 +157,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Base\Source.cpp" />
     <ClCompile Include="Sources\Base\IncludeLoader.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
@@ -188,6 +188,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Base\Source.hpp" />
     <ClInclude Include="Sources\Base\IncludeLoader.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
@@ -224,7 +225,7 @@
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
-    <None Include="Sources\Analyzer\Syntax\Token.inl" />
+    <None Include="Sources\Base\Source.inl" />
     <None Include="Sources\Base\Config.inl" />
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />

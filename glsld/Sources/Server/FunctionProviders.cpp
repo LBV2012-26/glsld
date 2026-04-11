@@ -19,7 +19,7 @@
 namespace glsld {
     namespace {
         bool IsPositionInToken(const Token& token, const SourceLocation& position) {
-            if (*token.location.source_ref() != *position.source_ref()) {
+            if (*token.location.source_file() != *position.source_file()) {
                 return false;
             }
 
@@ -244,7 +244,7 @@ namespace glsld {
         };
     }
 
-    std::vector<std::uint32_t> GetSemanticData(std::string_view uri, std::shared_ptr<const Document> snapshot) {
+    std::vector<std::uint32_t> GetSemanticData(const SourceFile* source_file, std::shared_ptr<const Document> snapshot) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -274,12 +274,16 @@ namespace glsld {
             last_char = static_cast<std::uint32_t>(character);
         };
 
-        auto IsInactive = [&](std::size_t line) -> bool {
+        auto IsInactive = [&snapshot, source_file](std::size_t line) -> bool {
             if (snapshot->inactive_regions.empty()) {
                 return false;
             }
 
-            const auto& regions = snapshot->inactive_regions;
+            if (snapshot->inactive_regions.find(source_file) == snapshot->inactive_regions.end()) {
+                return false;
+            }
+
+            const auto& regions = snapshot->inactive_regions.at(source_file);
             auto it = std::ranges::upper_bound(regions, line, std::ranges::less{}, [](InactiveRegion region) -> std::size_t {
                 return region.begin_line;
             });
@@ -289,10 +293,6 @@ namespace glsld {
             }
 
             --it;
-
-            if (it->source_ref->uri() != uri) {
-                return false;
-            }
 
             return it->begin_line <= line && line <= it->end_line;
         };

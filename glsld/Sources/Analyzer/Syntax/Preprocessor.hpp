@@ -15,13 +15,14 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Base/Hash.hpp"
 #include "Base/IncludeLoader.hpp"
+#include "Base/Source.hpp"
 
 namespace glsld {
     struct ConditionalFrame {
-        bool parent_active{ true };
-        bool branch_taken{ false };
-        bool current_active{ true };
-        bool in_else{ false };
+        bool        parent_active{ true };
+        bool        branch_taken{ false };
+        bool        current_active{ true };
+        bool        in_else{ false };
         std::size_t if_line{};
     };
 
@@ -34,13 +35,14 @@ namespace glsld {
 
     class Preprocessor {
     public:
-        Preprocessor(std::span<const Token> raw_tokens,
-                     MacroTraceMap& trace_map,
-                     MacroArgsTraceMap& args_trace_map,
-                     std::vector<InactiveRegion>& inactive_regions,
+        Preprocessor(SourceTable& source_table,
+                     const SourceFile* source_file,
                      IncludeLoader& include_loader,
                      std::span<const std::filesystem::path> include_dirs,
-                     SourceReference source_ref,
+                     std::span<const Token> raw_tokens,
+                     MacroTraceMap& macro_traces,
+                     MacroArgsTraceMap& macro_args_traces,
+                     InactiveRegionMap& inactive_regions,
                      std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();
@@ -90,19 +92,19 @@ namespace glsld {
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
 
-        std::span<const Token>                 raw_tokens_;
-        StringHeteroHashTable<MacroDefination> macros_;
-        std::stack<ConditionalFrame>           condition_stack_;
-        MacroTraceMap&                         trace_map_;
-        MacroArgsTraceMap&                     args_trace_map_;
-        std::vector<InactiveRegion>&           inactive_regions_;
-        std::optional<std::size_t>             open_inactive_begin_line_;
-        std::size_t                            token_index_{};
-
+        SourceTable&                           source_table_;
+        const SourceFile*                      source_file_;
         IncludeLoader&                         include_loader_;
         std::span<const std::filesystem::path> include_dirs_;
-        SourceReference                        source_ref_;
         std::vector<std::string>               include_stack_;
+        StringHeteroHashTable<MacroDefination> macros_;
+        std::stack<ConditionalFrame>           condition_stack_;
+        std::optional<std::size_t>             open_inactive_begin_line_;
+        std::size_t                            token_index_{};
+        std::span<const Token>                 raw_tokens_;
+        MacroTraceMap&                         macro_traces_;
+        MacroArgsTraceMap&                     macro_args_traces_;
+        InactiveRegionMap&                     inactive_regions_;
     };
 }
 
