@@ -1,7 +1,7 @@
 #ifndef INCLUDE_GLSL_
 #define INCLUDE_GLSL_
 
-#include "Test.glsl"
+#include "TestRoot/Test.glsl"
 
 const int kValue = 42;
 

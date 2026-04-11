@@ -52,7 +52,7 @@ namespace glsld::utils {
         auto work_directory = std::filesystem::path(buffer.data()).parent_path().parent_path();
         auto file_path = work_directory / std::filesystem::path(filename);
 
-        return file_path.string();
+        return file_path.generic_string();
     }
 
     std::filesystem::path UriToPath(std::string_view uri) {

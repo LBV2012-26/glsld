@@ -1,10 +1,14 @@
 #include "stdafx.h"
 #include "FunctionProviders.hpp"
 
+#include <cctype>
+#include <cstddef>
 #include <algorithm>
 #include <iterator>
 #include <ranges>
+#include <system_error>
 #include <unordered_set>
+#include <utility>
 #include <variant>
 
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
@@ -14,6 +18,39 @@
 
 namespace glsld {
     namespace {
+        bool IsPositionInToken(const Token& token, const SourceLocation& position) {
+            if (*token.location.source_ref() != *position.source_ref()) {
+                return false;
+            }
+
+            if (token.location.line() != position.line()) {
+                return false;
+            }
+
+            std::size_t start_column = token.location.column();
+            std::size_t end_column   = start_column + token.text.length();
+
+            // [start_column, end_column]
+            return position.column() >= start_column && position.column() <= end_column;
+        }
+
+        std::optional<std::size_t> FindCursorTokenIndex(
+            std::span<const Token> tokens,
+            const SourceLocation& location)
+        {
+            auto it = std::ranges::upper_bound(tokens, location, std::ranges::less{}, &Token::location);
+            if (it == tokens.begin()) {
+                return std::nullopt;
+            }
+
+            auto index = static_cast<std::size_t>(std::distance(tokens.begin(), std::prev(it)));
+            if (!IsPositionInToken(tokens[index], location)) {
+                return std::nullopt;
+            }
+
+            return index;
+        }
+
         const SymbolInfo* FindFunctionCounterpart(const SymbolList& symbol_list, const SymbolInfo* symbol) {
             if (symbol == nullptr) {
                 return nullptr;
@@ -42,6 +79,21 @@ namespace glsld {
 
             return nullptr;
         };
+
+        void PushUniquePath(std::vector<std::filesystem::path>& paths, const std::filesystem::path& path) {
+            auto normalized = utils::NormalizePath(path);
+            auto filename   = normalized.generic_string();
+
+            auto Predicate = [&](const auto& path) -> bool {
+                return utils::NormalizePath(path).generic_string() == filename;
+            };
+
+            if (std::ranges::any_of(paths, Predicate)) {
+                return;
+            }
+
+            paths.push_back(path);
+        }
     }
 
     nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope) {
@@ -297,18 +349,98 @@ namespace glsld {
     }
 
     namespace {
-        bool IsPositionInToken(const Token& token, const SourceLocation& position) {
-            if (token.location.line() != position.line()) {
-                return false;
+        std::optional<std::string> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
+            if (node == nullptr || node->directive != "include") {
+                return std::nullopt;
             }
 
-            std::size_t start_column = token.location.column();
-            std::size_t end_column   = start_column + token.text.length();
+            for (const auto& token : node->tokens) {
+                if (!IsPositionInToken(token, location)) {
+                    continue;
+                }
 
-            // [start_column, end_column]
-            return position.column() >= start_column && position.column() <= end_column;
+                if (token.type == TokenType::kStringLiteral && token.text.length() > 2) {
+                    if ((token.text.front() == '"' && token.text.back() == '"') ||
+                        (token.text.front() == '<' && token.text.back() == '>'))
+                    {
+                        return token.text;
+                    }
+                }
+            }
+
+            return std::nullopt;
         }
 
+        std::vector<std::filesystem::path> ResolveIncludeCandidates(
+            std::string_view includer_uri,
+            std::string_view include_expr,
+            std::span<const std::filesystem::path> include_dirs)
+        {
+            std::vector<std::filesystem::path> candidates;
+
+            auto PushPath = [&candidates](const std::filesystem::path& path) -> void {
+                if (std::filesystem::exists(path) && std::filesystem::is_regular_file(path)) {
+                    PushUniquePath(candidates, path);
+                }
+            };
+
+            if (!include_expr.starts_with('<')) { // #include <Include.glsl>
+                auto filename = include_expr.substr(1, include_expr.length() - 2);
+                auto includer = utils::UriToPath(includer_uri);
+                auto local    = utils::NormalizePath(includer.parent_path() / filename);
+
+                PushPath(local);
+            }
+
+            for (const auto& dir : include_dirs) {
+                auto filename  = include_expr.substr(1, include_expr.length() - 2);
+                auto candidate = utils::NormalizePath(dir / filename);
+
+                PushPath(candidate);
+            }
+
+            return candidates;
+        }
+    }
+
+    std::optional<std::string> GotoInclude(
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        std::span<const std::filesystem::path> include_dirs)
+    {
+        if (snapshot == nullptr) {
+            return std::nullopt;
+        }
+
+        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        if (!index.has_value()) {
+            return std::nullopt;
+        }
+
+        const auto& cursor_token = snapshot->raw_tokens[*index];
+        if (cursor_token.type != TokenType::kStringLiteral) {
+            return std::nullopt;
+        }
+
+        for (const auto* node : snapshot->ast->preprocessor_references) {
+            auto include_expr = ExtractIncludeExpr(node, location);
+            if (!include_expr.has_value()) {
+                continue;
+            }
+
+            auto candidates = ResolveIncludeCandidates(location.uri(), *include_expr, include_dirs);
+
+            if (candidates.size() != 1) {
+                return std::nullopt;
+            }
+
+            return utils::PathToUri(candidates.front());
+        }
+
+        return std::nullopt;
+    }
+
+    namespace {
         const SymbolInfo* ResolveFunctionJump(const Document* snapshot, const SymbolInfo* symbol) {
             if (symbol == nullptr) {
                 return nullptr;
@@ -319,6 +451,42 @@ namespace glsld {
 
             return FindFunctionCounterpart(candidates, symbol);
         };
+
+        void GetDefinitionSymbolsFromCursor(std::shared_ptr<const Document> snapshot, const Token* cursor_token, bool toggle_function, SymbolList& results) {
+            auto it = snapshot->bindings.find(cursor_token->location);
+            if (it == snapshot->bindings.end() || !std::holds_alternative<const SymbolInfo*>(it->second)) {
+                return;
+            }
+
+            const auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
+            if (linked_symbol == nullptr) {
+                return;
+            }
+
+
+            if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
+                linked_symbol->kind == SymbolKind::kFunctionImpl) {
+                if (!toggle_function) {
+                    results.push_back(linked_symbol);
+                    return;
+                }
+
+                bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
+                if (clicked_on_defination) {
+                    const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                    results.push_back(toggled != nullptr ? toggled : linked_symbol);
+                } else {
+                    if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
+                        const auto* impl = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                        results.push_back(impl != nullptr ? impl : linked_symbol);
+                    } else {
+                        results.push_back(linked_symbol);
+                    }
+                }
+            } else {
+                results.push_back(linked_symbol);
+            }
+        }
     }
 
     SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function) {
@@ -326,47 +494,16 @@ namespace glsld {
             return {};
         }
 
-        SymbolList results;
         const Token* cursor_token = nullptr;
 
-        auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
-        if (it != snapshot->raw_tokens.begin()) {
-            cursor_token = &*std::prev(it);
-            if (!IsPositionInToken(*cursor_token, location)) {
-                cursor_token = nullptr;
-            }
+        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        if (index.has_value()) {
+            cursor_token = &snapshot->raw_tokens[*index];
         }
 
+        SymbolList results;
         if (cursor_token != nullptr) {
-            auto it = snapshot->bindings.find(cursor_token->location);
-            if (it != snapshot->bindings.end() && std::holds_alternative<const SymbolInfo*>(it->second)) {
-                const auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
-                if (linked_symbol != nullptr) {
-                    if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
-                        linked_symbol->kind == SymbolKind::kFunctionImpl)
-                    {
-                        if (!toggle_function) {
-                            results.push_back(linked_symbol);
-                            return results;
-                        }
-
-                        bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
-                        if (clicked_on_defination) {
-                            const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
-                            results.push_back(toggled ? toggled : linked_symbol);
-                        } else {
-                            if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
-                                const auto* impl = ResolveFunctionJump(snapshot.get(), linked_symbol);
-                                results.push_back(impl ? impl : linked_symbol);
-                            } else {
-                                results.push_back(linked_symbol);
-                            }
-                        }
-                    } else {
-                        results.push_back(linked_symbol);
-                    }
-                }
-            }
+            GetDefinitionSymbolsFromCursor(snapshot, cursor_token, toggle_function, results);
         }
 
         if (!results.empty()) {
@@ -485,6 +622,186 @@ namespace glsld {
     }
 
     namespace {
+        struct IncludeCompletionContext {
+            std::string      prefix;
+            std::string_view uri;
+            std::size_t      line{};
+            std::size_t      replace_start_column{};
+            std::size_t      replace_end_column{};
+            bool             valid{};
+            bool             system_include{};
+        };
+
+        std::optional<IncludeCompletionContext> TryBuildIncludeCompletionContext(
+            const PreprocessorNode* node,
+            const SourceLocation& location)
+        {
+            if (node == nullptr || node->directive != "include") {
+                return std::nullopt;
+            }
+
+            for (const auto& token : node->tokens) {
+                if (!IsPositionInToken(token, location))
+                    continue;
+                if (token.type != TokenType::kStringLiteral || token.text.length() < 2)
+                    continue;
+
+                if ((token.text.front() != '"' && token.text.back() != '"') &&
+                    (token.text.front() != '<' && token.text.back() != '>'))
+                {
+                    continue;
+                }
+
+                auto literal_start = token.location.column(); // " or <
+                auto content_start = literal_start + 1;
+                auto content_end   = literal_start + token.text.length() - 1;
+
+                auto clamped       = std::clamp(location.column(), content_start, content_end);
+                auto prefix_length = clamped > content_start ? (clamped - content_start) : 0;
+
+                IncludeCompletionContext context{
+                    .prefix               = token.text.substr(1, prefix_length),
+                    .uri                  = location.uri(),
+                    .line                 = location.line(),
+                    .replace_start_column = content_start,
+                    .replace_end_column   = content_end,
+                    .valid                = true,
+                    .system_include       = (token.text.front() == '<' && token.text.back() == '>')
+                };
+
+                return context;
+            }
+
+            return std::nullopt;
+        }
+
+        std::vector<std::filesystem::path> BuildSearchRoots(
+            const IncludeCompletionContext& context,
+            std::span<const std::filesystem::path> include_dirs)
+        {
+            std::vector<std::filesystem::path> roots;
+
+            if (!context.system_include) {
+                auto includer = utils::UriToPath(context.uri);
+                PushUniquePath(roots, includer.parent_path());
+            }
+
+            for (const auto& dir : include_dirs) {
+                PushUniquePath(roots, dir);
+            }
+
+            return roots;
+        }
+
+        std::pair<std::string, std::string> SplitPrefix(std::string_view prefix) {
+            std::string dir_prefix;
+            std::string file_prefix;
+
+            auto position = prefix.find_last_of("/\\");
+            if (position == std::string_view::npos) {
+                dir_prefix.clear();
+                file_prefix = prefix;
+            } else {
+                dir_prefix  = prefix.substr(0, position + 1); // keep "/"
+                file_prefix = prefix.substr(position + 1);
+            }
+
+            return { dir_prefix, file_prefix };
+        }
+    }
+
+    nlohmann::json GetIncludeCompletionItems(
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        std::span<const std::filesystem::path> include_dirs)
+    {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        if (!index.has_value()) {
+            return {};
+        }
+
+        const auto& cursor_token = snapshot->raw_tokens[*index];
+        if (cursor_token.type != TokenType::kStringLiteral) {
+            return {};
+        }
+
+        std::optional<IncludeCompletionContext> context;
+        for (const auto& node : snapshot->ast->preprocessor_references) {
+            context = TryBuildIncludeCompletionContext(node, location);
+            if (context.has_value()) {
+                break;
+            }
+        }
+
+        if (!context.has_value() || !context->valid) {
+            return {};
+        }
+
+        auto roots = BuildSearchRoots(*context, include_dirs);
+        auto [dir_prefix, file_prefix] = SplitPrefix(context->prefix);
+
+        std::unordered_set<std::string> unique_labels;
+        nlohmann::json items = nlohmann::json::array();
+
+        for (const auto& root : roots) {
+            auto base = utils::NormalizePath(root / dir_prefix);
+            if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base)) {
+                continue;
+            }
+
+            std::error_code ec;
+            for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+                if (ec) {
+                    break;
+                }
+
+                auto name = entry.path().filename().generic_string();
+                if (!file_prefix.empty() && !name.starts_with(file_prefix)) {
+                    continue;
+                }
+
+                std::string relative_path = dir_prefix + name;
+                if (entry.is_directory()) {
+                    relative_path += "/";
+                }
+
+                if (!unique_labels.insert(relative_path).second) {
+                    continue;
+                }
+
+                auto kind = entry.is_directory() ? 19 : 17;  // Folder : File
+
+                nlohmann::json item;
+                item["label"]    = relative_path;
+                item["kind"]     = kind;
+                item["sortText"] = kind == 19 ? "0" : "1";
+                item["textEdit"] = {
+                    { "range", {
+                        { "start", { { "line", context->line - 1 }, { "character", context->replace_start_column - 1 } } },
+                        { "end",   { { "line", context->line - 1 }, { "character", context->replace_end_column   - 1 } } }
+                    } },
+                    { "newText", relative_path }
+                };
+
+                if (entry.is_directory()) {
+                    item["command"] = {
+                        { "title",  "Trigger include completion" },
+                        { "command", "editor.action.triggerSuggest" }
+                    };
+                }
+
+                items.push_back(std::move(item));
+            }
+        }
+
+        return items;
+    }
+
+    namespace {
         int MapSymbolKindToLspCompletion(SymbolKind kind, bool is_const = false) {
             switch (kind) {
             case SymbolKind::kVariable:  return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
@@ -534,7 +851,7 @@ namespace glsld {
             item["kind"]  = MapSymbolKindToLspCompletion(symbol->kind, symbol->type_info.is_const());
 
             // TODO: document, detail, etc
-            items.push_back(item);
+            items.push_back(std::move(item));
         }
 
         return items;
@@ -567,7 +884,7 @@ namespace glsld {
                     item["label"] = symbol.first;
                     item["kind"]  = 5;
 
-                    items.push_back(item);
+                    items.push_back(std::move(item));
                 }
             }
         }

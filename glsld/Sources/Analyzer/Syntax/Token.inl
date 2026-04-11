@@ -10,12 +10,12 @@ namespace glsld {
         : filename_{ filename }
         , uri_{ uri }
     {
-        cached_hash_ = std::hash<std::string>{}(filename_);
-        // filename 是绝对路径，uri 不用再哈希了
+        HashCombine(cached_hash_, filename_);
+        HashCombine(cached_hash_, uri_);
     }
 
     inline bool SourceFile::operator==(const SourceFile& other) const {
-        return filename_ == other.filename_ && uri_ == other.uri_;
+        return cached_hash_ == other.cached_hash_;
     }
 
     inline std::string_view SourceFile::filename() const {
@@ -41,7 +41,8 @@ namespace glsld {
     }
 
     inline bool SourceLocation::operator==(const SourceLocation& other) const {
-        return source_ref_ == other.source_ref_ && line_ == other.line_ && column_ == other.column_;
+        return source_ref_->cached_hash_ == other.source_ref_->cached_hash_ &&
+               line_ == other.line_ && column_ == other.column_;
     }
 
     inline SourceReference SourceLocation::source_ref() const {

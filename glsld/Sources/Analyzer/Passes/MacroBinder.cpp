@@ -103,8 +103,8 @@ namespace glsld {
                 continue;
             }
 
-            if (node->directive != "if"    && node->directive != "elif" &&
-                node->directive != "ifdef" && node->directive != "ifndef" && node->directive != "include")
+            if (node->directive != "include" && node->directive != "if" && node->directive != "elif" &&
+                node->directive != "ifdef"   && node->directive != "ifndef")
             {
                 continue;
             }

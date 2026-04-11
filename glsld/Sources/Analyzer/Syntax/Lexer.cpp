@@ -2,6 +2,7 @@
 #include "Lexer.hpp"
 
 #include <cctype>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <ios>
@@ -37,7 +38,11 @@ namespace glsld {
         const SourceLocation location(source_ref_, line_, column_);
 
         if (position_ >= source_.length()) {
-            return { {}, location, TokenType::kEndOfFile };
+            return {
+                .text     = {},
+                .location = location,
+                .type     = TokenType::kEndOfFile
+            };
         }
 
         unsigned char current_char = static_cast<unsigned char>(source_[position_]);
@@ -53,7 +58,26 @@ namespace glsld {
                 Advance();
             }
 
-            return { std::string(source_.substr(begin, position_ - begin)), location, TokenType::kNumberLiteral };
+            return {
+                .text     = std::string(source_.substr(begin, position_ - begin)),
+                .location = location,
+                .type     = TokenType::kNumberLiteral
+            };
+        }
+
+        if (current_char == '<') {
+            auto angle_end = TryFindIncludeAngleEnd();
+            if (angle_end.has_value()) {
+                auto begin  = position_;
+                auto length = *angle_end - begin;
+                Advance(length);
+
+                return {
+                    .text     = std::string(source_.substr(begin, length)),
+                    .location = location,
+                    .type     = TokenType::kStringLiteral
+                };
+            }
         }
 
         auto token = DetectToken(current_char);
@@ -79,10 +103,18 @@ namespace glsld {
 
             auto it = lexical_table_.find(word);
             if (it != lexical_table_.end()) {
-                return { std::string(word), location, it->second };
+                return {
+                    .text     = std::string(word),
+                    .location = location,
+                    .type     = it->second
+                };
             }
 
-            return { std::string(word), location, TokenType::kIdentifier };
+            return {
+                .text     = std::string(word),
+                .location = location,
+                .type     = TokenType::kIdentifier
+            };
         }
 
         if (current_char == '"') {
@@ -99,22 +131,47 @@ namespace glsld {
                 Advance(); // consume closing quote
             }
 
-            return { std::string(source_.substr(begin, position_ - begin)), location, TokenType::kStringLiteral };
+            return {
+                .text     = std::string(source_.substr(begin, position_ - begin)),
+                .location = location,
+                .type     = TokenType::kStringLiteral
+            };
         }
 
         Advance();
-        return { std::string(source_.substr(position_ - 1, 1)), location, TokenType::kUnknown };
+        return {
+            .text     = std::string(source_.substr(position_ - 1, 1)),
+            .location = location,
+            .type     = TokenType::kUnknown
+        };
     }
 
     void Lexer::TryPrefetchInclude() {
-        if (position_ > source_.length() || source_[position_] != '#') {
+        if (position_ >= source_.length() || source_[position_] != '#') {
             return;
         }
 
-        auto index = position_ + 1;
+        auto include_expr = FindIncludeExprAfterSharp(position_);
+        if (!include_expr.has_value()) {
+            return;
+        }
+
+        auto [include_begin, include_end] = *include_expr;
+        std::string_view include_path = source_.substr(include_begin, include_end - include_begin);
+        include_loader_.Prefetch(current_uri_, include_path, include_dirs_);
+    }
+
+    std::optional<std::pair<std::size_t, std::size_t>> Lexer::FindIncludeExprAfterSharp(std::size_t sharp_index) const {
+        if (sharp_index > source_.length() || source_[sharp_index] != '#') {
+            return std::nullopt;
+        }
+
+        auto index = sharp_index + 1;
 
         auto SkipWhitespace = [&index, this]() {
-            while (index < source_.length() && (source_[index] == ' ' || source_[index] == '\t' || source_[index] == '\r')) {
+            while (index < source_.length() &&
+                   (source_[index] == ' ' || source_[index] == '\t' || source_[index] == '\r'))
+            {
                 ++index;
             }
         };
@@ -123,12 +180,12 @@ namespace glsld {
 
         static constexpr std::string_view kInclude = "include";
         if (index + kInclude.length() > source_.length()) {
-            return;
+            return std::nullopt;
         }
 
         for (auto i = 0; i != kInclude.length(); ++i) {
             if (source_[index + i] != kInclude[i]) {
-                return;
+                return std::nullopt;
             }
         }
 
@@ -136,7 +193,7 @@ namespace glsld {
         SkipWhitespace();
 
         if (index >= source_.length()) {
-            return;
+            return std::nullopt;
         }
 
         if (source_[index] == '"' || source_[index] == '<') {
@@ -148,9 +205,45 @@ namespace glsld {
             }
 
             if (end < source_.length() && source_[end] == delimiter) {
-                include_loader_.Prefetch(current_uri_, source_.substr(index, end - index + 1), include_dirs_);
+                return std::make_pair(index, end + 1);
             }
         }
+
+        return std::nullopt;
+    }
+
+    std::optional<std::size_t> Lexer::TryFindIncludeAngleEnd() const {
+        if (position_ >= source_.length() || source_[position_] != '<') {
+            return std::nullopt;
+        }
+
+        auto line_begin = position_;
+        while (line_begin > 0 && source_[line_begin - 1] != '\n') {
+            --line_begin;
+        }
+
+        auto first_non_space = line_begin;
+        while (first_non_space < source_.length() &&
+               (source_[first_non_space] == ' ' || source_[first_non_space] == '\t' || source_[first_non_space] == '\r'))
+        {
+            ++first_non_space;
+        }
+
+        if (first_non_space >= source_.length() || source_[first_non_space] != '#') {
+            return std::nullopt;
+        }
+
+        auto include_expr = FindIncludeExprAfterSharp(first_non_space);
+        if (!include_expr.has_value()) {
+            return std::nullopt;
+        }
+
+        auto [include_begin, include_end] = *include_expr;
+        if (include_begin == position_ && source_[include_begin] == '<') {
+            return include_end;
+        }
+
+        return std::nullopt;
     }
 
     Token Lexer::DetectToken(unsigned char current_char) {
@@ -246,22 +339,20 @@ namespace glsld {
     }
 
     void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {
-        std::ifstream stream(filename.data());
+        std::ifstream stream(filename.data(), std::ios::binary);
         if (!stream.is_open()) {
             throw std::runtime_error(std::format("Failed to open {}: No such file or directory.", filename));
         }
 
-        stream.seekg(0, std::ios::end);
-        auto size = stream.tellg();
-        stream.seekg(0);
+        auto size = std::filesystem::file_size(filename);
 
         std::vector<char> buffer(size);
         stream.read(buffer.data(), size);
 
         auto ExtractWords = [](std::span<const char> text) -> std::vector<std::string_view> {
-            auto words_range = text | std::views::chunk_by([](auto cha, auto chb) -> bool {
-                return (std::isspace(static_cast<unsigned char>(cha)) ==
-                        std::isspace(static_cast<unsigned char>(chb)));
+            auto words_range = text | std::views::chunk_by([](auto lhs, auto rhs) -> bool {
+                return (std::isspace(static_cast<unsigned char>(lhs)) ==
+                        std::isspace(static_cast<unsigned char>(rhs)));
             }) | std::views::filter([](auto chunk) -> bool {
                 return !std::isspace(static_cast<unsigned char>(chunk.front()));
             }) | std::views::transform([](auto word_view) -> std::string_view {

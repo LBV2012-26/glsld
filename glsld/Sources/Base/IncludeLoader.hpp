@@ -59,6 +59,12 @@ namespace glsld {
             bool        system_include{ false };
         };
 
+        SnapshotFuture Include(
+            std::string_view includer_uri,
+            std::string_view include_expr,
+            std::span<const std::filesystem::path> include_dirs,
+            std::optional<IncludeTarget> parsed_target);
+
         std::optional<IncludeTarget> ParseIncludeExpr(std::string_view include_expr) const;
         std::optional<IncludeTarget> ParseIncludeFromTokens(std::span<const Token> body_tokens) const;
 

@@ -3,9 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
@@ -24,6 +26,8 @@ namespace glsld {
 
     private:
         void TryPrefetchInclude();
+        std::optional<std::pair<std::size_t, std::size_t>> FindIncludeExprAfterSharp(std::size_t sharp_index) const;
+        std::optional<std::size_t> TryFindIncludeAngleEnd() const;
         Token DetectToken(unsigned char current_char);
         unsigned char Peek(std::size_t offset = 1) const;
         Token Capture(TokenType type, std::size_t length = 1);

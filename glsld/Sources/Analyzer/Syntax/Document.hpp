@@ -26,10 +26,11 @@ namespace glsld {
 
     class FileTable {
     public:
-        SourceReference Intern(std::string_view filename, std::string_view uri);
+        static SourceReference Intern(std::string_view filename, std::string_view uri);
+        static SourceReference Intern(std::string_view uri);
 
     private:
-        StringHeteroHashTable<SourceReference> sources_;
+        static inline StringHeteroHashTable<SourceReference> sources_;
     };
 
     struct Document {
@@ -42,8 +43,6 @@ namespace glsld {
         MacroTraceMap                        macro_traces;
         MacroArgsTraceMap                    macro_args_traces;
         int                                  version{};
-
-        static inline FileTable              file_table;
     };
 
     struct InlayHint {

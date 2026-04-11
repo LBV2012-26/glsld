@@ -9,12 +9,15 @@
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
+#include "Base/Config.hpp"
 
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
         : thread_pool_{ thread_pool }
         , include_loader_{ thread_pool }
-    {}
+    {
+        // auto include_dirs = Config::Lookup("include_dirs", std::vector<std::filesystem::path>(), "Include directories for GLSL source files");
+    }
 
     void Workspace::UpdateDocument(
         std::string_view uri,
@@ -31,7 +34,7 @@ namespace glsld {
         };
 
         try {
-            Parser parser(context, include_loader_, uri, {}, *document, version_replica, version);
+            Parser parser(context, include_loader_, uri, include_dirs_, *document, version_replica, version);
             parser.Parse();
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr

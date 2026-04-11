@@ -25,6 +25,7 @@
 
 namespace {
     void InitLargetPage() {
+#ifdef _WIN64
         HANDLE token = nullptr;
         if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
             TOKEN_PRIVILEGES token_privileges{};
@@ -50,6 +51,7 @@ namespace {
         } while (memory == nullptr);
 
         mi_manage_os_memory(memory, kMemorySize, true, true, true, -1);
+#endif
     }
 }
 
@@ -63,8 +65,10 @@ extern "C" {
 }
 
 int main() {
+#ifdef _WIN64
     std::ignore = _setmode(_fileno(stdin), _O_BINARY);
     std::ignore = _setmode(_fileno(stdout), _O_BINARY);
+#endif
 
     using namespace glsld;
 
@@ -78,10 +82,10 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = "Tests/Debugger.glsl";
+        auto filename = "Tests/BlackHole.glsl";
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
-            std::cerr << "Failed to open test GLSL source." << std::endl;
+            std::println(stderr, "Failed to open test GLSL source.");
             return EXIT_FAILURE;
         }
 
@@ -97,8 +101,12 @@ int main() {
         IncludeLoader loader(thread_pool);
         Document document;
 
+        std::array include_dirs{
+            std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
+        };
+
         auto lexer_start = std::chrono::high_resolution_clock::now();
-        Parser parser(shader_source, loader, "file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl", {}, document, 0, nullptr);
+        Parser parser(shader_source, loader, "file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl", include_dirs, document, 0, nullptr);
         auto lexer_end = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
@@ -125,10 +133,10 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        AstDumper dumper(0, nullptr);
-        dumper.Traverse(document.ast.get());
+        //AstDumper dumper(0, nullptr);
+        //dumper.Traverse(document.ast.get());
 
-        document.symbols.Dump();
+        //document.symbols.Dump();
 
         std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),

@@ -1,9 +1,10 @@
 #include "stdafx.h"
 #include "IncludeLoader.hpp"
 
+#include <cstddef>
 #include <exception>
 #include <fstream>
-#include <iosfwd>
+#include <ios>
 #include <mutex>
 #include <system_error>
 #include <utility>
@@ -21,7 +22,51 @@ namespace glsld {
         std::string_view include_expr,
         std::span<const std::filesystem::path> include_dirs)
     {
-        auto target = ParseIncludeExpr(include_expr);
+        return Include(includer_uri, include_expr, include_dirs, std::nullopt);
+    }
+
+    IncludeLoader::SnapshotFuture IncludeLoader::Include(
+        std::string_view includer_uri,
+        std::span<const Token> body_tokens,
+        std::span<const std::filesystem::path> include_dirs)
+    {
+        auto target = ParseIncludeFromTokens(body_tokens);
+        if (!target.has_value()) {
+            auto failed = std::make_shared<IncludeFileSnapshot>();
+            failed->error = "Invalid #include syntax";
+            return MakeReadyFuture(std::move(failed));
+        }
+
+        return Include(includer_uri, {}, include_dirs, std::move(target));
+    }
+
+    void IncludeLoader::Prefetch(
+        std::string_view includer_uri,
+        std::string_view include_expr,
+        std::span<const std::filesystem::path> include_dirs)
+    {
+        std::ignore = Include(includer_uri, include_expr, include_dirs);
+    }
+
+    void IncludeLoader::Invalidate(std::string_view filename) {
+        std::unique_lock lock(mutex_);
+        cache_.erase(filename);
+        inflight_.erase(filename);
+    }
+
+    void IncludeLoader::Clear() {
+        std::unique_lock lock(mutex_);
+        cache_.clear();
+        inflight_.clear();
+    }
+
+    IncludeLoader::SnapshotFuture IncludeLoader::Include(
+        std::string_view includer_uri,
+        std::string_view include_expr,
+        std::span<const std::filesystem::path> include_dirs,
+        std::optional<IncludeTarget> parsed_target)
+    {
+        auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
         if (!target.has_value()) {
             auto failed = std::make_shared<IncludeFileSnapshot>();
             failed->error = "Invalid include expression";
@@ -37,7 +82,7 @@ namespace glsld {
         }
 
         auto normalized = utils::NormalizePath(*resolved_path);
-        auto filename   = normalized.string();
+        auto filename   = normalized.generic_string();
 
         {
             std::shared_lock lock(mutex_);
@@ -102,48 +147,6 @@ namespace glsld {
 
         inflight_[filename] = future;
         return future;
-    }
-
-    IncludeLoader::SnapshotFuture IncludeLoader::Include(
-        std::string_view includer_uri,
-        std::span<const Token> body_tokens,
-        std::span<const std::filesystem::path> include_dirs)
-    {
-        auto target = ParseIncludeFromTokens(body_tokens);
-        if (!target.has_value()) {
-            auto failed = std::make_shared<IncludeFileSnapshot>();
-            failed->error = "Invalid #include syntax";
-            return MakeReadyFuture(std::move(failed));
-        }
-
-        std::string expr;
-        if (target->system_include) {
-            expr = "<" + target->relative_path + ">";
-        } else {
-            expr = "\"" + target->relative_path + "\"";
-        }
-
-        return Include(includer_uri, expr, include_dirs);
-    }
-
-    void IncludeLoader::Prefetch(
-        std::string_view includer_uri,
-        std::string_view include_expr,
-        std::span<const std::filesystem::path> include_dirs)
-    {
-        std::ignore = Include(includer_uri, include_expr, include_dirs);
-    }
-
-    void IncludeLoader::Invalidate(std::string_view filename) {
-        std::unique_lock lock(mutex_);
-        cache_.erase(filename);
-        inflight_.erase(filename);
-    }
-
-    void IncludeLoader::Clear() {
-        std::unique_lock lock(mutex_);
-        cache_.clear();
-        inflight_.clear();
     }
 
     std::optional<IncludeLoader::IncludeTarget>
@@ -237,14 +240,26 @@ namespace glsld {
     namespace {
         std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path) {
             std::ifstream stream(path, std::ios::binary);
+
             if (!stream.is_open()) {
                 return { "", "Failed to open file" };
-            };
+            }
 
-            auto size = std::filesystem::file_size(path);
-            std::string source(size, '\0');
+            std::error_code ec;
+            auto size = std::filesystem::file_size(path, ec);
+            if (ec) {
+                return { "", "Failed to get file size" };
+            }
 
-            stream.read(source.data(), size);
+            std::vector<std::byte> pubsetbuf(1024 * 1024);
+            stream.rdbuf()->pubsetbuf(reinterpret_cast<char*>(pubsetbuf.data()), pubsetbuf.size());
+
+            std::string source;
+            source.resize_and_overwrite(size, [&stream](char* data, auto size) -> std::size_t {
+                stream.read(data, size);
+                return stream.gcount();
+            });
+
             if (!stream) {
                 return { "", "Failed to read file" };
             }
@@ -258,7 +273,7 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs)
     {
         auto snapshot = std::make_shared<IncludeFileSnapshot>();
-        snapshot->filename = normalized_path.string();
+        snapshot->filename = normalized_path.generic_string();
         snapshot->uri      = utils::PathToUri(normalized_path);
 
         std::error_code ec;

@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "Document.hpp"
 
+#include "Utils/Utils.hpp"
+
 namespace glsld {
     SourceReference FileTable::Intern(std::string_view filename, std::string_view uri) {
         auto it = sources_.find(filename);
@@ -10,7 +12,11 @@ namespace glsld {
 
         auto source = std::make_shared<SourceFile>(std::string(filename), std::string(uri));
 
-        // sources_.emplace(source->filename, source);
+        sources_.emplace(source->filename(), source);
         return source;
+    }
+
+    SourceReference FileTable::Intern(std::string_view uri) {
+        return Intern(utils::UriToPath(uri).generic_string(), uri);
     }
 }

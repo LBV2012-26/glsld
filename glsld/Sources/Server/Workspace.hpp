@@ -1,8 +1,10 @@
 #pragma once
 
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <shared_mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -27,10 +29,19 @@ namespace glsld {
         void RemoveDocument(std::string_view uri);
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
 
+        void AddIncludeDirectory(std::filesystem::path directory);
+        void RemoveIncludeDirectory(const std::filesystem::path& directory);
+
+        void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
+        std::span<const std::filesystem::path> include_dirs() const;
+
     private:
         StringHeteroHashTable<std::shared_ptr<Document>> documents_;
         ThreadPool&                                      thread_pool_;
         IncludeLoader                                    include_loader_;
+        std::vector<std::filesystem::path>               include_dirs_;
         mutable std::shared_mutex                        mutex_;
     };
 }
+
+#include "Workspace.inl"

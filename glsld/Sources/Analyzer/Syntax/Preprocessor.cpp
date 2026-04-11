@@ -1024,9 +1024,9 @@ namespace glsld {
             output.push_back(directive_token);
 
             ProcessLineSplicing(body);
-            output.append_range(body);
 
             auto included = ExpandIncludeDirective(body);
+            output.append_range(body     | std::views::as_rvalue);
             output.append_range(included | std::views::as_rvalue);
             return;
         }
@@ -1241,7 +1241,7 @@ namespace glsld {
                 bool has_paren = false;
                 bool valid     = false;
                 bool exists    = false;
-                auto location  = token.location;
+                const auto& location  = token.location;
 
                 if (j < input.size() && input[j].type == TokenType::kOpenParen) {
                     has_paren = true;

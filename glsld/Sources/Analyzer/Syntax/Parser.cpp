@@ -20,7 +20,7 @@ namespace glsld {
                Document& document,
                int version_replica,
                std::shared_ptr<const std::atomic<int>> version_pointer)
-        : source_ref_{ std::make_shared<SourceFile>(utils::UriToPath(current_uri).string(), std::string(current_uri)) }
+        : source_ref_{ FileTable::Intern(current_uri) }
         , lexer_{ source, include_loader, current_uri, include_dirs, source_ref_ }
         , document_{ document }
         , version_replica_{ version_replica }
