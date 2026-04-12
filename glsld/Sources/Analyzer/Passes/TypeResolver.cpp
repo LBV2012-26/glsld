@@ -235,7 +235,9 @@ namespace glsld {
     TypeResolver::TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
         : AstVisitor(version_replica, version_pointer)
         , document_{ document }
-    {}
+    {
+        Traverse(document_.ast.get());
+    }
 
     int TypeResolver::RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types) {
         std::vector<TypeInfo> normalized_call_args(call_arg_types.begin(), call_arg_types.end());

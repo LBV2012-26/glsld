@@ -15,8 +15,8 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
-#include "Base/IncludeLoader.hpp"
-#include "Base/Source.hpp"
+#include "Base/FileSystem/IncludeLoader.hpp"
+#include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
     class Parser {
@@ -29,8 +29,6 @@ namespace glsld {
                int version_replica,
                std::shared_ptr<const std::atomic<int>> version_pointer,
                Document& document);
-
-        void Parse();
 
     private:
         enum class Precedence : int {
@@ -56,6 +54,8 @@ namespace glsld {
 
         Precedence GetInfixPrecedence(TokenType type);
         bool IsRightAssociative(TokenType type);
+
+        void Parse();
 
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
         std::unique_ptr<StatementNode> ParseStatement();

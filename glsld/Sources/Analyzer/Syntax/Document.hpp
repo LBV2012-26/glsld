@@ -9,7 +9,7 @@
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
-#include "Base/Source.hpp"
+#include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
     using BindingMap        = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
@@ -38,7 +38,7 @@ namespace glsld {
     };
 
     struct InlayHint {
-        SourceLocation location;
-        std::string    label;
+        const SourceLocation* location{ nullptr };
+        std::string           label;
     };
 }

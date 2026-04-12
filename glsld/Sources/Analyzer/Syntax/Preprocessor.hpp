@@ -13,9 +13,9 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
+#include "Base/FileSystem/IncludeLoader.hpp"
+#include "Base/FileSystem/Source.hpp"
 #include "Base/Hash.hpp"
-#include "Base/IncludeLoader.hpp"
-#include "Base/Source.hpp"
 
 namespace glsld {
     struct ConditionalFrame {

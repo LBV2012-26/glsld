@@ -82,7 +82,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = "Tests/Debugger.glsl";
+        auto filename = "Tests/BlackHole.glsl";
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::println(stderr, "Failed to open test GLSL source.");
@@ -108,31 +108,23 @@ int main() {
 
         const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
 
-        auto lexer_start = std::chrono::high_resolution_clock::now();
-        Parser parser(source_table, source_file, shader_source, loader, include_dirs, 0, nullptr, document);
-        auto lexer_end = std::chrono::high_resolution_clock::now();
-        auto lexer_duration = lexer_end - lexer_start;
-
         auto parse_start = std::chrono::high_resolution_clock::now();
-        parser.Parse();
+        Parser parser(source_table, source_file, shader_source, loader, include_dirs, 0, nullptr, document);
         auto parse_end = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
-        SymbolLinker linker(document, 0, nullptr);
         auto link_start = std::chrono::high_resolution_clock::now();
-        linker.Traverse(document.ast.get());
+        SymbolLinker linker(document, 0, nullptr);
         auto link_end = std::chrono::high_resolution_clock::now();
         auto link_duration = link_end - link_start;
 
-        TypeResolver resolver(document, 0, nullptr);
         auto resolve_start = std::chrono::high_resolution_clock::now();
-        resolver.Traverse(document.ast.get());
+        TypeResolver resolver(document, 0, nullptr);
         auto resolve_end = std::chrono::high_resolution_clock::now();
         auto resolve_duration = resolve_end - resolve_start;
 
-        MacroBinder binder(document);
         auto bind_start = std::chrono::high_resolution_clock::now();
-        binder.BindMacro();
+        MacroBinder binder(document, 0, nullptr);
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
@@ -141,13 +133,12 @@ int main() {
 
         //document.symbols.Dump();
 
-        std::println("Lexer time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
-                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
+        std::println("Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
         std::println("Total time: {}ms",
-                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration + parse_duration + link_duration + resolve_duration + bind_duration).count());
+                     std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration + link_duration + resolve_duration + bind_duration).count());
     }
 }

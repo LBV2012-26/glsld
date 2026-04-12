@@ -4,11 +4,11 @@
 #include <string_view>
 
 namespace glsld {
-    MacroBinder::MacroBinder(Document& document)
+    MacroBinder::MacroBinder(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
         : document_{ document }
-    {}
-
-    void MacroBinder::BindMacro() {
+        , version_replica_{ version_replica }
+        , version_pointer_{ version_pointer }
+    {
         BindMacroInvocations();
         BindMacroBodyIdentifiers();
         BindMacroFunctionArguments();
@@ -17,6 +17,10 @@ namespace glsld {
 
     void MacroBinder::BindMacroInvocations() {
         for (auto& token : document_.raw_tokens) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+                return;
+            }
+
             auto trace_it = document_.macro_traces.find(token.location);
             if (trace_it != document_.macro_traces.end()) {
                 std::string_view macro_name = trace_it->second.text;
@@ -31,6 +35,10 @@ namespace glsld {
     void MacroBinder::BindMacroBodyIdentifiers() {
         const auto& references = document_.ast->preprocessor_references;
         for (const auto* node : references) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+                return;
+            }
+
             if (node->directive != "define") {
                 continue;
             }
@@ -61,6 +69,10 @@ namespace glsld {
 
     void MacroBinder::BindMacroFunctionArguments() {
         for (const auto& [location, token] : document_.macro_args_traces) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+                return;
+            }
+
             const auto* scope = document_.symbols.FindScopeAt(location);
             if (scope == nullptr) {
                 continue;
@@ -99,6 +111,10 @@ namespace glsld {
 
         const auto& references = document_.ast->preprocessor_references;
         for (const auto* node : references) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+                return;
+            }
+
             if (node == nullptr) {
                 continue;
             }

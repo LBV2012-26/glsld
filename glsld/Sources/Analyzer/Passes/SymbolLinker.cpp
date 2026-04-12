@@ -8,7 +8,9 @@ namespace glsld {
     SymbolLinker::SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer)
         : AstVisitor(version_replica, vesion_pointer)
         , document_{ document }
-    {}
+    {
+        Traverse(document_.ast.get());
+    }
 
     void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
         if (node->directive == "define" && node->symbol != nullptr) {

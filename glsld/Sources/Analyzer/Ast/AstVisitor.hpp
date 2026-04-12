@@ -14,6 +14,8 @@ namespace glsld {
         virtual void Traverse(AstNode* node);
 
     protected:
+        void DispatchCommonVisit(AstNode* node);
+
         virtual void VisitTranslationUnit(TranslationUnitNode* node);
         virtual void VisitDeclarationGroup(DeclarationGroupNode* node);
         virtual void VisitPreprocessor(PreprocessorNode* node);

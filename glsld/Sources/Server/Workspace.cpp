@@ -29,15 +29,10 @@ namespace glsld {
         auto document = std::make_shared<Document>();
         document->version = version_replica;
 
-        auto Cancelled = [version_replica, &version]() -> bool {
-            return version_replica != version->load();
-        };
-
         const auto* source_file = source_table_.InternByUri(uri);
 
         try {
             Parser parser(source_table_, source_file, context, include_loader_, include_dirs_, version_replica, version, *document);
-            parser.Parse();
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
                 return;
@@ -46,17 +41,18 @@ namespace glsld {
             return;
         }
 
+        auto Cancelled = [version_replica, &version]() -> bool {
+            return version_replica != version->load();
+        };
+
         if (Cancelled()) return;
         SymbolLinker linker(*document, version_replica, version);
-        linker.Traverse(document->ast.get());
 
         if (Cancelled()) return;
         TypeResolver resolver(*document, version_replica, version);
-        resolver.Traverse(document->ast.get());
 
         if (Cancelled()) return;
-        MacroBinder binder(*document);
-        binder.BindMacro();
+        MacroBinder binder(*document, version_replica, version);
 
         {
             std::unique_lock lock(mutex_);

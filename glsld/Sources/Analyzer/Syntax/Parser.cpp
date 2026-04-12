@@ -50,18 +50,8 @@ namespace glsld {
         );
 
         expanded_tokens_ = processor.Process();
-    }
 
-    void Parser::Parse() {
-        document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
-        scope_stack_.push(document_.symbols.root_scope());
-
-        auto ast_root = ParserMainTask();
-        document_.ast = std::move(ast_root);
-        document_.raw_tokens = std::move(raw_tokens_);
-        document_.expanded_tokens = std::move(expanded_tokens_);
-
-        document_.ast->preprocessor_references = std::move(preprocessor_references_);
+        Parse();
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
@@ -169,6 +159,18 @@ namespace glsld {
         default:
             return false;
         }
+    }
+
+    void Parser::Parse() {
+        document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
+        scope_stack_.push(document_.symbols.root_scope());
+
+        auto ast_root = ParserMainTask();
+        document_.ast = std::move(ast_root);
+        document_.raw_tokens = std::move(raw_tokens_);
+        document_.expanded_tokens = std::move(expanded_tokens_);
+
+        document_.ast->preprocessor_references = std::move(preprocessor_references_);
     }
 
     std::unique_ptr<TranslationUnitNode> Parser::ParserMainTask() {

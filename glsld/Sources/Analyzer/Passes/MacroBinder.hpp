@@ -1,13 +1,13 @@
 #pragma once
 
+#include <atomic>
+#include <memory>
 #include "Analyzer/Syntax/Document.hpp"
 
 namespace glsld {
     class MacroBinder {
     public:
-        MacroBinder(Document& document);
-
-        void BindMacro();
+        MacroBinder(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer);
 
     private:
         void BindMacroInvocations();
@@ -15,6 +15,8 @@ namespace glsld {
         void BindMacroFunctionArguments();
         void BindMacroAfterDirective();
 
-        Document& document_;
+        Document&                               document_;
+        int                                     version_replica_{};
+        std::shared_ptr<const std::atomic<int>> version_pointer_;
     };
 }

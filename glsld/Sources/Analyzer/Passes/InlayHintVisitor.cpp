@@ -51,7 +51,7 @@ namespace glsld {
                     }
 
                     hints_.push_back({
-                        .location = arg->begin,
+                        .location = &arg->begin,
                         .label    = label + ":"
                     });
                 }

@@ -16,7 +16,7 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
-#include "Base/Source.hpp"
+#include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope);

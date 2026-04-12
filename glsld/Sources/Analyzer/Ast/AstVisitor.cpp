@@ -29,6 +29,12 @@ namespace glsld {
             }
         }
 
+        DispatchCommonVisit(node);
+
+        current_scope_ = previous_scope;
+    }
+
+    void AstVisitor::DispatchCommonVisit(AstNode* node) {
         switch (node->kind()) {
         case AstNodeKind::kTranslationUnit:
             VisitTranslationUnit(static_cast<TranslationUnitNode*>(node));
@@ -118,8 +124,6 @@ namespace glsld {
             VisitMemberAccessExpression(static_cast<MemberAccessExpressionNode*>(node));
             break;
         }
-
-        current_scope_ = previous_scope;
     }
 
     void AstVisitor::VisitTranslationUnit(TranslationUnitNode* node) {

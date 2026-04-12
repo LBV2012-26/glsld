@@ -10,9 +10,9 @@
 #include <vector>
 
 #include "Analyzer/Syntax/Document.hpp"
+#include "Base/FileSystem/IncludeLoader.hpp"
+#include "Base/FileSystem/Source.hpp"
 #include "Base/Hash.hpp"
-#include "Base/IncludeLoader.hpp"
-#include "Base/Source.hpp"
 #include "Base/ThreadPool.hpp"
 
 namespace glsld {
