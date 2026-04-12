@@ -80,10 +80,10 @@ namespace glsld {
 
         SnapshotFuture MakeReadyFuture(Snapshot snapshot) const;
 
-        SourceTable&                          source_table_;
-        ThreadPool&                           thread_pool_;
-        std::shared_mutex                     mutex_;
-        StringHeteroHashTable<Snapshot>       cache_;
-        StringHeteroHashTable<SnapshotFuture> inflight_;
+        SourceTable&                        source_table_;
+        ThreadPool&                         thread_pool_;
+        std::shared_mutex                   mutex_;
+        StringHeteroHashMap<Snapshot>       cache_;
+        StringHeteroHashMap<SnapshotFuture> inflight_;
     };
 }

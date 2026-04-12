@@ -10,6 +10,7 @@
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
+#include "Base/Logger.hpp"
 
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
@@ -27,7 +28,8 @@ namespace glsld {
         bool open_document)
     {
         auto document = std::make_shared<Document>();
-        document->version = version_replica;
+        document->source_code = std::string(context);
+        document->version     = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
 
@@ -35,14 +37,37 @@ namespace glsld {
             Parser parser(source_table_, source_file, context, include_loader_, include_dirs_, version_replica, version, *document);
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
+                GLSLD_LOG_INFO(
+                    GLSLD_LOG_ROOT(),
+                    "Version changed during document update (replica: {}, current: {}), cancelling parse.",
+                    version_replica,
+                    version->load()
+                );
+
                 return;
             }
         } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
-            return;
+            GLSLD_LOG_INFO(
+                GLSLD_LOG_ROOT(),
+                "Version changed during document update (replica: {}, current: {}), cancelling lex.",
+                version_replica,
+                version->load()
+            );
         }
 
         auto Cancelled = [version_replica, &version]() -> bool {
-            return version_replica != version->load();
+            if (version_replica != version->load()) {
+                GLSLD_LOG_INFO(
+                    GLSLD_LOG_ROOT(),
+                    "Version changed during document update (replica: {}, current: {}), cancelling update.",
+                    version_replica,
+                    version->load()
+                );
+
+                return true;
+            }
+
+            return false;
         };
 
         if (Cancelled()) return;
@@ -53,6 +78,8 @@ namespace glsld {
 
         if (Cancelled()) return;
         MacroBinder binder(*document, version_replica, version);
+
+        UpdateDependencies(uri, document);
 
         {
             std::unique_lock lock(mutex_);
@@ -82,5 +109,29 @@ namespace glsld {
         }
 
         return nullptr;
+    }
+
+    std::vector<std::string> Workspace::GetAffectedDocuments(std::string_view changed_uri) const {
+        std::vector<std::string> results;
+        auto it = reverse_dependencies_.find(changed_uri);
+        if (it != reverse_dependencies_.end()) {
+            results.assign(it->second.begin(), it->second.end());
+        }
+
+        return results;
+    }
+
+    void Workspace::UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document) {
+        auto it = forward_dependencies_.find(uri);
+        if (it != forward_dependencies_.end()) {
+            for (const auto& dependency : it->second) {
+                reverse_dependencies_[dependency].erase(uri);
+            }
+        }
+
+        forward_dependencies_[std::string(uri)] = document->dependencies;
+        for (const auto& dependency : document->dependencies) {
+            reverse_dependencies_[dependency].emplace(uri);
+        }
     }
 }

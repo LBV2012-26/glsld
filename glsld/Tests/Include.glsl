@@ -1,8 +1,11 @@
 #ifndef INCLUDE_GLSL_
 #define INCLUDE_GLSL_
 
-#include "TestRoot/Test.glsl"
+const int kValue = 1145;
 
-const int kValue = 42;
+#define DECLARE_STRUCT_ARRAY(type, size) \
+struct type##Buffer {                    \
+    type data;                           \
+} type##_buffer[size];
 
 #endif

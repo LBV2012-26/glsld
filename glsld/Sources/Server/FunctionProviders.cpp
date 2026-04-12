@@ -7,7 +7,6 @@
 #include <iterator>
 #include <ranges>
 #include <system_error>
-#include <unordered_set>
 #include <utility>
 #include <variant>
 
@@ -744,7 +743,7 @@ namespace glsld {
         auto roots = BuildSearchRoots(*context, include_dirs);
         auto [dir_prefix, file_prefix] = SplitPrefix(context->prefix);
 
-        std::unordered_set<std::string> unique_labels;
+        StringHeteroHashSet unique_labels;
         nlohmann::json items = nlohmann::json::array();
 
         for (const auto& root : roots) {
@@ -830,7 +829,7 @@ namespace glsld {
         located_scope->GetVisibleSymbols(visible_symbols);
 
         nlohmann::json items = nlohmann::json::array();
-        std::unordered_set<std::string, StringViewHeteroHash, StringViewHeteroEqual> existing_labels;
+        StringHeteroHashSet existing_labels;
 
         for (const auto* symbol : visible_symbols) {
             nlohmann::json item;

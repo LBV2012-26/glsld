@@ -14,7 +14,7 @@ namespace glsld {
         std::string                                method;
         std::optional<nlohmann::json>              response;
         std::optional<std::pair<int, std::string>> error;
-        StringHeteroHashTable<std::any>            use_data;
+        StringHeteroHashMap<std::any>              use_data;
         nlohmann::json                             params;
     };
 

@@ -124,7 +124,7 @@ namespace glsld {
         std::size_t                               index_;
         std::pair<SourceLocation, SourceLocation> interval_;
         std::vector<std::unique_ptr<Scope>>       children_;
-        StringHeteroHashTable<SymbolInfo>         symbols_;
+        StringHeteroHashMap<SymbolInfo>           symbols_;
         ScopeKind                                 kind_{ ScopeKind::kGlobalTransparent };
     };
 

@@ -181,8 +181,8 @@ namespace glsld {
 
     class Config {
     public:
-        using ConfigVarMap = StringHeteroHashTable<std::shared_ptr<ConfigBase>>;
-        using PendingMap   = StringHeteroHashTable<YAML::Node>;
+        using ConfigVarMap = StringHeteroHashMap<std::shared_ptr<ConfigBase>>;
+        using PendingMap   = StringHeteroHashMap<YAML::Node>;
 
         static void LoadFromFile(std::string_view filename);
         static void LoadFromYaml(const YAML::Node& root);

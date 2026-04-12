@@ -32,6 +32,9 @@ namespace glsld {
 
         void RemoveDocument(std::string_view uri);
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
+        std::vector<std::string> GetAffectedDocuments(std::string_view changed_uri) const;
+
+        void InvalidateInclude(std::string_view uri);
 
         void AddIncludeDirectory(std::filesystem::path directory);
         void RemoveIncludeDirectory(const std::filesystem::path& directory);
@@ -40,12 +43,17 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs() const;
 
     private:
-        StringHeteroHashTable<std::shared_ptr<Document>> documents_;
-        ThreadPool&                                      thread_pool_;
-        SourceTable                                      source_table_;
-        IncludeLoader                                    include_loader_;
-        std::vector<std::filesystem::path>               include_dirs_;
-        mutable std::shared_mutex                        mutex_;
+        void UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document);
+
+        StringHeteroHashMap<std::shared_ptr<Document>> documents_;
+        ThreadPool&                                    thread_pool_;
+        SourceTable                                    source_table_;
+        IncludeLoader                                  include_loader_;
+        std::vector<std::filesystem::path>             include_dirs_;
+        mutable std::shared_mutex                      mutex_;
+
+        StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
+        StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
     };
 }
 

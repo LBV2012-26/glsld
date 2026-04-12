@@ -23,9 +23,9 @@ namespace glsld {
     private:
         HandlerFunc BuildPipeline(HandlerFunc handler);
 
-        std::vector<MiddlewareFunc>        middlewares_;
-        StringHeteroHashTable<HandlerFunc> request_routes_;
-        StringHeteroHashTable<HandlerFunc> notification_routes_;
-        HandlerFunc                        not_found_handler_;
+        std::vector<MiddlewareFunc>      middlewares_;
+        StringHeteroHashMap<HandlerFunc> request_routes_;
+        StringHeteroHashMap<HandlerFunc> notification_routes_;
+        HandlerFunc                      not_found_handler_;
     };
 }

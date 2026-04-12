@@ -15,7 +15,7 @@ namespace glsld {
     namespace {
         class ConditionEvaluator {
         public:
-            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashTable<MacroDefination>& macros)
+            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashMap<MacroDefination>& macros)
                 : tokens_{ tokens }
                 , macros_{ macros }
             {}
@@ -513,10 +513,10 @@ namespace glsld {
                 return false;
             }
 
-            std::span<const Token>                        tokens_;
-            const StringHeteroHashTable<MacroDefination>& macros_;
-            std::size_t                                   token_index_{};
-            int                                           suppress_depth_{};
+            std::span<const Token>                      tokens_;
+            const StringHeteroHashMap<MacroDefination>& macros_;
+            std::size_t                                 token_index_{};
+            int                                         suppress_depth_{};
         };
     }
 
@@ -525,9 +525,7 @@ namespace glsld {
                                IncludeLoader& include_loader,
                                std::span<const std::filesystem::path> include_dirs,
                                std::span<const Token> raw_tokens,
-                               MacroTraceMap& macro_traces,
-                               MacroArgsTraceMap& macro_args_traces,
-                               InactiveRegionMap& inactive_regions,
+                               Document& document,
                                std::vector<std::string> parent_stack)
 
         : source_table_{ source_table }
@@ -536,9 +534,7 @@ namespace glsld {
         , include_dirs_{ include_dirs }
         , include_stack_{ std::move(parent_stack) }
         , raw_tokens_{ raw_tokens }
-        , macro_traces_{ macro_traces }
-        , macro_args_traces_{ macro_args_traces }
-        , inactive_regions_{ inactive_regions }
+        , document_{ document }
     {
         if (include_stack_.empty()) {
             include_stack_.push_back(std::string(source_file_->filename()));
@@ -561,7 +557,7 @@ namespace glsld {
             }
 
             if (macros_.contains(current_token().text)) {
-                std::unordered_set<std::string> active_macros;
+                StringHeteroHashSet active_macros;
                 if (ExpandMacro(active_macros, expanded)) {
                     continue;
                 }
@@ -632,7 +628,7 @@ namespace glsld {
         return body;
     }
 
-    bool Preprocessor::ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output) {
+    bool Preprocessor::ExpandMacro(StringHeteroHashSet& active_macros, std::vector<Token>& output) {
         // current token is macro name
         const auto& macro_token = current_token();
 
@@ -647,7 +643,7 @@ namespace glsld {
             return false;
         }
 
-        macro_traces_.try_emplace(macro_token.location, it->second.original_token);
+        document_.macro_traces.try_emplace(macro_token.location, it->second.original_token);
 
         active_macros.insert(macro_token.text);
         const auto& defination = it->second;
@@ -679,7 +675,7 @@ namespace glsld {
 
     std::vector<Token> Preprocessor::ExpandTokenSequence(
         std::span<const Token> input,
-        std::unordered_set<std::string>& active_macros,
+        StringHeteroHashSet& active_macros,
         const SourceLocation& call_site)
     {
         std::vector<Token> result;
@@ -748,10 +744,10 @@ namespace glsld {
     std::vector<Token> Preprocessor::SubstituteFunctionMacro(
         const MacroDefination& defination,
         const std::vector<std::vector<Token>>& arguments,
-        std::unordered_set<std::string>& active_macros,
+        StringHeteroHashSet& active_macros,
         const SourceLocation& call_site)
     {
-        StringHeteroHashTable<std::size_t> param_index;
+        StringHeteroHashMap<std::size_t> param_index;
         for (auto i = 0uz; i != defination.params.size(); ++i) {
             param_index.try_emplace(defination.params[i].text, i);
         }
@@ -865,7 +861,7 @@ namespace glsld {
 
         auto PushArgument = [&](const Token& token) -> void {
             arguments.back().push_back(token);
-            macro_args_traces_.try_emplace(token.location, token);
+            document_.macro_args_traces.try_emplace(token.location, token);
         };
 
         for (; index < input.size(); ++index) {
@@ -945,7 +941,7 @@ namespace glsld {
                 continue;
             }
 
-            auto left = result.back();
+            auto left = std::move(result.back());
             result.pop_back();
             const auto& right = tokens[++i];
             auto pasted = PasteTokens(left, right);
@@ -958,8 +954,8 @@ namespace glsld {
     Token Preprocessor::PasteTokens(const Token& left, const Token& right) {
         std::string new_text = left.text + right.text;
 
-        // Lexer lexer(new_text);
-        Token token /*= lexer.AcquireNextToken()*/;
+        Lexer lexer(source_file_, new_text, include_loader_, include_dirs_);
+        Token token = lexer.AcquireNextToken();
         token.location = left.location;
 
         return token;
@@ -1200,7 +1196,7 @@ namespace glsld {
             return false;
         }
 
-        std::unordered_set<std::string> active_macros;
+        StringHeteroHashSet active_macros;
         auto expanded = ExpandIfExpression(expr_tokens, active_macros);
 
         if (expanded.empty()) {
@@ -1211,10 +1207,7 @@ namespace glsld {
         return evaluator.Evaluate();
     }
 
-    std::vector<Token> Preprocessor::ExpandIfExpression(
-        std::span<const Token> input,
-        std::unordered_set<std::string>& active_macros)
-    {
+    std::vector<Token> Preprocessor::ExpandIfExpression(std::span<const Token> input, StringHeteroHashSet& active_macros) {
         std::vector<Token> normalized;
         normalized.reserve(input.size());
 
@@ -1299,7 +1292,7 @@ namespace glsld {
             return;
         }
 
-        auto& inactive_region = inactive_regions_[source_file_];
+        auto& inactive_region = document_.inactive_regions[source_file_];
 
         if (!inactive_region.empty()) {
             auto& last = inactive_region.back();
@@ -1345,7 +1338,7 @@ namespace glsld {
     }
 
     std::vector<Token> Preprocessor::ExpandIncludeDirective(std::span<const Token> body_tokens) {
-        std::unordered_set<std::string> active_macros;
+        StringHeteroHashSet active_macros;
         SourceLocation call_site;
         if (!body_tokens.empty()) {
             call_site = body_tokens.front().location;
@@ -1363,22 +1356,12 @@ namespace glsld {
             return {};
         }
 
+        document_.dependencies.push_back(snapshot->uri);
+
         const auto* include_file = source_table_.Intern(snapshot->filename, snapshot->uri);
 
-        Preprocessor subprocessor(
-            source_table_,
-            include_file,
-            include_loader_,
-            include_dirs_,
-            snapshot->tokens,
-            macro_traces_,
-            macro_args_traces_,
-            inactive_regions_,
-            include_stack_
-        );
-
+        Preprocessor subprocessor(source_table_, include_file, include_loader_, include_dirs_, snapshot->tokens, document_, include_stack_);
         subprocessor.macros_ = std::move(macros_);
-
         auto expanded = subprocessor.Process();
         macros_ = std::move(subprocessor.macros_);
 

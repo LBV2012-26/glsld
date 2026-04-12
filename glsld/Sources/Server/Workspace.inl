@@ -11,6 +11,11 @@ namespace glsld {
         return source_table_.GetByUri(uri);
     }
 
+    inline void Workspace::InvalidateInclude(std::string_view uri) {
+        auto filename = GetSource(uri)->filename();
+        include_loader_.Invalidate(filename);
+    }
+
     inline void Workspace::AddIncludeDirectory(std::filesystem::path directory) {
         include_dirs_.push_back(std::move(directory));
     }

@@ -49,6 +49,7 @@ namespace glsld {
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);
+        void HandleDidSave(Context& context);
         void HandleDidClose(Context& context);
         void HandleInitialized(Context& context);
         void HandleExit(Context& context);
@@ -57,14 +58,14 @@ namespace glsld {
         void Update(const std::string& uri, std::string_view text, int version_replica, bool open_document);
         std::shared_ptr<const Document> ValidateAndGetDocument(const std::string& uri) const;
 
-        std::atomic<bool>               running_{ true };
-        mutable std::condition_variable ready_condition_;
-        mutable std::mutex              update_mutex_;
-        Router                          router_;
-        ThreadPool                      thread_pool_;
-        Workspace                       workspace_;
+        std::atomic<bool>                                      running_{ true };
+        mutable std::condition_variable                        ready_condition_;
+        mutable std::mutex                                     update_mutex_;
+        Router                                                 router_;
+        ThreadPool                                             thread_pool_;
+        Workspace                                              workspace_;
 
-        StringHeteroHashTable<PendingUpdate>                     pending_updates_;
-        StringHeteroHashTable<std::shared_ptr<std::atomic<int>>> document_versions_;
+        StringHeteroHashMap<PendingUpdate>                     pending_updates_;
+        StringHeteroHashMap<std::shared_ptr<std::atomic<int>>> document_versions_;
     };
 }

@@ -35,14 +35,14 @@ namespace glsld {
         void SkipWhitespaceAndComments();
         void Advance(std::size_t count = 1);
 
-        const SourceFile*                              source_file_;
-        std::string_view                               source_;
-        IncludeLoader&                                 include_loader_;
-        std::span<const std::filesystem::path>         include_dirs_;
-        std::size_t                                    position_{};
-        std::size_t                                    line_{ 1 };
-        std::size_t                                    column_{ 1 };
+        const SourceFile*                            source_file_;
+        std::string_view                             source_;
+        IncludeLoader&                               include_loader_;
+        std::span<const std::filesystem::path>       include_dirs_;
+        std::size_t                                  position_{};
+        std::size_t                                  line_{ 1 };
+        std::size_t                                  column_{ 1 };
 
-        static inline StringHeteroHashTable<TokenType> lexical_table_;
+        static inline StringHeteroHashMap<TokenType> lexical_table_;
     };
 }

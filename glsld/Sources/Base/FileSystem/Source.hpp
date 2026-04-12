@@ -40,7 +40,7 @@ namespace glsld {
         void RemoveByUri(std::string_view uri);
 
     private:
-        StringHeteroHashTable<SourceFile> sources_;
+        StringHeteroHashMap<SourceFile> sources_; // [GenericFilename, SourceFile]
     };
 
     class SourceLocation {

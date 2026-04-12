@@ -26,15 +26,17 @@ namespace glsld {
     struct Document {
         using AstRoot = std::unique_ptr<TranslationUnitNode>;
 
-        DocumentSymbols    symbols;
-        std::vector<Token> raw_tokens;
-        std::vector<Token> expanded_tokens;
-        InactiveRegionMap  inactive_regions;
-        AstRoot            ast;
-        BindingMap         bindings;
-        MacroTraceMap      macro_traces;
-        MacroArgsTraceMap  macro_args_traces;
-        int                version{};
+        std::vector<std::string> dependencies; // [URI]
+        DocumentSymbols          symbols;
+        std::string              source_code;
+        std::vector<Token>       raw_tokens;
+        std::vector<Token>       expanded_tokens;
+        InactiveRegionMap        inactive_regions;
+        AstRoot                  ast;
+        BindingMap               bindings;
+        MacroTraceMap            macro_traces;
+        MacroArgsTraceMap        macro_args_traces;
+        int                      version{};
     };
 
     struct InlayHint {

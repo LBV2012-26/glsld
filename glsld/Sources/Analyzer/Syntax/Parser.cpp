@@ -38,17 +38,7 @@ namespace glsld {
             raw_tokens_.push_back(lexer_.AcquireNextToken());
         } while (raw_tokens_.back().type != TokenType::kEndOfFile);
 
-        Preprocessor processor(
-            source_table,
-            source_file_,
-            include_loader,
-            include_dirs,
-            raw_tokens_,
-            document_.macro_traces,
-            document_.macro_args_traces,
-            document_.inactive_regions
-        );
-
+        Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);
         expanded_tokens_ = processor.Process();
 
         Parse();

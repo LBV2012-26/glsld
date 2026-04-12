@@ -78,5 +78,5 @@ void main() {
 
     LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
 
-    FragColor = vec4(light + ambient, 1.0);
+    FragColor = vec4(light + ambient * result.position, 1.0);
 }

@@ -54,7 +54,7 @@ namespace glsld {
     void LoggerManager::OnConfigChange(const std::unordered_set<LoggerConfig>& old_configs,
                                        const std::unordered_set<LoggerConfig>& new_configs)
     {
-        StringHeteroHashTable<LoggerConfig> new_configs_map;
+        StringHeteroHashMap<LoggerConfig> new_configs_map;
         for (const auto& config : new_configs) {
             new_configs_map.try_emplace(config.name, config);
         }

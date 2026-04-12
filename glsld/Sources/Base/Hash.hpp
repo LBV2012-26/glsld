@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace glsld {
     struct StringViewHeteroEqual {
@@ -23,7 +24,8 @@ namespace glsld {
     };
 
     template <typename Value>
-    using StringHeteroHashTable = std::unordered_map<std::string, Value, StringViewHeteroHash, StringViewHeteroEqual>;
+    using StringHeteroHashMap = std::unordered_map<std::string, Value, StringViewHeteroHash, StringViewHeteroEqual>;
+    using StringHeteroHashSet = std::unordered_set<std::string,        StringViewHeteroHash, StringViewHeteroEqual>;
 
     template <typename Ty>
     inline void HashCombine(std::size_t& seed, const Ty& value) {

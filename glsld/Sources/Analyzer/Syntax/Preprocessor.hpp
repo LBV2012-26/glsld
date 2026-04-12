@@ -7,7 +7,6 @@
 #include <span>
 #include <stack>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "Analyzer/Syntax/Document.hpp"
@@ -40,9 +39,7 @@ namespace glsld {
                      IncludeLoader& include_loader,
                      std::span<const std::filesystem::path> include_dirs,
                      std::span<const Token> raw_tokens,
-                     MacroTraceMap& macro_traces,
-                     MacroArgsTraceMap& macro_args_traces,
-                     InactiveRegionMap& inactive_regions,
+                     Document& document,
                      std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();
@@ -50,17 +47,17 @@ namespace glsld {
     private:
         MacroDefination CollectMacroReplacement(std::size_t current_physical_line);
         std::vector<Token> CaptureDirectiveBodyTokens(std::size_t directive_physical_line);
-        bool ExpandMacro(std::unordered_set<std::string>& active_macros, std::vector<Token>& output);
+        bool ExpandMacro(StringHeteroHashSet& active_macros, std::vector<Token>& output);
 
         std::vector<Token> ExpandTokenSequence(
             std::span<const Token> input,
-            std::unordered_set<std::string>& active_macros,
+            StringHeteroHashSet& active_macros,
             const SourceLocation& call_site);
 
         std::vector<Token> SubstituteFunctionMacro(
             const MacroDefination& defination,
             const std::vector<std::vector<Token>>& arguments,
-            std::unordered_set<std::string>& active_macros,
+            StringHeteroHashSet& active_macros,
             const SourceLocation& call_site);
 
         bool ParseFunctionMacroInvocationFromStream(
@@ -81,7 +78,7 @@ namespace glsld {
         void ParseDefineFromBody(std::span<const Token> body_tokens);
         bool HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::size_t sharp_line);
         bool EvaluateIfCondition(std::span<const Token> expr_tokens);
-        std::vector<Token> ExpandIfExpression(std::span<const Token> input, std::unordered_set<std::string>& active_macros);
+        std::vector<Token> ExpandIfExpression(std::span<const Token> input, StringHeteroHashSet& active_macros);
         void AppendInactiveRegion(std::size_t begin_line, std::size_t end_line);
         void UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line);
         void FinalizeInactiveRegions(std::size_t eof_line);
@@ -97,14 +94,12 @@ namespace glsld {
         IncludeLoader&                         include_loader_;
         std::span<const std::filesystem::path> include_dirs_;
         std::vector<std::string>               include_stack_;
-        StringHeteroHashTable<MacroDefination> macros_;
+        StringHeteroHashMap<MacroDefination>   macros_;
         std::stack<ConditionalFrame>           condition_stack_;
         std::optional<std::size_t>             open_inactive_begin_line_;
         std::size_t                            token_index_{};
         std::span<const Token>                 raw_tokens_;
-        MacroTraceMap&                         macro_traces_;
-        MacroArgsTraceMap&                     macro_args_traces_;
-        InactiveRegionMap&                     inactive_regions_;
+        Document&                              document_;
     };
 }
 
