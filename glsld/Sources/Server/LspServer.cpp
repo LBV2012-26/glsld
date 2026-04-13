@@ -2,12 +2,10 @@
 #include "LspServer.hpp"
 
 #include <cstddef>
-#include <cstdio>
 #include <charconv>
 #include <exception>
 #include <format>
 #include <iostream>
-#include <print>
 #include <stdexcept>
 #include <span>
 #include <string_view>
@@ -16,10 +14,13 @@
 
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
-#include "Base/Logger.hpp"
 #include "Server/FunctionProviders.hpp"
 #include "Server/JsonResponse.hpp"
 #include "Utils/Utils.hpp"
+
+#ifdef _DEBUG
+#include "Base/Logger.hpp"
+#endif
 
 namespace glsld {
     namespace {
@@ -52,46 +53,38 @@ namespace glsld {
     }
 
     void LspServer::Run() {
+        thread_pool_.Submit([this]() -> void { WorkerLoop(); });
+        thread_pool_.Submit([this]() -> void { SubmitLoop(); });
+
         while (running_.load() && std::cin.good()) {
-            auto message_opt = ReadMessage();
-            if (!message_opt) {
+            auto message = ReadMessage();
+            if (!message.has_value()) {
                 break;
             }
 
-            auto& message = *message_opt;
-
-            std::string method;
-            if (message.contains("method")) {
-                method = message["method"];
+            if (message->contains("method") && message->at("method") == "$/cancelRequest") {
+                CancelRequest(*message);
+                continue;
             }
 
-            nlohmann::json params;
-            if (message.contains("params")) {
-                params = message["params"];
-            }
-
-            Context context{
-                .method = method,
-                .params = params
+            LspTask task{
+                .method     = message->value("method", ""),
+                .params     = message->value("params", nlohmann::json::object()),
+                .is_request = message->contains("id")
             };
 
-            bool is_request = message.contains("id");
-
-            try {
-                router_.Dispatch(context, is_request);
-                if (is_request) {
-                    int id = message["id"];
-                    if (context.error) {
-                        SendError(id, context.error->first, context.error->second);
-                    } else if (context.response) {
-                        SendResponse(id, *context.response);
-                    } else {
-                        SendResponse(id, nullptr);
-                    }
+            if (task.is_request) {
+                task.id    = message->at("id");
+                auto token = std::make_shared<std::atomic<bool>>(false);
+                {
+                    std::lock_guard lock(cancellation_mutex_);
+                    cancellation_tokens_[task.id] = token;
                 }
-            } catch (const std::exception& e) {
-                // TODO
+
+                task.cancelled_token = std::move(token);
             }
+
+            EnqueueTask(std::move(task));
         }
     }
 
@@ -193,10 +186,139 @@ namespace glsld {
         }
     }
 
-    void LspServer::SendMessage(const nlohmann::json& message) {
-        std::string content = message.dump();
-        std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
-        std::fflush(stdout);
+    void LspServer::WorkerLoop() {
+        while (running_.load()) {
+            LspTask task;
+            {
+                std::unique_lock lock(task_mutex_);
+                task_condition_.wait(lock, [this]() -> bool {
+                    return !task_queue_.empty() || !running_.load();
+                });
+
+                if (!running_.load()) {
+                    return;
+                }
+
+                task = std::move(task_queue_.front());
+                task_queue_.pop();
+            }
+
+            Context context{
+                .method           = std::move(task.method),
+                .request_id       = task.id,
+                .params           = std::move(task.params),
+                .cancelled_token  = std::move(task.cancelled_token)
+            };
+
+#ifdef _DEBUG
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Received {}: {}", task.is_request ? "request" : "notification", context.method);
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Method: {} with ID: {}", context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
+#endif
+
+            try {
+                router_.Dispatch(context, task.is_request);
+            } catch (const std::exception& e) {
+                context.error = std::make_pair(-32603, std::format("Internal Error: {}", e.what()));
+            }
+
+            if (!task.is_request) {
+                continue;
+            }
+
+            LspSubmitItem item;
+            item.id = task.id;
+
+            if (context.cancelled()) {
+                item.kind          = LspSubmitItem::Kind::kError;
+                item.error_code    = -32800;
+                item.error_message = "Request cancelled.";
+            } else if (context.error.has_value()) {
+                item.kind          = LspSubmitItem::Kind::kError;
+                item.error_code    = context.error->first;
+                item.error_message = context.error->second;
+            } else {
+                item.kind          = LspSubmitItem::Kind::kResponse;
+                item.payload       = context.response.value_or(nlohmann::json(nullptr));
+            }
+
+            EnqueueSubmit(std::move(item));
+
+            {
+                std::lock_guard lock(cancellation_mutex_);
+                cancellation_tokens_.erase(task.id);
+            }
+        }
+    }
+
+    void LspServer::SubmitLoop() {
+        while (running_.load()) {
+            LspSubmitItem item;
+            {
+                std::unique_lock lock(submit_mutex_);
+                submit_condition_.wait(lock, [this]() -> bool {
+                    return !submit_queue_.empty() || !running_.load();
+                });
+
+                if (!running_.load()) {
+                    return;
+                }
+
+                item = std::move(submit_queue_.front());
+                submit_queue_.pop();
+            }
+
+            if (item.kind == LspSubmitItem::Kind::kResponse) {
+                SendResponse(*item.id, item.payload);
+            } else if (item.kind == LspSubmitItem::Kind::kError) {
+                SendError(*item.id, item.error_code, item.error_message);
+            } else if (item.kind == LspSubmitItem::Kind::kNotification) {
+                SendNotification(item.notify_method, item.payload);
+            }
+        }
+    }
+
+    void LspServer::EnqueueTask(LspTask task) {
+        {
+            std::lock_guard lock(task_mutex_);
+            task_queue_.push(std::move(task));
+        }
+        task_condition_.notify_one();
+    }
+
+    void LspServer::EnqueueSubmit(LspSubmitItem item) {
+        {
+            std::lock_guard lock(submit_mutex_);
+            submit_queue_.push(std::move(item));
+        }
+        submit_condition_.notify_one();
+    }
+
+    void LspServer::CancelRequest(const nlohmann::json& message) {
+        if (!message.contains("params")) {
+            return;
+        }
+
+        const auto& params = message["params"];
+
+        if (!params.contains("id")) {
+            return;
+        }
+
+        const auto& key = params["id"];
+        std::lock_guard lock(cancellation_mutex_);
+
+        auto it = cancellation_tokens_.find(key);
+        if (it != cancellation_tokens_.end()) {
+            it->second->store(true, std::memory_order::relaxed);
+#ifdef _DEBUG
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Cancelled request with id: {}", key.dump());
+#endif
+        }
+#ifdef _DEBUG
+        else {
+            GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Cancelled target {} not found.", key.dump());
+        }
+#endif
     }
 
     // Request Handlers
@@ -287,40 +409,46 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleShutdown(Context& context) {
-        return nullptr;
+        return {};
     }
 
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
+        ABORT_IF_CANCELLED();
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        return ConvertScopeToDocumentSymbols(uri, snapshot->symbols.root_scope());
+        return ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope());
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
+        ABORT_IF_CANCELLED();
         const auto* source_file = workspace_.GetSource(uri);
-        auto data = GetSemanticData(source_file, snapshot);
+        auto data = GetSemanticData(context, source_file, snapshot);
+
         return { { "data", data } };
     }
 
     nlohmann::json LspServer::HandleDefinition(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -328,7 +456,8 @@ namespace glsld {
 
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
-        if (auto include = GotoInclude(snapshot, target, workspace_.include_dirs())) {
+        ABORT_IF_CANCELLED();
+        if (auto include = GotoInclude(context, snapshot, target, workspace_.include_dirs())) {
             nlohmann::json result;
 
             result["uri"]                         = *include;
@@ -340,7 +469,8 @@ namespace glsld {
             return result;
         }
 
-        auto symbols = GetDefinitionSymbols(snapshot, target, true);
+        ABORT_IF_CANCELLED();
+        auto symbols = GetDefinitionSymbols(context, snapshot, target, true);
         if (symbols.empty()) {
             return {};
         }
@@ -348,6 +478,7 @@ namespace glsld {
         auto response_array = nlohmann::json::array();
 
         for (const auto& symbol : symbols) {
+            ABORT_IF_CANCELLED();
             std::size_t start_line  = symbol->location.line()   - 1;
             std::size_t start_char  = symbol->location.column() - 1;
 
@@ -373,23 +504,27 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleHover(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target  = ConvertToParserPosition(workspace_.InternSource(uri), position);
-        auto symbols = GetDefinitionSymbols(snapshot, target, false);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+
+        ABORT_IF_CANCELLED();
+        auto symbols = GetDefinitionSymbols(context, snapshot, target, false);
         if (symbols.empty()) {
             return {};
         }
 
         std::string markdown;
 
+        ABORT_IF_CANCELLED();
         if (symbols.size() == 1) {
             const auto* symbol = symbols.front();
 
@@ -424,18 +559,21 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleInlayHints(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto hints = GetInlayHints(snapshot);
+        auto hints = GetInlayHints(context, snapshot);
 
         nlohmann::json response = nlohmann::json::array();
         for (auto& hint : hints) {
+            ABORT_IF_CANCELLED();
+
             nlohmann::json result;
 
             result["position"]     = ConvertToLspPosition(*hint.location);
@@ -486,23 +624,28 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleSignatureHelp(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target         = ConvertToParserPosition(workspace_.InternSource(uri), position);
-        auto signature_help = GetSignatureHelp(snapshot, target);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+
+        ABORT_IF_CANCELLED();
+        auto signature_help = GetSignatureHelp(context, snapshot, target);
         if (!signature_help.has_value()) {
             return {};
         }
 
         nlohmann::json response = nlohmann::json::array();
         for (const auto* symbol : signature_help->candidates) {
+            ABORT_IF_CANCELLED();
+
             auto label   = FormatSymbol(symbol);
             auto offsets = ExtractParameterOffsets(label);
 
@@ -532,10 +675,11 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleCompletion(Context& context) {
+        ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         auto        uri        = NormalizeUri(origin_uri);
-        const auto  snapshot   = ValidateAndGetDocument(uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -544,23 +688,23 @@ namespace glsld {
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         if (context.params["context"]["triggerCharacter"] == ".") {
-            return GetFieldCompletionItems(snapshot, target);
+            return GetFieldCompletionItems(context, snapshot, target);
         }
 
         if (context.params["context"]["triggerCharacter"] == "\"" ||
             context.params["context"]["triggerCharacter"] == "<"  ||
             context.params["context"]["triggerCharacter"] == "/")
         {
-            return GetIncludeCompletionItems(snapshot, target, workspace_.include_dirs());
+            return GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs());
         }
 
-        if (auto include_items = GetIncludeCompletionItems(snapshot, target, workspace_.include_dirs());
+        if (auto include_items = GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs());
             !include_items.empty())
         {
             return include_items;
         }
 
-        return GetCompletionItems(snapshot, target);
+        return GetCompletionItems(context, snapshot, target);
     }
 
     // Notification Handlers
@@ -571,7 +715,6 @@ namespace glsld {
         const auto& text       = document["text"];
         int version            = document["version"];
 
-        using namespace std::chrono_literals;
         auto deadline = std::chrono::steady_clock::now();
         auto uri      = NormalizeUri(origin_uri);
 
@@ -612,27 +755,29 @@ namespace glsld {
                 .deadline = deadline
             };
 
-            if (!document_versions_.contains(uri)) {
+            auto it = document_versions_.find(uri);
+            if (it == document_versions_.end()) {
                 document_versions_.try_emplace(uri, std::make_shared<std::atomic<int>>(version));
 
+#ifdef _DEBUG
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Document {} version initialized to {}, pending update scheduled.",
                     uri,
                     version
                 );
+#endif
             } else {
-                auto version_pointer = document_versions_.at(uri);
-                int old_version = version_pointer->load();
-                version_pointer->store(version);
-
+#ifdef _DEBUG
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Document {} version updated from {} to {}, pending update scheduled.",
                     uri,
-                    old_version,
+                    it->second->load(std::memory_order::relaxed),
                     version
                 );
+#endif
+                it->second->store(version, std::memory_order::relaxed);
             }
         }
 
@@ -654,18 +799,28 @@ namespace glsld {
                 continue;
             }
 
-            auto version_pointer = document_versions_[affected_uri];
-            int old_version = version_pointer->load();
-            int new_version = version_pointer->fetch_add(1) + 1;
+            int new_version = 0;
 
-            GLSLD_LOG_INFO(
-                GLSLD_LOG_ROOT(),
-                "Document {} affected by the change in {}, version updated from {} to {}",
-                affected_uri,
-                uri,
-                old_version,
-                new_version
-            );
+            {
+                std::shared_lock lock(update_mutex_);
+                auto it = document_versions_.find(affected_uri);
+                if (it == document_versions_.end()) {
+                    continue;
+                }
+
+                int old_version = it->second->load(std::memory_order::relaxed);
+                new_version = it->second->fetch_add(1, std::memory_order::relaxed) + 1;
+#ifdef _DEBUG
+                GLSLD_LOG_INFO(
+                    GLSLD_LOG_ROOT(),
+                    "Document {} affected by the change in {}, version updated from {} to {}",
+                    affected_uri,
+                    uri,
+                    old_version,
+                    new_version
+                );
+#endif
+            }
 
             thread_pool_.Submit([this, affected_uri, new_version]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(affected_uri);
@@ -685,17 +840,23 @@ namespace glsld {
             std::lock_guard lock(update_mutex_);
             pending_updates_.erase(uri);
 
-            if (document_versions_.contains(uri)) {
-                document_versions_[uri]->store(-1);
+            auto it = document_versions_.find(uri);
+            if (it != document_versions_.end()) {
+                it->second->store(-1, std::memory_order::relaxed);
+                document_versions_.erase(it);
             }
-
-            document_versions_.erase(uri);
         }
 
-        SendNotification("textDocument/publishDiagnostics", {
-            { "uri", uri },
-            { "diagnostics", nlohmann::json::array() } // 发送空数组清空错误
-        });
+        LspSubmitItem item{
+            .payload = {
+                { "uri", std::move(uri) },
+                { "diagnostics", nlohmann::json::array() }
+            },
+            .notify_method = "textDocument/publishDiagnostics",
+            .kind          = LspSubmitItem::Kind::kNotification
+        };
+
+        EnqueueSubmit(std::move(item));
     }
 
     void LspServer::HandleInitialized(Context& context) {}
@@ -705,15 +866,22 @@ namespace glsld {
     }
 
     void LspServer::UpdateWorker(const std::string& uri, int version_replica, bool open_document) {
+        std::shared_lock lock(update_mutex_);
         auto& update = pending_updates_.at(uri);
         if (std::chrono::steady_clock::now() < update.deadline) {
             std::this_thread::sleep_until(update.deadline);
         }
 
+        lock.unlock();
+
         {
             std::shared_lock lock(update_mutex_);
-            auto version_pointer = document_versions_.at(uri);
-            if (version_replica != version_pointer->load()) {
+            auto it = document_versions_.find(uri);
+            if (it == document_versions_.end()) {
+                return;
+            }
+
+            if (version_replica != it->second->load(std::memory_order::relaxed)) {
                 return;
             }
         }
@@ -729,37 +897,48 @@ namespace glsld {
 
     void LspServer::Update(const std::string& uri, std::string_view text, int version_replica, bool open_document) {
         workspace_.UpdateDocument(uri, text, version_replica, document_versions_.at(uri), open_document);
-        ready_condition_.notify_one();
+        ready_condition_.notify_all();
 
-        // TODO
-        SendNotification("textDocument/publishDiagnostics", {
-            { "uri", uri },
-            { "version", version_replica },
-            { "diagnostics", nlohmann::json::array() } // 发送空数组清空错误
-        });
+        LspSubmitItem item{
+            .payload = {
+                { "uri", uri },
+                { "version", version_replica },
+                { "diagnostics", nlohmann::json::array() } // 发送空数组清空错误
+            },
+            .notify_method = "textDocument/publishDiagnostics",
+            .kind          = LspSubmitItem::Kind::kNotification
+        };
+
+        EnqueueSubmit(std::move(item));
     }
 
-    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const std::string& uri) const {
-        int target_version = 0;
-        {
-            std::shared_lock lock(update_mutex_);
-            auto it = document_versions_.find(uri);
-            if (it != document_versions_.end()) {
-                target_version = it->second->load();
+    std::shared_ptr<const Document>
+    LspServer::ValidateAndGetDocument(const Context& context, const std::string& uri) const
+    {
+        while (true) {
+            if (context.cancelled()) {
+                return nullptr;
             }
-        }
 
-        const auto snapshot = workspace_.GetDocumentSnapshot(uri);
-        if (snapshot == nullptr || snapshot->version < target_version) {
+            int target_version = 0;
+            {
+                std::shared_lock lock(update_mutex_);
+                auto it = document_versions_.find(uri);
+                if (it != document_versions_.end()) {
+                    target_version = it->second->load(std::memory_order::relaxed);
+                }
+            }
+
+            auto snapshot = workspace_.GetDocumentSnapshot(uri);
+            if (snapshot != nullptr && snapshot->version >= target_version) {
+                return snapshot;
+            }
+
+            std::unique_lock lock(ready_mutex_);
             using namespace std::chrono_literals;
-            std::unique_lock lock(validate_mutex_);
-            if (snapshot != nullptr) {
-                ready_condition_.wait_for(lock, 2s);
-            } else {
-                ready_condition_.wait(lock);
-            }
+            ready_condition_.wait_for(lock, 25ms, [&context]() -> bool {
+                return context.cancelled();
+            });
         }
-
-        return snapshot;
     }
 }

@@ -31,7 +31,7 @@ namespace glsld {
         raw_tokens_.reserve(source.length() / 5);
 
         do {
-            if (version_pointer_ != nullptr && version_replica != version_pointer_->load()) {
+            if (version_pointer_ != nullptr && version_replica != version_pointer_->load(std::memory_order::relaxed)) {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
             }
 
@@ -172,7 +172,7 @@ namespace glsld {
         root->begin = SourceLocation(source_file_, 1, 1);
 
         while (current_token().type != TokenType::kEndOfFile) {
-            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
                 return nullptr;
             }
 

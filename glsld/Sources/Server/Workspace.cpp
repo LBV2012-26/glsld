@@ -10,7 +10,10 @@
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
+
+#ifdef _DEBUG
 #include "Base/Logger.hpp"
+#endif
 
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
@@ -37,33 +40,38 @@ namespace glsld {
             Parser parser(source_table_, source_file, source, include_loader_, include_dirs_, version_replica, version_pointer, *document);
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
+#ifdef _DEBUG
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Version changed during document update (replica: {}, current: {}), cancelling parse.",
                     version_replica,
                     version_pointer->load()
                 );
+#endif
 
                 return;
             }
         } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
+#ifdef _DEBUG
             GLSLD_LOG_INFO(
                 GLSLD_LOG_ROOT(),
                 "Version changed during document update (replica: {}, current: {}), cancelling lex.",
                 version_replica,
                 version_pointer->load()
             );
+#endif
         }
 
         auto Cancelled = [version_replica, &version_pointer]() -> bool {
             if (version_replica != version_pointer->load()) {
+#ifdef _DEBUG
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Version changed during document update (replica: {}, current: {}), cancelling update.",
                     version_replica,
                     version_pointer->load()
                 );
-
+#endif
                 return true;
             }
 
@@ -98,6 +106,7 @@ namespace glsld {
     void Workspace::RemoveDocument(std::string_view uri) {
         std::unique_lock lock(mutex_);
         documents_.erase(uri);
+        RemoveDependencies(uri);
     }
 
     std::shared_ptr<Document> Workspace::GetDocumentSnapshot(std::string_view uri) const {
@@ -121,17 +130,36 @@ namespace glsld {
         return results;
     }
 
-    void Workspace::UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document) {
-        auto it = forward_dependencies_.find(uri);
-        if (it != forward_dependencies_.end()) {
-            for (const auto& dependency : it->second) {
-                reverse_dependencies_[dependency].erase(uri);
+    void Workspace::UnregisterDependencies(std::string_view uri) {
+        auto forward_it = forward_dependencies_.find(uri);
+        if (forward_it == forward_dependencies_.end()) {
+            return;
+        }
+
+        for (const auto& dependency : forward_it->second) {
+            auto reverse_it = reverse_dependencies_.find(dependency);
+            if (reverse_it == reverse_dependencies_.end()) {
+                continue;
+            }
+
+            reverse_it->second.erase(uri);
+            if (reverse_it->second.empty()) {
+                reverse_dependencies_.erase(reverse_it);
             }
         }
+    }
+
+    void Workspace::UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document) {
+        UnregisterDependencies(uri);
 
         forward_dependencies_[std::string(uri)] = document->dependencies;
         for (const auto& dependency : document->dependencies) {
             reverse_dependencies_[dependency].emplace(uri);
         }
+    }
+
+    void Workspace::RemoveDependencies(std::string_view uri) {
+        UnregisterDependencies(uri);
+        forward_dependencies_.erase(uri);
     }
 }

@@ -7,6 +7,7 @@
 #include <iterator>
 #include <ranges>
 #include <system_error>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 
@@ -95,7 +96,7 @@ namespace glsld {
         }
     }
 
-    nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope) {
+    nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope) {
         nlohmann::json symbols = nlohmann::json::array();
 
         if (scope == nullptr) {
@@ -130,6 +131,8 @@ namespace glsld {
         std::unordered_set<const Scope*> handled_scopes;
 
         for (const auto& [name, info] : scope->symbols()) {
+            ABORT_IF_CANCELLED();
+
             if (info.location.uri() != uri) {
                 continue;
             }
@@ -152,6 +155,8 @@ namespace glsld {
             const Scope* child_scope = nullptr;
             if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
                 for (const auto& child : scope->children()) {
+                    ABORT_IF_CANCELLED();
+
                     if (child->interval().first.line() == info.location.line()) {
                         child_scope = child.get();
                         handled_scopes.insert(child_scope);
@@ -167,7 +172,7 @@ namespace glsld {
             if (child_scope != nullptr) {
                 symbol_node["range"] = ConvertToLspRange(info.location, child_scope->interval().second);
                 if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
-                    auto children = ConvertScopeToDocumentSymbols(uri, child_scope);
+                    auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope);
                     if (!children.empty()) {
                         symbol_node["children"] = children;
                     }
@@ -181,11 +186,13 @@ namespace glsld {
 
         // Transparent scope
         for (const auto& child_scope : scope->children()) {
+            ABORT_IF_CANCELLED();
+
             if ((child_scope->kind() == ScopeKind::kGlobalTransparent ||
                  child_scope->kind() == ScopeKind::kBlockTransparent) &&
                 !handled_scopes.contains(child_scope.get()))
             {
-                auto transparent_children = ConvertScopeToDocumentSymbols(uri, child_scope.get());
+                auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get());
                 for (const auto& child : transparent_children) {
                     symbols.push_back(child);
                 }
@@ -243,7 +250,7 @@ namespace glsld {
         };
     }
 
-    std::vector<std::uint32_t> GetSemanticData(const SourceFile* source_file, std::shared_ptr<const Document> snapshot) {
+    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, std::shared_ptr<const Document> snapshot) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -297,6 +304,8 @@ namespace glsld {
         };
 
         for (const auto& token : snapshot->raw_tokens) {
+            ABORT_IF_CANCELLED();
+
             std::uint32_t modifiers = 0;
             if (IsInactive(token.location.line())) {
                 modifiers |= (1 << 10); // inactive
@@ -403,6 +412,7 @@ namespace glsld {
     }
 
     std::optional<std::string> GotoInclude(
+        Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
         std::span<const std::filesystem::path> include_dirs)
@@ -422,6 +432,8 @@ namespace glsld {
         }
 
         for (const auto* node : snapshot->ast->preprocessor_references) {
+            ABORT_IF_CANCELLED();
+
             auto include_expr = ExtractIncludeExpr(node, location);
             if (!include_expr.has_value()) {
                 continue;
@@ -488,7 +500,7 @@ namespace glsld {
         }
     }
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function) {
+    SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -502,6 +514,7 @@ namespace glsld {
 
         SymbolList results;
         if (cursor_token != nullptr) {
+            ABORT_IF_CANCELLED();
             GetDefinitionSymbolsFromCursor(snapshot, cursor_token, toggle_function, results);
         }
 
@@ -509,6 +522,7 @@ namespace glsld {
             return results;
         }
 
+        ABORT_IF_CANCELLED();
         LeafLocator locator(location);
         locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
@@ -533,11 +547,12 @@ namespace glsld {
         return results;
     }
 
-    std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot) {
+    std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot) {
         if (snapshot == nullptr || snapshot->ast == nullptr) {
             return {};
         }
 
+        ABORT_IF_CANCELLED();
         InlayHintVisitor visitor;
         visitor.Traverse(snapshot->ast.get());
         return visitor.hints();
@@ -561,11 +576,12 @@ namespace glsld {
         }
     }
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return std::nullopt;
         }
 
+        ABORT_IF_CANCELLED();
         SignatureLocator locator(location);
         locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
@@ -585,6 +601,8 @@ namespace glsld {
         int active_param_index = 0;
         int paren_level        = 0;
         while (it != snapshot->raw_tokens.end() && it->location < location) {
+            ABORT_IF_CANCELLED();
+
             if (it->type == TokenType::kOpenParen) {
                 ++paren_level;
             } else if (it->type == TokenType::kCloseParen) {
@@ -598,6 +616,8 @@ namespace glsld {
 
         std::vector<TypeInfo> current_arg_types;
         for (auto i = 0uz; i <= active_param_index && i < node->args.size(); ++i) {
+            ABORT_IF_CANCELLED();
+
             if (node->args[i] != nullptr) {
                 current_arg_types.push_back(node->args[i]->evaluated_type);
             } else {
@@ -610,6 +630,7 @@ namespace glsld {
             }
         }
 
+        ABORT_IF_CANCELLED();
         auto unique_candidates = DeduplicateSignatures(candidates);
         int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
 
@@ -710,6 +731,7 @@ namespace glsld {
     }
 
     nlohmann::json GetIncludeCompletionItems(
+        Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
         std::span<const std::filesystem::path> include_dirs)
@@ -728,25 +750,31 @@ namespace glsld {
             return {};
         }
 
-        std::optional<IncludeCompletionContext> context;
+        std::optional<IncludeCompletionContext> include_context;
         for (const auto& node : snapshot->ast->preprocessor_references) {
-            context = TryBuildIncludeCompletionContext(node, location);
-            if (context.has_value()) {
+            ABORT_IF_CANCELLED();
+
+            include_context = TryBuildIncludeCompletionContext(node, location);
+            if (include_context.has_value()) {
                 break;
             }
         }
 
-        if (!context.has_value() || !context->valid) {
+        if (!include_context.has_value() || !include_context->valid) {
             return {};
         }
 
-        auto roots = BuildSearchRoots(*context, include_dirs);
-        auto [dir_prefix, file_prefix] = SplitPrefix(context->prefix);
+        ABORT_IF_CANCELLED();
+
+        auto roots = BuildSearchRoots(*include_context, include_dirs);
+        auto [dir_prefix, file_prefix] = SplitPrefix(include_context->prefix);
 
         StringHeteroHashSet unique_labels;
         nlohmann::json items = nlohmann::json::array();
 
         for (const auto& root : roots) {
+            ABORT_IF_CANCELLED();
+
             auto base = utils::NormalizePath(root / dir_prefix);
             if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base)) {
                 continue;
@@ -754,6 +782,8 @@ namespace glsld {
 
             std::error_code ec;
             for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+                ABORT_IF_CANCELLED();
+
                 if (ec) {
                     break;
                 }
@@ -780,8 +810,8 @@ namespace glsld {
                 item["sortText"] = kind == 19 ? "0" : "1";
                 item["textEdit"] = {
                     { "range", {
-                        { "start", { { "line", context->line - 1 }, { "character", context->replace_start_column - 1 } } },
-                        { "end",   { { "line", context->line - 1 }, { "character", context->replace_end_column   - 1 } } }
+                        { "start", { { "line", include_context->line - 1 }, { "character", include_context->replace_start_column - 1 } } },
+                        { "end",   { { "line", include_context->line - 1 }, { "character", include_context->replace_end_column   - 1 } } }
                     } },
                     { "newText", relative_path }
                 };
@@ -818,13 +848,14 @@ namespace glsld {
         };
     }
 
-    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }
 
         const auto* located_scope = snapshot->symbols.FindScopeAt(location);
 
+        ABORT_IF_CANCELLED();
         std::vector<const SymbolInfo*> visible_symbols;
         located_scope->GetVisibleSymbols(visible_symbols);
 
@@ -832,6 +863,8 @@ namespace glsld {
         StringHeteroHashSet existing_labels;
 
         for (const auto* symbol : visible_symbols) {
+            ABORT_IF_CANCELLED();
+
             nlohmann::json item;
             std::string_view symbol_name;
 
@@ -856,7 +889,7 @@ namespace glsld {
         return items;
     }
 
-    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    nlohmann::json GetFieldCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -867,6 +900,7 @@ namespace glsld {
             dot_location = std::prev(it)->location;
         }
 
+        ABORT_IF_CANCELLED();
         ContextLocator locator(dot_location);
         locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
@@ -879,6 +913,8 @@ namespace glsld {
             if (type_info.block_symbol != nullptr && type_info.block_symbol->internal_scope != nullptr) {
                 const auto* scope = type_info.block_symbol->internal_scope;
                 for (const auto& symbol : scope->symbols()) {
+                    ABORT_IF_CANCELLED();
+
                     nlohmann::json item;
                     item["label"] = symbol.first;
                     item["kind"]  = 5;

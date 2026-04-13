@@ -12,7 +12,7 @@ namespace glsld {
             return;
         }
 
-        if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+        if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
             return;
         }
 

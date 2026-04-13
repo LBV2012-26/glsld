@@ -2,6 +2,7 @@
 #include "JsonResponse.hpp"
 
 #include <cstdio>
+#include <mutex>
 #include <print>
 #include <string_view>
 
@@ -11,7 +12,10 @@
 
 namespace glsld {
     namespace {
+        std::mutex send_mutex;
+
         void SendRaw(std::string_view content) {
+            std::lock_guard lock(send_mutex);
 #ifdef _DEBUG
             GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Sending response: {}", content);
 #endif
@@ -20,7 +24,7 @@ namespace glsld {
         }
     }
 
-    void SendResponse(int id, const nlohmann::json& result) {
+    void SendResponse(const nlohmann::json& id, const nlohmann::json& result) {
         nlohmann::json response{
             { "jsonrpc", "2.0" },
             { "id", id },
@@ -30,7 +34,7 @@ namespace glsld {
         SendRaw(response.dump());
     }
 
-    void SendError(int id, int code, std::string_view message) {
+    void SendError(const nlohmann::json& id, int code, std::string_view message) {
         nlohmann::json response{
             { "jsonrpc", "2.0" },
             { "id", id },

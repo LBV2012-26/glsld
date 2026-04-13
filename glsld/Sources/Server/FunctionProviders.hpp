@@ -17,18 +17,20 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Server/Context.hpp"
 
 namespace glsld {
-    nlohmann::json ConvertScopeToDocumentSymbols(std::string_view uri, const Scope* const scope);
-    std::vector<std::uint32_t> GetSemanticData(const SourceFile* source_file, std::shared_ptr<const Document> snapshot);
+    nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope);
+    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, std::shared_ptr<const Document> snapshot);
 
     std::optional<std::string> GotoInclude(
+        Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
         std::span<const std::filesystem::path> include_dirs);
 
-    SymbolList GetDefinitionSymbols(std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
-    std::vector<InlayHint> GetInlayHints(std::shared_ptr<const Document> snapshot);
+    SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
+    std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot);
 
     struct SignatureHelpResult {
         SymbolList candidates;
@@ -36,14 +38,15 @@ namespace glsld {
         int active_param_index{};
     };
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
 
     nlohmann::json GetIncludeCompletionItems(
+        Context& context, 
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
         std::span<const std::filesystem::path> include_dirs);
 
-    nlohmann::json GetCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
-    nlohmann::json GetFieldCompletionItems(std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    nlohmann::json GetFieldCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
     std::string FormatSymbol(const SymbolInfo* symbol);
 }

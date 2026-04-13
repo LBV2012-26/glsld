@@ -43,7 +43,9 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs() const;
 
     private:
+        void UnregisterDependencies(std::string_view uri);
         void UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document);
+        void RemoveDependencies(std::string_view uri);
 
         StringHeteroHashMap<std::shared_ptr<Document>> documents_;
         ThreadPool&                                    thread_pool_;
