@@ -17,31 +17,31 @@ namespace glsld {
         : thread_pool_{ thread_pool }
         , include_loader_{ source_table_, thread_pool }
     {
-        // auto include_dirs = Config::Lookup("include_dirs", std::vector<std::filesystem::path>(), "Include directories for GLSL source files");
+        // TODO: initialize include_dirs from config file
     }
 
     void Workspace::UpdateDocument(
         std::string_view uri,
-        std::string_view context,
+        std::string_view source,
         int version_replica,
-        std::shared_ptr<const std::atomic<int>> version,
+        std::shared_ptr<const std::atomic<int>> version_pointer,
         bool open_document)
     {
         auto document = std::make_shared<Document>();
-        document->source_code = std::string(context);
-        document->version     = version_replica;
+        document->source  = std::string(source);
+        document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
 
         try {
-            Parser parser(source_table_, source_file, context, include_loader_, include_dirs_, version_replica, version, *document);
+            Parser parser(source_table_, source_file, source, include_loader_, include_dirs_, version_replica, version_pointer, *document);
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Version changed during document update (replica: {}, current: {}), cancelling parse.",
                     version_replica,
-                    version->load()
+                    version_pointer->load()
                 );
 
                 return;
@@ -51,17 +51,17 @@ namespace glsld {
                 GLSLD_LOG_ROOT(),
                 "Version changed during document update (replica: {}, current: {}), cancelling lex.",
                 version_replica,
-                version->load()
+                version_pointer->load()
             );
         }
 
-        auto Cancelled = [version_replica, &version]() -> bool {
-            if (version_replica != version->load()) {
+        auto Cancelled = [version_replica, &version_pointer]() -> bool {
+            if (version_replica != version_pointer->load()) {
                 GLSLD_LOG_INFO(
                     GLSLD_LOG_ROOT(),
                     "Version changed during document update (replica: {}, current: {}), cancelling update.",
                     version_replica,
-                    version->load()
+                    version_pointer->load()
                 );
 
                 return true;
@@ -71,13 +71,13 @@ namespace glsld {
         };
 
         if (Cancelled()) return;
-        SymbolLinker linker(*document, version_replica, version);
+        SymbolLinker linker(*document, version_replica, version_pointer);
 
         if (Cancelled()) return;
-        TypeResolver resolver(*document, version_replica, version);
+        TypeResolver resolver(*document, version_replica, version_pointer);
 
         if (Cancelled()) return;
-        MacroBinder binder(*document, version_replica, version);
+        MacroBinder binder(*document, version_replica, version_pointer);
 
         UpdateDependencies(uri, document);
 
@@ -88,9 +88,9 @@ namespace glsld {
                     return;
                 }
 
-                *documents_[std::string(uri)] = std::move(*document);
+                *documents_.at(std::string(uri)) = std::move(*document);
             } else {
-                documents_[std::string(uri)] = std::move(document);
+                documents_.try_emplace(std::string(uri), std::move(document));
             }
         }
     }

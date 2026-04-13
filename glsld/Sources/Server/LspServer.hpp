@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -27,11 +28,6 @@ namespace glsld {
         void Run();
 
     private:
-        struct PendingUpdate {
-            std::string text;
-            std::chrono::steady_clock::time_point deadline;
-        };
-
         void RegisterHandlers();
 
         std::optional<nlohmann::json> ReadMessage();
@@ -59,11 +55,17 @@ namespace glsld {
         std::shared_ptr<const Document> ValidateAndGetDocument(const std::string& uri) const;
 
         std::atomic<bool>                                      running_{ true };
-        mutable std::condition_variable                        ready_condition_;
-        mutable std::mutex                                     update_mutex_;
         Router                                                 router_;
         ThreadPool                                             thread_pool_;
         Workspace                                              workspace_;
+        mutable std::condition_variable                        ready_condition_;
+        mutable std::shared_mutex                              update_mutex_;
+        mutable std::mutex                                     validate_mutex_;
+
+        struct PendingUpdate {
+            std::string                           text;
+            std::chrono::steady_clock::time_point deadline;
+        };
 
         StringHeteroHashMap<PendingUpdate>                     pending_updates_;
         StringHeteroHashMap<std::shared_ptr<std::atomic<int>>> document_versions_;

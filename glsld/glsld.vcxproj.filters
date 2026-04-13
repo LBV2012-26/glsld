@@ -10,7 +10,7 @@
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\Server\JsonResponse.cpp" />
     <ClCompile Include="Sources\Server\Router.cpp" />
-    <ClCompile Include="Sources\Server\Server.cpp" />
+    <ClCompile Include="Sources\Server\LspServer.cpp" />
     <ClCompile Include="Sources\stdafx.cpp" />
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
@@ -41,7 +41,7 @@
     <ClInclude Include="Sources\Server\Context.hpp" />
     <ClInclude Include="Sources\Server\JsonResponse.hpp" />
     <ClInclude Include="Sources\Server\Router.hpp" />
-    <ClInclude Include="Sources\Server\Server.hpp" />
+    <ClInclude Include="Sources\Server\LspServer.hpp" />
     <ClInclude Include="Sources\stdafx.h" />
     <ClInclude Include="Sources\Utils\Utils.hpp" />
     <ClInclude Include="Sources\xstdafx.h" />

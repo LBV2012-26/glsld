@@ -156,6 +156,10 @@ namespace glsld {
         scope_stack_.push(document_.symbols.root_scope());
 
         auto ast_root = ParserMainTask();
+        if (ast_root == nullptr) {
+            return;
+        }
+
         document_.ast = std::move(ast_root);
         document_.raw_tokens = std::move(raw_tokens_);
         document_.expanded_tokens = std::move(expanded_tokens_);

@@ -20,7 +20,7 @@
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
-#include "Server/Server.hpp"
+#include "Server/LspServer.hpp"
 #include "Utils/Utils.hpp"
 
 namespace {

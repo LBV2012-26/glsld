@@ -28,7 +28,7 @@ namespace glsld {
 
         std::vector<std::string> dependencies; // [URI]
         DocumentSymbols          symbols;
-        std::string              source_code;
+        std::string              source;
         std::vector<Token>       raw_tokens;
         std::vector<Token>       expanded_tokens;
         InactiveRegionMap        inactive_regions;

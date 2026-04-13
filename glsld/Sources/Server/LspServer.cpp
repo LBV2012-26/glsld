@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "Server.hpp"
+#include "LspServer.hpp"
 
 #include <cstddef>
 #include <cstdio>
@@ -199,6 +199,8 @@ namespace glsld {
         std::fflush(stdout);
     }
 
+    // Request Handlers
+    // ----------------
     nlohmann::json LspServer::HandleInitialize(Context& context) {
         nlohmann::json capabilities;
 
@@ -290,9 +292,9 @@ namespace glsld {
 
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -302,9 +304,9 @@ namespace glsld {
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -317,9 +319,9 @@ namespace glsld {
     nlohmann::json LspServer::HandleDefinition(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -340,7 +342,7 @@ namespace glsld {
 
         auto symbols = GetDefinitionSymbols(snapshot, target, true);
         if (symbols.empty()) {
-            return nlohmann::json::array();
+            return {};
         }
 
         auto response_array = nlohmann::json::array();
@@ -364,7 +366,7 @@ namespace glsld {
             result["range"]["end"]["line"]        = start_line;
             result["range"]["end"]["character"]   = start_char + name_length;
 
-            response_array.push_back(result);
+            response_array.push_back(std::move(result));
         }
 
         return response_array;
@@ -373,9 +375,9 @@ namespace glsld {
     nlohmann::json LspServer::HandleHover(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -386,11 +388,11 @@ namespace glsld {
             return {};
         }
 
-        nlohmann::json response;
         std::string markdown;
 
         if (symbols.size() == 1) {
             const auto* symbol = symbols.front();
+
             markdown = "```glsl\n";
             markdown += FormatSymbol(symbol);
             markdown += "\n```";
@@ -414,6 +416,7 @@ namespace glsld {
             markdown += "\n```";
         }
 
+        nlohmann::json response;
         response["contents"]["kind"] = "markdown";
         response["contents"]["value"] = markdown;
 
@@ -422,9 +425,9 @@ namespace glsld {
 
     nlohmann::json LspServer::HandleInlayHints(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -440,30 +443,14 @@ namespace glsld {
             result["kind"]         = 2;
             result["paddingRight"] = true;
 
-            response.push_back(result);
+            response.push_back(std::move(result));
         }
 
         return response;
     }
 
-    nlohmann::json LspServer::HandleSignatureHelp(Context& context) {
-        const auto& origin_uri = context.params["textDocument"]["uri"];
-        const auto& position   = context.params["position"];
-
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
-        if (snapshot == nullptr) {
-            throw std::runtime_error("Document closed or not found.");
-        }
-
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
-
-        auto signature_help = GetSignatureHelp(snapshot, target);
-        if (!signature_help) {
-            return {};
-        }
-
-        auto ExtractParameterOffsets = [](std::string_view label) -> auto {
+    namespace {
+        auto ExtractParameterOffsets(std::string_view label) {
             std::vector<std::pair<std::size_t, std::size_t>> offsets;
 
             auto begin = label.find('(');
@@ -495,24 +482,42 @@ namespace glsld {
             }
 
             return offsets;
-        };
+        }
+    }
+
+    nlohmann::json LspServer::HandleSignatureHelp(Context& context) {
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
+
+        if (snapshot == nullptr) {
+            throw std::runtime_error("Document closed or not found.");
+        }
+
+        auto target         = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        auto signature_help = GetSignatureHelp(snapshot, target);
+        if (!signature_help.has_value()) {
+            return {};
+        }
 
         nlohmann::json response = nlohmann::json::array();
         for (const auto* symbol : signature_help->candidates) {
-            nlohmann::json item;
-
-            auto label = FormatSymbol(symbol);
-            item["label"] = label;
-
+            auto label   = FormatSymbol(symbol);
             auto offsets = ExtractParameterOffsets(label);
+
             nlohmann::json params = nlohmann::json::array();
             for (const auto& offset : offsets) {
                 params.push_back({
                     { "label", { offset.first, offset.second } }
                 });
             }
-            item["parameters"] = params;
-            response.push_back(item);
+
+            nlohmann::json item;
+            item["label"]      = label;
+            item["parameters"] = std::move(params);
+
+            response.push_back(std::move(item));
         }
 
         if (response.empty()) {
@@ -529,9 +534,9 @@ namespace glsld {
     nlohmann::json LspServer::HandleCompletion(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(uri);
 
-        auto uri = NormalizeUri(origin_uri);
-        const auto snapshot = ValidateAndGetDocument(uri);
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
@@ -558,6 +563,8 @@ namespace glsld {
         return GetCompletionItems(snapshot, target);
     }
 
+    // Notification Handlers
+    // ---------------------
     void LspServer::HandleDidOpen(Context& context) {
         const auto& document   = context.params["textDocument"];
         const auto& origin_uri = document["uri"];
@@ -569,12 +576,12 @@ namespace glsld {
         auto uri      = NormalizeUri(origin_uri);
 
         {
+            std::lock_guard lock(update_mutex_);
             pending_updates_[uri] = {
                 .text     = text,
                 .deadline = deadline
             };
 
-            std::lock_guard lock(update_mutex_);
             document_versions_[uri] = std::make_shared<std::atomic<int>>(version);
         }
 
@@ -606,9 +613,26 @@ namespace glsld {
             };
 
             if (!document_versions_.contains(uri)) {
-                document_versions_[uri] = std::make_shared<std::atomic<int>>(version);
+                document_versions_.try_emplace(uri, std::make_shared<std::atomic<int>>(version));
+
+                GLSLD_LOG_INFO(
+                    GLSLD_LOG_ROOT(),
+                    "Document {} version initialized to {}, pending update scheduled.",
+                    uri,
+                    version
+                );
             } else {
-                document_versions_[uri]->store(version);
+                auto version_pointer = document_versions_.at(uri);
+                int old_version = version_pointer->load();
+                version_pointer->store(version);
+
+                GLSLD_LOG_INFO(
+                    GLSLD_LOG_ROOT(),
+                    "Document {} version updated from {} to {}, pending update scheduled.",
+                    uri,
+                    old_version,
+                    version
+                );
             }
         }
 
@@ -630,12 +654,23 @@ namespace glsld {
                 continue;
             }
 
-            int version = document_versions_[affected_uri]->fetch_add(1);
+            auto version_pointer = document_versions_[affected_uri];
+            int old_version = version_pointer->load();
+            int new_version = version_pointer->fetch_add(1) + 1;
 
-            thread_pool_.Submit([this, affected_uri, version]() -> void {
+            GLSLD_LOG_INFO(
+                GLSLD_LOG_ROOT(),
+                "Document {} affected by the change in {}, version updated from {} to {}",
+                affected_uri,
+                uri,
+                old_version,
+                new_version
+            );
+
+            thread_pool_.Submit([this, affected_uri, new_version]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(affected_uri);
                 if (snapshot != nullptr) {
-                    Update(affected_uri, snapshot->source_code, version, false);
+                    Update(affected_uri, snapshot->source, new_version, false);
                 }
             });
         }
@@ -670,14 +705,17 @@ namespace glsld {
     }
 
     void LspServer::UpdateWorker(const std::string& uri, int version_replica, bool open_document) {
-        auto& update = pending_updates_[uri];
+        auto& update = pending_updates_.at(uri);
         if (std::chrono::steady_clock::now() < update.deadline) {
             std::this_thread::sleep_until(update.deadline);
         }
 
-        auto current_version = document_versions_[uri];
-        if (version_replica != current_version->load()) {
-            return;
+        {
+            std::shared_lock lock(update_mutex_);
+            auto version_pointer = document_versions_.at(uri);
+            if (version_replica != version_pointer->load()) {
+                return;
+            }
         }
 
         std::string text = std::move(update.text);
@@ -690,7 +728,7 @@ namespace glsld {
     }
 
     void LspServer::Update(const std::string& uri, std::string_view text, int version_replica, bool open_document) {
-        workspace_.UpdateDocument(uri, text, version_replica, document_versions_[uri], open_document);
+        workspace_.UpdateDocument(uri, text, version_replica, document_versions_.at(uri), open_document);
         ready_condition_.notify_one();
 
         // TODO
@@ -704,7 +742,7 @@ namespace glsld {
     std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const std::string& uri) const {
         int target_version = 0;
         {
-            std::lock_guard lock(update_mutex_);
+            std::shared_lock lock(update_mutex_);
             auto it = document_versions_.find(uri);
             if (it != document_versions_.end()) {
                 target_version = it->second->load();
@@ -713,9 +751,8 @@ namespace glsld {
 
         const auto snapshot = workspace_.GetDocumentSnapshot(uri);
         if (snapshot == nullptr || snapshot->version < target_version) {
-            std::unique_lock lock(update_mutex_);
             using namespace std::chrono_literals;
-
+            std::unique_lock lock(validate_mutex_);
             if (snapshot != nullptr) {
                 ready_condition_.wait_for(lock, 2s);
             } else {

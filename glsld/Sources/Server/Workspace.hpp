@@ -25,9 +25,9 @@ namespace glsld {
 
         void UpdateDocument(
             std::string_view uri,
-            std::string_view context,
+            std::string_view source,
             int version_replica,
-            std::shared_ptr<const std::atomic<int>> version,
+            std::shared_ptr<const std::atomic<int>> version_pointer,
             bool open_document = false);
 
         void RemoveDocument(std::string_view uri);
@@ -50,10 +50,9 @@ namespace glsld {
         SourceTable                                    source_table_;
         IncludeLoader                                  include_loader_;
         std::vector<std::filesystem::path>             include_dirs_;
-        mutable std::shared_mutex                      mutex_;
-
         StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
         StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
+        mutable std::shared_mutex                      mutex_;
     };
 }
 
