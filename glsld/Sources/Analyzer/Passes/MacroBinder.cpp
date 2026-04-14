@@ -53,7 +53,6 @@ namespace glsld {
                     continue;
                 }
 
-                // TODO: parse macro body function overload
                 const auto* symbol = scope->FindSymbol(token.text);
                 if (symbol != nullptr) {
                     document_.bindings.try_emplace(token.location, symbol);

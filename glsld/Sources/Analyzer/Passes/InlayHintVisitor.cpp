@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <format>
 #include <iterator>
+#include <string>
 #include <variant>
 #include "Analyzer/Ast/Ast.hpp"
 

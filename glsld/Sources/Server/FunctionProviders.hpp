@@ -11,11 +11,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Document.hpp"
-#include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Server/Context.hpp"
 

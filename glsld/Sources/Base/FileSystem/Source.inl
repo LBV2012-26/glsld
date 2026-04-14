@@ -1,9 +1,6 @@
 #include "Source.hpp"
 
 #include <compare>
-#include <utility>
-
-#include "Utils/Utils.hpp"
 
 namespace glsld {
     inline bool SourceFile::operator==(const SourceFile& other) const {

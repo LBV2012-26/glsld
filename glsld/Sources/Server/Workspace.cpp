@@ -4,7 +4,6 @@
 #include <mutex>
 #include <utility>
 
-#include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"

@@ -7,12 +7,11 @@
 #include <format>
 #include <iostream>
 #include <stdexcept>
-#include <span>
 #include <string_view>
 #include <thread>
 #include <utility>
+#include <vector>
 
-#include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Logger.hpp"
 #include "Server/FunctionProviders.hpp"
@@ -758,7 +757,7 @@ namespace glsld {
         const auto& new_text = changes[0]["text"];
 
         using namespace std::chrono_literals;
-        auto deadline = std::chrono::steady_clock::now() + 200ms;
+        auto deadline = std::chrono::steady_clock::now() + 0ms;
         auto uri      = NormalizeUri(origin_uri);
 
         {

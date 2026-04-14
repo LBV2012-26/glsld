@@ -123,6 +123,8 @@ namespace glsld {
         case AstNodeKind::kMemberAccessExpression:
             VisitMemberAccessExpression(static_cast<MemberAccessExpressionNode*>(node));
             break;
+        default:
+            break;
         }
     }
 

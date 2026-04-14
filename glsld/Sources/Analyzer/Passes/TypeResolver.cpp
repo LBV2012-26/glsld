@@ -9,6 +9,7 @@
 #include <limits>
 #include <ranges>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -917,7 +918,6 @@ namespace glsld {
 
         std::size_t vec_pos = text.find("vec");
         std::size_t mat_pos = text.find("mat");
-        bool is_vector = (vec_pos != std::string_view::npos);
         bool is_matrix = (mat_pos != std::string_view::npos);
 
         std::string_view prefix;

@@ -2,7 +2,6 @@
 #include "ThreadPool.hpp"
 
 #include <cstdint>
-#include <cstdlib>
 #include <algorithm>
 #include <functional>
 #include <mutex>

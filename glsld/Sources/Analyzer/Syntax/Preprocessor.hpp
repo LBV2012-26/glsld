@@ -11,7 +11,6 @@
 
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
-#include "Analyzer/Syntax/Symbol.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Hash.hpp"

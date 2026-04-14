@@ -3,7 +3,9 @@
 
 #include <exception>
 #include <format>
+#include <string>
 #include <utility>
+
 #include "Base/Logger.hpp"
 
 namespace glsld {

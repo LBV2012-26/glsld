@@ -1,6 +1,5 @@
 #include "stdafx.h"
 
-#include <cstddef>
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
@@ -11,7 +10,7 @@
 
 #include <mimalloc.h>
 #include <fcntl.h>
-#include "Windows.h"
+#include <Windows.h>
 
 #include "Analyzer/Ast/AstDumper.hpp"
 #include "Analyzer/Passes/MacroBinder.hpp"

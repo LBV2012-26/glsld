@@ -2,7 +2,6 @@
 #include "Utils.hpp"
 
 #include <cctype>
-#include <cstddef>
 #include <array>
 #include <format>
 #include <system_error>

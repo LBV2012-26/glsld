@@ -4,13 +4,11 @@
 #include <algorithm>
 #include <concepts>
 #include <format>
-#include <iterator>
 #include <stdexcept>
 #include <utility>
 
 #include <magic_enum/magic_enum_all.hpp>
 #include "Analyzer/Syntax/Preprocessor.hpp"
-#include "Utils/Utils.hpp"
 
 namespace glsld {
     Parser::Parser(SourceTable& source_table,

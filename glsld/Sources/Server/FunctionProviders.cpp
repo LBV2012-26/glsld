@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "FunctionProviders.hpp"
 
-#include <cctype>
 #include <cstddef>
 #include <algorithm>
 #include <iterator>
@@ -11,8 +10,11 @@
 #include <utility>
 #include <variant>
 
+#include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
+#include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
@@ -1074,7 +1076,6 @@ namespace glsld {
         }
 
         case SymbolKind::kStruct: {
-            const auto* node = static_cast<const StructDeclarationNode*>(symbol->node);
             result = std::format("struct {}", symbol->name);
             break;
         }

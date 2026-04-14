@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Analyzer/Ast/AstVisitor.hpp"
-#include "Analyzer/Syntax/Token.hpp"
 
 namespace glsld {
     class LeafLocator : public AstVisitor {
