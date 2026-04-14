@@ -6,9 +6,7 @@
 #include <print>
 #include <string_view>
 
-#ifdef _DEBUG
 #include "Base/Logger.hpp"
-#endif
 
 namespace glsld {
     namespace {
@@ -16,9 +14,7 @@ namespace glsld {
 
         void SendRaw(std::string_view content) {
             std::lock_guard lock(send_mutex);
-#ifdef _DEBUG
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Sending response: {}", content);
-#endif
+            GLSLD_LOG_TRACE(GLSLD_LOG_ROOT(), "Sending response: {}", content);
             std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
             std::fflush(stdout);
         }

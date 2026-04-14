@@ -72,12 +72,12 @@ int main() {
 
     using namespace glsld;
 
-    int result = MessageBox(nullptr, L"Run LSP", L"GLSL Analyzer", MB_OKCANCEL);
+    int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
     if (result == IDOK) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
-        GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "GLSL Analyzer started.");
+        GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "glsld started.");
 
         LspServer server;
         server.Run();

@@ -24,15 +24,11 @@
 
 namespace glsld {
     struct LspTask {
-        std::string                        method;
-        nlohmann::json                     params;
-        std::optional<nlohmann::json>      id;
-
-        std::shared_ptr<std::atomic<bool>> cancelled_token{
-            std::make_shared<std::atomic<bool>>(false)
-        };
-
-        bool                               is_request{ false };
+        std::string                   method;
+        nlohmann::json                params;
+        std::optional<nlohmann::json> id;
+        CancellationToken             cancellation_token{ nullptr };
+        bool                          is_request{ false };
     };
 
     struct LspSubmitItem {
@@ -84,25 +80,30 @@ namespace glsld {
         void HandleExit(Context& context);
 
         void UpdateWorker(const std::string& uri, int version_replica, bool open_document);
-        void Update(const std::string& uri, std::string_view text, int version_replica, bool open_document);
-        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, const std::string& uri) const;
 
-        std::atomic<bool>                                     running_{ true };
-        Router                                                router_;
-        ThreadPool                                            thread_pool_;
-        Workspace                                             workspace_;
-        mutable std::condition_variable                       ready_condition_;
-        mutable std::shared_mutex                             update_mutex_;
-        mutable std::mutex                                    ready_mutex_;
+        using VersionPointer = std::shared_ptr<std::atomic<int>>;
+        void Update(const std::string& uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
+
+        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, const std::string& uri) const;
 
         struct PendingUpdate {
             std::string                           text;
             std::chrono::steady_clock::time_point deadline;
         };
 
+        std::atomic<bool>                                     running_{ true };
+        Router                                                router_;
+        ThreadPool                                            thread_pool_;
+        Workspace                                             workspace_;
+        mutable std::condition_variable                       ready_condition_;
+        mutable std::mutex                                    ready_mutex_;
+
         StringHeteroHashMap<PendingUpdate>                    pending_updates_;
-        using VersionPointer = std::shared_ptr<std::atomic<int>>;
-        StringHeteroHashMap<VersionPointer>                   document_versions_;
+        StringHeteroHashMap<VersionPointer>                   document_versions_;   // [Uri, Version]
+        mutable std::shared_mutex                             update_mutex_;
+
+        StringHeteroHashMap<VersionPointer>                   document_revisions_;  // [Uri, Revision], for background include affected document update
+        std::shared_mutex                                     revision_mutex_;
 
         std::mutex                                            task_mutex_;
         std::condition_variable                               task_condition_;
@@ -112,8 +113,7 @@ namespace glsld {
         std::condition_variable                               submit_condition_;
         std::queue<LspSubmitItem>                             submit_queue_;
 
-        using CancellationToken = std::shared_ptr<std::atomic<bool>>;
-        std::unordered_map<nlohmann::json, CancellationToken> cancellation_tokens_;
+        std::unordered_map<nlohmann::json, CancellationToken> cancellation_tokens_; // [Request ID, Token]
         std::mutex                                            cancellation_mutex_;
     };
 }

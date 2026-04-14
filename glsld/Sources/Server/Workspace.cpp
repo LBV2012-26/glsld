@@ -10,10 +10,7 @@
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
-
-#ifdef _DEBUG
 #include "Base/Logger.hpp"
-#endif
 
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
@@ -40,38 +37,19 @@ namespace glsld {
             Parser parser(source_table_, source_file, source, include_loader_, include_dirs_, version_replica, version_pointer, *document);
 
             if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
-#ifdef _DEBUG
-                GLSLD_LOG_INFO(
-                    GLSLD_LOG_ROOT(),
-                    "Version changed during document update (replica: {}, current: {}), cancelling parse.",
-                    version_replica,
-                    version_pointer->load()
-                );
-#endif
-
+                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
+                                version_replica, version_pointer->load());
                 return;
             }
         } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
-#ifdef _DEBUG
-            GLSLD_LOG_INFO(
-                GLSLD_LOG_ROOT(),
-                "Version changed during document update (replica: {}, current: {}), cancelling lex.",
-                version_replica,
-                version_pointer->load()
-            );
-#endif
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling lex.",
+                            version_replica, version_pointer->load());
         }
 
         auto Cancelled = [version_replica, &version_pointer]() -> bool {
             if (version_replica != version_pointer->load()) {
-#ifdef _DEBUG
-                GLSLD_LOG_INFO(
-                    GLSLD_LOG_ROOT(),
-                    "Version changed during document update (replica: {}, current: {}), cancelling update.",
-                    version_replica,
-                    version_pointer->load()
-                );
-#endif
+                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling update.",
+                                version_replica, version_pointer->load());
                 return true;
             }
 

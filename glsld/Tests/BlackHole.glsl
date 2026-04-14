@@ -1,4 +1,4 @@
-//#version 450
+#version 450
 //#pragma shader_stage(fragment)
 //#extension GL_EXT_samplerless_texture_functions : enable
 /*

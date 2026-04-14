@@ -12,6 +12,8 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
+    using CancellationToken = std::shared_ptr<std::atomic<bool>>;
+
     struct Context {
         std::string                                method;
         std::optional<nlohmann::json>              request_id;
@@ -19,13 +21,10 @@ namespace glsld {
         std::optional<std::pair<int, std::string>> error;
         StringHeteroHashMap<std::any>              use_data;
         nlohmann::json                             params;
-
-        std::shared_ptr<std::atomic<bool>> cancelled_token{
-            std::make_shared<std::atomic<bool>>(false)
-        };
+        CancellationToken                          cancellation_token{ nullptr };
 
         bool cancelled() const noexcept {
-            return cancelled_token != nullptr && cancelled_token->load(std::memory_order::relaxed);
+            return cancellation_token != nullptr && cancellation_token->load(std::memory_order::relaxed);
         }
     };
 
