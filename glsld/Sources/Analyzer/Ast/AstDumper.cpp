@@ -32,6 +32,10 @@ namespace glsld {
     void AstDumper::VisitPreprocessor(PreprocessorNode* node) {
         PrintIndent();
         std::println("Preprocessor #{} (Tokens: {}) {}", node->directive, node->tokens.size(), FormatRange(node));
+
+        ++indent_level_;
+        Base::VisitPreprocessor(node);
+        --indent_level_;
     }
 
     void AstDumper::VisitAttribute(AttributeNode* node) {

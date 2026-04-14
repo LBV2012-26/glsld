@@ -85,6 +85,7 @@ namespace glsld {
     enum class ScopeKind {
         kBlock,
         kCommon,
+        kMacroTemporary,
         kGlobalTransparent,
         kBlockTransparent
     };
@@ -119,8 +120,8 @@ namespace glsld {
         SymbolInfo  RemoveSymbol(std::string_view name);
         void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
-        Scope*                                    parent_;
-        SymbolInfo*                               host_symbol_{ nullptr };
+        const Scope*                              parent_;
+        const SymbolInfo*                         host_symbol_{ nullptr };
         std::size_t                               index_;
         std::pair<SourceLocation, SourceLocation> interval_;
         std::vector<std::unique_ptr<Scope>>       children_;

@@ -298,12 +298,55 @@ namespace glsld {
             MatchAndConsume(TokenType::kCloseParen);
         }
 
+        // parse macro body
+        auto saved_token_index = token_index_;
+        auto saved_scope_depth = scope_stack_.size();
+
+        // current token is the first body token, or next line if macro body is empty
+        const auto& body_first_token = current_token();
+        if (body_first_token.type                != TokenType::kEndOfFile &&
+            body_first_token.location.filename() == target_file &&
+            body_first_token.location.line()     >= directive_physical_line)
+        {
+            EnterScope(body_first_token.location, node->symbol, ScopeKind::kMacroTemporary); // 防止宏定义中的局部符号污染外部作用域
+
+            while (current_token().type != TokenType::kEndOfFile) {
+                const auto& token = current_token();
+
+                if (token.location.filename() != target_file ||
+                    (token.location.line() > directive_physical_line &&
+                     PeekToken(-1).type != TokenType::kBackslash))
+                {
+                    break;
+                }
+
+                if (token.type == TokenType::kBackslash) {
+                    ConsumeToken();
+                    continue;
+                }
+
+                auto statement = ParseStatement();
+                if (statement != nullptr) {
+                    node->body.push_back(std::move(statement));
+                } else {
+                    ConsumeToken();
+                }
+            }
+
+            LeaveScope(GetPreviousTokenEnd());
+        }
+
+        token_index_ = saved_token_index;
+        while (scope_stack_.size() > saved_scope_depth) {
+            scope_stack_.pop();
+        }
+
         node->tokens = CaptureDirectiveTokens(target_file, directive_physical_line);
         node->end    = GetPreviousTokenEnd();
         return node;
     }
 
-    std::unique_ptr<CompoundStatementNode> Parser::ParseScope(SymbolInfo* host_symbol, ScopeKind kind) {
+    std::unique_ptr<CompoundStatementNode> Parser::ParseScope(const SymbolInfo* host_symbol, ScopeKind kind) {
         auto node = std::make_unique<CompoundStatementNode>(current_scope());
         node->begin = current_token().location;
         MatchAndConsume(TokenType::kOpenBrace);
@@ -1388,7 +1431,7 @@ namespace glsld {
         return nodes;
     }
 
-    Scope* Parser::EnterScope(SourceLocation location, SymbolInfo* host_symbol, ScopeKind kind) {
+    Scope* Parser::EnterScope(SourceLocation location, const SymbolInfo* host_symbol, ScopeKind kind) {
         auto new_scope = std::make_unique<Scope>(current_scope());
 
         Scope* new_scope_ptr           = new_scope.get();

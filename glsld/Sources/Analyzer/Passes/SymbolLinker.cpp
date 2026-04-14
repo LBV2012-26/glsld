@@ -16,6 +16,10 @@ namespace glsld {
         if (node->directive == "define" && node->symbol != nullptr) {
             document_.bindings.try_emplace(node->symbol->location, node->symbol);
         }
+
+        for (auto& statement : node->body) {
+            Traverse(statement.get());
+        }
     }
 
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode* node) {

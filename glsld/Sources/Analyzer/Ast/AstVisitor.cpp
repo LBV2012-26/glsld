@@ -138,7 +138,11 @@ namespace glsld {
         }
     }
 
-    void AstVisitor::VisitPreprocessor(PreprocessorNode* node) {}
+    void AstVisitor::VisitPreprocessor(PreprocessorNode* node) {
+        for (auto& statement : node->body) {
+            Traverse(statement.get());
+        }
+    }
 
     void AstVisitor::VisitAttribute(AttributeNode* node) {
         Traverse(node->argument.get());

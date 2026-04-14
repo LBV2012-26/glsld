@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/glsld/Sources/**",
+                "${workspaceFolder}/glsld/Externals/mimalloc/include/**",
+                "${workspaceFolder}/glsld/vcpkg_installed/x64-windows/x64-windows/include/**"
             ],
             "defines": [
                 "_DEBUG",

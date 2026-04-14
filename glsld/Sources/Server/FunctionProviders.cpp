@@ -1005,12 +1005,14 @@ namespace glsld {
             std::string prefix;
             bool is_field = false;
 
-            if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
-                prefix = "(global variable)";
+            if (symbol->located_scope->kind() == ScopeKind::kMacroTemporary) {
+                prefix = "";
+            } else if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
+                prefix = "(global variable) ";
             } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
-                prefix = "(local variable)";
+                prefix = "(local variable) ";
             } else {
-                prefix = "(field)";
+                prefix = "(field) ";
                 is_field = true;
             }
 
@@ -1023,7 +1025,7 @@ namespace glsld {
                 name = std::format("{} {}", specifiers, symbol->name);
             }
 
-            result = std::format("{} {}", prefix, name);
+            result = std::format("{}{}", prefix, name);
 
             for (auto array_size : symbol->type_info.array_sizes) {
                 std::format_to(std::back_inserter(result), "[{}]", array_size);

@@ -61,7 +61,7 @@ namespace glsld {
         std::unique_ptr<StatementNode> ParseStatement();
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
         std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::string_view target_file, std::size_t directive_physical_line);
-        std::unique_ptr<CompoundStatementNode> ParseScope(SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
+        std::unique_ptr<CompoundStatementNode> ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
         std::unique_ptr<StatementNode> ParseCodeStatement();
         std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpecifier type_spec);
@@ -107,7 +107,7 @@ namespace glsld {
         template <typename Ty>
         std::vector<std::unique_ptr<Ty>> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
 
-        Scope* EnterScope(SourceLocation location, SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
+        Scope* EnterScope(SourceLocation location, const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         void LeaveScope(SourceLocation location);
 
         std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames);

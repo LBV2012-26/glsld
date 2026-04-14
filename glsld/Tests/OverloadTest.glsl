@@ -456,7 +456,7 @@ void main() {
     TestOverloadFunction(component1);
     TestOverloadFunction(component2);
 
-#define CALL_TEST_OVERLOAD_FUNC TestOverloadFunction(int16arg, int32arg, int64arg, float32arg)
+#define CALL_TEST_OVERLOAD_FUNC TestOverloadFunction(uint16arg, uint32arg, uint64arg, float16arg)
 
     // --- Super complex compound expressions ---
 

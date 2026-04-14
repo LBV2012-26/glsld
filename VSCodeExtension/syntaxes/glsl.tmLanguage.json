@@ -1,0 +1,219 @@
+{
+	"name": "GLSL",
+	"scopeName": "source.glsl",
+	"fileTypes": [
+		"glsl",
+		"vert",
+		"frag",
+		"geom",
+		"tesc",
+		"tese",
+		"comp",
+		"vsh",
+		"fsh",
+		"gsh",
+		"vshader",
+		"fshader",
+		"gshader"
+	],
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#preprocessors"
+		},
+		{
+			"include": "#strings_and_numbers"
+		},
+		{
+			"include": "#builtin_variables"
+		},
+		{
+			"include": "#builtin_functions"
+		},
+		{
+			"include": "#types"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#user_functions"
+		},
+		{
+			"include": "#operators"
+		},
+		{
+			"include": "#punctuation"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-slash.glsl",
+					"match": "//.*"
+				},
+				{
+					"name": "comment.block.documentation.glsl",
+					"begin": "/\\*\\*",
+					"end": "\\*/"
+				},
+				{
+					"name": "comment.block.glsl",
+					"begin": "/\\*",
+					"end": "\\*/"
+				}
+			]
+		},
+		"preprocessors": {
+			"patterns": [
+				{
+					"name": "keyword.control.preprocessor.glsl",
+					"match": "^\\s*#\\s*(core|define|defined|error|elif|endif|extension|ifdef|ifndef|include|line|pragma|shader_stage|undef|version)\\b"
+				}
+			]
+		},
+		"strings_and_numbers": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.glsl",
+					"begin": "\"",
+					"end": "\"",
+					"patterns": [
+						{
+							"name": "constant.character.escape.glsl",
+							"match": "\\\\."
+						}
+					]
+				},
+				{
+					"name": "constant.numeric.float.glsl",
+					"match": "\\b[0-9]*\\.([0-9]+)?([eE][+-]?[0-9]+)?[fFdD]?\\b"
+				},
+				{
+					"name": "constant.numeric.integer.glsl",
+					"match": "\\b(0[xX][0-9a-fA-F]+|[0-9]+)[uUlL]?\\b"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [
+				{
+					"comment": "Control flow keywords from glslKeywords.txt",
+					"name": "keyword.control.glsl",
+					"match": "\\b(break|continue|do|for|while|switch|case|default|if|else|discard|return)\\b"
+				},
+				{
+					"comment": "Storage and type modifiers from glslPrimitives.txt",
+					"name": "storage.modifier.glsl",
+					"match": "\\b(attribute|const|uniform|varying|buffer|shared|coherent|volatile|restrict|readonly|writeonly|in|out|inout|struct|subroutine|invariant|precise|patch|sample|common|partition|active|asm|class|union|enum|typedef|template|this|resource|inline|noinline|public|static|extern|external|interface|long|short|half|fixed|superp|input|output|filter|sizeof|cast|namespace|using|nonprivate)\\b"
+				},
+				{
+					"comment": "Precision modifiers from glslPrimitives.txt",
+					"name": "storage.modifier.precision.glsl",
+					"match": "\\b(lowp|mediump|highp|precision)\\b"
+				},
+				{
+					"comment": "Interpolation modifiers from glslPrimitives.txt",
+					"name": "storage.modifier.interpolation.glsl",
+					"match": "\\b(centroid|flat|smooth|noperspective)\\b"
+				},
+				{
+					"comment": "Layout qualifiers from glslPrimitives.txt",
+					"name": "storage.modifier.layout.glsl",
+					"match": "\\b(layout|quads|equal_spacing|fractional_even_spacing|fractional_odd_spacing|cw|ccw|points|offset|buffer_reference|scalar|std140|std430|row_major|column_major|packed|descriptor_heap|constant_id|local_size_x|local_size_y|local_size_z|local_size_x_id|local_size_y_id|local_size_z_id|local_size_variable|input_attachment_index|push_constant|set|binding|location|early_fragment_tests|post_depth_coverage|shadercallcoherent|devicecoherent|queuefamilycoherent|workgroupcoherent|subgroupcoherent)\\b"
+				},
+				{
+					"comment": "Boolean constants from glslPrimitives.txt",
+					"name": "constant.language.boolean.glsl",
+					"match": "\\b(true|false)\\b"
+				}
+			]
+		},
+		"types": {
+			"patterns": [
+				{
+					"comment": "Primitive and basic types from glslPrimitives.txt and glslTypes.txt",
+					"name": "storage.type.glsl",
+					"match": "\\b(void|bool|int|uint|float|double|atomic_uint|float16_t|float32_t|float64_t|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|vec[2-4]|ivec[2-4]|uvec[2-4]|dvec[2-4]|bvec[2-4]|f16vec[2-4]|f32vec[2-4]|f64vec[2-4]|i8vec[2-4]|i16vec[2-4]|i32vec[2-4]|i64vec[2-4]|u8vec[2-4]|u16vec[2-4]|u32vec[2-4]|u64vec[2-4]|hvec[2-4]|fvec[2-4]|mat[2-4]|mat[2-4]x[2-4]|dmat[2-4]|dmat[2-4]x[2-4]|f16mat[2-4]|f16mat[2-4]x[2-4]|f32mat[2-4]|f32mat[2-4]x[2-4]|f64mat[2-4]|f64mat[2-4]x[2-4]|sampler|sampler(1D|2D|3D|Cube|1DShadow|2DShadow|CubeShadow|1DArray|2DArray|1DArrayShadow|2DArrayShadow|2DRect|2DRectShadow|Buffer|2DMS|2DMSArray|CubeArray|CubeArrayShadow)|isampler(1D|2D|3D|Cube|1DArray|2DArray|2DRect|Buffer|2DMS|2DMSArray|CubeArray)|usampler(1D|2D|3D|Cube|1DArray|2DArray|2DRect|Buffer|2DMS|2DMSArray|CubeArray)|image(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|iimage(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|uimage(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|subpassInput|subpassInputMS|isubpassInput|isubpassInputMS|usubpassInput|usubpassInputMS|accelerationStructureNV|accelerationStructureEXT|rayQueryEXT|texture(1D|2D|3D|Cube|1DProj|2DProj|3DProj|1DLod|2DLod|3DLod|CubeLod|1DProjLod|2DProjLod|3DProjLod)|sampler3DRect|shadow(1D|2D|1DProj|2DProj|1DLod|2DLod|1DProjLod|2DProjLod)|rayPayloadNV|rayPayloadInNV|hitAttributeNV|callableDataNV|callableDataInNV|rayPayloadEXT|rayPayloadInEXT|hitAttributeEXT|callableDataEXT|callableDataInEXT|shaderRecordEXT|rgba32f|rgba16f|r32f|r16f|rg32f|rg16f|rgba32i|rgba16i|rgba8i|r32i|r16i|r8i|rg32i|rg16i|rg8i|rgba32ui|rgba16ui|rgba8ui|r32ui|r16ui|r8ui|rg32ui|rg16ui|rg8ui|rgba8|r8|rg8)\\b"
+				}
+			]
+		},
+		"builtin_functions": {
+			"comment": "Built-in functions from glslFunctions.txt",
+			"name": "support.function.builtin.glsl",
+			"match": "\\b(radians|degrees|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|asinh|acosh|atanh|pow|exp|log|exp2|log2|sqrt|inversesqrt|abs|sign|floor|trunc|round|roundEven|ceil|fract|mod|modf|min|max|clamp|mix|step|smoothstep|isnan|isinf|floatBitsToInt|floatBitsToUint|intBitsToFloat|uintBitsToFloat|fma|frexp|ldexp|packUnorm2x16|packSnorm2x16|packUnorm4x8|packSnorm4x8|unpackUnorm2x16|unpackSnorm2x16|unpackUnorm4x8|unpackSnorm4x8|packDouble2x32|unpackDouble2x32|packHalf2x16|unpackHalf2x16|length|distance|dot|cross|normalize|ftransform|faceforward|reflect|refract|matrixCompMult|outerProduct|transpose|determinant|inverse|lessThan|lessThanEqual|greaterThan|greaterThanEqual|equal|notEqual|any|all|not|uaddCarry|usubBorrow|umulExtended|imulExtended|bitfieldExtract|bitfieldInsert|bitfieldReverse|bitCount|findLSB|findMSB|textureSize|textureQueryLod|textureQueryLevels|textureSamples|texture|textureProj|textureLod|textureOffset|texelFetch|texelFetchOffset|textureProjOffset|textureLodOffset|textureProjLod|textureProjLodOffset|textureGrad|textureGradOffset|textureProjGrad|textureProjGradOffset|textureGather|textureGatherOffset|textureGatherOffsets|texture1DProj|texture1DLod|texture1DProjLod|texture2DProj|texture2DLod|texture2DProjLod|texture3DProj|texture3DLod|texture3DProjLod|textureCubeLod|shadow1DProj|shadow2DProj|shadow1DLod|shadow2DLod|shadow1DProjLod|shadow2DProjLod|atomicCounterIncrement|atomicCounterDecrement|atomicCounter|atomicAdd|atomicMin|atomicMax|atomicAnd|atomicOr|atomicXor|atomicExchange|atomicCompSwap|atomicLoad|atomicStore|imageSize|imageSamples|imageLoad|imageStore|imageAtomicAdd|imageAtomicMin|imageAtomicMax|imageAtomicAnd|imageAtomicOr|imageAtomicXor|imageAtomicExchange|imageAtomicCompSwap|imageAtomicLoad|imageAtomicStore|dFdx|dFdy|dFdxFine|dFdyFine|dFdxCoarse|dFdyCoarse|fwidth|fwidthFine|fwidthCoarse|interpolateAtCentroid|interpolateAtSample|interpolateAtOffset|noise[1-4]|EmitStreamVertex|EndStreamPrimitive|EmitVertex|EndPrimitive|barrier|controlBarrier|memoryBarrier|memoryBarrierAtomicCounter|memoryBarrierBuffer|memoryBarrierShared|memoryBarrierImage|groupMemoryBarrier|subpassLoad|ballotARB|readInvocationARB|readFirstInvocationARB|atomicCounterAddARB|atomicCounterSubtractARB|atomicCounterMinARB|atomicCounterMaxARB|atomicCounterAndARB|atomicCounterOrARB|atomicCounterXorARB|atomicCounterExchangeARB|atomicCounterCompSwapARB|anyInvocationARB|allInvocationsARB|allInvocationsEqualARB|traceNV|reportIntersectionNV|ignoreIntersectionNV|terminateRayNV|executeCallableNV|traceRayEXT|reportIntersectionEXT|ignoreIntersectionEXT|terminateRayEXT|executeCallableEXT|rayQueryInitializeEXT|rayQueryProceedEXT|rayQueryTerminateEXT|rayQueryGenerateIntersectionEXT|rayQueryConfirmIntersectionEXT|rayQueryGetIntersectionTypeEXT|rayQueryGetRayTMinEXT|rayQueryGetRayFlagsEXT|rayQueryGetWorldRayOriginEXT|rayQueryGetWorldRayDirectionEXT|rayQueryGetIntersectionTEXT|rayQueryGetIntersectionInstanceCustomIndexEXT|rayQueryGetIntersectionInstanceIdEXT|rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT|rayQueryGetIntersectionGeometryIndexEXT|rayQueryGetIntersectionPrimitiveIndexEXT|rayQueryGetIntersectionBarycentricsEXT|rayQueryGetIntersectionFrontFaceEXT|rayQueryGetIntersectionCandidateAABBOpaqueEXT|rayQueryGetIntersectionObjectRayDirectionEXT|rayQueryGetIntersectionObjectRayOriginEXT|rayQueryGetIntersectionObjectToWorldEXT|rayQueryGetIntersectionWorldToObjectEXT|subgroupBarrier|subgroupMemoryBarrier|subgroupMemoryBarrierBuffer|subgroupMemoryBarrierShared|subgroupMemoryBarrierImage|subgroupElect|subgroupAll|subgroupAny|subgroupAllEqual|subgroupBroadcast|subgroupBroadcastFirst|subgroupBallot|subgroupInverseBallot|subgroupBallotBitExtract|subgroupBallotBitCount|subgroupBallotInclusiveBitCount|subgroupBallotExclusiveBitCount|subgroupBallotFindLSB|subgroupBallotFindMSB|subgroupShuffle|subgroupShuffleXor|subgroupShuffleUp|subgroupShuffleDown|subgroupAdd|subgroupMul|subgroupMin|subgroupMax|subgroupAnd|subgroupOr|subgroupXor|subgroupInclusiveAdd|subgroupInclusiveMul|subgroupInclusiveMin|subgroupInclusiveMax|subgroupInclusiveAnd|subgroupInclusiveOr|subgroupInclusiveXor|subgroupExclusiveAdd|subgroupExclusiveMul|subgroupExclusiveMin|subgroupExclusiveMax|subgroupExclusiveAnd|subgroupExclusiveOr|subgroupExclusiveXor|subgroupClusteredAdd|subgroupClusteredMul|subgroupClusteredMin|subgroupClusteredMax|subgroupClusteredAnd|subgroupClusteredOr|subgroupClusteredXor|subgroupQuadBroadcast|subgroupQuadSwapHorizontal|subgroupQuadSwapVertical|subgroupQuadSwapDiagonal)\\b"
+		},
+		"builtin_variables": {
+			"comment": "Built-in variables from glslVariables.txt",
+			"name": "variable.language.glsl",
+			"match": "\\b(gl_NumWorkGroups|gl_WorkGroupSize|gl_WorkGroupID|gl_LocalInvocationID|gl_GlobalInvocationID|gl_LocalInvocationIndex|gl_LocalGroupSizeARB|gl_VertexID|gl_VertexIndex|gl_InstanceID|gl_InstanceIndex|gl_PerVertex|gl_Position|gl_PointSize|gl_ClipDistance|gl_CullDistance|gl_in|gl_out|gl_PrimitiveIDIn|gl_InvocationID|gl_PrimitiveID|gl_Layer|gl_ViewportIndex|gl_PatchVerticesIn|gl_TessLevelOuter|gl_TessLevelInner|gl_TessCoord|gl_MaxPatchVertices|gl_FragColor|gl_FragCoord|gl_FrontFacing|gl_PointCoord|gl_SampleID|gl_SamplePosition|gl_SampleMaskIn|gl_HelperInvocation|gl_FragDepth|gl_SampleMask|gl_DrawIDARB|gl_BaseVertexARB|gl_BaseInstanceARB|gl_SubGroupSizeARB|gl_SubGroupInvocationARB|gl_SubGroupEqMaskARB|gl_SubGroupGeMaskARB|gl_SubGroupGtMaskARB|gl_SubGroupLeMaskARB|gl_SubGroupLtMaskARB|gl_LaunchIDNV|gl_LaunchSizeNV|gl_InstanceCustomIndexNV|gl_WorldRayOriginNV|gl_WorldRayDirectionNV|gl_ObjectRayOriginNV|gl_ObjectRayDirectionNV|gl_RayTminNV|gl_RayTmaxNV|gl_IncomingRayFlagsNV|gl_HitTNV|gl_HitKindNV|gl_ObjectToWorldNV|gl_WorldToObjectNV|gl_RayFlagsNoneNV|gl_RayFlagsOpaqueNV|gl_RayFlagsNoOpaqueNV|gl_RayFlagsTerminateOnFirstHitNV|gl_RayFlagsSkipClosestHitShaderNV|gl_RayFlagsCullBackFacingTrianglesNV|gl_RayFlagsCullFrontFacingTrianglesNV|gl_RayFlagsCullOpaqueNV|gl_RayFlagsCullNoOpaqueNV|gl_RayFlagsNoneEXT|gl_RayFlagsOpaqueEXT|gl_RayFlagsNoOpaqueEXT|gl_RayFlagsTerminateOnFirstHitEXT|gl_RayFlagsSkipClosestHitShaderEXT|gl_RayFlagsCullBackFacingTrianglesEXT|gl_RayFlagsCullFrontFacingTrianglesEXT|gl_RayFlagsCullOpaqueEXT|gl_RayFlagsCullNoOpaqueEXT|gl_RayQueryCommittedIntersectionEXT|gl_RayQueryCandidateIntersectionEXT|gl_RayQueryCommittedIntersectionNoneEXT|gl_RayQueryCommittedIntersectionTriangleEXT|gl_RayQueryCommittedIntersectionGeneratedEXT|gl_RayQueryCandidateIntersectionTriangleEXT|gl_RayQueryCandidateIntersectionAABBEXT|gl_LaunchIDEXT|gl_LaunchSizeEXT|gl_InstanceCustomIndexEXT|gl_GeometryIndexEXT|gl_WorldRayOriginEXT|gl_WorldRayDirectionEXT|gl_ObjectRayOriginEXT|gl_ObjectRayDirectionEXT|gl_RayTminEXT|gl_RayTmaxEXT|gl_IncomingRayFlagsEXT|gl_HitTEXT|gl_HitKindEXT|gl_ObjectToWorldEXT|gl_WorldToObjectEXT|gl_WorldToObject3x4EXT|gl_ObjectToWorld3x4EXT|gl_HitKindFrontFacingTriangleEXT|gl_HitKindBackFacingTriangleEXT|gl_NumSubgroups|gl_SubgroupID|gl_SubgroupSize|gl_SubgroupInvocationID|gl_SubgroupEqMask|gl_SubgroupGeMask|gl_SubgroupGtMask|gl_SubgroupLeMask|gl_SubgroupLtMask|gl_WarpIDNV|gl_SMIDNV|gl_ScopeDevice|gl_ScopeWorkgroup|gl_ScopeSubgroup|gl_ScopeInvocation|gl_ScopeQueueFamily|gl_SemanticsRelaxed|gl_SemanticsAcquire|gl_SemanticsRelease|gl_SemanticsAcquireRelease|gl_SemanticsMakeAvailable|gl_SemanticsMakeVisible|gl_SemanticsVolatile|gl_StorageSemanticsNone|gl_StorageSemanticsBuffer|gl_StorageSemanticsShared|gl_StorageSemanticsImage|gl_StorageSemanticsOutput)\\b"
+		},
+		"user_functions": {
+			"patterns": [
+				{
+					"comment": "User-defined function definitions",
+					"begin": "(?<=([a-zA-Z0-9_]+\\s+))([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
+					"beginCaptures": {
+						"2": {
+							"name": "entity.name.function.glsl"
+						}
+					},
+					"end": "(?=\\{|;)",
+					"patterns": [
+						{
+							"include": "$self"
+						}
+					]
+				},
+				{
+					"comment": "User-defined function calls",
+					"match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
+					"name": "entity.name.function.glsl"
+				}
+			]
+		},
+		"operators": {
+			"name": "keyword.operator.glsl",
+			"match": "->|\\+\\+|--|<<|>>|<=|>=|==|!=|&&|\\|\\||\\^\\^|\\*=|/=|%=|\\+=|-=|<<=|>>=|&=|\\^=|\\|=|!|~|%|\\^|&|\\*|/|-|\\+|\\?|:|\\.|<|>"
+		},
+		"punctuation": {
+			"patterns": [
+				{
+					"name": "punctuation.terminator.statement.glsl",
+					"match": ";"
+				},
+				{
+					"name": "punctuation.separator.comma.glsl",
+					"match": ","
+				},
+				{
+					"name": "punctuation.section.parens.begin.glsl",
+					"match": "\\("
+				},
+				{
+					"name": "punctuation.section.parens.end.glsl",
+					"match": "\\)"
+				},
+				{
+					"name": "punctuation.section.braces.begin.glsl",
+					"match": "\\{"
+				},
+				{
+					"name": "punctuation.section.braces.end.glsl",
+					"match": "\\}"
+				},
+				{
+					"name": "punctuation.section.brackets.begin.glsl",
+					"match": "\\["
+				},
+				{
+					"name": "punctuation.section.brackets.end.glsl",
+					"match": "\\]"
+				}
+			]
+		}
+	}
+}
