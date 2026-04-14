@@ -7,12 +7,13 @@
 namespace glsld {
     class InlayHintVisitor final : public AstVisitor {
     public:
-        InlayHintVisitor();
+        InlayHintVisitor(const Document& document);
 
-        void VisitCallExpression(CallExpressionNode* node) override;
         const std::vector<InlayHint>& hints() const;
 
     private:
+        void VisitCallExpression(CallExpressionNode* node) override;
+
         std::vector<InlayHint> hints_;
     };
 }

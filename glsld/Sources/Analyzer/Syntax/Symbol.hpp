@@ -116,7 +116,7 @@ namespace glsld {
         friend class Parser;
 
         SymbolInfo* AddSymbol(SymbolInfo symbol);
-        SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, SourceLocation location, SymbolKind kind);
+        SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, const SourceLocation& location, SymbolKind kind);
         SymbolInfo  RemoveSymbol(std::string_view name);
         void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 

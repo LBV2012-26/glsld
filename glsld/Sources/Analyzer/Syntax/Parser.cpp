@@ -1429,12 +1429,12 @@ namespace glsld {
         return nodes;
     }
 
-    Scope* Parser::EnterScope(SourceLocation location, const SymbolInfo* host_symbol, ScopeKind kind) {
+    Scope* Parser::EnterScope(const SourceLocation& location, const SymbolInfo* host_symbol, ScopeKind kind) {
         auto new_scope = std::make_unique<Scope>(current_scope());
 
         Scope* new_scope_ptr           = new_scope.get();
         new_scope_ptr->kind_           = kind;
-        new_scope_ptr->interval_.first = std::move(location);
+        new_scope_ptr->interval_.first = location;
         new_scope_ptr->host_symbol_    = host_symbol;
 
         current_scope()->children_.push_back(std::move(new_scope));
@@ -1443,9 +1443,9 @@ namespace glsld {
         return new_scope_ptr;
     }
 
-    void Parser::LeaveScope(SourceLocation location) {
+    void Parser::LeaveScope(const SourceLocation& location) {
         if (scope_stack_.size() > 1) {
-            current_scope()->interval_.second = std::move(location);
+            current_scope()->interval_.second = location;
             scope_stack_.pop();
         }
     }

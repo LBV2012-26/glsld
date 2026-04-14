@@ -525,8 +525,7 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        LeafLocator locator(location);
-        locator.Traverse(snapshot->ast.get());
+        LeafLocator locator(*snapshot, location);
         const auto* node = locator.result();
 
         if (node == nullptr || node->kind() != AstNodeKind::kVariableExpression) {
@@ -555,8 +554,7 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        InlayHintVisitor visitor;
-        visitor.Traverse(snapshot->ast.get());
+        InlayHintVisitor visitor(*snapshot);
         return visitor.hints();
     }
 
@@ -584,8 +582,7 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        SignatureLocator locator(location);
-        locator.Traverse(snapshot->ast.get());
+        SignatureLocator locator(*snapshot, location);
         const auto* node = locator.result();
 
         if (node == nullptr) {
@@ -903,8 +900,7 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        ContextLocator locator(dot_location);
-        locator.Traverse(snapshot->ast.get());
+        ContextLocator locator(*snapshot, dot_location);
         const auto* node = locator.result();
 
         nlohmann::json items = nlohmann::json::array();

@@ -1211,10 +1211,10 @@ namespace glsld {
         std::vector<Token> normalized;
         normalized.reserve(input.size());
 
-        auto MakeNumber = [](std::string text, SourceLocation location) -> Token {
+        auto MakeNumber = [](std::string text, const SourceLocation& location) -> Token {
             return Token{
                 .text     = std::move(text),
-                .location = std::move(location),
+                .location = location,
                 .type     = TokenType::kNumberLiteral
             };
         };

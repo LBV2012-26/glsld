@@ -9,9 +9,15 @@
 #include "Analyzer/Ast/Ast.hpp"
 
 namespace glsld {
-    InlayHintVisitor::InlayHintVisitor()
+    InlayHintVisitor::InlayHintVisitor(const Document& document)
         : AstVisitor(0, nullptr)
-    {}
+    {
+        Traverse(document.ast.get());
+    }
+
+    const std::vector<InlayHint>& InlayHintVisitor::hints() const {
+        return hints_;
+    }
 
     void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {
         const SymbolInfo* symbol = nullptr;
@@ -60,9 +66,5 @@ namespace glsld {
         }
 
         AstVisitor::VisitCallExpression(node);
-    }
-
-    const std::vector<InlayHint>& InlayHintVisitor::hints() const {
-        return hints_;
     }
 }

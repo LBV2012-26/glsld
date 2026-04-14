@@ -107,8 +107,8 @@ namespace glsld {
         template <typename Ty>
         std::vector<std::unique_ptr<Ty>> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
 
-        Scope* EnterScope(SourceLocation location, const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
-        void LeaveScope(SourceLocation location);
+        Scope* EnterScope(const SourceLocation& location, const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
+        void   LeaveScope(const SourceLocation& location);
 
         std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames);
         std::size_t GetNextAnonymousId();

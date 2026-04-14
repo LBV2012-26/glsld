@@ -1,13 +1,17 @@
 #include "stdafx.h"
 #include "NodeLocator.hpp"
 
-#include <utility>
-
 namespace glsld {
-    LeafLocator::LeafLocator(SourceLocation target)
+    LeafLocator::LeafLocator(const Document& document, const SourceLocation& target)
         : AstVisitor(0, nullptr)
-        , target_{ std::move(target) }
-    {}
+        , target_{ target }
+    {
+        Traverse(document.ast.get());
+    }
+
+    const AstNode* const LeafLocator::result() const {
+        return deepest_node_;
+    }
 
     void LeafLocator::Traverse(AstNode * node) {
         if (node == nullptr) {
@@ -25,10 +29,6 @@ namespace glsld {
             // No need to continue traversing siblings, as they will be after the target position.
             return;
         }
-    }
-
-    const AstNode* const LeafLocator::result() const {
-        return deepest_node_;
     }
 
     bool LeafLocator::IsPositionInNode(const AstNode* node) const {
@@ -81,10 +81,16 @@ namespace glsld {
         // AstVisitor::VisitMemberAccessExpression(node);
     }
 
-    SignatureLocator::SignatureLocator(SourceLocation cursor)
+    SignatureLocator::SignatureLocator(const Document& document, const SourceLocation& cursor)
         : AstVisitor(0, nullptr)
-        , cursor_{ std::move(cursor) }
-    {}
+        , cursor_{ cursor }
+    {
+        Traverse(document.ast.get());
+    }
+
+    const CallExpressionNode* const SignatureLocator::result() const {
+        return best_match_;
+    }
 
     void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {
         if (node == nullptr) {
@@ -102,9 +108,5 @@ namespace glsld {
         {
             return;
         }
-    }
-
-    const CallExpressionNode* const SignatureLocator::result() const {
-        return best_match_;
     }
 }
