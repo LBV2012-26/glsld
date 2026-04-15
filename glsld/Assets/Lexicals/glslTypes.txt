@@ -149,3 +149,5 @@ hitAttributeEXT
 callableDataEXT
 callableDataInEXT
 shaderRecordEXT
+
+coopmat

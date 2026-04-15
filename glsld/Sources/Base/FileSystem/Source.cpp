@@ -2,6 +2,7 @@
 #include "Source.hpp"
 
 #include <filesystem>
+#include <mutex>
 #include <utility>
 
 #include "Utils/Utils.hpp"
@@ -16,9 +17,11 @@ namespace glsld {
     }
 
     const SourceFile* SourceTable::Intern(std::string_view filename, std::string_view uri) {
-        SourceFile source(filename, uri);
+        auto source = std::make_unique<SourceFile>(filename, uri);
+
+        std::unique_lock lock(shared_mutex_);
         auto [inserted_it, _] = sources_.try_emplace(std::string(filename), std::move(source));
-        return &inserted_it->second;
+        return inserted_it->second.get();
     }
 
     const SourceFile* SourceTable::InternByFilename(std::string_view filename) {
@@ -36,9 +39,10 @@ namespace glsld {
     const SourceFile* SourceTable::GetByFilename(std::string_view filename) const {
         auto normalized = utils::NormalizePath(std::filesystem::path(filename)).generic_string();
 
+        std::shared_lock lock(shared_mutex_);
         auto it = sources_.find(normalized);
         if (it != sources_.end()) {
-            return &it->second;
+            return it->second.get();
         }
 
         return nullptr;
@@ -47,9 +51,10 @@ namespace glsld {
     const SourceFile* SourceTable::GetByUri(std::string_view uri) const {
         auto filename = utils::UriToPath(uri).generic_string();
 
+        std::shared_lock lock(shared_mutex_);
         auto it = sources_.find(filename);
         if (it != sources_.end()) {
-            return &it->second;
+            return it->second.get();
         }
 
         return nullptr;

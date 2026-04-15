@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 
@@ -40,7 +42,8 @@ namespace glsld {
         void RemoveByUri(std::string_view uri);
 
     private:
-        StringHeteroHashMap<SourceFile> sources_; // [GenericFilename, SourceFile]
+        StringHeteroHashMap<std::unique_ptr<SourceFile>> sources_; // [GenericFilename, SourceFile]
+        mutable std::shared_mutex                        shared_mutex_;
     };
 
     class SourceLocation {

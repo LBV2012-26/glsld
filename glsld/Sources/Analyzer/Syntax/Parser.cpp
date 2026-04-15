@@ -625,6 +625,24 @@ namespace glsld {
 
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
+
+                if (MatchAndConsume(TokenType::kLessThan)) { // coopmat<float16_t, gl_ScopeSubgroup, M, N, gl_MatrixUseA>;
+                    while (current_token().type != TokenType::kEndOfFile &&
+                           current_token().type != TokenType::kGreaterThan)
+                    {
+                        const auto& arg_token = current_token();
+                        if (arg_token.type == TokenType::kComma) {
+                            ConsumeToken();
+                            continue;
+                        }
+
+                        type_spec.template_args.push_back(arg_token);
+                        ConsumeToken();
+                    }
+
+                    MatchAndConsume(TokenType::kGreaterThan);
+                }
+
                 continue;
             } else if (token.type == TokenType::kIdentifier) {
                 const auto* symbol_info = current_scope()->FindSymbol(token.text);
@@ -938,20 +956,42 @@ namespace glsld {
 
         const auto& member_token = current_token();
         if (member_token.type == TokenType::kIdentifier) {
-            auto member_node            = std::make_unique<VariableExpressionNode>(current_scope());
-            member_node->begin          = member_token.location;
-            member_node->original_token = member_token;
-            member_node->node_type      = VariableExpressionNode::NodeType::kBlockMember;
-            member_node->name           = member_token.text;
-            member_node->end            = GetCurrentTokenEnd();
+            if (PeekToken().type != TokenType::kOpenParen) [[likely]] {
+                auto member_node            = std::make_unique<VariableExpressionNode>(current_scope());
+                member_node->begin          = member_token.location;
+                member_node->original_token = member_token;
+                member_node->node_type      = VariableExpressionNode::NodeType::kBlockMember;
+                member_node->name           = member_token.text;
+                member_node->end            = GetCurrentTokenEnd();
 
-            node->member = std::move(member_node);
-            ConsumeToken();
-        } else if (member_token.type == TokenType::kBuiltInFunction) { // array.length();
-            auto callee_expr = ParseVariableReference();
-            auto callee_node = ParseFunctionCall(std::move(callee_expr));
+                node->member = std::move(member_node);
+                ConsumeToken();
+            } else { // array.length();, the only member func that GLSL supports for built-in arrays
+                expanded_tokens_[token_index_].type = TokenType::kBuiltInFunction;
+                auto callee_expr = ParseVariableReference();
+                MatchAndConsume(TokenType::kOpenParen); // simulate pratt parsing comsume '(' after callee
+                auto callee_node = ParseFunctionCall(std::move(callee_expr));
 
-            node->member = std::move(callee_node);
+                node->member = std::move(callee_node);
+
+                TypeDescriptor type_desc{
+                    .family        = BaseFamily::kInt,
+                    .bits          = 32,
+                    .vector_count  = 1,
+                    .vector_length = 1
+                };
+
+                TypeInfo type_info{
+                    .typename_token = {
+                        .text     = "int",
+                        .location = member_token.location,
+                        .type     = TokenType::kPrimitive
+                    },
+                    .type_desc = type_desc,
+                };
+
+                node->evaluated_type = type_info;
+            }
         }
 
         node->end = GetPreviousTokenEnd();

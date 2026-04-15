@@ -59,7 +59,7 @@ namespace glsld {
 
         if (!pending.empty()) {
             std::unique_lock pending_lock(PendingMutex());
-            PendingData().merge(pending);
+            // PendingData().merge(pending);
         }
     }
 

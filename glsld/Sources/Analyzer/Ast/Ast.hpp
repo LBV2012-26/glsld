@@ -351,6 +351,7 @@ namespace glsld {
     struct TypeSpecifier {
         std::vector<Token>                           specifiers;
         std::vector<Token>                           layout_params;
+        std::vector<Token>                           template_args;
         std::vector<std::shared_ptr<ExpressionNode>> array_sizes;
 
         Token typename_token() const {

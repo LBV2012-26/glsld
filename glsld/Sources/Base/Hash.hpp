@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <ankerl/unordered_dense.h>
+#include <rapidhash.h>
+
 namespace glsld {
     struct StringViewHeteroEqual {
         using is_transparent = void;
@@ -24,8 +27,8 @@ namespace glsld {
     };
 
     template <typename Value>
-    using StringHeteroHashMap = std::unordered_map<std::string, Value, StringViewHeteroHash, StringViewHeteroEqual>;
-    using StringHeteroHashSet = std::unordered_set<std::string,        StringViewHeteroHash, StringViewHeteroEqual>;
+    using StringHeteroHashMap = ankerl::unordered_dense::map<std::string, Value, StringViewHeteroHash, StringViewHeteroEqual>;
+    using StringHeteroHashSet = ankerl::unordered_dense::set<std::string,        StringViewHeteroHash, StringViewHeteroEqual>;
 
     template <typename Ty>
     inline void HashCombine(std::size_t& seed, const Ty& value) {

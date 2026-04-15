@@ -959,6 +959,20 @@ namespace glsld {
                 }
             }
 
+            if (!node->type_spec.template_args.empty()) {
+                specifiers += "<";
+
+                for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
+                    const auto& arg = node->type_spec.template_args[i];
+                    specifiers += arg.text;
+                    if (i + 1 != node->type_spec.template_args.size()) {
+                        specifiers += ", ";
+                    }
+                }
+
+                specifiers += ">";
+            }
+
             if (specifiers.contains("layout")) {
                 if (node->type_spec.specifiers.back().type == TokenType::kIdentifier) {
                     specifiers += " { ... }";
