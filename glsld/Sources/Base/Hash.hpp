@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
-#include <unordered_map>
-#include <unordered_set>
 
 #include <ankerl/unordered_dense.h>
 #include <rapidhash.h>
@@ -22,7 +20,7 @@ namespace glsld {
         using is_transparent = void;
 
         std::size_t operator()(std::string_view key) const {
-            return std::hash<std::string_view>()(key);
+            return rapidhashMicro(key.data(), key.size());
         }
     };
 

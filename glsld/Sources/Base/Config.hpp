@@ -10,10 +10,11 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 
+#include <ankerl/unordered_dense.h>
 #include <yaml-cpp/yaml.h>
+
 #include "Base/Hash.hpp"
 
 namespace glsld {
@@ -175,8 +176,8 @@ namespace glsld {
         void set_value(const ValueType& value);
 
     private:
-        std::unordered_map<std::uint64_t, OnChangeCallback> callbacks_;
-        ValueType                                           value_;
+        ankerl::unordered_dense::map<std::uint64_t, OnChangeCallback> callbacks_;
+        ValueType                                                     value_;
     };
 
     class Config {

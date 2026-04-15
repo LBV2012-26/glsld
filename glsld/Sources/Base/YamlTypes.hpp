@@ -1,12 +1,12 @@
 #pragma once
 
-#include <unordered_set>
+#include <ankerl/unordered_dense.h>
 #include <yaml-cpp/yaml.h>
 
 namespace YAML {
     template <typename Ty>
-    struct convert<std::unordered_set<Ty>> {
-        static Node encode(const std::unordered_set<Ty>& rhs) {
+    struct convert<ankerl::unordered_dense::set<Ty>> {
+        static Node encode(const ankerl::unordered_dense::set<Ty>& rhs) {
             Node node(NodeType::Sequence);
             for (const auto& item : rhs) {
                 node.push_back(item);
@@ -15,7 +15,7 @@ namespace YAML {
             return node;
         }
 
-        static bool decode(const Node& node, std::unordered_set<Ty>& rhs) {
+        static bool decode(const Node& node, ankerl::unordered_dense::set<Ty>& rhs) {
             if (!node.IsSequence()) {
                 return false;
             }

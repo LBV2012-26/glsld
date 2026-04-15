@@ -6,9 +6,10 @@
 #include <iterator>
 #include <ranges>
 #include <system_error>
-#include <unordered_set>
 #include <utility>
 #include <variant>
+
+#include <ankerl/unordered_dense.h>
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
@@ -130,50 +131,50 @@ namespace glsld {
             }
         };
 
-        std::unordered_set<const Scope*> handled_scopes;
+        ankerl::unordered_dense::set<const Scope*> handled_scopes;
 
         for (const auto& [name, info] : scope->symbols()) {
             ABORT_IF_CANCELLED();
 
-            if (info.location.uri() != uri) {
+            if (info->location.uri() != uri) {
                 continue;
             }
 
             nlohmann::json symbol_node;
 
-            int symbol_kind = ConvertSymbolKind(info.kind);
+            int symbol_kind = ConvertSymbolKind(info->kind);
             if (symbol_kind == 13) {
-                if (info.located_scope != nullptr &&
-                    (info.located_scope->kind() == ScopeKind::kBlock || info.located_scope->kind() == ScopeKind::kBlockTransparent))
+                if (info->located_scope != nullptr &&
+                    (info->located_scope->kind() == ScopeKind::kBlock || info->located_scope->kind() == ScopeKind::kBlockTransparent))
                 {
                     symbol_kind = 8;
                 }
             }
 
-            symbol_node["name"] = SplitSymbolName(info.name);
+            symbol_node["name"] = SplitSymbolName(info->name);
             symbol_node["kind"] = symbol_kind;
-            symbol_node["selectionRange"] = ConvertToSelectionRange(info.location, info.name);
+            symbol_node["selectionRange"] = ConvertToSelectionRange(info->location, info->name);
 
             const Scope* child_scope = nullptr;
-            if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
+            if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
                 for (const auto& child : scope->children()) {
                     ABORT_IF_CANCELLED();
 
-                    if (child->interval().first.line() == info.location.line()) {
+                    if (child->interval().first.line() == info->location.line()) {
                         child_scope = child.get();
                         handled_scopes.insert(child_scope);
                         break;
                     }
                 }
 
-                if (info.kind == SymbolKind::kFunctionDecl) {
+                if (info->kind == SymbolKind::kFunctionDecl) {
                     symbol_node["detail"] = "(decl)";
                 }
             }
 
             if (child_scope != nullptr) {
-                symbol_node["range"] = ConvertToLspRange(info.location, child_scope->interval().second);
-                if (info.kind == SymbolKind::kInterface || info.kind == SymbolKind::kStruct) {
+                symbol_node["range"] = ConvertToLspRange(info->location, child_scope->interval().second);
+                if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
                     auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope);
                     if (!children.empty()) {
                         symbol_node["children"] = children;

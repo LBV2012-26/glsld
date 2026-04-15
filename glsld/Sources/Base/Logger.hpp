@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
+#include <ankerl/unordered_dense.h>
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
@@ -39,8 +39,8 @@ namespace glsld {
     private:
         LoggerManager();
 
-        void OnConfigChange(const std::unordered_set<LoggerConfig>& old_configs,
-                            const std::unordered_set<LoggerConfig>& new_configs);
+        void OnConfigChange(const ankerl::unordered_dense::set<LoggerConfig>& old_configs,
+                            const ankerl::unordered_dense::set<LoggerConfig>& new_configs);
 
         void ApplyConfig(const LoggerConfig& config);
 

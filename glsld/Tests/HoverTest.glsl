@@ -6,7 +6,7 @@
 #extension GL_EXT_control_flow_attributes : require
 #extension GL_EXT_control_flow_attributes2 : require
 
-#include "../Assets/Meta/BuiltinFunctions.glsl"
+// #include "../Assets/Meta/BuiltinFunctions.glsl"
 
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;

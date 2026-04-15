@@ -42,7 +42,7 @@ namespace glsld {
             return;
         }
 
-        auto logger_config = Config::Lookup("logs", std::unordered_set<LoggerConfig>(), "Logger configurations");
+        auto logger_config = Config::Lookup("logs", ankerl::unordered_dense::set<LoggerConfig>(), "Logger configurations");
         logger_config->AddListener(0, [this](const auto& old_configs, const auto& new_configs) -> void {
             OnConfigChange(old_configs, new_configs);
         });
@@ -51,8 +51,8 @@ namespace glsld {
         initialized_ = true;
     }
 
-    void LoggerManager::OnConfigChange(const std::unordered_set<LoggerConfig>& old_configs,
-                                       const std::unordered_set<LoggerConfig>& new_configs)
+    void LoggerManager::OnConfigChange(const ankerl::unordered_dense::set<LoggerConfig>& old_configs,
+                                       const ankerl::unordered_dense::set<LoggerConfig>& new_configs)
     {
         StringHeteroHashMap<LoggerConfig> new_configs_map;
         for (const auto& config : new_configs) {

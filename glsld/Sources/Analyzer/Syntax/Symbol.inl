@@ -61,8 +61,9 @@ namespace glsld {
     }
 
     inline SymbolInfo* Scope::AddSymbol(SymbolInfo symbol) {
-        auto [it, _] = symbols_.try_emplace(symbol.name, std::move(symbol));
-        return &it->second;
+        auto unique_symbol = std::make_unique<SymbolInfo>(std::move(symbol));
+        auto [it, _] = symbols_.try_emplace(unique_symbol->name, std::move(unique_symbol));
+        return it->second.get();
     }
 
     inline SymbolInfo* Scope::AddSymbol(const AstNode* node, std::string_view name, const SourceLocation& location, SymbolKind kind) {

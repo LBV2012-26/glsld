@@ -118,7 +118,7 @@ namespace glsld {
     const SymbolInfo* Scope::FindSymbolInCurrentScope(std::string_view name) const {
         auto it = symbols_.find(name);
         if (it != symbols_.end()) {
-            return &it->second;
+            return it->second.get();
         }
 
         for (const auto& child : children_) {
@@ -147,7 +147,7 @@ namespace glsld {
         if (it != symbols_.end()) {
             auto&& removed_symbol = std::move(it->second);
             symbols_.erase(it);
-            return removed_symbol;
+            return *removed_symbol;
         }
 
         return {};
@@ -155,7 +155,7 @@ namespace glsld {
 
     void Scope::CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const {
         for (const auto& [_, symbol] : symbols_) {
-            symbols.push_back(&symbol);
+            symbols.push_back(symbol.get());
         }
 
         for (const auto& child : children_) {
@@ -190,7 +190,7 @@ namespace glsld {
         // TODO: cache find results
         for (const auto& [mangled_name, symbol] : root_scope_->symbols_) {
             if (utils::UnmangleFunctionName(mangled_name) == base_name) {
-                results.push_back(&symbol);
+                results.push_back(symbol.get());
             }
         }
 
@@ -260,7 +260,7 @@ namespace glsld {
             std::println("Symbols:");
             for (const auto& [name, symbol] : scope->symbols_) {
                 utils::PrintIndent(indent_level + 2);
-                std::println("- '{}' (Kind: {}, Declared at L{})", symbol.name, magic_enum::enum_name(symbol.kind), symbol.location.line());
+                std::println("- '{}' (Kind: {}, Declared at L{})", symbol->name, magic_enum::enum_name(symbol->kind), symbol->location.line());
             }
         }
 

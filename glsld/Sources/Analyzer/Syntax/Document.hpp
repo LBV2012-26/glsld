@@ -3,8 +3,9 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
+
+#include <ankerl/unordered_dense.h>
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -12,8 +13,8 @@
 #include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
-    using BindingMap        = std::unordered_map<SourceLocation, SymbolReference, LocationHash>;
-    using MacroTraceMap     = std::unordered_map<SourceLocation, Token, LocationHash>;
+    using BindingMap        = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
+    using MacroTraceMap     = ankerl::unordered_dense::map<SourceLocation, Token, LocationHash>;
     using MacroArgsTraceMap = MacroTraceMap;
 
     struct InactiveRegion {
@@ -21,7 +22,7 @@ namespace glsld {
         std::size_t end_line{};
     };
 
-    using InactiveRegionMap = std::unordered_map<const SourceFile*, std::vector<InactiveRegion>, SourceFileHash>;
+    using InactiveRegionMap = ankerl::unordered_dense::map<const SourceFile*, std::vector<InactiveRegion>, SourceFileHash>;
 
     struct Document {
         using AstRoot = std::unique_ptr<TranslationUnitNode>;

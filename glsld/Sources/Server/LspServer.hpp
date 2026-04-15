@@ -8,8 +8,8 @@
 #include <queue>
 #include <shared_mutex>
 #include <string>
-#include <unordered_map>
 
+#include <ankerl/unordered_dense.h>
 #include <nlohmann/json.hpp>
 
 #include "Analyzer/Syntax/Document.hpp"
@@ -50,6 +50,9 @@ namespace glsld {
         void Run();
 
     private:
+        using VersionPointer         = std::shared_ptr<std::atomic<int>>;
+        using CancellationTokenTable = ankerl::unordered_dense::map<nlohmann::json, CancellationToken>; // [Request ID, Token]
+
         void RegisterHandlers();
         std::optional<nlohmann::json> ReadMessage();
 
@@ -77,8 +80,6 @@ namespace glsld {
         void HandleExit(Context& context);
 
         void UpdateWorker(const std::string& uri, int version_replica, bool open_document);
-
-        using VersionPointer = std::shared_ptr<std::atomic<int>>;
         void Update(const std::string& uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
         std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, const std::string& uri) const;
@@ -88,29 +89,29 @@ namespace glsld {
             std::chrono::steady_clock::time_point deadline;
         };
 
-        std::atomic<bool>                                     running_{ true };
-        Router                                                router_;
-        ThreadPool                                            thread_pool_;
-        Workspace                                             workspace_;
-        mutable std::condition_variable                       ready_condition_;
-        mutable std::mutex                                    ready_mutex_;
+        std::atomic<bool>                   running_{ true };
+        Router                              router_;
+        ThreadPool                          thread_pool_;
+        Workspace                           workspace_;
+        mutable std::condition_variable     ready_condition_;
+        mutable std::mutex                  ready_mutex_;
 
-        StringHeteroHashMap<PendingUpdate>                    pending_updates_;
-        StringHeteroHashMap<VersionPointer>                   document_versions_;   // [Uri, Version]
-        mutable std::shared_mutex                             update_mutex_;
+        StringHeteroHashMap<PendingUpdate>  pending_updates_;
+        StringHeteroHashMap<VersionPointer> document_versions_;   // [Uri, Version]
+        mutable std::shared_mutex           update_mutex_;
 
-        StringHeteroHashMap<VersionPointer>                   document_revisions_;  // [Uri, Revision], for background include affected document update
-        std::shared_mutex                                     revision_mutex_;
+        StringHeteroHashMap<VersionPointer> document_revisions_;  // [Uri, Revision], for background include affected document update
+        std::shared_mutex                   revision_mutex_;
 
-        std::mutex                                            task_mutex_;
-        std::condition_variable                               task_condition_;
-        std::queue<LspTask>                                   task_queue_;
+        std::mutex                          task_mutex_;
+        std::condition_variable             task_condition_;
+        std::queue<LspTask>                 task_queue_;
 
-        std::mutex                                            submit_mutex_;
-        std::condition_variable                               submit_condition_;
-        std::queue<LspSubmitItem>                             submit_queue_;
+        std::mutex                          submit_mutex_;
+        std::condition_variable             submit_condition_;
+        std::queue<LspSubmitItem>           submit_queue_;
 
-        std::unordered_map<nlohmann::json, CancellationToken> cancellation_tokens_; // [Request ID, Token]
-        std::mutex                                            cancellation_mutex_;
+        CancellationTokenTable              cancellation_tokens_; // [Request ID, Token]
+        std::mutex                          cancellation_mutex_;
     };
 }

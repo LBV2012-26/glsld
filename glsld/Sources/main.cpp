@@ -71,8 +71,8 @@ int main() {
 
     using namespace glsld;
 
-    int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
-    if (result == IDOK) {
+    //int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
+    if (true) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
@@ -105,7 +105,7 @@ int main() {
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
         };
 
-        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
+        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/HoverTest.glsl");
 
         auto parse_start = std::chrono::high_resolution_clock::now();
         Parser parser(source_table, source_file, shader_source, loader, include_dirs, 0, nullptr, document);

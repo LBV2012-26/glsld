@@ -2,8 +2,7 @@
 
 #include <cstdint>
 #include <optional>
-#include <unordered_set>
-
+#include <ankerl/unordered_dense.h>
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -20,8 +19,8 @@ namespace glsld {
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitRawExpression(RawExpressionNode* node) override;
 
-        std::unordered_set<const SymbolInfo*> visited_symbols_;
-        std::int64_t                          current_value_{};
-        bool                                  is_valid_{ true };
+        ankerl::unordered_dense::set<const SymbolInfo*> visited_symbols_;
+        std::int64_t                                    current_value_{};
+        bool                                            is_valid_{ true };
     };
 }
