@@ -162,12 +162,8 @@
 
 #if __cplusplus >= 202302L
 #include <expected>
-#if __has_include(<flat_map>)
 #include <flat_map>
-#endif
-#if __has_include(<flat_set>)
 #include <flat_set>
-#endif
 #include <generator>
 #include <mdspan>
 #include <print>

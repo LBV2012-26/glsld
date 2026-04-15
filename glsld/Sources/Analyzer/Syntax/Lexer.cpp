@@ -330,12 +330,12 @@ namespace glsld {
             return;
         }
 
-        LoadLexicalFile(utils::GetFilePath("Assets/glslFunctions.txt"),     TokenType::kBuiltInFunction);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslKeywords.txt"),      TokenType::kKeyword);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslPreprocessors.txt"), TokenType::kPreprocessor);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslPrimitives.txt"),    TokenType::kPrimitive);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslTypes.txt"),         TokenType::kBuiltInType);
-        LoadLexicalFile(utils::GetFilePath("Assets/glslVariables.txt"),     TokenType::kBuiltInVariable);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslFunctions.txt"),     TokenType::kBuiltInFunction);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslKeywords.txt"),      TokenType::kKeyword);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslPreprocessors.txt"), TokenType::kPreprocessor);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslPrimitives.txt"),    TokenType::kPrimitive);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslTypes.txt"),         TokenType::kBuiltInType);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslVariables.txt"),     TokenType::kBuiltInVariable);
     }
 
     void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {

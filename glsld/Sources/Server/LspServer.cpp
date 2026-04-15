@@ -57,7 +57,7 @@ namespace glsld {
         worker_thread.detach();
         submit_thread.detach();
 
-        while (running_.load() && std::cin.good()) {
+        while (running_.load(std::memory_order::relaxed) && std::cin.good()) {
             auto message = ReadMessage();
             if (!message.has_value()) {
                 break;
@@ -188,15 +188,15 @@ namespace glsld {
     }
 
     void LspServer::WorkerLoop() {
-        while (running_.load()) {
+        while (running_.load(std::memory_order::relaxed)) {
             LspTask task;
             {
                 std::unique_lock lock(task_mutex_);
                 task_condition_.wait(lock, [this]() -> bool {
-                    return !task_queue_.empty() || !running_.load();
+                    return !task_queue_.empty() || !running_.load(std::memory_order::relaxed);
                 });
 
-                if (!running_.load()) {
+                if (!running_.load(std::memory_order::relaxed)) {
                     return;
                 }
 
@@ -260,15 +260,15 @@ namespace glsld {
     }
 
     void LspServer::SubmitLoop() {
-        while (running_.load()) {
+        while (running_.load(std::memory_order::relaxed)) {
             LspSubmitItem item;
             {
                 std::unique_lock lock(submit_mutex_);
                 submit_condition_.wait(lock, [this]() -> bool {
-                    return !submit_queue_.empty() || !running_.load();
+                    return !submit_queue_.empty() || !running_.load(std::memory_order::relaxed);
                 });
 
-                if (!running_.load()) {
+                if (!running_.load(std::memory_order::relaxed)) {
                     return;
                 }
 

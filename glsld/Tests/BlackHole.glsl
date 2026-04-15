@@ -85,7 +85,7 @@ https://github.com/baopinshui/NPGS/blob/master/NPGS/Sources/Engine/Shaders/Black
 // SECTION 1: 渲染参数
 // =============================================================================
 
-#include "Include.glsl"
+#include "../Assets/Meta/BuiltinFunctions.glsl"
 
 #define iHistoryTex iChannel3
 #define textureQueryLod(s, d) vec2(0.0)

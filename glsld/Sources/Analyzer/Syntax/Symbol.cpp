@@ -211,7 +211,7 @@ namespace glsld {
 
     const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, const SourceLocation& location) const {
         auto Comparer = [](const SourceLocation& source_loc, const SourceLocation& scope_loc) -> bool {
-            return source_loc < scope_loc;
+            return *source_loc.source_file() == *scope_loc.source_file() && source_loc < scope_loc;
         };
 
         auto Projector = [](const std::unique_ptr<Scope>& scope) -> const SourceLocation& {
@@ -219,6 +219,12 @@ namespace glsld {
         };
 
         auto IsLocationInScope = [](const Scope* scope, const SourceLocation& location) -> bool {
+            if (*scope->interval_.first.source_file()  != *location.source_file() &&
+                *scope->interval_.second.source_file() != *location.source_file())
+            {
+                return false;
+            }
+
             return (scope->interval_.first <= location) && (location < scope->interval_.second);
         };
 
