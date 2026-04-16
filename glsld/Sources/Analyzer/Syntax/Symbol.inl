@@ -81,4 +81,17 @@ namespace glsld {
     inline Scope* const DocumentSymbols::root_scope() const {
         return root_scope_.get();
     }
+
+    inline void DocumentSymbols::AddFunctionBaseName(const std::string& base_name, const SymbolInfo* symbol) {
+        auto& symbols = function_name_map_[base_name];
+
+        if (std::holds_alternative<std::monostate>(symbols)) {
+            symbols = symbol;
+        } else if (std::holds_alternative<SymbolList>(symbols)) {
+            std::get<SymbolList>(symbols).push_back(symbol);
+        } else {
+            const auto* existing_symbol = std::get<const SymbolInfo*>(symbols);
+            symbols = SymbolList{ existing_symbol, symbol };
+        }
+    }
 }

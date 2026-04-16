@@ -463,7 +463,13 @@ namespace glsld {
             auto base_name = utils::UnmangleFunctionName(symbol->name);
             const auto& candidates = snapshot->symbols.FindFunctionsByOriginalName(base_name);
 
-            return FindFunctionCounterpart(candidates, symbol);
+            if (std::holds_alternative<std::monostate>(candidates) ||
+                std::holds_alternative<const SymbolInfo*>(candidates))
+            {
+                return nullptr;
+            }
+
+            return FindFunctionCounterpart(std::get<SymbolList>(candidates), symbol);
         };
 
         void GetDefinitionSymbolsFromCursor(std::shared_ptr<const Document> snapshot, const Token* cursor_token, bool toggle_function, SymbolList& results) {
@@ -592,7 +598,7 @@ namespace glsld {
 
         const auto* callee = static_cast<const VariableExpressionNode*>(node->callee.get());
         auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
-        if (candidates.empty()) {
+        if (std::holds_alternative<std::monostate>(candidates)) {
             return std::nullopt;
         }
 
@@ -631,7 +637,17 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        auto unique_candidates = DeduplicateSignatures(candidates);
+        if (std::holds_alternative<const SymbolInfo*>(candidates)) {
+            const auto* symbol = std::get<const SymbolInfo*>(candidates);
+
+            return SignatureHelpResult{
+                .candidates             = { symbol },
+                .active_signature_index = 0,
+                .active_param_index     = active_param_index
+            };
+        }
+
+        auto unique_candidates = DeduplicateSignatures(std::get<SymbolList>(candidates));
         int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
 
         return SignatureHelpResult{

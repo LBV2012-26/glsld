@@ -184,17 +184,13 @@ namespace glsld {
         return nullptr;
     }
 
-    std::vector<const SymbolInfo*> DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
-        std::vector<const SymbolInfo*> results;
-
-        // TODO: cache find results
-        for (const auto& [mangled_name, symbol] : root_scope_->symbols_) {
-            if (utils::UnmangleFunctionName(mangled_name) == base_name) {
-                results.push_back(symbol.get());
-            }
+    SymbolReference DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
+        auto it = function_name_map_.find(base_name);
+        if (it != function_name_map_.end()) {
+            return it->second;
         }
 
-        return results;
+        return std::monostate{};
     }
 
     void DocumentSymbols::Dump() const {

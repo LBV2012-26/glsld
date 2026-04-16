@@ -58,7 +58,7 @@ extern "C" {
     void mainCRTStartup();
 
     void Main() {
-        // InitLargetPage();
+        InitLargetPage();
         mainCRTStartup();
     }
 }

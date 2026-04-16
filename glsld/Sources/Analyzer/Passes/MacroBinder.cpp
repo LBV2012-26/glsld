@@ -2,6 +2,7 @@
 #include "MacroBinder.hpp"
 
 #include <string_view>
+#include <utility>
 
 namespace glsld {
     MacroBinder::MacroBinder(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
@@ -57,9 +58,9 @@ namespace glsld {
                 if (symbol != nullptr) {
                     document_.bindings.try_emplace(token.location, symbol);
                 } else {
-                    const auto& symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
-                    if (!symbol_list.empty()) {
-                        document_.bindings.try_emplace(token.location, SymbolList{ symbol_list });
+                    auto symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
+                    if (!std::holds_alternative<std::monostate>(symbol_list)) {
+                        document_.bindings.try_emplace(token.location, std::move(symbol_list));
                     }
                 }
             }
@@ -81,9 +82,9 @@ namespace glsld {
             if (symbol != nullptr) {
                 document_.bindings.try_emplace(location, symbol);
             } else {
-                const auto& symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
-                if (!symbol_list.empty()) {
-                    document_.bindings.try_emplace(location, SymbolList{ symbol_list });
+                auto symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
+                if (!std::holds_alternative<std::monostate>(symbol_list)) {
+                    document_.bindings.try_emplace(location, std::move(symbol_list));
                 }
             }
         }

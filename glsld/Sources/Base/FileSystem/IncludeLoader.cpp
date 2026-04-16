@@ -295,6 +295,8 @@ namespace glsld {
             const auto* source_file = source_table_.Intern(snapshot->filename, snapshot->uri);
             Lexer lexer(source_file, snapshot->source, *this, include_dirs);
 
+            snapshot->tokens.reserve(snapshot->source.length() / 5);
+
             do {
                 auto token = lexer.AcquireNextToken();
                 snapshot->tokens.push_back(std::move(token));

@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "Analyzer/Syntax/Token.hpp"
@@ -129,14 +130,19 @@ namespace glsld {
         ScopeKind                                        kind_{ ScopeKind::kGlobalTransparent };
     };
 
+    using SymbolList      = std::vector<const SymbolInfo*>;
+    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
+
     class DocumentSymbols {
     public:
         DocumentSymbols();
 
         const Scope* FindScopeAt(const SourceLocation& location) const;
         const SymbolInfo* FindSymbolAt(std::string_view name, const SourceLocation& location) const;
-        std::vector<const SymbolInfo*> FindFunctionsByOriginalName(std::string_view base_name) const;
+        SymbolReference FindFunctionsByOriginalName(std::string_view base_name) const;
         void Dump() const;
+
+        void AddFunctionBaseName(const std::string& base_name, const SymbolInfo* symbol);
 
         Scope* const root_scope() const;
 
@@ -144,7 +150,8 @@ namespace glsld {
         const Scope* FindScopeRecursive(const Scope* current, const SourceLocation& location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
-        std::unique_ptr<Scope> root_scope_;
+        std::unique_ptr<Scope>               root_scope_;
+        StringHeteroHashMap<SymbolReference> function_name_map_;
     };
 }
 

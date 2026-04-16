@@ -540,6 +540,8 @@ namespace glsld {
         node->internal_scope = internal_scope;
         node->internal_scope->host_symbol_ = node->declared_symbol;
 
+        document_.symbols.AddFunctionBaseName(name_token.text, node->declared_symbol);
+
         return node;
     }
 

@@ -42,7 +42,7 @@ namespace glsld {
         case kFunctionCallee: {
             auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);
 
-            if (function_result.empty()) {
+            if (std::holds_alternative<std::monostate>(function_result)) {
                 // constructor calling, like "BufferReference ref = BufferReference(device_address);"
                 const auto* symbol_result = scope->FindSymbol(node->name);
                 node->linked_symbols = symbol_result;

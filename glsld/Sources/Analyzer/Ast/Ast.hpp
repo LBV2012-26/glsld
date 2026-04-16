@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <variant>
 #include <vector>
 
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -49,9 +48,6 @@ namespace glsld {
         kLiteralExpression,
         kMemberAccessExpression // struct.member
     };
-
-    using SymbolList      = std::vector<const SymbolInfo*>;
-    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
 
     struct AstNode {
         SourceLocation begin;
