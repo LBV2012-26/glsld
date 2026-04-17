@@ -2,9 +2,6 @@
 // Built-in Functions Extracted from GLSL Specification
 // ===================================================================
 
-// This file is a meta description of the built-in functions defined in the GLSL specification.
-// It is used to generate the actual GLSL code for these functions, as well as to provide documentation and metadata about them.
-
 // Radians
 // Converts degrees to radians, i.e., (PI / 180) * degrees.
 // [Generic] genFType radians(genFType degrees);
