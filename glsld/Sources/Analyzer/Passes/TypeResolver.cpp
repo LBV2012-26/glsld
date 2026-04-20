@@ -14,6 +14,7 @@
 #include <variant>
 
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
@@ -846,6 +847,16 @@ namespace glsld {
             ConstantEvaluator evaluator;
             auto result = evaluator.Evaluate(size.get());
             info.array_sizes.push_back(result.value_or(std::numeric_limits<std::int64_t>::min()));
+        }
+
+        if (type_spec.spirv_type != nullptr && type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+            info.typename_token = type_spec.spirv_type->keyword;
+            info.spirv_type     = utils::BuildSpirvTypeIdentity(type_spec.spirv_type.get());
+            info.type_desc      = {
+                .family = BaseFamily::kOpaque
+            };
+
+            return info;
         }
 
         if (typename_token.type == TokenType::kIdentifier) {

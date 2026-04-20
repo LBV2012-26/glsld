@@ -15,6 +15,8 @@ namespace glsld {
         kDeclarationGroup,
         kPreprocessor,
         kAttribute,
+        kSpirvIntrinsic,
+        kSpirvArgument,
 
         // Declarations
         kFunctionDeclaration,
@@ -61,6 +63,50 @@ namespace glsld {
 
         virtual ~AstNode() = default;
         virtual AstNodeKind kind() const = 0;
+    };
+
+    enum class SpirvIntrinsicKind {
+        kUnknown,
+        kTypeOverride, // spirv_type
+        kQualifier,    // spirv_decorate / spirv_storage_class / spirv_by_reference / spirv_literal
+        kInstruction   // spirv_instruction / spirv_execution_mode / spirv_execution_mode_id
+    };
+
+    enum class SpirvArgumentKind {
+        kUnknown,
+        kIdentifier,
+        kNumberLiteral,
+        kStringLiteral,
+        kBoolLiteral,
+        kAssignment, // =
+        kArray,      // [a, b, c]
+        kGroup,      // (a, b, c)
+        kSequence    // token sequence
+    };
+
+    struct SpirvArgumentNode final : public AstNode {
+        SpirvArgumentKind arg_kind{ SpirvArgumentKind::kUnknown };
+        Token             token;
+        std::vector<std::shared_ptr<SpirvArgumentNode>> children;
+
+        using AstNode::AstNode;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kSpirvArgument;
+        }
+    };
+
+    struct SpirvIntrinsicNode final : public AstNode {
+        SpirvIntrinsicKind                              intrinsic_kind{ SpirvIntrinsicKind::kUnknown };
+        Token                                           keyword;
+        std::vector<Token>                              raw_tokens; // 不包含外层括号
+        std::vector<std::shared_ptr<SpirvArgumentNode>> params;
+
+        using AstNode::AstNode;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kSpirvIntrinsic;
+        }
     };
 
     struct ExpressionNode;
@@ -345,10 +391,12 @@ namespace glsld {
     };
 
     struct TypeSpecifier {
-        std::vector<Token>                           specifiers;
-        std::vector<Token>                           layout_params;
-        std::vector<Token>                           template_args;
-        std::vector<std::shared_ptr<ExpressionNode>> array_sizes;
+        std::vector<Token>                               specifiers;
+        std::vector<Token>                               layout_params;
+        std::vector<Token>                               template_args;
+        std::vector<std::shared_ptr<ExpressionNode>>     array_sizes;
+        std::vector<std::shared_ptr<SpirvIntrinsicNode>> spirv_intrinsics;
+        std::shared_ptr<SpirvIntrinsicNode>              spirv_type;
 
         Token typename_token() const {
             return specifiers.empty() ? Token{} : specifiers.back();

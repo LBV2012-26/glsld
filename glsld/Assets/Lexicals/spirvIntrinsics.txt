@@ -1,0 +1,11 @@
+spirv_instruction
+spirv_execution_mode
+spirv_execution_mode_id
+spirv_decorate
+spirv_decorate_id
+spirv_decorate_string
+spirv_type
+spirv_storage_class
+spirv_by_reference
+spirv_literal
+spirv_id

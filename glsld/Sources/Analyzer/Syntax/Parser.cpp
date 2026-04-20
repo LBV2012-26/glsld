@@ -4,11 +4,14 @@
 #include <algorithm>
 #include <concepts>
 #include <format>
+#include <optional>
+#include <ranges>
 #include <stdexcept>
 #include <utility>
 
 #include <magic_enum/magic_enum_all.hpp>
 #include "Analyzer/Syntax/Preprocessor.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     Parser::Parser(SourceTable& source_table,
@@ -197,6 +200,7 @@ namespace glsld {
         case TokenType::kBuiltInFunction:
         case TokenType::kBuiltInVariable:
         case TokenType::kIdentifier:
+        case TokenType::kSpirvIntrinsics:
             node = ParseCodeStatement();
             break;
         case TokenType::kKeyword:
@@ -296,52 +300,66 @@ namespace glsld {
             MatchAndConsume(TokenType::kCloseParen);
         }
 
-        // parse macro body
-        auto saved_token_index = token_index_;
-        auto saved_scope_depth = scope_stack_.size();
+        node->tokens = CaptureDirectiveTokens(target_file, directive_physical_line);
+        node->end    = GetPreviousTokenEnd();
+        node->body   = ParseMacroBody(node->tokens, node->symbol);
 
-        // current token is the first body token, or next line if macro body is empty
-        const auto& body_first_token = current_token();
-        if (body_first_token.type                != TokenType::kEndOfFile &&
-            body_first_token.location.filename() == target_file &&
-            body_first_token.location.line()     >= directive_physical_line)
-        {
-            EnterScope(body_first_token.location, node->symbol, ScopeKind::kMacroTemporary); // 防止宏定义中的局部符号污染外部作用域
+        return node;
+    }
 
-            while (current_token().type != TokenType::kEndOfFile) {
-                const auto& token = current_token();
-
-                if (token.location.filename() != target_file ||
-                    (token.location.line() > directive_physical_line &&
-                     PeekToken(-1).type != TokenType::kBackslash))
-                {
-                    break;
-                }
-
-                if (token.type == TokenType::kBackslash) {
-                    ConsumeToken();
-                    continue;
-                }
-
-                auto statement = ParseStatement();
-                if (statement != nullptr) {
-                    node->body.push_back(std::move(statement));
-                } else {
-                    ConsumeToken();
-                }
-            }
-
-            LeaveScope(GetPreviousTokenEnd());
+    std::vector<std::unique_ptr<StatementNode>> Parser::ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol) {
+        std::vector<std::unique_ptr<StatementNode>> statements;
+        if (body_tokens.empty()) {
+            return statements;
         }
 
-        token_index_ = saved_token_index;
+        auto saved_tokens      = std::move(expanded_tokens_);
+        auto saved_index       = token_index_;
+        auto saved_scope_depth = scope_stack_.size();
+
+        std::vector<Token> local_tokens = std::ranges::to<std::vector<Token>>(body_tokens);
+        local_tokens.push_back({
+            .text     = {},
+            .location = local_tokens.back().location,
+            .type     = TokenType::kEndOfFile
+        });
+
+        expanded_tokens_ = std::move(local_tokens);
+        token_index_     = 0;
+
+        EnterScope(body_tokens.front().location, host_symbol, ScopeKind::kMacroTemporary);
+
+        while (current_token().type != TokenType::kEndOfFile) {
+            const auto& token = current_token();
+
+            if (token.type == TokenType::kBackslash) {
+                ConsumeToken();
+                continue;
+            }
+
+            auto before    = token_index_;
+            auto statement = ParseStatement();
+            if (statement != nullptr) {
+                statements.push_back(std::move(statement));
+            } else {
+                ConsumeToken();
+            }
+
+            if (token_index_ == before) {
+                ConsumeToken();
+            }
+        }
+
+        LeaveScope(GetPreviousTokenEnd());
+
         while (scope_stack_.size() > saved_scope_depth) {
             scope_stack_.pop();
         }
 
-        node->tokens = CaptureDirectiveTokens(target_file, directive_physical_line);
-        node->end    = GetPreviousTokenEnd();
-        return node;
+        expanded_tokens_ = std::move(saved_tokens);
+        token_index_     = saved_index;
+
+        return statements;
     }
 
     std::unique_ptr<CompoundStatementNode> Parser::ParseScope(const SymbolInfo* host_symbol, ScopeKind kind) {
@@ -409,6 +427,7 @@ namespace glsld {
 
     std::unique_ptr<StatementNode> Parser::ParseCodeStatement() {
         // current token is qualifier, type or identifier
+        auto statement_begin_index = token_index_;
         auto type_spec = ParseQualifiersAndType();
 
         if (!type_spec.empty()) {
@@ -431,13 +450,18 @@ namespace glsld {
         }
 
         // expression, including function calling
-        bool common_calling    = type_spec.empty() && (current_token().type == TokenType::kIdentifier || current_token().type == TokenType::kBuiltInFunction);
-        bool constructor       = !type_spec.empty() && current_token().type == TokenType::kOpenParen;
-        bool is_expr_primitive = current_token().text == "true" || current_token().text == "false";
+        const auto& token = current_token();
+        bool common_calling = type_spec.empty() &&
+            (token.type == TokenType::kIdentifier ||
+             token.type == TokenType::kBuiltInFunction ||
+             token.type == TokenType::kSpirvIntrinsics);
+
+        bool constructor       = !type_spec.empty() && token.type == TokenType::kOpenParen;
+        bool is_expr_primitive = token.text == "true" || token.text == "false";
 
         if (common_calling || constructor || is_expr_primitive) {
             if (constructor) {
-                ConsumeToken(-1);
+                token_index_ = statement_begin_index;
             }
 
             return ParseExpressionStatement();
@@ -466,11 +490,16 @@ namespace glsld {
         std::vector<std::string> param_typenames;
         for (const auto& param : node->params) {
             std::string param_typename;
+
             for (const auto& specifier : param->type_spec.specifiers) {
-                if (param_typename.empty()) {
-                    param_typename = specifier.text;
-                } else {
-                    param_typename += " " + specifier.text;
+                if (!param_typename.empty()) {
+                    param_typename += " ";
+                }
+
+                if (specifier.text != "spirv_type") {
+                    param_typename += specifier.text;
+                } else if (param->type_spec.spirv_type != nullptr) {
+                    param_typename += utils::BuildSpirvTypeIdentity(param->type_spec.spirv_type.get());;
                 }
             }
 
@@ -618,7 +647,13 @@ namespace glsld {
                 type_spec.specifiers.push_back(token);
                 type_spec.layout_params = ParseLayoutQualifier();
                 continue;
-            } else if (token.type == TokenType::kPrimitive || token.type == TokenType::kBuiltInType) {
+            }
+
+            if (TryParseSpirvIntrinsics(type_spec)) {
+                continue;
+            }
+
+            if (token.type == TokenType::kPrimitive || token.type == TokenType::kBuiltInType) {
                 // (in, out, uniform, const, struct, ...)
                 // (vec3, mat4, float, ...)
                 if (token.text == "true" || token.text == "false") {
@@ -646,9 +681,13 @@ namespace glsld {
                 }
 
                 continue;
-            } else if (token.type == TokenType::kIdentifier) {
+            }
+
+            if (token.type == TokenType::kIdentifier) {
                 const auto* symbol_info = current_scope()->FindSymbol(token.text);
-                if (symbol_info == nullptr || (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface)) {
+                if (symbol_info == nullptr ||
+                    (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface))
+                {
                     break; // 不是类型标识符
                 }
 
@@ -658,6 +697,7 @@ namespace glsld {
 
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
+                continue;
             }
 
             break;
@@ -712,6 +752,357 @@ namespace glsld {
 
         MatchAndConsume(TokenType::kCloseParen);
         return tokens;
+    }
+
+    bool Parser::TryParseSpirvIntrinsics(TypeSpecifier& type_spec) {
+        if (current_token().type != TokenType::kSpirvIntrinsics) {
+            return false;
+        }
+
+        auto node = ParseSpirvIntrinsics();
+        if (node == nullptr) {
+            return false;
+        }
+
+        type_spec.specifiers.push_back(node->keyword);
+        type_spec.spirv_intrinsics.push_back(node);
+
+        if (node->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+            type_spec.spirv_type = node;
+        }
+
+        return true;
+    }
+
+    namespace {
+        SpirvIntrinsicKind ResolveSpirvIntrinsicKind(std::string_view intrinsic) {
+            if (intrinsic == "spirv_type") {
+                return SpirvIntrinsicKind::kTypeOverride;
+            }
+
+            if (intrinsic == "spirv_decorate"        ||
+                intrinsic == "spirv_decorate_id"     ||
+                intrinsic == "spirv_decorate_string" ||
+                intrinsic == "spirv_storage_class"   ||
+                intrinsic == "spirv_by_reference"    ||
+                intrinsic == "spirv_literal"         ||
+                intrinsic == "spirv_id")
+            {
+                return SpirvIntrinsicKind::kQualifier;
+            }
+
+            if (intrinsic == "spirv_instruction"    ||
+                intrinsic == "spirv_execution_mode" ||
+                intrinsic == "spirv_execution_mode_id")
+            {
+                return SpirvIntrinsicKind::kInstruction;
+            }
+
+            return SpirvIntrinsicKind::kUnknown;
+        }
+
+        std::vector<std::span<const Token>> SplitTopLevel(std::span<const Token> slice, TokenType delimiter) {
+            int paren_level   = 0;
+            int bracket_level = 0;
+            int brace_level   = 0;
+
+            std::vector<std::span<const Token>> parts;
+            auto begin = 0uz;
+            for (auto i = 0uz; i != slice.size(); ++i) {
+                const auto type = slice[i].type;
+                if (type == TokenType::kOpenParen)
+                    ++paren_level;
+                else if (type == TokenType::kCloseParen)
+                    --paren_level;
+                else if (type == TokenType::kOpenBracket)
+                    ++bracket_level;
+                else if (type == TokenType::kCloseBracket)
+                    --bracket_level;
+                else if (type == TokenType::kOpenBrace)
+                    ++brace_level;
+                else if (type == TokenType::kCloseBrace)
+                    --brace_level;
+
+                if (paren_level == 0 && bracket_level == 0 && brace_level == 0 && type == delimiter) {
+                    parts.push_back(slice.subspan(begin, i - begin));
+                    begin = i + 1;
+                }
+            }
+
+            if (begin <= slice.size()) {
+                parts.push_back(slice.subspan(begin));
+            }
+
+            return parts;
+        };
+    }
+
+    std::shared_ptr<SpirvIntrinsicNode> Parser::ParseSpirvIntrinsics() {
+        // current token is SPIR-V intrinsic keyword
+        if (current_token().type != TokenType::kSpirvIntrinsics) {
+            return nullptr;
+        }
+
+        const auto& keyword = current_token();
+
+        auto node            = std::make_shared<SpirvIntrinsicNode>(current_scope());
+        node->keyword        = keyword;
+        node->intrinsic_kind = ResolveSpirvIntrinsicKind(keyword.text);
+        node->begin          = keyword.location;
+        node->end            = GetCurrentTokenEnd();
+
+        ConsumeToken();
+
+        if (current_token().type == TokenType::kOpenParen) {
+            node->raw_tokens = CaptureBalancedTokens(TokenType::kOpenParen, TokenType::kCloseParen);
+
+            auto parts = SplitTopLevel(node->raw_tokens, TokenType::kComma);
+            for (auto part : parts) {
+                auto param = ParseSpirvArguments(part);
+                if (param != nullptr) {
+                    node->params.push_back(std::move(param));
+                }
+            }
+
+            node->end = GetPreviousTokenEnd(); // CaptureBalancedTokens has consumed ')'
+        }
+
+        return node;
+    }
+
+    std::vector<Token> Parser::CaptureBalancedTokens(TokenType open, TokenType close) {
+        std::vector<Token> captured;
+        if (!MatchAndConsume(open)) {
+            return captured;
+        }
+
+        int level = 1;
+        while (current_token().type != TokenType::kEndOfFile && level > 0) {
+            const auto& token = current_token();
+
+            if (token.type == open) {
+                ++level;
+                captured.push_back(token);
+                ConsumeToken();
+                continue;
+            }
+
+            if (token.type == close) {
+                --level;
+                if (level == 0) {
+                    ConsumeToken(); // consume final close
+                    break;
+                }
+
+                captured.push_back(token);
+                ConsumeToken();
+                continue;
+            }
+
+            captured.push_back(token);
+            ConsumeToken();
+        }
+
+        return captured;
+    }
+
+    namespace {
+        SpirvArgumentKind ResolveSpirvArgumentKind(const Token& token) {
+            if (token.type == TokenType::kNumberLiteral)
+                return SpirvArgumentKind::kNumberLiteral;
+            if (token.type == TokenType::kStringLiteral)
+                return SpirvArgumentKind::kStringLiteral;
+            if (token.text == "true" || token.text == "false")
+                return SpirvArgumentKind::kBoolLiteral;
+
+            if (token.type == TokenType::kIdentifier      ||
+                token.type == TokenType::kPrimitive       ||
+                token.type == TokenType::kBuiltInType     ||
+                token.type == TokenType::kBuiltInFunction ||
+                token.type == TokenType::kBuiltInVariable ||
+                token.type == TokenType::kSpirvIntrinsics)
+            {
+                return SpirvArgumentKind::kIdentifier;
+            }
+
+            return SpirvArgumentKind::kUnknown;
+        }
+
+        std::span<const Token> Trim(std::span<const Token> slice) {
+            while (!slice.empty() && slice.front().type == TokenType::kComma) {
+                slice = slice.subspan(1);
+            }
+
+            while (!slice.empty() && slice.back().type == TokenType::kComma) {
+                slice = slice.first(slice.size() - 1);
+            }
+
+            return slice;
+        };
+
+        std::optional<std::size_t> FindTopLevel(std::span<const Token> slice, TokenType target) {
+            int paren_level   = 0;
+            int bracket_level = 0;
+            int brace_level   = 0;
+
+            for (auto i = 0uz; i != slice.size(); ++i) {
+                const auto type = slice[i].type;
+
+                if (type == TokenType::kOpenParen)
+                    ++paren_level;
+                else if (type == TokenType::kCloseParen)
+                    --paren_level;
+                else if (type == TokenType::kOpenBracket)
+                    ++bracket_level;
+                else if (type == TokenType::kCloseBracket)
+                    --bracket_level;
+                else if (type == TokenType::kOpenBrace)
+                    ++brace_level;
+                else if (type == TokenType::kCloseBrace)
+                    --brace_level;
+
+                if (paren_level == 0 && bracket_level == 0 && brace_level == 0 && type == target) {
+                    return i;
+                }
+            }
+
+            return std::nullopt;
+        };
+
+        bool IsWrappedBy(std::span<const Token> slice, TokenType open, TokenType close) {
+            if (slice.size() < 2 || slice.front().type != open || slice.back().type != close) {
+                return false;
+            }
+
+            int level = 0;
+            for (auto i = 0uz; i != slice.size(); ++i) {
+                if (slice[i].type == open) {
+                    ++level;
+                } else if (slice[i].type == close) {
+                    --level;
+                    if (level == 0 && i + 1 != slice.size()) {
+                        return false;
+                    }
+                }
+            }
+
+            return level == 0;
+        };
+    }
+
+    std::shared_ptr<SpirvArgumentNode> Parser::ParseSpirvArguments(std::span<const Token> tokens) {
+        auto ComputeTokenEnd = [](const Token& token) -> SourceLocation {
+            return SourceLocation(
+                token.location.source_file(),
+                token.location.line(),
+                token.location.column() + token.text.length()
+            );
+        };
+
+        auto MakeLeaf = [this, &ComputeTokenEnd](const Token& token) -> std::shared_ptr<SpirvArgumentNode> {
+            auto node = std::make_shared<SpirvArgumentNode>(current_scope());
+
+            node->begin    = token.location;
+            node->arg_kind = ResolveSpirvArgumentKind(token);
+            node->token    = token;
+
+            node->end = ComputeTokenEnd(token);
+            node->located_scope = current_scope();
+
+            return node;
+        };
+
+        auto FinalizeRangeFromChildren = [this, &ComputeTokenEnd](SpirvArgumentNode* node) -> void {
+            if (node == nullptr) {
+                return;
+            }
+
+            node->located_scope = current_scope();
+
+            if (!node->children.empty()) {
+                node->begin = node->children.front()->begin;
+                node->end   = node->children.back()->end;
+            } else {
+                node->begin = node->token.location;
+                node->end   = ComputeTokenEnd(node->token);
+            }
+        };
+
+        auto Build = [this, &MakeLeaf, &FinalizeRangeFromChildren](this auto&& self, std::span<const Token> raw_slice)
+            -> std::shared_ptr<SpirvArgumentNode>
+        {
+            auto slice = Trim(raw_slice);
+            if (slice.empty()) {
+                return nullptr;
+            }
+
+            if (slice.size() == 1) {
+                return MakeLeaf(slice.front());
+            }
+
+            if (IsWrappedBy(slice, TokenType::kOpenBracket, TokenType::kCloseBracket)) {
+                auto node = std::make_shared<SpirvArgumentNode>(current_scope());
+                node->arg_kind = SpirvArgumentKind::kArray;
+                node->token    = slice.front();
+
+                auto inner = slice.subspan(1, slice.size() - 2);
+                auto parts = SplitTopLevel(inner, TokenType::kComma);
+                for (auto part : parts) {
+                    auto child = self(part);
+                    if (child != nullptr) {
+                        node->children.push_back(std::move(child));
+                    }
+                }
+
+                FinalizeRangeFromChildren(node.get());
+                return node;
+            }
+
+            if (IsWrappedBy(slice, TokenType::kOpenParen, TokenType::kCloseParen)) {
+                auto node = std::make_shared<SpirvArgumentNode>(current_scope());
+                node->arg_kind = SpirvArgumentKind::kGroup;
+                node->token    = slice.front();
+
+                auto inner = slice.subspan(1, slice.size() - 2);
+                auto child = self(inner);
+                if (child != nullptr) {
+                    node->children.push_back(std::move(child));
+                }
+                
+                FinalizeRangeFromChildren(node.get());
+                return node;
+            }
+
+            if (auto equal_pos = FindTopLevel(slice, TokenType::kEqual)) {
+                auto node = std::make_shared<SpirvArgumentNode>(current_scope());
+                node->arg_kind = SpirvArgumentKind::kAssignment;
+                node->token    = slice[*equal_pos];
+
+                auto lhs = self(slice.first(*equal_pos));
+                auto rhs = self(slice.subspan(*equal_pos + 1));
+
+                if (lhs != nullptr)
+                    node->children.push_back(std::move(lhs));
+                if (rhs != nullptr)
+                    node->children.push_back(std::move(rhs));
+                
+                FinalizeRangeFromChildren(node.get());
+                return node;
+            }
+
+            auto node = std::make_shared<SpirvArgumentNode>(current_scope());
+            node->arg_kind = SpirvArgumentKind::kSequence;
+            node->token    = slice.front();
+
+            for (const auto& token : slice) {
+                node->children.push_back(MakeLeaf(token));
+            }
+
+            FinalizeRangeFromChildren(node.get());
+            return node;
+        };
+
+        return Build(tokens);
     }
 
     std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpecifier type_spec) {
@@ -824,11 +1215,12 @@ namespace glsld {
         case TokenType::kStringLiteral:
             return ParseLiteral();
 
-        // 标识符/内置类型/内置函数/Primitive (函数本来应该算标识符，但问题是内置函数无需声明)
+        // 标识符/内置类型/内置函数/Primitive/SpirvIntrinsics (函数本来应该算标识符，但问题是内置函数无需声明)
         case TokenType::kIdentifier:
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
         case TokenType::kPrimitive:
+        case TokenType::kSpirvIntrinsics:
             return ParseVariableReference();
 
         // 前缀一元运算符 (!b, -x, ++i, --j, ~mask)

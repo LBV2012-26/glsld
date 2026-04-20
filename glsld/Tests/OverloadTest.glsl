@@ -118,6 +118,14 @@ mat4x2 GetMat4x2() { return mat4x2(1.0f); }
 mat3x4 GetMat3x4() { return mat3x4(1.0f); }
 mat4x3 GetMat4x3() { return mat4x3(1.0f); }
 
+#define MySpirvType0 spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
+#define MySpirvType1 spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [1145], id = 4514)
+
+void TestOverloadFunction(MySpirvType0 param0);
+void TestOverloadFunction(MySpirvType1 param1);
+void TestOverloadFunction(MySpirvType0 param0, MySpirvType1 param1);
+void TestOverloadFunction(MySpirvType1 param1, MySpirvType0 param0);
+
 void main() {
     int8_t    int8arg;
     int16_t   int16arg;
@@ -962,6 +970,14 @@ void main() {
     TestOverloadFunction(localOuter.middle[0].inner.vec3_field + vec3(1.0));                            // 匹配 vec3
     TestOverloadFunction(localOuter.middle[1].mat4_field * localOuter.middle[0].inner.vec3_field.xyzz); // 匹配 vec4
     TestOverloadFunction(dot(localOuter.middle[0].inner.vec3_field, vec3(0.5)));                        // 匹配 float32_t
+
+    MySpirvType0 type0;
+    MySpirvType1 type1;
+
+    TestOverloadFunction(type0);
+    TestOverloadFunction(type1);
+    TestOverloadFunction(type0, type1);
+    TestOverloadFunction(type1, type0);
 }
 
 void TestOverloadFunction() {}

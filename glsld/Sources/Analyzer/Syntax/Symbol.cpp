@@ -59,6 +59,10 @@ namespace glsld {
             return false;
         }
 
+        if (spirv_type != other.spirv_type) {
+            return false;
+        }
+
         if (block_symbol != other.block_symbol) {
             return false;
         }

@@ -172,8 +172,9 @@ namespace glsld {
                     bool has_paren = MatchAndConsume(TokenType::kOpenParen);
 
                     std::string name;
-                    if (current_token().type == TokenType::kIdentifier) {
-                        name = current_token().text;
+                    const auto& token = current_token();
+                    if (token.type == TokenType::kIdentifier) {
+                        name = token.text;
                         ConsumeToken();
                     }
 
@@ -204,7 +205,8 @@ namespace glsld {
                     return ParseNumberLiteral(token.text);
                 }
 
-                if (token.type == TokenType::kIdentifier      ||
+                if (token.type == TokenType::kSpirvIntrinsics ||
+                    token.type == TokenType::kIdentifier      ||
                     token.type == TokenType::kPrimitive       ||
                     token.type == TokenType::kKeyword         ||
                     token.type == TokenType::kBuiltInFunction ||

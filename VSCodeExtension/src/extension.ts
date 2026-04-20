@@ -30,11 +30,11 @@ export async function activate() {
 	// Otherwise the run options are used
 	const serverOptions: ServerOptions = {
 		run: {
-			command: "Z:/Source/Repos/glsld/glsld/Win64/glsld.exe",
+			command: "Z:/Source/glsld/glsld/Win64/glsld.exe",
 			transport: TransportKind.stdio
 		},
 		debug: {
-			command: "Z:/Source/Repos/glsld/glsld/Win64/glsld.exe",
+			command: "Z:/Source/glsld/glsld/Win64/glsld.exe",
 			transport: TransportKind.stdio,
 		}
 	};

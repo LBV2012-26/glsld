@@ -151,3 +151,4 @@ callableDataInEXT
 shaderRecordEXT
 
 coopmat
+pervertexEXT

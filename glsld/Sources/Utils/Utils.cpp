@@ -8,6 +8,8 @@
 
 #include <Windows.h>
 
+#include "Analyzer/Ast/Ast.hpp"
+
 namespace glsld::utils {
     namespace {
         int HexToInt(char hex) {
@@ -121,5 +123,84 @@ namespace glsld::utils {
         for (int i = 0; i < level; ++i) {
             std::print("  "); // 2 spaces per indent level
         }
+    }
+
+    namespace {
+        std::string SerializeSpirvArguments(const SpirvArgumentNode* argument) {
+            if (argument == nullptr) {
+                return {};
+            }
+
+            switch (argument->arg_kind) {
+            case SpirvArgumentKind::kIdentifier:
+            case SpirvArgumentKind::kNumberLiteral:
+            case SpirvArgumentKind::kStringLiteral:
+            case SpirvArgumentKind::kBoolLiteral:
+            case SpirvArgumentKind::kUnknown:
+                return argument->token.text;
+
+            case SpirvArgumentKind::kAssignment: {
+                std::string lhs = argument->children.size() > 0 ? SerializeSpirvArguments(argument->children[0].get()) : "";
+                std::string rhs = argument->children.size() > 1 ? SerializeSpirvArguments(argument->children[1].get()) : "";
+                return std::format("{} = {}", lhs, rhs);
+            }
+
+            case SpirvArgumentKind::kArray: {
+                std::string result = "[";
+                for (auto i = 0uz; i != argument->children.size(); ++i) {
+                    result += SerializeSpirvArguments(argument->children[i].get());
+                    if (i + 1 != argument->children.size()) {
+                        result += ", ";
+                    }
+                }
+
+                result += "]";
+                return result;
+            }
+
+            case SpirvArgumentKind::kGroup: {
+                std::string result = "(";
+                for (auto i = 0uz; i != argument->children.size(); ++i) {
+                    result += SerializeSpirvArguments(argument->children[i].get());
+                    if (i + 1 != argument->children.size()) {
+                        result += ", ";
+                    }
+                }
+
+                result += ")";
+                return result;
+            }
+
+            case SpirvArgumentKind::kSequence: {
+                std::string result;
+                for (auto i = 0uz; i != argument->children.size(); ++i) {
+                    result += SerializeSpirvArguments(argument->children[i].get());
+                    if (i + 1 != argument->children.size()) {
+                        result += " ";
+                    }
+                }
+
+                return result;
+            }
+            }
+
+            return {};
+        }
+    }
+
+    std::string BuildSpirvTypeIdentity(const SpirvIntrinsicNode* spirv_type) {
+        if (spirv_type == nullptr) {
+            return {};
+        }
+
+        std::string params;
+        for (auto i = 0uz; i != spirv_type->params.size(); ++i) {
+            params += SerializeSpirvArguments(spirv_type->params[i].get());
+            if (i + 1 != spirv_type->params.size()) {
+                params += ", ";
+            }
+        }
+
+        return std::format("spirv_type({})", params);
     }
 }

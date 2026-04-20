@@ -336,6 +336,7 @@ namespace glsld {
         LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslPrimitives.txt"),    TokenType::kPrimitive);
         LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslTypes.txt"),         TokenType::kBuiltInType);
         LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslVariables.txt"),     TokenType::kBuiltInVariable);
+        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/spirvIntrinsics.txt"),   TokenType::kSpirvIntrinsics);
     }
 
     void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {

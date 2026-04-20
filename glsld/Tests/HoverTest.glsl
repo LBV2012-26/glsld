@@ -18,7 +18,7 @@ layout(std140, set = 0, binding = 1) uniform MyUniformBuffer { // without set, a
     mat4 my_matrix;
 } ubo;
 
-layout(location = 1) in FragInput {
+layout(location = 1) pervertexEXT in FragInput {
 	mat3 tbn_matrix;
 	vec2 tex_coord;
 	vec3 frag_pos;

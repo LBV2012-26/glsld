@@ -1,9 +1,10 @@
 {
 	"C_Cpp.intelliSenseEngine": "disabled",
-    "C_Cpp.formatting": "disabled",
-    "C_Cpp.errorSquiggles": "disabled",
+	"C_Cpp.formatting": "disabled",
+	"C_Cpp.errorSquiggles": "disabled",
 	"editor.insertSpaces": false,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
-	}
+	},
+	"C_Cpp.default.compilerPath": "cl.exe"
 }

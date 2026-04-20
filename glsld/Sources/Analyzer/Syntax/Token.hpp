@@ -82,7 +82,10 @@ namespace glsld {
 
         // 高级
         kSharpSharp,             // ##
-        kColonColon              // ::
+        kColonColon,             // ::
+
+        // GLSL_EXT_spirv_intrinsics
+        kSpirvIntrinsics
     };
 
     struct Token {

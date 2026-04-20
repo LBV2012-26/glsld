@@ -234,7 +234,9 @@ namespace glsld {
             int type_index = -1;
 
             switch (type) {
-            case TokenType::kPrimitive:       type_index = 23; break;
+            case TokenType::kPrimitive:
+            case TokenType::kSpirvIntrinsics:
+                type_index = 23; break;
             case TokenType::kBuiltInType:     type_index = 1;  break;
             case TokenType::kBuiltInFunction: type_index = 12; break;
 

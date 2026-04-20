@@ -61,13 +61,20 @@ namespace glsld {
         std::unique_ptr<StatementNode> ParseStatement();
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
         std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::string_view target_file, std::size_t directive_physical_line);
+        std::vector<std::unique_ptr<StatementNode>> ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol);
         std::unique_ptr<CompoundStatementNode> ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
         std::unique_ptr<StatementNode> ParseCodeStatement();
         std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpecifier type_spec);
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
+
         TypeSpecifier ParseQualifiersAndType();
         std::vector<Token> ParseLayoutQualifier();
+        bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
+        std::shared_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
+        std::vector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
+        std::shared_ptr<SpirvArgumentNode> ParseSpirvArguments(std::span<const Token> tokens);
+
         std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpecifier type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
 
