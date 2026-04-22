@@ -8,6 +8,10 @@
 
 // #include "../Assets/Meta/BuiltinFunctions.glsl"
 
+layout(set = 0)
+layout(binding = 0)
+uniform int MyUniform;
+
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
 

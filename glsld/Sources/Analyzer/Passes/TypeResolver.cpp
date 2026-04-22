@@ -785,7 +785,8 @@ namespace glsld {
 
                 if (member_symbol != nullptr) {
                     member_node->linked_symbols = member_symbol;
-                    node->evaluated_type = member_symbol->type_info;
+                    member_node->evaluated_type = member_symbol->type_info;
+                    node->evaluated_type = member_node->evaluated_type;
 
                     document_.bindings.try_emplace(member_node->begin, member_symbol);
                 }
@@ -799,6 +800,8 @@ namespace glsld {
 
             const auto* member_node = static_cast<const VariableExpressionNode*>(node->member.get());
             node->evaluated_type = ResolveSwizzleType(object_type, member_node->name);
+        } else if (node->member == nullptr) {
+            node->evaluated_type = object_type;
         }
     }
 
@@ -833,6 +836,7 @@ namespace glsld {
 
         if (type_spec.specifiers.size() > 0) {
             info.qualifiers.clear();
+            // 去掉最后一个，因为最后一个是类型名
             info.qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
         }
 
@@ -849,10 +853,16 @@ namespace glsld {
             info.array_sizes.push_back(result.value_or(std::numeric_limits<std::int64_t>::min()));
         }
 
-        if (type_spec.spirv_type != nullptr && type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+        // spirv_type
+        if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
+            type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride)
+        {
             info.typename_token = type_spec.spirv_type->keyword;
-            info.spirv_type     = utils::BuildSpirvTypeIdentity(type_spec.spirv_type.get());
-            info.type_desc      = {
+
+            auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type.get());
+            info.spirv_type = std::format("spirv_type({})", spirv_type_params);
+
+            info.type_desc = {
                 .family = BaseFamily::kOpaque
             };
 

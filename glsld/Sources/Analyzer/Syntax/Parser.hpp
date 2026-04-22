@@ -69,11 +69,13 @@ namespace glsld {
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
 
         TypeSpecifier ParseQualifiersAndType();
-        std::vector<Token> ParseLayoutQualifier();
-        bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
-        std::shared_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
         std::vector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
-        std::shared_ptr<SpirvArgumentNode> ParseSpirvArguments(std::span<const Token> tokens);
+        std::shared_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
+        std::shared_ptr<LayoutQualifierNode> ParseLayoutQualifier();
+        std::shared_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
+
+        bool TryParseLayoutQualifier(TypeSpecifier& type_spec);
+        bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
 
         std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpecifier type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();

@@ -230,6 +230,7 @@
     <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="Sources\Server\Workspace.inl" />
+    <None Include="Sources\Utils\Utils.inl" />
     <None Include="vcpkg.json" />
   </ItemGroup>
   <ItemGroup>

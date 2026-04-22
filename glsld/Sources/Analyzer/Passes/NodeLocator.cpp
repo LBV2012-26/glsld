@@ -3,23 +3,18 @@
 
 namespace glsld {
     LeafLocator::LeafLocator(const Document& document, const SourceLocation& target)
-        : AstVisitor(0, nullptr)
-        , target_{ target }
+        : LocatorHelper(target)
     {
         Traverse(document.ast.get());
     }
 
-    const AstNode* const LeafLocator::result() const {
-        return deepest_node_;
-    }
-
-    void LeafLocator::Traverse(AstNode * node) {
+    void LeafLocator::Traverse(AstNode* node) {
         if (node == nullptr) {
             return;
         }
 
         if (IsPositionInNode(node) && IsPositionDeeper(node)) {
-            deepest_node_ = node;
+            best_match_ = node;
             AstVisitor::Traverse(node);
         }
 
@@ -31,33 +26,10 @@ namespace glsld {
         }
     }
 
-    bool LeafLocator::IsPositionInNode(const AstNode* node) const {
-        // [begin.line, begin.col] <= target_ <= [end.line, end.col]
-        return node->begin <= target_ && target_ <= node->end;
-    }
-
-    bool LeafLocator::IsPositionDeeper(const AstNode* node) const {
-        if (deepest_node_ == nullptr) {
-            return true;
-        }
-
-        if (deepest_node_->begin > node->begin) {
-            return false;
-        } else if (deepest_node_->begin < node->begin) {
-            return true;
-        } else {
-            // deepest_node_->begin == node->begin
-            if (deepest_node_->end < node->end) {
-                return false;
-            } else if (deepest_node_->end > node->end) {
-                return true;
-            } else {
-                // deepest_node_->end == node->end
-                return true;
-            }
-        }
-
-        return true;
+    ContextLocator::ContextLocator(const Document& document, const SourceLocation& target)
+        : LocatorHelper(target)
+    {
+        Traverse(document.ast.get());
     }
 
     void ContextLocator::Traverse(AstNode* node) {
@@ -69,7 +41,7 @@ namespace glsld {
             AstVisitor::Traverse(node);
         }
 
-        if (deepest_node_ != nullptr || node->begin.line() > target_.line() ||
+        if (best_match_ != nullptr || node->begin.line() > target_.line() || // 这里 best_match_ != nullptr 是为了在找到一个包含目标位置的节点后，停止继续遍历其他兄弟节点，因为它们不可能包含目标位置了。
             (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
         {
             return;
@@ -77,19 +49,14 @@ namespace glsld {
     }
 
     void ContextLocator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
-        deepest_node_ = node->object.get();
+        best_match_ = node->object.get();
         // AstVisitor::VisitMemberAccessExpression(node);
     }
 
-    SignatureLocator::SignatureLocator(const Document& document, const SourceLocation& cursor)
-        : AstVisitor(0, nullptr)
-        , cursor_{ cursor }
+    SignatureLocator::SignatureLocator(const Document& document, const SourceLocation& target)
+        : LocatorHelper(target)
     {
         Traverse(document.ast.get());
-    }
-
-    const CallExpressionNode* const SignatureLocator::result() const {
-        return best_match_;
     }
 
     void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {
@@ -97,14 +64,14 @@ namespace glsld {
             return;
         }
 
-        if (cursor_ > node->callee->end && cursor_ <= node->end) {
+        if (target_ > node->callee->end && target_ <= node->end) {
             best_match_ = node;
         }
 
         AstVisitor::VisitCallExpression(node);
 
-        if (best_match_ != nullptr || node->begin.line() > cursor_.line() ||
-            (node->begin.line() == cursor_.line() && node->begin.column() > cursor_.column()))
+        if (best_match_ != nullptr || node->begin.line() > target_.line() ||
+            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
         {
             return;
         }

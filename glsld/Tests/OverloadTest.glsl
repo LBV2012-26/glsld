@@ -464,7 +464,7 @@ void main() {
     TestOverloadFunction(component1);
     TestOverloadFunction(component2);
 
-#define CALL_TEST_OVERLOAD_FUNC TestOverloadFunction(uint16arg, uint32arg, uint64arg, float16arg)
+//#define CALL_TEST_OVERLOAD_FUNC TestOverloadFunction(uint16arg, uint32arg, uint64arg, float16arg)
 
     // --- Super complex compound expressions ---
 
@@ -950,7 +950,7 @@ void main() {
     TestOverloadFunction(localInner);                                      // 匹配 InnerData
     TestOverloadFunction(localMiddle);                                     // 匹配 MiddleData
     TestOverloadFunction(localOuter);                                      // 匹配 OuterData
-    
+
     TestOverloadFunction(localOuter.middle[1]);                            // 匹配 MiddleData
     TestOverloadFunction(localOuter.middle[0].inner);                      // 匹配 InnerData
     TestOverloadFunction(localOuter.middle[0].inner.vec3_field);           // 匹配 vec3
@@ -970,6 +970,26 @@ void main() {
     TestOverloadFunction(localOuter.middle[0].inner.vec3_field + vec3(1.0));                            // 匹配 vec3
     TestOverloadFunction(localOuter.middle[1].mat4_field * localOuter.middle[0].inner.vec3_field.xyzz); // 匹配 vec4
     TestOverloadFunction(dot(localOuter.middle[0].inner.vec3_field, vec3(0.5)));                        // 匹配 float32_t
+
+    struct {
+        int int_field;
+        vec4 vec4_field;
+        mat4 mat4_field;
+        OuterData data;
+    } MyStruct;
+
+    TestOverloadFunction(MyStruct.int_field);
+    TestOverloadFunction(MyStruct.data);
+
+    TestOverloadFunction(MyStruct.data.dvec2_field.xyz);
+    TestOverloadFunction(MyStruct.data.dvec2_field.xxyy);
+
+    TestOverloadFunction(MyStruct.data.middle[0]);
+    TestOverloadFunction(MyStruct.data.middle[1].inner);
+
+    TestOverloadFunction(MyStruct.data.middle[0].inner.mat2_field[0][0].xxxx);
+    TestOverloadFunction(mat3x4(MyStruct.data.middle[1].v4Array));
+    TestOverloadFunction(MyStruct.data.middle[1].inner.intArray2D_2x3[2][1] * MyStruct.data.dvec2_field);
 
     MySpirvType0 type0;
     MySpirvType1 type1;

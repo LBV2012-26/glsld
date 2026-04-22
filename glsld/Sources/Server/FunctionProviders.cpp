@@ -592,6 +592,7 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         SignatureLocator locator(*snapshot, location);
+        locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
 
         if (node == nullptr) {
@@ -948,34 +949,36 @@ namespace glsld {
         std::string GetVariableSpecifiers(const auto* node) {
             std::string specifiers;
 
-            for (auto i = 0uz; i < node->type_spec.specifiers.size(); ++i) {
-                const auto& specifier = node->type_spec.specifiers[i];
+            for (const auto& specifier : node->type_spec.specifiers) {
                 if (specifier.text == "layout") {
-                    specifiers += specifier.text + "(";
-                    for (auto j = 0uz; j != node->type_spec.layout_params.size(); ++j) {
-                        const auto& layout_param = node->type_spec.layout_params[j];
+                    continue; // layout 单独处理，用来合并 layout(xxx) layout(yyy) 这种情况
+                }
 
-                        if (layout_param.text == "," && specifiers.back() == ' ') {
-                            specifiers.pop_back();
-                        }
+                std::string specifier_text = specifier.text.contains("__AnonymousStruct_")
+                                           ? "<anonymous>" : specifier.text;
 
-                        specifiers += layout_param.text;
-
-                        if (j + 1 != node->type_spec.layout_params.size()) {
-                            specifiers += " ";
-                        }
-                    }
-
-                    specifiers += ")";
+                if (specifiers.empty()) {
+                    specifiers = specifier_text;
                 } else {
-                    std::string specifier_text = specifier.text.contains("__AnonymousStruct_")
-                                               ? "<anonymous>" : specifier.text;
-                    if (specifiers.empty()) {
-                        specifiers = specifier_text;
-                    } else {
-                        specifiers += " " + specifier_text;
+                    specifiers += " " + specifier_text;
+                }
+            }
+
+            std::string layout_params;
+            if (!node->type_spec.layouts.empty()) {
+                for (const auto& layout : node->type_spec.layouts) {
+                    if (layout != nullptr) {
+                        if (!layout_params.empty()) {
+                            layout_params += ", ";
+                        }
+
+                        layout_params += utils::BuildQualifierParameterList(layout.get());
                     }
                 }
+            }
+
+            if (!layout_params.empty()) {
+                specifiers = std::format("layout({}) ", layout_params) + specifiers;
             }
 
             if (!node->type_spec.template_args.empty()) {
@@ -1051,7 +1054,16 @@ namespace glsld {
             auto specifiers = GetVariableSpecifiers(node);
             std::string name;
             if (is_field && node->located_scope->host_symbol() != nullptr) {
-                name = std::format("{} {}::{}", specifiers, node->located_scope->host_symbol()->name, symbol->name);
+                const auto& host_name = node->located_scope->host_symbol()->name;
+
+                std::string_view display_host_name;
+                if (host_name.contains("__AnonymousStruct_")) {
+                    display_host_name = "<anonymous>";
+                } else {
+                    display_host_name = host_name;
+                }
+
+                name = std::format("{} {}::{}", specifiers, display_host_name, symbol->name);
             } else {
                 name = std::format("{} {}", specifiers, symbol->name);
             }

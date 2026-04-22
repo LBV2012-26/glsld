@@ -4,41 +4,74 @@
 #include "Analyzer/Syntax/Document.hpp"
 
 namespace glsld {
-    class LeafLocator : public AstVisitor {
+    template <typename NodeType>
+    class LocatorHelper : public AstVisitor {
     public:
-        LeafLocator(const Document& document, const SourceLocation& target);
-        ~LeafLocator() override = default;
+        LocatorHelper(const SourceLocation& target)
+            : AstVisitor(0, nullptr)
+            , target_{ target }
+        {}
 
-        const AstNode* const result() const;
+        bool IsPositionInNode(const NodeType* node) const {
+            // [begin.line, begin.col] <= target_ <= [end.line, end.col]
+            return node->begin <= target_ && target_ <= node->end;
+        }
+
+        bool IsPositionDeeper(const NodeType* node) const {
+            if (best_match_ == nullptr) {
+                return true;
+            }
+
+            if (best_match_->begin > node->begin) {
+                return false;
+            } else if (best_match_->begin < node->begin) {
+                return true;
+            } else {
+                // best_match_->begin == node->begin
+                if (best_match_->end < node->end) {
+                    return false;
+                } else if (best_match_->end > node->end) {
+                    return true;
+                } else {
+                    // best_match_->end == node->end
+                    return true;
+                }
+            }
+
+            return true;
+        }
+
+        const NodeType* const result() const {
+            return best_match_;
+        }
 
     protected:
-        void Traverse(AstNode* node) override;
-        bool IsPositionInNode(const AstNode* node) const;
-        bool IsPositionDeeper(const AstNode* node) const;
-
         SourceLocation target_;
-        AstNode*       deepest_node_{ nullptr };
+        NodeType*      best_match_{ nullptr };
     };
 
-    class ContextLocator final : public LeafLocator {
+    class LeafLocator final : public LocatorHelper<AstNode> {
     public:
-        using LeafLocator::LeafLocator;
+        LeafLocator(const Document& document, const SourceLocation& target);
+
+    private:
+        void Traverse(AstNode* node) override;
+    };
+
+    class ContextLocator final : public LocatorHelper<AstNode> {
+    public:
+        ContextLocator(const Document& document, const SourceLocation& target);
 
     private:
         void Traverse(AstNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
     };
 
-    class SignatureLocator final : public AstVisitor {
+    class SignatureLocator final : public LocatorHelper<CallExpressionNode> {
     public:
-        SignatureLocator(const Document& document, const SourceLocation& cursor);
-
-        const CallExpressionNode* const result() const;
+        SignatureLocator(const Document& document, const SourceLocation& target);
 
     private:
         void VisitCallExpression(CallExpressionNode* node) override;
-
-        SourceLocation      cursor_;
-        CallExpressionNode* best_match_{ nullptr };
     };
 }

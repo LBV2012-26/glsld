@@ -15,8 +15,9 @@ namespace glsld {
         kDeclarationGroup,
         kPreprocessor,
         kAttribute,
+        kQualifierArgument,
+        kLayoutQualifier,
         kSpirvIntrinsic,
-        kSpirvArgument,
 
         // Declarations
         kFunctionDeclaration,
@@ -65,14 +66,7 @@ namespace glsld {
         virtual AstNodeKind kind() const = 0;
     };
 
-    enum class SpirvIntrinsicKind {
-        kUnknown,
-        kTypeOverride, // spirv_type
-        kQualifier,    // spirv_decorate / spirv_storage_class / spirv_by_reference / spirv_literal
-        kInstruction   // spirv_instruction / spirv_execution_mode / spirv_execution_mode_id
-    };
-
-    enum class SpirvArgumentKind {
+    enum class QualifierArgumentKind {
         kUnknown,
         kIdentifier,
         kNumberLiteral,
@@ -84,25 +78,41 @@ namespace glsld {
         kSequence    // token sequence
     };
 
-    struct SpirvArgumentNode final : public AstNode {
-        SpirvArgumentKind arg_kind{ SpirvArgumentKind::kUnknown };
-        Token             token;
-        std::vector<std::shared_ptr<SpirvArgumentNode>> children;
+    struct QualifierArgumentNode final : public AstNode {
+        QualifierArgumentKind arg_kind{ QualifierArgumentKind::kUnknown };
+        Token                 token;
+        std::vector<std::shared_ptr<QualifierArgumentNode>> children;
 
         using AstNode::AstNode;
 
         AstNodeKind kind() const override {
-            return AstNodeKind::kSpirvArgument;
+            return AstNodeKind::kQualifierArgument;
         }
     };
 
-    struct SpirvIntrinsicNode final : public AstNode {
-        SpirvIntrinsicKind                              intrinsic_kind{ SpirvIntrinsicKind::kUnknown };
-        Token                                           keyword;
-        std::vector<Token>                              raw_tokens; // 不包含外层括号
-        std::vector<std::shared_ptr<SpirvArgumentNode>> params;
+    struct LayoutQualifierNode : public AstNode {
+        std::vector<Token>                                  raw_tokens; // 不包含外层括号
+        std::vector<std::shared_ptr<QualifierArgumentNode>> params;
 
         using AstNode::AstNode;
+
+        AstNodeKind kind() const override {
+            return AstNodeKind::kLayoutQualifier;
+        }
+    };
+
+    enum class SpirvIntrinsicKind {
+        kUnknown,
+        kTypeOverride, // spirv_type
+        kQualifier,    // spirv_decorate / spirv_storage_class / spirv_by_reference / spirv_literal
+        kInstruction   // spirv_instruction / spirv_execution_mode / spirv_execution_mode_id
+    };
+
+    struct SpirvIntrinsicNode final : public LayoutQualifierNode {
+        SpirvIntrinsicKind intrinsic_kind{ SpirvIntrinsicKind::kUnknown };
+        Token              keyword;
+
+        using LayoutQualifierNode::LayoutQualifierNode;
 
         AstNodeKind kind() const override {
             return AstNodeKind::kSpirvIntrinsic;
@@ -391,12 +401,12 @@ namespace glsld {
     };
 
     struct TypeSpecifier {
-        std::vector<Token>                               specifiers;
-        std::vector<Token>                               layout_params;
-        std::vector<Token>                               template_args;
-        std::vector<std::shared_ptr<ExpressionNode>>     array_sizes;
-        std::vector<std::shared_ptr<SpirvIntrinsicNode>> spirv_intrinsics;
-        std::shared_ptr<SpirvIntrinsicNode>              spirv_type;
+        std::vector<Token>                                specifiers;
+        std::vector<Token>                                template_args;
+        std::vector<std::shared_ptr<ExpressionNode>>      array_sizes;
+        std::vector<std::shared_ptr<LayoutQualifierNode>> layouts;
+        std::vector<std::shared_ptr<SpirvIntrinsicNode>>  spirv_intrinsics;
+        std::shared_ptr<SpirvIntrinsicNode>               spirv_type;
 
         Token typename_token() const {
             return specifiers.empty() ? Token{} : specifiers.back();
