@@ -7,12 +7,14 @@
 #include <charconv>
 #include <format>
 #include <limits>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
 
+#include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
 #include "Utils/Utils.hpp"
 
@@ -824,6 +826,203 @@ namespace glsld {
         return dimensions;
     }
 
+    namespace {
+        std::string UnquoteStringLiteral(std::string_view text) {
+            if (text.size() >= 2 && text.front() == '"' && text.back() == '"') {
+                return std::string(text.substr(1, text.size() - 2));
+            }
+
+            return std::string(text);
+        }
+
+        bool ExtractAssignment(const QualifierArgumentNode* node, std::string& key, std::shared_ptr<QualifierArgumentNode>& rhs) {
+            if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
+                return false;
+            }
+
+            const auto& lhs = node->children.front();
+            if (lhs == nullptr || lhs->arg_kind != QualifierArgumentKind::kIdentifier) {
+                return false;
+            }
+
+            key = lhs->token.text;
+            rhs = node->children[1];
+            return true;
+        }
+
+        template <typename Ty>
+        std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& ParsePred) {
+            if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kArray) {
+                return std::nullopt;
+            }
+
+            std::vector<Ty> result;
+            for (const auto& child : rhs->children) {
+                if (child == nullptr || child->arg_kind != required_kind) {
+                    return std::nullopt;
+                }
+
+                auto value = ParsePred(child->token.text);
+                result.push_back(std::move(value));
+            }
+
+            std::ranges::sort(result);
+            auto [first, last] = std::ranges::unique(result);
+            result.erase(first, last);
+            return result;
+        }
+
+        std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
+            return CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, UnquoteStringLiteral);
+        }
+
+        std::optional<std::vector<std::int64_t>> CollectIntegerArray(const QualifierArgumentNode* rhs) {
+            return CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
+        }
+
+        SpirvTypeSignature BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
+            SpirvTypeSignature signature;
+            if (node == nullptr) {
+                signature.valid = false;
+                signature.error = "spirv_type node is null";
+                return signature;
+            }
+
+            bool seen_operand = false;
+
+            for (const auto& param : node->params) {
+                if (param == nullptr) {
+                    continue;
+                }
+
+                std::string key;
+                std::shared_ptr<QualifierArgumentNode> rhs;
+                if (ExtractAssignment(param.get(), key, rhs)) {
+                    if (key == "extensions") {
+                        if (!signature.extensions.empty()) {
+                            signature.valid = false;
+                            signature.error = "duplicate extensions";
+                            return signature;
+                        }
+
+                        auto extensions = CollectStringArray(rhs.get());
+                        if (!extensions.has_value()) {
+                            signature.valid = false;
+                            signature.error = "invalid extensions format";
+                            return signature;
+                        }
+
+                        signature.extensions = std::move(*extensions);
+                        continue;
+                    }
+
+                    if (key == "capabilities") {
+                        if (!signature.capabilities.empty()) {
+                            signature.valid = false;
+                            signature.error = "duplicate capabilities";
+                            return signature;
+                        }
+
+                        auto capabilities = CollectIntegerArray(rhs.get());
+                        if (!capabilities.has_value()) {
+                            signature.valid = false;
+                            signature.error = "invalid capabilities format";
+                            return signature;
+                        }
+
+                        signature.capabilities = std::move(*capabilities);
+                        continue;
+                    }
+
+                    if (key == "id") {
+                        if (signature.has_id) {
+                            signature.valid = false;
+                            signature.error = "duplicate id";
+                            return signature;
+                        }
+
+                        if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kNumberLiteral) {
+                            signature.valid = false;
+                            signature.error = "invalid id format";
+                            return signature;
+                        }
+
+                        signature.id     = utils::ParseNumberLiteralToInteger(rhs->token.text);
+                        signature.has_id = true;
+                        continue;
+                    }
+
+                    if (key == "set") {
+                        if (!signature.set.empty()) {
+                            signature.valid = false;
+                            signature.error = "duplicate set";
+                            return signature;
+                        }
+
+                        if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kStringLiteral) {
+                            signature.valid = false;
+                            signature.error = "invalid set format";
+                            return signature;
+                        }
+
+                        signature.set = UnquoteStringLiteral(rhs->token.text);
+                        continue;
+                    }
+
+                    signature.valid = false;
+                    signature.error = std::format("unknown parameter '{}' in spirv_type", key);
+                    return signature;
+                }
+
+                if (!signature.has_id) {
+                    signature.valid = false;
+                    signature.error = "missing id parameter in spirv_type";
+                    return signature;
+                }
+
+                seen_operand = true;
+
+                // spirv_id <expr>
+                if (param->arg_kind == QualifierArgumentKind::kSequence &&
+                    !param->children.empty() &&
+                    param->children.front() != nullptr &&
+                    param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier &&
+                    param->children.front()->token.text == "spirv_id")
+                {
+                    if (param->children.size() < 2) {
+                        signature.valid = false;
+                        signature.error = "missing operand after spirv_id";
+                        return signature;
+                    }
+
+                    SpirvOperandSignature operand{
+                        .kind  = SpirvOperandKind::kIdReference,
+                        .value = utils::SerializeQualifierArguments(param->children[1].get())
+                    };
+
+                    signature.operands.push_back(std::move(operand));
+                    continue;
+                }
+
+                SpirvOperandSignature operand{
+                    .kind  = SpirvOperandKind::kLiteral,
+                    .value = utils::SerializeQualifierArguments(param.get())
+                };
+
+                signature.operands.push_back(std::move(operand));
+            }
+
+            if (!signature.has_id) {
+                signature.valid = false;
+                signature.error = "missing id parameter in spirv_type";
+                return signature;
+            }
+
+            signature.valid = true;
+            return signature;
+        }
+    }
+
     TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec, const Scope* located_scope) {
         if (type_spec.typename_token().type == TokenType::kUnknown) {
             return {};
@@ -857,6 +1056,22 @@ namespace glsld {
         if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
             type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride)
         {
+            info.spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type.get());
+
+            if (!info.spirv_signature->valid) {
+                info.typename_token = {
+                    .text     = "unknown",
+                    .location = type_spec.spirv_type->keyword.location,
+                    .type     = TokenType::kUnknown
+                };
+
+                info.type_desc = {
+                    .family = BaseFamily::kUnknown
+                };
+
+                return info;
+            }
+
             info.typename_token = type_spec.spirv_type->keyword;
 
             auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type.get());

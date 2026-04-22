@@ -59,8 +59,14 @@ namespace glsld {
             return false;
         }
 
-        if (spirv_type != other.spirv_type) {
+        if (spirv_signature.has_value() != other.spirv_signature.has_value()) {
             return false;
+        }
+
+        if (spirv_signature.has_value() && other.spirv_signature.has_value()) {
+            if (!(spirv_signature.value() == other.spirv_signature.value())) {
+                return false;
+            }
         }
 
         if (block_symbol != other.block_symbol) {

@@ -2,13 +2,7 @@
 
 #include <format>
 
-namespace glsld {
-    struct QualifierArgumentNode;
-}
-
 namespace glsld::utils {
-    std::string SerializeQualifierArguments(const QualifierArgumentNode* argument);
-
     inline std::string BuildQualifierParameterList(const IsQualifierArgument auto* node) {
         if (node == nullptr) {
             return {};

@@ -73,6 +73,7 @@
     <None Include="Sources\Base\FileSystem\Source.inl" />
     <None Include="Sources\Server\Workspace.inl" />
     <None Include="Sources\Utils\Utils.inl" />
+    <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">

@@ -3,13 +3,12 @@
 
 #include <cmath>
 #include <algorithm>
-#include <charconv>
-#include <limits>
 #include <ranges>
 #include <utility>
 
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Base/Hash.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
@@ -48,91 +47,6 @@ namespace glsld {
 
             bool IsSuppressed() const {
                 return suppress_depth_ > 0;
-            }
-
-            std::int64_t ParseNumberLiteral(std::string_view text) {
-                auto IsSuffix = [](char ch) -> bool {
-                    return ch == 'u' || ch == 'U' ||
-                           ch == 'l' || ch == 'L' ||
-                           ch == 's' || ch == 'S' ||
-                           ch == 'f' || ch == 'F';
-                };
-
-                auto end = text.size();
-                while (end > 0 && IsSuffix(text[end - 1])) {
-                    --end;
-                }
-
-                auto core = text.substr(0, end);
-                if (core.empty()) {
-                    return 0;
-                }
-
-                bool maybe_float =
-                    core.find('.') != std::string_view::npos ||
-                    core.find('e') != std::string_view::npos ||
-                    core.find('E') != std::string_view::npos ||
-                    core.find('p') != std::string_view::npos ||
-                    core.find('P') != std::string_view::npos;
-
-                if (maybe_float) {
-                    double float_value = 0.0;
-                    auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), float_value);
-                    if (ec == std::errc{} && ptr == core.data() + core.size() && std::isfinite(float_value)) {
-                        if (float_value >= static_cast<double>(std::numeric_limits<std::int64_t>::max()))
-                            return std::numeric_limits<std::int64_t>::max();
-                        if (float_value <= static_cast<double>(std::numeric_limits<std::int64_t>::min()))
-                            return std::numeric_limits<std::int64_t>::min();
-                        return static_cast<std::int64_t>(float_value);
-                    } else {
-                        return 0;
-                    }
-                }
-
-                bool negative = false;
-                if (!core.empty() && (core.front() == '+' || core.front() == '-')) {
-                    // from_chars doesn't support leading +/- in integer
-                    negative = (core.front() == '-');
-                    core.remove_prefix(1);
-                }
-
-                if (core.empty()) {
-                    return 0;
-                }
-
-                int base = 10;
-                if (core.size() >= 2 && core[0] == '0' && (core[1] == 'x' || core[1] == 'X')) {
-                    base = 16;
-                    core.remove_prefix(2);
-                } else if (core.size() > 1 && core[0] == '0') {
-                    base = 8;
-                    // 八进制保留前导 0，from_chars(base=8) 可正常处理
-                }
-
-                if (core.empty()) {
-                    return 0;
-                }
-
-                std::uint64_t magnitude = 0;
-                auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), magnitude, base);
-                if (ec != std::errc{} || ptr != core.data() + core.size()) {
-                    return 0;
-                }
-
-                if (!negative) {
-                    if (magnitude > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-                        return std::numeric_limits<std::int64_t>::max();
-                    };
-
-                    return static_cast<std::int64_t>(magnitude);
-                }
-
-                constexpr auto kMinAbsolute = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1ull;
-                if (magnitude > kMinAbsolute) {
-                    return std::numeric_limits<std::int64_t>::min();
-                }
-
-                return -static_cast<std::int64_t>(magnitude);
             }
 
             std::int64_t ParseConditional() {
@@ -202,7 +116,7 @@ namespace glsld {
                         return 0;
                     }
 
-                    return ParseNumberLiteral(token.text);
+                    return utils::ParseNumberLiteralToInteger(token.text);
                 }
 
                 if (token.type == TokenType::kSpirvIntrinsics ||

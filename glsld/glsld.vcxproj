@@ -222,6 +222,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />

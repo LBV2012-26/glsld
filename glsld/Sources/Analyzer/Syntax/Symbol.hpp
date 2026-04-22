@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -52,14 +53,41 @@ namespace glsld {
         ArithmeticStructure arithmetic_structure() const;
     };
 
+    enum class SpirvOperandKind {
+        kLiteral,
+        kIdReference
+    };
+
+    struct SpirvOperandSignature {
+        SpirvOperandKind kind{ SpirvOperandKind::kLiteral };
+        std::string      value;
+
+        bool operator==(const SpirvOperandSignature& other) const;
+    };
+
+    struct SpirvTypeSignature {
+        std::vector<std::string>           extensions;
+        std::vector<std::int64_t>          capabilities;
+        std::string                        set;
+        std::int64_t                       id{};
+        std::vector<SpirvOperandSignature> operands;
+        std::string                        error;
+
+        bool has_id{ false };
+        bool valid{ false };
+
+        bool operator==(const SpirvTypeSignature& other) const;
+    };
+
     struct SymbolInfo;
     struct TypeInfo {
-        Token                     typename_token;
-        TypeDescriptor            type_desc;
-        const SymbolInfo*         block_symbol{ nullptr };
-        std::vector<std::int64_t> array_sizes;
-        std::vector<Token>        qualifiers;
-        std::string               spirv_type;
+        Token                             typename_token;
+        TypeDescriptor                    type_desc;
+        const SymbolInfo*                 block_symbol{ nullptr };
+        std::vector<std::int64_t>         array_sizes;
+        std::vector<Token>                qualifiers;
+        std::string                       spirv_type;
+        std::optional<SpirvTypeSignature> spirv_signature;
 
         bool operator==(const TypeInfo& other) const;
         bool CompareWithoutQualifiers(const TypeInfo& other) const;

@@ -46,6 +46,8 @@ local_size_z_id
 local_size_variable
 input_attachment_index push_constant set binding location
 
+extensions capabilities id
+
 early_fragment_tests
 post_depth_coverage
 

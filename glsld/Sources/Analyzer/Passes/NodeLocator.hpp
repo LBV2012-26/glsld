@@ -7,43 +7,12 @@ namespace glsld {
     template <typename NodeType>
     class LocatorHelper : public AstVisitor {
     public:
-        LocatorHelper(const SourceLocation& target)
-            : AstVisitor(0, nullptr)
-            , target_{ target }
-        {}
+        LocatorHelper(const SourceLocation& target);
 
-        bool IsPositionInNode(const NodeType* node) const {
-            // [begin.line, begin.col] <= target_ <= [end.line, end.col]
-            return node->begin <= target_ && target_ <= node->end;
-        }
+        bool IsPositionInNode(const NodeType* node) const;
+        bool IsPositionDeeper(const NodeType* node) const;
 
-        bool IsPositionDeeper(const NodeType* node) const {
-            if (best_match_ == nullptr) {
-                return true;
-            }
-
-            if (best_match_->begin > node->begin) {
-                return false;
-            } else if (best_match_->begin < node->begin) {
-                return true;
-            } else {
-                // best_match_->begin == node->begin
-                if (best_match_->end < node->end) {
-                    return false;
-                } else if (best_match_->end > node->end) {
-                    return true;
-                } else {
-                    // best_match_->end == node->end
-                    return true;
-                }
-            }
-
-            return true;
-        }
-
-        const NodeType* const result() const {
-            return best_match_;
-        }
+        const NodeType* const result() const;
 
     protected:
         SourceLocation target_;
@@ -75,3 +44,5 @@ namespace glsld {
         void VisitCallExpression(CallExpressionNode* node) override;
     };
 }
+
+#include "NodeLocator.inl"
