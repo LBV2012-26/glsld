@@ -1,0 +1,13 @@
+break
+case
+continue
+default
+discard
+do
+else
+goto
+for
+if
+return
+switch
+while

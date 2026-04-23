@@ -5,10 +5,13 @@
 #include <shared_mutex>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "Base/Hash.hpp"
 
 namespace glsld {
+    std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path);
+
     class SourceFile {
     public:
         SourceFile(std::string_view filename, std::string_view uri);

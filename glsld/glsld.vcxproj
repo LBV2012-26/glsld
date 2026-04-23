@@ -157,6 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
@@ -188,6 +189,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />

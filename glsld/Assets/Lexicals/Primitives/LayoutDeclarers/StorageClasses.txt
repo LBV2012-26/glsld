@@ -1,0 +1,16 @@
+aliased
+buffer_reference
+coherent
+descriptor_heap
+local_size_variable
+noncoherent
+nonprivate
+push_constant
+restrict
+shader_record
+
+devicecoherent
+queuefamilycoherent
+shadercallcoherent
+subgroupcoherent
+workgroupcoherent

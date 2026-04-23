@@ -187,6 +187,14 @@ namespace glsld::utils {
         return {};
     }
 
+    std::string UnquoteStringLiteral(std::string_view text) {
+        if (text.size() >= 2 && text.front() == '"' && text.back() == '"') {
+            return std::string(text.substr(1, text.size() - 2));
+        }
+
+        return std::string(text);
+    }
+
     std::int64_t ParseNumberLiteralToInteger(std::string_view text) {
         auto IsSuffix = [](char ch) -> bool {
             return ch == 'u' || ch == 'U' ||

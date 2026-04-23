@@ -27,6 +27,7 @@
     <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -61,6 +62,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

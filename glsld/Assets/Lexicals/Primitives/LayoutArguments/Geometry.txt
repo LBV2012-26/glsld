@@ -1,0 +1,7 @@
+max_vertices
+invocations
+vertices
+stream
+xfb_buffer
+xfb_offset
+xfb_stride

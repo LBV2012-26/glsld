@@ -6,5 +6,6 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
 	},
-	"C_Cpp.default.compilerPath": "cl.exe"
+	"C_Cpp.default.compilerPath": "cl.exe",
+	"cmake.sourceDirectory": "Z:/Source/glsld/glsld/vcpkg_installed/x64-windows/vcpkg/blds/nlohmann-json/src/v3.12.0-087f34fe5c.clean"
 }

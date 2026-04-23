@@ -1,0 +1,2 @@
+equal_spacing fractional_even_spacing fractional_odd_spacing point_mode
+quads triangles isolines cw ccw points

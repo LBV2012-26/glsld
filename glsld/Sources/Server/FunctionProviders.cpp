@@ -3,9 +3,12 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <concepts>
+#include <format>
 #include <iterator>
 #include <ranges>
 #include <system_error>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -235,7 +238,7 @@ namespace glsld {
 
             switch (type) {
             case TokenType::kPrimitive:
-            case TokenType::kSpirvIntrinsics:
+            case TokenType::kSpirvIntrinsic:
                 type_index = 23; break;
             case TokenType::kBuiltInType:     type_index = 1;  break;
             case TokenType::kBuiltInFunction: type_index = 12; break;
@@ -946,70 +949,96 @@ namespace glsld {
     }
 
     namespace {
+        bool IsAssignmentWithKey(const QualifierArgumentNode* node, std::string_view key) {
+            if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
+                return false;
+            }
+
+            const auto& lhs = node->children.front();
+            const auto& rhs = node->children.back();
+            if (lhs == nullptr || rhs == nullptr || lhs->arg_kind != QualifierArgumentKind::kIdentifier) {
+                return false;
+            }
+
+            if (lhs->token.text != key) {
+                return false;
+            }
+
+            return true;
+        }
+
+        template <typename Ty>
+        std::string SerializeArray(std::span<const Ty> array, auto&& pred) {
+            std::string result = "[";
+            for (auto i = 0uz; i != array.size(); ++i) {
+                result += pred(array[i]);
+                if (i + 1 != array.size()) {
+                    result += ", ";
+                }
+            }
+
+            result += "]";
+            return result;
+        }
+
+        std::string SerializeStringArray(std::span<const std::string> array) {
+            return SerializeArray<std::string>(array, [](std::string_view sv) -> std::string {
+                return std::format("\"{}\"", sv);
+            });
+        }
+
+        std::string SerializeIntegerArray(std::span<const std::int64_t> array) {
+            return SerializeArray<std::int64_t>(array, [](std::int64_t value) -> std::string {
+                return std::to_string(value);
+            });
+        }
+
+        std::string SerializeCanonicalLayoutParameters(std::span<const std::shared_ptr<QualifierArgumentNode>> params) {
+            StringHeteroHashMap<std::string> param_map;
+
+            for (const auto& param : params) {
+                if (param->arg_kind == QualifierArgumentKind::kIdentifier) {
+                    if (param->token.text == "scalar" ||
+                        param->token.text == "std140" ||
+                        param->token.text == "std430" ||
+                        param->token.text == "shared" ||
+                        param->token.text == "packed")
+                    {
+                        param_map["memory_layout"] = param->token.text;
+                        continue;
+                    }
+
+                    if (param->token.text == "row_major" || param->token.text == "column_major") {
+                        param_map["matrix_layout"] = param->token.text;
+                        continue;
+                    }
+
+                    if (param->token.text == "push_constant"    ||
+                        param->token.text == "buffer_reference" ||
+                        param->token.text == "descriptor_heap")
+                    {
+                        param_map["storage_class"] = param->token.text;
+                        continue;
+                    }
+                }
+
+                if (IsAssignmentWithKey(param.get(), "location")) {
+                    param_map["location"] = utils::SerializeQualifierArguments(param.get());
+                } else if (IsAssignmentWithKey(param.get(), "set")) {
+                    param_map["set"] = utils::SerializeQualifierArguments(param.get());
+                } else if (IsAssignmentWithKey(param.get(), "binding")) {
+                    param_map["binding"] = utils::SerializeQualifierArguments(param.get());
+                } else if (IsAssignmentWithKey(param.get(), "index")) {
+                    param_map["index"] = utils::SerializeQualifierArguments(param.get());
+                } else if (IsAssignmentWithKey(param.get(), "offset")) {
+                    param_map["offset"] = utils::SerializeQualifierArguments(param.get());
+                }
+            }
+        }
+
         std::string GetVariableSpecifiers(const auto* node) {
-            std::string specifiers;
-
-            for (const auto& specifier : node->type_spec.specifiers) {
-                if (specifier.text == "layout") {
-                    continue; // layout 单独处理，用来合并 layout(xxx) layout(yyy) 这种情况
-                }
-
-                std::string specifier_text = specifier.text.contains("__AnonymousStruct_")
-                                           ? "<anonymous>" : specifier.text;
-
-                if (specifiers.empty()) {
-                    specifiers = specifier_text;
-                } else {
-                    specifiers += " " + specifier_text;
-                }
-            }
-
-            std::string layout_params;
-            if (!node->type_spec.layouts.empty()) {
-                for (const auto& layout : node->type_spec.layouts) {
-                    if (layout != nullptr) {
-                        if (!layout_params.empty()) {
-                            layout_params += ", ";
-                        }
-
-                        layout_params += utils::BuildQualifierParameterList(layout.get());
-                    }
-                }
-            }
-
-            if (!layout_params.empty()) {
-                specifiers = std::format("layout({}) ", layout_params) + specifiers;
-            }
-
-            if (!node->type_spec.template_args.empty()) {
-                specifiers += "<";
-
-                for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    const auto& arg = node->type_spec.template_args[i];
-                    specifiers += arg.text;
-                    if (i + 1 != node->type_spec.template_args.size()) {
-                        specifiers += ", ";
-                    }
-                }
-
-                specifiers += ">";
-            }
-
-            if (specifiers.contains("layout")) {
-                if (node->type_spec.specifiers.back().type == TokenType::kIdentifier) {
-                    specifiers += " { ... }";
-                }
-
-                if (!specifiers.contains("set")) {
-                    auto binding_pos = specifiers.find("binding");
-                    if (binding_pos != std::string::npos) {
-                        specifiers.insert(binding_pos, "set = 0, ");
-                    }
-                }
-            }
-
-            return specifiers;
-        };
+            return {};
+        }
     }
 
     std::string FormatSymbol(const SymbolInfo* symbol) {
@@ -1079,7 +1108,10 @@ namespace glsld {
 
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl: {
-            std::string return_typename = symbol->type_info.typename_token.text;
+            std::string return_typename = symbol->type_info.spirv_type.empty()
+                                        ? symbol->type_info.typename_token.text
+                                        : symbol->type_info.spirv_type;
+
             for (auto array_size : symbol->type_info.array_sizes) {
                 std::format_to(std::back_inserter(return_typename), "[{}]", array_size);
             }
@@ -1154,5 +1186,8 @@ namespace glsld {
         }
 
         return result;
+    }
+    std::string BuildHoverMarkdown(const SymbolInfo* symbol, std::string_view current_uri) {
+        return std::string();
     }
 }

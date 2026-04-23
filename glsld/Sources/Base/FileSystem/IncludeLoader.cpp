@@ -1,9 +1,7 @@
 #include "stdafx.h"
 #include "IncludeLoader.hpp"
 
-#include <cstddef>
 #include <exception>
-#include <fstream>
 #include <ios>
 #include <mutex>
 #include <system_error>
@@ -236,37 +234,6 @@ namespace glsld {
         }
 
         return std::nullopt;
-    }
-
-    namespace {
-        std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path) {
-            std::ifstream stream(path, std::ios::binary);
-
-            if (!stream.is_open()) {
-                return { "", "Failed to open file" };
-            }
-
-            std::error_code ec;
-            auto size = std::filesystem::file_size(path, ec);
-            if (ec) {
-                return { "", "Failed to get file size" };
-            }
-
-            std::vector<std::byte> pubsetbuf(1024 * 1024);
-            stream.rdbuf()->pubsetbuf(reinterpret_cast<char*>(pubsetbuf.data()), pubsetbuf.size());
-
-            std::string source;
-            source.resize_and_overwrite(size, [&stream](char* data, auto size) -> std::size_t {
-                stream.read(data, size);
-                return stream.gcount();
-            });
-
-            if (!stream) {
-                return { "", "Failed to read file" };
-            }
-
-            return { std::move(source), "" };
-        }
     }
 
     IncludeLoader::Snapshot IncludeLoader::LoadIncludeFile(

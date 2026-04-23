@@ -3,14 +3,11 @@
 #include <cstdint>
 #include <concepts>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
-namespace glsld {
-    struct QualifierArgumentNode;
-    struct LayoutQualifierNode;
-    struct SpirvIntrinsicNode;
-}
+#include "Analyzer/Ast/Ast.hpp"
 
 namespace glsld::utils {
     // FileSystem
@@ -31,7 +28,11 @@ namespace glsld::utils {
     std::string BuildQualifierParameterList(const IsQualifierArgument auto* node);
 
     // Parsing helper
+    std::string UnquoteStringLiteral(std::string_view text);
     std::int64_t ParseNumberLiteralToInteger(std::string_view text);
+
+    template <typename Ty>
+    std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& pred);
 }
 
 #include "Utils.inl"

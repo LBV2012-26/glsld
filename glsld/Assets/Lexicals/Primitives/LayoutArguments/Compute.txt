@@ -1,0 +1,6 @@
+local_size_x
+local_size_y
+local_size_z
+local_size_x_id
+local_size_y_id
+local_size_z_id

@@ -827,14 +827,6 @@ namespace glsld {
     }
 
     namespace {
-        std::string UnquoteStringLiteral(std::string_view text) {
-            if (text.size() >= 2 && text.front() == '"' && text.back() == '"') {
-                return std::string(text.substr(1, text.size() - 2));
-            }
-
-            return std::string(text);
-        }
-
         bool ExtractAssignment(const QualifierArgumentNode* node, std::string& key, std::shared_ptr<QualifierArgumentNode>& rhs) {
             if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
                 return false;
@@ -850,34 +842,12 @@ namespace glsld {
             return true;
         }
 
-        template <typename Ty>
-        std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& ParsePred) {
-            if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kArray) {
-                return std::nullopt;
-            }
-
-            std::vector<Ty> result;
-            for (const auto& child : rhs->children) {
-                if (child == nullptr || child->arg_kind != required_kind) {
-                    return std::nullopt;
-                }
-
-                auto value = ParsePred(child->token.text);
-                result.push_back(std::move(value));
-            }
-
-            std::ranges::sort(result);
-            auto [first, last] = std::ranges::unique(result);
-            result.erase(first, last);
-            return result;
-        }
-
         std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
-            return CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, UnquoteStringLiteral);
+            return utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, utils::UnquoteStringLiteral);
         }
 
         std::optional<std::vector<std::int64_t>> CollectIntegerArray(const QualifierArgumentNode* rhs) {
-            return CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
+            return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
         }
 
         SpirvTypeSignature BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
@@ -965,7 +935,7 @@ namespace glsld {
                             return signature;
                         }
 
-                        signature.set = UnquoteStringLiteral(rhs->token.text);
+                        signature.set = utils::UnquoteStringLiteral(rhs->token.text);
                         continue;
                     }
 

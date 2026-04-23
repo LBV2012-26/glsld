@@ -1,0 +1,5 @@
+early_fragment_tests
+origin_upper_left
+origin_lower_left
+pixel_center_integer
+post_depth_coverage

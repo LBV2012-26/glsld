@@ -537,21 +537,7 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         if (symbols.size() == 1) {
-            const auto* symbol = symbols.front();
-
-            markdown = "```glsl\n";
-            markdown += FormatSymbol(symbol);
-            markdown += "\n```";
-            markdown += "\n---\n";
-
-            std::string defined_at;
-            if (symbol->location.uri() == uri) {
-                defined_at = "this file";
-            } else {
-                defined_at = utils::UriToPath(symbol->location.uri()).filename().generic_string();
-            }
-
-            markdown += std::format("Defined in {}, line {}", defined_at, symbol->location.line());
+            markdown = BuildHoverMarkdown(symbols.front(), uri);
         } else {
             markdown = std::format("```glsl\nAmbiguous call (+{} candidates)\n---\n", symbols.size());
             for (const auto* symbol : symbols) {

@@ -1,0 +1,6 @@
+location
+set
+binding
+index
+input_attachment_index
+constant_id

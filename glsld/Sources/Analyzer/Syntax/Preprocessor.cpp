@@ -119,7 +119,7 @@ namespace glsld {
                     return utils::ParseNumberLiteralToInteger(token.text);
                 }
 
-                if (token.type == TokenType::kSpirvIntrinsics ||
+                if (token.type == TokenType::kSpirvIntrinsic  ||
                     token.type == TokenType::kIdentifier      ||
                     token.type == TokenType::kPrimitive       ||
                     token.type == TokenType::kKeyword         ||

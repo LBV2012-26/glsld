@@ -85,7 +85,7 @@ namespace glsld {
         kColonColon,             // ::
 
         // GLSL_EXT_spirv_intrinsics
-        kSpirvIntrinsics
+        kSpirvIntrinsic
     };
 
     struct Token {

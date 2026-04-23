@@ -1,13 +1,45 @@
 #include "stdafx.h"
 #include "Source.hpp"
 
+#include <cstddef>
 #include <filesystem>
+#include <format>
+#include <fstream>
 #include <mutex>
 #include <utility>
 
 #include "Utils/Utils.hpp"
 
 namespace glsld {
+    std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path) {
+        std::ifstream stream(path, std::ios::binary);
+
+        if (!stream.is_open()) {
+            return { "", std::format("Failed to open {}: no such file or directory.", path.generic_string()) };
+        }
+
+        std::error_code ec;
+        auto size = std::filesystem::file_size(path, ec);
+        if (ec) {
+            return { "", std::format("Failed to get {} size", path.generic_string()) };
+        }
+
+        std::vector<std::byte> pubsetbuf(1024 * 1024);
+        stream.rdbuf()->pubsetbuf(reinterpret_cast<char*>(pubsetbuf.data()), pubsetbuf.size());
+
+        std::string source;
+        source.resize_and_overwrite(size, [&stream](char* data, auto size) -> std::size_t {
+            stream.read(data, size);
+            return stream.gcount();
+        });
+
+        if (!stream) {
+            return { "", std::format("Failed to read {}", path.generic_string()) };
+        }
+
+        return { std::move(source), "" };
+    }
+
     SourceFile::SourceFile(std::string_view filename, std::string_view uri)
         : filename_{ filename }
         , uri_{ uri }

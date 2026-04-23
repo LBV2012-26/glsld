@@ -12,6 +12,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -101,8 +102,8 @@ namespace glsld {
             }
             std::string_view word = source_.substr(begin, position_ - begin);
 
-            auto it = lexical_table_.find(word);
-            if (it != lexical_table_.end()) {
+            auto it = lexical_table_->find(word);
+            if (it != lexical_table_->end()) {
                 return {
                     .text     = std::string(word),
                     .location = location,
@@ -326,47 +327,12 @@ namespace glsld {
     }
 
     void Lexer::BuildLexicalTable() {
-        if (!lexical_table_.empty()) {
+        if (lexical_table_ != nullptr && !lexical_table_->empty()) {
             return;
         }
 
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslFunctions.txt"),     TokenType::kBuiltInFunction);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslKeywords.txt"),      TokenType::kKeyword);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslPreprocessors.txt"), TokenType::kPreprocessor);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslPrimitives.txt"),    TokenType::kPrimitive);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslTypes.txt"),         TokenType::kBuiltInType);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/glslVariables.txt"),     TokenType::kBuiltInVariable);
-        LoadLexicalFile(utils::GetFilePath("Assets/Lexicals/spirvIntrinsics.txt"),   TokenType::kSpirvIntrinsics);
-    }
-
-    void Lexer::LoadLexicalFile(std::string_view filename, TokenType type) {
-        std::ifstream stream(filename.data(), std::ios::binary);
-        if (!stream.is_open()) {
-            throw std::runtime_error(std::format("Failed to open {}: No such file or directory.", filename));
-        }
-
-        auto size = std::filesystem::file_size(filename);
-
-        std::vector<char> buffer(size);
-        stream.read(buffer.data(), size);
-
-        auto ExtractWords = [](std::span<const char> text) -> std::vector<std::string_view> {
-            auto words_range = text | std::views::chunk_by([](auto lhs, auto rhs) -> bool {
-                return (std::isspace(static_cast<unsigned char>(lhs)) ==
-                        std::isspace(static_cast<unsigned char>(rhs)));
-            }) | std::views::filter([](auto chunk) -> bool {
-                return !std::isspace(static_cast<unsigned char>(chunk.front()));
-            }) | std::views::transform([](auto word_view) -> std::string_view {
-                return std::string_view(word_view);
-            });
-
-            return std::ranges::to<std::vector<std::string_view>>(words_range);
-        };
-
-        auto words = ExtractWords(buffer);
-        for (auto word : words) {
-            lexical_table_.emplace(word, type);
-        }
+        auto& instance = MetadataManager::GetInstance();
+        lexical_table_ = instance.GetLexicalTable();
     }
 
     void Lexer::SkipWhitespaceAndComments() {

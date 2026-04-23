@@ -1,0 +1,16 @@
+attribute varying
+layout readonly writeonly uniform buffer
+shared volatile
+centroid flat smooth noperspective patch sample
+subroutine
+const in out inout
+invariant
+precise precision lowp mediump highp
+inline noinline
+common asm resource
+enum union struct class
+typedef using template this
+public static extern external interface
+sizeof
+cast
+namespace

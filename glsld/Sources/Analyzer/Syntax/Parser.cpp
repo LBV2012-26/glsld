@@ -200,7 +200,7 @@ namespace glsld {
         case TokenType::kBuiltInFunction:
         case TokenType::kBuiltInVariable:
         case TokenType::kIdentifier:
-        case TokenType::kSpirvIntrinsics:
+        case TokenType::kSpirvIntrinsic:
             node = ParseCodeStatement();
             break;
         case TokenType::kKeyword:
@@ -454,7 +454,7 @@ namespace glsld {
         bool common_calling = type_spec.empty() &&
             (token.type == TokenType::kIdentifier ||
              token.type == TokenType::kBuiltInFunction ||
-             token.type == TokenType::kSpirvIntrinsics);
+             token.type == TokenType::kSpirvIntrinsic);
 
         bool constructor       = !type_spec.empty() && token.type == TokenType::kOpenParen;
         bool is_expr_primitive = token.text == "true" || token.text == "false";
@@ -645,7 +645,7 @@ namespace glsld {
 
             if (token.type == TokenType::kPrimitive && TryParseLayoutQualifier(type_spec))
                 continue;
-            if (token.type == TokenType::kSpirvIntrinsics && TryParseSpirvIntrinsics(type_spec))
+            if (token.type == TokenType::kSpirvIntrinsic && TryParseSpirvIntrinsics(type_spec))
                 continue;
 
             if (token.type == TokenType::kPrimitive || token.type == TokenType::kBuiltInType) {
@@ -758,7 +758,7 @@ namespace glsld {
                 token.type == TokenType::kBuiltInType     ||
                 token.type == TokenType::kBuiltInFunction ||
                 token.type == TokenType::kBuiltInVariable ||
-                token.type == TokenType::kSpirvIntrinsics)
+                token.type == TokenType::kSpirvIntrinsic)
             {
                 return QualifierArgumentKind::kIdentifier;
             }
@@ -1028,7 +1028,7 @@ namespace glsld {
 
     std::shared_ptr<SpirvIntrinsicNode> Parser::ParseSpirvIntrinsics() {
         // current token is SPIR-V intrinsic keyword
-        if (current_token().type != TokenType::kSpirvIntrinsics) {
+        if (current_token().type != TokenType::kSpirvIntrinsic) {
             return nullptr;
         }
 
@@ -1209,7 +1209,7 @@ namespace glsld {
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
         case TokenType::kPrimitive:
-        case TokenType::kSpirvIntrinsics:
+        case TokenType::kSpirvIntrinsic:
             return ParseVariableReference();
 
         // 前缀一元运算符 (!b, -x, ++i, --j, ~mask)
