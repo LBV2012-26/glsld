@@ -499,7 +499,7 @@ namespace glsld {
                 if (specifier.text != "spirv_type") {
                     param_typename += specifier.text;
                 } else if (param->type_spec.spirv_type != nullptr) {
-                    auto parameters = utils::BuildQualifierParameterList(param->type_spec.spirv_type.get());
+                    auto parameters = utils::BuildQualifierParameterList(param->type_spec.spirv_type);
                     param_typename += std::format("spirv_type({})", parameters);
                 }
             }
@@ -855,7 +855,7 @@ namespace glsld {
         };
     }
 
-    std::shared_ptr<QualifierArgumentNode> Parser::ParseQualifierArguments(std::span<const Token> tokens) {
+    std::unique_ptr<QualifierArgumentNode> Parser::ParseQualifierArguments(std::span<const Token> tokens) {
         auto ComputeTokenEnd = [](const Token& token) -> SourceLocation {
             return SourceLocation(
                 token.location.source_file(),
@@ -864,8 +864,8 @@ namespace glsld {
             );
         };
 
-        auto MakeLeaf = [this, &ComputeTokenEnd](const Token& token) -> std::shared_ptr<QualifierArgumentNode> {
-            auto node = std::make_shared<QualifierArgumentNode>(current_scope());
+        auto MakeLeaf = [this, &ComputeTokenEnd](const Token& token) -> std::unique_ptr<QualifierArgumentNode> {
+            auto node = std::make_unique<QualifierArgumentNode>(current_scope());
 
             node->begin         = token.location;
             node->arg_kind      = ResolveQualifierArgumentKind(token);
@@ -893,7 +893,8 @@ namespace glsld {
         };
 
         auto Build = [this, &MakeLeaf, &FinalizeRangeFromChildren](this auto&& self, std::span<const Token> raw_slice)
-            -> std::shared_ptr<QualifierArgumentNode> {
+            -> std::unique_ptr<QualifierArgumentNode>
+        {
             auto slice = Trim(raw_slice);
             if (slice.empty()) {
                 return nullptr;
@@ -904,7 +905,7 @@ namespace glsld {
             }
 
             if (IsWrappedBy(slice, TokenType::kOpenBracket, TokenType::kCloseBracket)) {
-                auto node = std::make_shared<QualifierArgumentNode>(current_scope());
+                auto node = std::make_unique<QualifierArgumentNode>(current_scope());
                 node->arg_kind = QualifierArgumentKind::kArray;
                 node->token    = slice.front();
 
@@ -922,7 +923,7 @@ namespace glsld {
             }
 
             if (IsWrappedBy(slice, TokenType::kOpenParen, TokenType::kCloseParen)) {
-                auto node = std::make_shared<QualifierArgumentNode>(current_scope());
+                auto node = std::make_unique<QualifierArgumentNode>(current_scope());
                 node->arg_kind = QualifierArgumentKind::kGroup;
                 node->token    = slice.front();
 
@@ -937,7 +938,7 @@ namespace glsld {
             }
 
             if (auto equal_pos = FindTopLevel(slice, TokenType::kEqual)) {
-                auto node = std::make_shared<QualifierArgumentNode>(current_scope());
+                auto node = std::make_unique<QualifierArgumentNode>(current_scope());
                 node->arg_kind = QualifierArgumentKind::kAssignment;
                 node->token    = slice[*equal_pos];
 
@@ -953,7 +954,7 @@ namespace glsld {
                 return node;
             }
 
-            auto node = std::make_shared<QualifierArgumentNode>(current_scope());
+            auto node = std::make_unique<QualifierArgumentNode>(current_scope());
             node->arg_kind = QualifierArgumentKind::kSequence;
             node->token    = slice.front();
 
@@ -968,14 +969,14 @@ namespace glsld {
         return Build(tokens);
     }
 
-    std::shared_ptr<LayoutQualifierNode> Parser::ParseLayoutQualifier() {
+    std::unique_ptr<LayoutQualifierNode> Parser::ParseLayoutQualifier() {
         // current token is "layout"
         const auto& token = current_token();
         if (token.type != TokenType::kPrimitive || token.text != "layout") {
             return nullptr;
         }
 
-        auto node = std::make_shared<LayoutQualifierNode>(current_scope());
+        auto node = std::make_unique<LayoutQualifierNode>(current_scope());
         node->begin = token.location;
         node->end   = GetCurrentTokenEnd();
         ConsumeToken();
@@ -1026,7 +1027,7 @@ namespace glsld {
         }
     }
 
-    std::shared_ptr<SpirvIntrinsicNode> Parser::ParseSpirvIntrinsics() {
+    std::unique_ptr<SpirvIntrinsicNode> Parser::ParseSpirvIntrinsics() {
         // current token is SPIR-V intrinsic keyword
         if (current_token().type != TokenType::kSpirvIntrinsic) {
             return nullptr;
@@ -1034,7 +1035,7 @@ namespace glsld {
 
         const auto& keyword = current_token();
 
-        auto node            = std::make_shared<SpirvIntrinsicNode>(current_scope());
+        auto node            = std::make_unique<SpirvIntrinsicNode>(current_scope());
         node->keyword        = keyword;
         node->intrinsic_kind = ResolveSpirvIntrinsicKind(keyword.text);
         node->begin          = keyword.location;
@@ -1074,7 +1075,7 @@ namespace glsld {
             return false;
         }
 
-        type_spec.layouts.push_back(node);
+        type_spec.layouts.push_back(std::move(node));
         return true;
     }
 
@@ -1085,12 +1086,11 @@ namespace glsld {
         }
 
         type_spec.specifiers.push_back(node->keyword);
-        type_spec.spirv_intrinsics.push_back(node);
-
         if (node->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
-            type_spec.spirv_type = node;
+            type_spec.spirv_type = node.get();
         }
 
+        type_spec.spirv_intrinsics.push_back(std::move(node));
         return true;
     }
 

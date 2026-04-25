@@ -157,6 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
@@ -224,6 +225,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Sources\Analyzer\Ast\Ast.inl" />
     <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />

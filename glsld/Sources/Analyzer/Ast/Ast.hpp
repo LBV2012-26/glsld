@@ -1,6 +1,6 @@
+// Ast.hpp
 #pragma once
 
-#include <algorithm>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -58,12 +58,19 @@ namespace glsld {
         Scope* located_scope{ nullptr };
         Scope* internal_scope{ nullptr };
 
-        AstNode(Scope* scope)
-            : located_scope{ scope }
-        {}
-
+        AstNode(Scope* scope);
+        AstNode(const AstNode& other);
+        AstNode(AstNode&&) noexcept = default;
         virtual ~AstNode() = default;
+
+        AstNode& operator=(const AstNode& other);
+        AstNode& operator=(AstNode&&) noexcept = default;
+
         virtual AstNodeKind kind() const = 0;
+        virtual std::unique_ptr<AstNode> Clone() const = 0;
+
+        template <typename Self>
+        auto DefaultClone(this Self&& self);
     };
 
     enum class QualifierArgumentKind {
@@ -81,24 +88,34 @@ namespace glsld {
     struct QualifierArgumentNode final : public AstNode {
         QualifierArgumentKind arg_kind{ QualifierArgumentKind::kUnknown };
         Token                 token;
-        std::vector<std::shared_ptr<QualifierArgumentNode>> children;
+        std::vector<std::unique_ptr<QualifierArgumentNode>> children;
 
         using AstNode::AstNode;
+        QualifierArgumentNode(const QualifierArgumentNode& other);
+        QualifierArgumentNode(QualifierArgumentNode&&) noexcept = default;
+        ~QualifierArgumentNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kQualifierArgument;
-        }
+        QualifierArgumentNode& operator=(const QualifierArgumentNode& other);
+        QualifierArgumentNode& operator=(QualifierArgumentNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct LayoutQualifierNode : public AstNode {
         std::vector<Token>                                  raw_tokens; // 不包含外层括号
-        std::vector<std::shared_ptr<QualifierArgumentNode>> params;
+        std::vector<std::unique_ptr<QualifierArgumentNode>> params;
 
         using AstNode::AstNode;
+        LayoutQualifierNode(const LayoutQualifierNode& other);
+        LayoutQualifierNode(LayoutQualifierNode&&) noexcept = default;
+        ~LayoutQualifierNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kLayoutQualifier;
-        }
+        LayoutQualifierNode& operator=(const LayoutQualifierNode& other);
+        LayoutQualifierNode& operator=(LayoutQualifierNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     enum class SpirvIntrinsicKind {
@@ -113,33 +130,56 @@ namespace glsld {
         Token              keyword;
 
         using LayoutQualifierNode::LayoutQualifierNode;
+        SpirvIntrinsicNode(const SpirvIntrinsicNode& other);
+        SpirvIntrinsicNode(SpirvIntrinsicNode&&) noexcept = default;
+        ~SpirvIntrinsicNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kSpirvIntrinsic;
-        }
+        SpirvIntrinsicNode& operator=(const SpirvIntrinsicNode& other);
+        SpirvIntrinsicNode& operator=(SpirvIntrinsicNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
-    struct ExpressionNode;
+    struct ExpressionNode : public AstNode {
+        TypeInfo evaluated_type;
+
+        using AstNode::AstNode;
+        ExpressionNode(const ExpressionNode& other);
+        ExpressionNode(ExpressionNode&&) noexcept = default;
+        ~ExpressionNode() override = default;
+
+        ExpressionNode& operator=(const ExpressionNode& other);
+        ExpressionNode& operator=(ExpressionNode&&) noexcept = default;
+    };
+
     struct AttributeNode final : public AstNode {
         Token                           namespace_;
         Token                           name;
         std::unique_ptr<ExpressionNode> argument;
 
         using AstNode::AstNode;
+        AttributeNode(const AttributeNode& other);
+        AttributeNode(AttributeNode&&) noexcept = default;
+        ~AttributeNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kAttribute;
-        }
+        AttributeNode& operator=(const AttributeNode& other);
+        AttributeNode& operator=(AttributeNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct StatementNode : public AstNode {
         std::vector<std::unique_ptr<AttributeNode>> attributes;
-        using AstNode::AstNode;
-    };
 
-    struct ExpressionNode : public AstNode {
-        TypeInfo evaluated_type;
         using AstNode::AstNode;
+        StatementNode(const StatementNode& other);
+        StatementNode(StatementNode&&) noexcept = default;
+        ~StatementNode() override = default;
+
+        StatementNode& operator=(const StatementNode& other);
+        StatementNode& operator=(StatementNode&&) noexcept = default;
     };
 
     struct PreprocessorNode final : public StatementNode {
@@ -147,28 +187,45 @@ namespace glsld {
         std::vector<Token>                          tokens;
         std::vector<std::string>                    params;
         std::vector<std::unique_ptr<StatementNode>> body;
-        const SymbolInfo*                           symbol{ nullptr };
+        const SymbolInfo* symbol{ nullptr };
 
         using StatementNode::StatementNode;
+        PreprocessorNode(const PreprocessorNode& other);
+        PreprocessorNode(PreprocessorNode&&) noexcept = default;
+        ~PreprocessorNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kPreprocessor;
-        }
+        PreprocessorNode& operator=(const PreprocessorNode& other);
+        PreprocessorNode& operator=(PreprocessorNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct DeclarationNode : public StatementNode {
         SymbolInfo* declared_symbol{ nullptr };
+
         using StatementNode::StatementNode;
+        DeclarationNode(const DeclarationNode& other);
+        DeclarationNode(DeclarationNode&&) noexcept = default;
+        ~DeclarationNode() override = default;
+
+        DeclarationNode& operator=(const DeclarationNode& other);
+        DeclarationNode& operator=(DeclarationNode&&) noexcept = default;
     };
 
     struct CompoundStatementNode final : public StatementNode {
         std::vector<std::unique_ptr<StatementNode>> children;
 
         using StatementNode::StatementNode;
+        CompoundStatementNode(const CompoundStatementNode& other);
+        CompoundStatementNode(CompoundStatementNode&&) noexcept = default;
+        ~CompoundStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kCompoundStatement;
-        }
+        CompoundStatementNode& operator=(const CompoundStatementNode& other);
+        CompoundStatementNode& operator=(CompoundStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct IfStatementNode final : public StatementNode {
@@ -177,10 +234,15 @@ namespace glsld {
         std::unique_ptr<StatementNode>  else_branch;
 
         using StatementNode::StatementNode;
+        IfStatementNode(const IfStatementNode& other);
+        IfStatementNode(IfStatementNode&&) noexcept = default;
+        ~IfStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kIfStatement;
-        }
+        IfStatementNode& operator=(const IfStatementNode& other);
+        IfStatementNode& operator=(IfStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct ForStatementNode final : public StatementNode {
@@ -190,10 +252,15 @@ namespace glsld {
         std::unique_ptr<StatementNode>  body;
 
         using StatementNode::StatementNode;
+        ForStatementNode(const ForStatementNode& other);
+        ForStatementNode(ForStatementNode&&) noexcept = default;
+        ~ForStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kForStatement;
-        }
+        ForStatementNode& operator=(const ForStatementNode& other);
+        ForStatementNode& operator=(ForStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct WhileStatementNode final : public StatementNode {
@@ -201,10 +268,15 @@ namespace glsld {
         std::unique_ptr<StatementNode>  body;
 
         using StatementNode::StatementNode;
+        WhileStatementNode(const WhileStatementNode& other);
+        WhileStatementNode(WhileStatementNode&&) noexcept = default;
+        ~WhileStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kWhileStatement;
-        }
+        WhileStatementNode& operator=(const WhileStatementNode& other);
+        WhileStatementNode& operator=(WhileStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct DoStatementNode final : public StatementNode {
@@ -212,10 +284,15 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> condition;
 
         using StatementNode::StatementNode;
+        DoStatementNode(const DoStatementNode& other);
+        DoStatementNode(DoStatementNode&&) noexcept = default;
+        ~DoStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kDoStatement;
-        }
+        DoStatementNode& operator=(const DoStatementNode& other);
+        DoStatementNode& operator=(DoStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct SwitchStatementNode final : public StatementNode {
@@ -223,10 +300,15 @@ namespace glsld {
         std::vector<std::unique_ptr<StatementNode>> cases;
 
         using StatementNode::StatementNode;
+        SwitchStatementNode(const SwitchStatementNode& other);
+        SwitchStatementNode(SwitchStatementNode&&) noexcept = default;
+        ~SwitchStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kSwitchStatement;
-        }
+        SwitchStatementNode& operator=(const SwitchStatementNode& other);
+        SwitchStatementNode& operator=(SwitchStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct CaseStatementNode final : public StatementNode {
@@ -234,72 +316,112 @@ namespace glsld {
         std::vector<std::unique_ptr<StatementNode>> body;
 
         using StatementNode::StatementNode;
+        CaseStatementNode(const CaseStatementNode& other);
+        CaseStatementNode(CaseStatementNode&&) noexcept = default;
+        ~CaseStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kCaseStatement;
-        }
+        CaseStatementNode& operator=(const CaseStatementNode& other);
+        CaseStatementNode& operator=(CaseStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct ReturnStatementNode final : public StatementNode {
         std::unique_ptr<ExpressionNode> return_value;
 
         using StatementNode::StatementNode;
+        ReturnStatementNode(const ReturnStatementNode& other);
+        ReturnStatementNode(ReturnStatementNode&&) noexcept = default;
+        ~ReturnStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kReturnStatement;
-        }
+        ReturnStatementNode& operator=(const ReturnStatementNode& other);
+        ReturnStatementNode& operator=(ReturnStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct BreakStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
+        BreakStatementNode(const BreakStatementNode& other);
+        BreakStatementNode(BreakStatementNode&&) noexcept = default;
+        ~BreakStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kBreakStatement;
-        }
+        BreakStatementNode& operator=(const BreakStatementNode& other);
+        BreakStatementNode& operator=(BreakStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct ContinueStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
+        ContinueStatementNode(const ContinueStatementNode& other);
+        ContinueStatementNode(ContinueStatementNode&&) noexcept = default;
+        ~ContinueStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kContinueStatement;
-        }
+        ContinueStatementNode& operator=(const ContinueStatementNode& other);
+        ContinueStatementNode& operator=(ContinueStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct DiscardStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
+        DiscardStatementNode(const DiscardStatementNode& other);
+        DiscardStatementNode(DiscardStatementNode&&) noexcept = default;
+        ~DiscardStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kDiscardStatement;
-        }
+        DiscardStatementNode& operator=(const DiscardStatementNode& other);
+        DiscardStatementNode& operator=(DiscardStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct ExpressionStatementNode final : public StatementNode {
-        using StatementNode::StatementNode;
-
         std::unique_ptr<ExpressionNode> expr;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kExpressionStatement;
-        }
+        using StatementNode::StatementNode;
+        ExpressionStatementNode(const ExpressionStatementNode& other);
+        ExpressionStatementNode(ExpressionStatementNode&&) noexcept = default;
+        ~ExpressionStatementNode() override = default;
+
+        ExpressionStatementNode& operator=(const ExpressionStatementNode& other);
+        ExpressionStatementNode& operator=(ExpressionStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct NullStatementNode final : public StatementNode {
         using StatementNode::StatementNode;
+        NullStatementNode(const NullStatementNode& other);
+        NullStatementNode(NullStatementNode&&) noexcept = default;
+        ~NullStatementNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kNullStatement;
-        }
+        NullStatementNode& operator=(const NullStatementNode& other);
+        NullStatementNode& operator=(NullStatementNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct InitializerListExpressionNode final : public ExpressionNode {
         std::vector<std::unique_ptr<ExpressionNode>> elements;
 
         using ExpressionNode::ExpressionNode;
+        InitializerListExpressionNode(const InitializerListExpressionNode& other);
+        InitializerListExpressionNode(InitializerListExpressionNode&&) noexcept = default;
+        ~InitializerListExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kInitializerListExpression;
-        }
+        InitializerListExpressionNode& operator=(const InitializerListExpressionNode& other);
+        InitializerListExpressionNode& operator=(InitializerListExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct BinaryExpressionNode final : public ExpressionNode {
@@ -308,10 +430,15 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> right;
 
         using ExpressionNode::ExpressionNode;
+        BinaryExpressionNode(const BinaryExpressionNode& other);
+        BinaryExpressionNode(BinaryExpressionNode&&) noexcept = default;
+        ~BinaryExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kBinaryExpression;
-        }
+        BinaryExpressionNode& operator=(const BinaryExpressionNode& other);
+        BinaryExpressionNode& operator=(BinaryExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct UnaryExpressionNode final : public ExpressionNode {
@@ -320,10 +447,15 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> operand;
 
         using ExpressionNode::ExpressionNode;
+        UnaryExpressionNode(const UnaryExpressionNode& other);
+        UnaryExpressionNode(UnaryExpressionNode&&) noexcept = default;
+        ~UnaryExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kUnaryExpression;
-        }
+        UnaryExpressionNode& operator=(const UnaryExpressionNode& other);
+        UnaryExpressionNode& operator=(UnaryExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct TernaryExpressionNode final : public ExpressionNode {
@@ -332,10 +464,15 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> false_expr;
 
         using ExpressionNode::ExpressionNode;
+        TernaryExpressionNode(const TernaryExpressionNode& other);
+        TernaryExpressionNode(TernaryExpressionNode&&) noexcept = default;
+        ~TernaryExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kTernaryExpression;
-        }
+        TernaryExpressionNode& operator=(const TernaryExpressionNode& other);
+        TernaryExpressionNode& operator=(TernaryExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct CallExpressionNode final : public ExpressionNode {
@@ -343,10 +480,15 @@ namespace glsld {
         std::vector<std::unique_ptr<ExpressionNode>> args;
 
         using ExpressionNode::ExpressionNode;
+        CallExpressionNode(const CallExpressionNode& other);
+        CallExpressionNode(CallExpressionNode&&) noexcept = default;
+        ~CallExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kCallExpression;
-        }
+        CallExpressionNode& operator=(const CallExpressionNode& other);
+        CallExpressionNode& operator=(CallExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct IndexExpressionNode final : public ExpressionNode {
@@ -354,10 +496,15 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> index;
 
         using ExpressionNode::ExpressionNode;
+        IndexExpressionNode(const IndexExpressionNode& other);
+        IndexExpressionNode(IndexExpressionNode&&) noexcept = default;
+        ~IndexExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kIndexExpression;
-        }
+        IndexExpressionNode& operator=(const IndexExpressionNode& other);
+        IndexExpressionNode& operator=(IndexExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct VariableExpressionNode final : public ExpressionNode {
@@ -373,20 +520,30 @@ namespace glsld {
         SymbolReference linked_symbols{ std::monostate{} };
 
         using ExpressionNode::ExpressionNode;
+        VariableExpressionNode(const VariableExpressionNode& other);
+        VariableExpressionNode(VariableExpressionNode&&) noexcept = default;
+        ~VariableExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kVariableExpression;
-        }
+        VariableExpressionNode& operator=(const VariableExpressionNode& other);
+        VariableExpressionNode& operator=(VariableExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct RawExpressionNode final : public ExpressionNode {
         std::vector<Token> tokens;
 
         using ExpressionNode::ExpressionNode;
+        RawExpressionNode(const RawExpressionNode& other);
+        RawExpressionNode(RawExpressionNode&&) noexcept = default;
+        ~RawExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kLiteralExpression;
-        }
+        RawExpressionNode& operator=(const RawExpressionNode& other);
+        RawExpressionNode& operator=(RawExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct MemberAccessExpressionNode final : public ExpressionNode {
@@ -394,19 +551,32 @@ namespace glsld {
         std::unique_ptr<ExpressionNode> member;
 
         using ExpressionNode::ExpressionNode;
+        MemberAccessExpressionNode(const MemberAccessExpressionNode& other);
+        MemberAccessExpressionNode(MemberAccessExpressionNode&&) noexcept = default;
+        ~MemberAccessExpressionNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kMemberAccessExpression;
-        }
+        MemberAccessExpressionNode& operator=(const MemberAccessExpressionNode& other);
+        MemberAccessExpressionNode& operator=(MemberAccessExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct TypeSpecifier {
         std::vector<Token>                                specifiers;
         std::vector<Token>                                template_args;
-        std::vector<std::shared_ptr<ExpressionNode>>      array_sizes;
-        std::vector<std::shared_ptr<LayoutQualifierNode>> layouts;
-        std::vector<std::shared_ptr<SpirvIntrinsicNode>>  spirv_intrinsics;
-        std::shared_ptr<SpirvIntrinsicNode>               spirv_type;
+        std::vector<std::unique_ptr<ExpressionNode>>      array_sizes;
+        std::vector<std::unique_ptr<LayoutQualifierNode>> layouts;
+        std::vector<std::unique_ptr<SpirvIntrinsicNode>>  spirv_intrinsics;
+        const SpirvIntrinsicNode*                         spirv_type{ nullptr };
+
+        TypeSpecifier() = default;
+        TypeSpecifier(const TypeSpecifier& other);
+        TypeSpecifier(TypeSpecifier&&) noexcept = default;
+        ~TypeSpecifier() = default;
+
+        TypeSpecifier& operator=(const TypeSpecifier& other);
+        TypeSpecifier& operator=(TypeSpecifier&&) noexcept = default;
 
         Token typename_token() const {
             return specifiers.empty() ? Token{} : specifiers.back();
@@ -416,15 +586,11 @@ namespace glsld {
             return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
         }
 
-        bool has_keyword(std::string_view name) const {
-            return std::ranges::any_of(specifiers, [name](auto& token) -> bool {
-                return token.text == name;
-            });
-        }
-
         bool empty() const {
             return specifiers.empty();
         }
+
+        bool has_keyword(std::string_view name) const;
     };
 
     struct VariableDeclarationNode final : public DeclarationNode {
@@ -432,20 +598,30 @@ namespace glsld {
         TypeSpecifier                   type_spec;
 
         using DeclarationNode::DeclarationNode;
+        VariableDeclarationNode(const VariableDeclarationNode& other);
+        VariableDeclarationNode(VariableDeclarationNode&&) noexcept = default;
+        ~VariableDeclarationNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kVariableDeclaration;
-        }
+        VariableDeclarationNode& operator=(const VariableDeclarationNode& other);
+        VariableDeclarationNode& operator=(VariableDeclarationNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct DeclarationGroupNode final : public StatementNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> declarations;
 
         using StatementNode::StatementNode;
+        DeclarationGroupNode(const DeclarationGroupNode& other);
+        DeclarationGroupNode(DeclarationGroupNode&&) noexcept = default;
+        ~DeclarationGroupNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kDeclarationGroup;
-        }
+        DeclarationGroupNode& operator=(const DeclarationGroupNode& other);
+        DeclarationGroupNode& operator=(DeclarationGroupNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct FunctionDeclarationNode final : public DeclarationNode {
@@ -454,10 +630,15 @@ namespace glsld {
         TypeSpecifier                                         type_spec;
 
         using DeclarationNode::DeclarationNode;
+        FunctionDeclarationNode(const FunctionDeclarationNode& other);
+        FunctionDeclarationNode(FunctionDeclarationNode&&) noexcept = default;
+        ~FunctionDeclarationNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kFunctionDeclaration;
-        }
+        FunctionDeclarationNode& operator=(const FunctionDeclarationNode& other);
+        FunctionDeclarationNode& operator=(FunctionDeclarationNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct InterfaceDeclarationNode final : public DeclarationNode {
@@ -466,10 +647,15 @@ namespace glsld {
         TypeSpecifier                          type_spec;
 
         using DeclarationNode::DeclarationNode;
+        InterfaceDeclarationNode(const InterfaceDeclarationNode& other);
+        InterfaceDeclarationNode(InterfaceDeclarationNode&&) noexcept = default;
+        ~InterfaceDeclarationNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kInterfaceDeclaration;
-        }
+        InterfaceDeclarationNode& operator=(const InterfaceDeclarationNode& other);
+        InterfaceDeclarationNode& operator=(InterfaceDeclarationNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct StructDeclarationNode final : public DeclarationNode {
@@ -477,10 +663,15 @@ namespace glsld {
         std::unique_ptr<DeclarationGroupNode>  instances;
 
         using DeclarationNode::DeclarationNode;
+        StructDeclarationNode(const StructDeclarationNode& other);
+        StructDeclarationNode(StructDeclarationNode&&) noexcept = default;
+        ~StructDeclarationNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kStructDeclaration;
-        }
+        StructDeclarationNode& operator=(const StructDeclarationNode& other);
+        StructDeclarationNode& operator=(StructDeclarationNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 
     struct TranslationUnitNode final : public AstNode {
@@ -488,9 +679,16 @@ namespace glsld {
         std::vector<PreprocessorNode*> preprocessor_references;
 
         using AstNode::AstNode;
+        TranslationUnitNode(const TranslationUnitNode& other);
+        TranslationUnitNode(TranslationUnitNode&&) noexcept = default;
+        ~TranslationUnitNode() override = default;
 
-        AstNodeKind kind() const override {
-            return AstNodeKind::kTranslationUnit;
-        }
+        TranslationUnitNode& operator=(const TranslationUnitNode& other);
+        TranslationUnitNode& operator=(TranslationUnitNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        std::unique_ptr<AstNode> Clone() const override;
     };
 }
+
+#include "Ast.inl"

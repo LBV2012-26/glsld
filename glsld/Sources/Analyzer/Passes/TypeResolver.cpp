@@ -827,19 +827,17 @@ namespace glsld {
     }
 
     namespace {
-        bool ExtractAssignment(const QualifierArgumentNode* node, std::string& key, std::shared_ptr<QualifierArgumentNode>& rhs) {
+        std::pair<const QualifierArgumentNode*, std::string> ExtractAssignment(const QualifierArgumentNode* node) {
             if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
-                return false;
+                return { nullptr, "" };
             }
 
             const auto& lhs = node->children.front();
             if (lhs == nullptr || lhs->arg_kind != QualifierArgumentKind::kIdentifier) {
-                return false;
+                return { nullptr, "" };
             }
 
-            key = lhs->token.text;
-            rhs = node->children[1];
-            return true;
+            return { node->children[1].get(), lhs->token.text };
         }
 
         std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
@@ -865,9 +863,8 @@ namespace glsld {
                     continue;
                 }
 
-                std::string key;
-                std::shared_ptr<QualifierArgumentNode> rhs;
-                if (ExtractAssignment(param.get(), key, rhs)) {
+                auto [rhs, key] = ExtractAssignment(param.get());
+                if (!key.empty()) {
                     if (key == "extensions") {
                         if (!signature.extensions.empty()) {
                             signature.valid = false;
@@ -875,7 +872,7 @@ namespace glsld {
                             return signature;
                         }
 
-                        auto extensions = CollectStringArray(rhs.get());
+                        auto extensions = CollectStringArray(rhs);
                         if (!extensions.has_value()) {
                             signature.valid = false;
                             signature.error = "invalid extensions format";
@@ -893,7 +890,7 @@ namespace glsld {
                             return signature;
                         }
 
-                        auto capabilities = CollectIntegerArray(rhs.get());
+                        auto capabilities = CollectIntegerArray(rhs);
                         if (!capabilities.has_value()) {
                             signature.valid = false;
                             signature.error = "invalid capabilities format";
@@ -1026,7 +1023,7 @@ namespace glsld {
         if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
             type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride)
         {
-            info.spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type.get());
+            info.spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type);
 
             if (!info.spirv_signature->valid) {
                 info.typename_token = {
@@ -1044,7 +1041,7 @@ namespace glsld {
 
             info.typename_token = type_spec.spirv_type->keyword;
 
-            auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type.get());
+            auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type);
             info.spirv_type = std::format("spirv_type({})", spirv_type_params);
 
             info.type_desc = {

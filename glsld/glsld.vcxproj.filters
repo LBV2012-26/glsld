@@ -28,6 +28,7 @@
     <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
+    <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -76,6 +77,7 @@
     <None Include="Sources\Server\Workspace.inl" />
     <None Include="Sources\Utils\Utils.inl" />
     <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
+    <None Include="Sources\Analyzer\Ast\Ast.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">

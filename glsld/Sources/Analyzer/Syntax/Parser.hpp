@@ -70,9 +70,9 @@ namespace glsld {
 
         TypeSpecifier ParseQualifiersAndType();
         std::vector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
-        std::shared_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
-        std::shared_ptr<LayoutQualifierNode> ParseLayoutQualifier();
-        std::shared_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
+        std::unique_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
+        std::unique_ptr<LayoutQualifierNode> ParseLayoutQualifier();
+        std::unique_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
 
         bool TryParseLayoutQualifier(TypeSpecifier& type_spec);
         bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
