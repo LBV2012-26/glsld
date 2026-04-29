@@ -18,6 +18,7 @@
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
@@ -993,45 +994,138 @@ namespace glsld {
             });
         }
 
-        std::string SerializeCanonicalLayoutParameters(std::span<const std::shared_ptr<QualifierArgumentNode>> params) {
+        std::string SerializeCanonicalLayoutParameters(std::span<const QualifierArgumentNode*> params) {
+            auto& metadata = MetadataManager::GetInstance();
             StringHeteroHashMap<std::string> param_map;
 
-            for (const auto& param : params) {
+            for (const auto* param : params) {
                 if (param->arg_kind == QualifierArgumentKind::kIdentifier) {
-                    if (param->token.text == "scalar" ||
-                        param->token.text == "std140" ||
-                        param->token.text == "std430" ||
-                        param->token.text == "shared" ||
-                        param->token.text == "packed")
-                    {
-                        param_map["memory_layout"] = param->token.text;
+                    auto subtype = metadata.GetLexicalSubtype(param->token.text);
+                    if (!subtype.has_value()) {
                         continue;
                     }
 
-                    if (param->token.text == "row_major" || param->token.text == "column_major") {
-                        param_map["matrix_layout"] = param->token.text;
-                        continue;
-                    }
-
-                    if (param->token.text == "push_constant"    ||
-                        param->token.text == "buffer_reference" ||
-                        param->token.text == "descriptor_heap")
-                    {
-                        param_map["storage_class"] = param->token.text;
-                        continue;
-                    }
+                    param_map[*subtype] = param->token.text;
+                    continue;
                 }
 
-                if (IsAssignmentWithKey(param.get(), "location")) {
-                    param_map["location"] = utils::SerializeQualifierArguments(param.get());
-                } else if (IsAssignmentWithKey(param.get(), "set")) {
-                    param_map["set"] = utils::SerializeQualifierArguments(param.get());
-                } else if (IsAssignmentWithKey(param.get(), "binding")) {
-                    param_map["binding"] = utils::SerializeQualifierArguments(param.get());
-                } else if (IsAssignmentWithKey(param.get(), "index")) {
-                    param_map["index"] = utils::SerializeQualifierArguments(param.get());
-                } else if (IsAssignmentWithKey(param.get(), "offset")) {
-                    param_map["offset"] = utils::SerializeQualifierArguments(param.get());
+                if (param->arg_kind == QualifierArgumentKind::kAssignment &&
+                    !param->children.empty() &&
+                    param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier)
+                {
+                    const auto& identifier_token = param->children.front()->token;
+                    auto subtype = metadata.GetLexicalSubtype(identifier_token.text);
+                    if (!subtype.has_value()) {
+                        continue;
+                    }
+
+                    param_map[*subtype] = identifier_token.text;
+                }
+            }
+
+            std::string result;
+            auto AppendBucket = [&result](std::string_view bucket) -> void {
+                if (bucket.empty()) {
+                    return;
+                }
+
+                if (!result.empty()) {
+                    result += ", ";
+                }
+
+                result += bucket;
+            };
+
+            for (const auto& bucket : param_map) {
+                if (bucket.first.contains("LayoutDeclarers")) {
+                    AppendBucket(bucket.second);
+                }
+            }
+
+            for (const auto& bucket : param_map) {
+                if (bucket.first.contains("LayoutArguments")) {
+                    AppendBucket(bucket.second);
+                }
+            }
+        }
+
+        std::string RenderMergedLayout(std::span<const LayoutQualifierNode*> layouts) {
+            std::vector<const QualifierArgumentNode*> canonical_params;
+            for (const auto* layout : layouts) {
+                if (layout == nullptr) {
+                    continue;
+                }
+
+                for (const auto& param : layout->params) {
+                    if (param != nullptr) {
+                        canonical_params.push_back(param.get());
+                    }
+                }
+            }
+
+            if (canonical_params.empty()) {
+                return {};
+            }
+
+            return std::format("layout({})", SerializeCanonicalLayoutParameters(canonical_params));
+        }
+
+        std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
+            return utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, utils::UnquoteStringLiteral);
+        }
+
+        std::optional<std::vector<std::int64_t>> CollectIntegerArray(const QualifierArgumentNode* rhs) {
+            return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
+        }
+
+        std::string RenderCanonicalSpirvCall(const SpirvIntrinsicNode* node) {
+            if (node == nullptr) {
+                return {};
+            }
+
+            const auto& params = node->params;
+            const auto& name   = node->keyword.text;
+            std::vector<std::string> ordered;
+
+            if (name == "spirv_type" || name == "spirv_instruction") {
+                std::vector<std::string>  exts_union;
+                std::vector<std::int64_t> caps_union;
+                std::vector<std::string>  sets;
+                std::vector<std::string>  ids;
+                std::vector<std::string>  positional;
+
+                for (const auto& param : params) {
+                    if (IsAssignmentWithKey(param.get(), "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back().get());
+                        if (!extensions.has_value()) {
+                            continue;
+                        }
+
+                        exts_union.insert_range(exts_union.end(), *extensions | std::views::as_rvalue);
+                        continue;
+                    }
+
+                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                        if (!capabilities.has_value()) {
+                            continue;
+                        }
+
+                        caps_union.insert_range(caps_union.end(), *capabilities | std::views::as_rvalue);
+                        continue;
+                    }
+
+                    if (IsAssignmentWithKey(param.get(), "sets")) {
+                        sets.push_back(std::format("set = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                        continue;
+                    }
+
+                    if (IsAssignmentWithKey(param.get(), "ids")) {
+                        ids.push_back(std::format("ids = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                        continue;
+                    }
+
+                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
                 }
             }
         }

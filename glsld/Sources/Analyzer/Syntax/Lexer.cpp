@@ -331,8 +331,8 @@ namespace glsld {
             return;
         }
 
-        auto& instance = MetadataManager::GetInstance();
-        lexical_table_ = instance.GetLexicalTable();
+        auto& metadata = MetadataManager::GetInstance();
+        lexical_table_ = metadata.GetLexicalTable();
     }
 
     void Lexer::SkipWhitespaceAndComments() {
