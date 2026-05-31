@@ -7,7 +7,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
-#include "../Assets/Meta/BuiltinFunctions.glsl"
+// #include "../Assets/Meta/BuiltinFunctions.glsl"
 
 void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
 void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}
@@ -471,7 +471,7 @@ void main() {
     TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     // test swizzle overloads
-    mat4 matrix;
+    mat4 matrix = mat4(vec4(1.0f, 2.0f, 3.0f, 4.0f), vec4(5.0f, 6.0f, 7.0f, 8.0f), vec4(9.0f, 10.0f, 11.0f, 12.0f), vec4(13.0f, 14.0f, 15.0f, 16.0f));
     vec4 vector = matrix[0].xyzw;
     float component1 = vector.x;
     float component2 = matrix[1].xyzw.x;
@@ -974,7 +974,7 @@ void main() {
     TestOverloadFunction(localOuter.middle[0].v4Array[2].xyz);             // 匹配 vec3
     TestOverloadFunction(localOuter.middle[1].mat4_field[0]);              // 匹配 vec4 (mat4 的列是 vec4)
     TestOverloadFunction(localOuter.middle[1].mat4_field[0].x);            // 匹配 float32_t
-    
+
     // 数组重载匹配
     TestOverloadFunction(localOuter.middle[0].inner.mat2_field);           // 匹配 mat2[2]
     TestOverloadFunction(localOuter.middle[0].inner.intArray2D_2x3);       // 匹配 int[2][3]
@@ -1005,7 +1005,7 @@ void main() {
     TestOverloadFunction(MyStruct.data.middle[0].inner.mat2_field[0][0].xxxx);
     TestOverloadFunction(mat3x4(MyStruct.data.middle[1].v4Array));
     TestOverloadFunction(MyStruct.data.middle[1].inner.intArray2D_2x3[2][1] * MyStruct.data.dvec2_field.zz);
-    TestOverloadFunction(MyStruct.data.middle[0].inner.vec3_field * MyStruct.data.middle[1].inner.int_field);
+    TestOverloadFunction(MyStruct.data.middle[0].inner.vec3_field * MyStruct.data.middle[1].inner.int_field * MyStruct.data.middle[0].mat4_field);
 
     MySpirvType0 type0;
     MySpirvType1 type1;

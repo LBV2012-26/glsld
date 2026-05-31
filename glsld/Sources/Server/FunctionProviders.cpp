@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <algorithm>
-#include <concepts>
 #include <format>
 #include <iterator>
 #include <ranges>
@@ -996,7 +995,7 @@ namespace glsld {
 
         std::string SerializeCanonicalLayoutParameters(std::span<const QualifierArgumentNode*> params) {
             auto& metadata = MetadataManager::GetInstance();
-            StringHeteroHashMap<std::string> param_map;
+            StringHeteroHashMap<std::vector<std::string>> param_map;
 
             for (const auto* param : params) {
                 if (param->arg_kind == QualifierArgumentKind::kIdentifier) {
@@ -1005,7 +1004,7 @@ namespace glsld {
                         continue;
                     }
 
-                    param_map[*subtype] = param->token.text;
+                    param_map[*subtype].push_back(param->token.text);
                     continue;
                 }
 
@@ -1019,12 +1018,12 @@ namespace glsld {
                         continue;
                     }
 
-                    param_map[*subtype] = identifier_token.text;
+                    param_map[*subtype].push_back(utils::SerializeQualifierArguments(param));
                 }
             }
 
             std::string result;
-            auto AppendBucket = [&result](std::string_view bucket) -> void {
+            auto AppendBucket = [&result](std::span<const std::string> bucket) -> void {
                 if (bucket.empty()) {
                     return;
                 }
@@ -1033,7 +1032,12 @@ namespace glsld {
                     result += ", ";
                 }
 
-                result += bucket;
+                for (auto i = 0uz; i != bucket.size(); ++i) {
+                    result += bucket[i];
+                    if (i + 1 != bucket.size()) {
+                        result += ", ";
+                    }
+                }
             };
 
             for (const auto& bucket : param_map) {
@@ -1047,11 +1051,13 @@ namespace glsld {
                     AppendBucket(bucket.second);
                 }
             }
+
+            return result;
         }
 
-        std::string RenderMergedLayout(std::span<const LayoutQualifierNode*> layouts) {
+        std::string RenderMergedLayout(std::span<const std::unique_ptr<LayoutQualifierNode>> layouts) {
             std::vector<const QualifierArgumentNode*> canonical_params;
-            for (const auto* layout : layouts) {
+            for (const auto& layout : layouts) {
                 if (layout == nullptr) {
                     continue;
                 }
@@ -1078,6 +1084,20 @@ namespace glsld {
             return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
         }
 
+        template <typename Ty>
+        std::string SerializeArgumentArray(std::span<const Ty> array, auto&& pred) {
+            std::string result = "[";
+            for (auto i = 0uz; i != array.size(); ++i) {
+                result += pred(array[i]);
+                if (i + 1 != array.size()) {
+                    result += ", ";
+                }
+            }
+
+            result += "]";
+            return result;
+        }
+
         std::string RenderCanonicalSpirvCall(const SpirvIntrinsicNode* node) {
             if (node == nullptr) {
                 return {};
@@ -1087,12 +1107,13 @@ namespace glsld {
             const auto& name   = node->keyword.text;
             std::vector<std::string> ordered;
 
+            std::vector<std::string>  exts_union;
+            std::vector<std::int64_t> caps_union;
+            std::vector<std::string>  positional;
+
             if (name == "spirv_type" || name == "spirv_instruction") {
-                std::vector<std::string>  exts_union;
-                std::vector<std::int64_t> caps_union;
-                std::vector<std::string>  sets;
-                std::vector<std::string>  ids;
-                std::vector<std::string>  positional;
+                std::vector<std::string> sets;
+                std::vector<std::string> ids;
 
                 for (const auto& param : params) {
                     if (IsAssignmentWithKey(param.get(), "extensions")) {
@@ -1127,11 +1148,193 @@ namespace glsld {
 
                     positional.push_back(utils::SerializeQualifierArguments(param.get()));
                 }
+
+                std::ranges::sort(exts_union);
+                auto [ext_first, ext_last] = std::ranges::unique(exts_union);
+                exts_union.erase(ext_first, ext_last);
+
+                std::ranges::sort(caps_union);
+                auto [caps_first, caps_last] = std::ranges::unique(caps_union);
+                caps_union.erase(caps_first, caps_last);
+
+                if (!exts_union.empty())
+                    ordered.push_back(std::format("extensions = {}", SerializeStringArray(exts_union)));
+                if (!caps_union.empty())
+                    ordered.push_back(std::format("capabilities = {}", SerializeIntegerArray(caps_union)));
+
+                ordered.append_range(sets | std::views::as_rvalue);
+                ordered.append_range(ids | std::views::as_rvalue);
+                ordered.append_range(positional | std::views::as_rvalue);
+            } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
+                for (const auto& param : params) {
+                    if (IsAssignmentWithKey(param.get(), "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back().get());
+                        if (!extensions.has_value()) {
+                            continue;
+                        }
+
+                        exts_union.insert_range(exts_union.end(), *extensions | std::views::as_rvalue);
+                        continue;
+                    }
+
+                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                        if (!capabilities.has_value()) {
+                            continue;
+                        }
+
+                        caps_union.insert_range(caps_union.end(), *capabilities | std::views::as_rvalue);
+                        continue;
+                    }
+
+                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
+                }
+
+                std::ranges::sort(exts_union);
+                auto [ext_first, ext_last] = std::ranges::unique(exts_union);
+                exts_union.erase(ext_first, ext_last);
+
+                std::ranges::sort(caps_union);
+                auto [caps_first, caps_last] = std::ranges::unique(caps_union);
+                caps_union.erase(caps_first, caps_last);
+
+                if (!exts_union.empty())
+                    ordered.push_back(std::format("extensions = {}", SerializeStringArray(exts_union)));
+                if (!caps_union.empty())
+                    ordered.push_back(std::format("capabilities = {}", SerializeIntegerArray(caps_union)));
+
+                ordered.append_range(positional | std::views::as_rvalue);
+            } else {
+                for (const auto& param : params) {
+                    ordered.push_back(utils::SerializeQualifierArguments(param.get()));
+                }
             }
+
+            std::string inside;
+            for (auto i = 0uz; i != ordered.size(); ++i) {
+                inside += ordered[i];
+                if (i + 1 != ordered.size()) {
+                    inside += ", ";
+                }
+            }
+
+            return std::format("{}({})", name, inside);
+        }
+
+        std::string BuildTypeText(const auto* node) {
+            if (node->type_spec.spirv_type != nullptr) {
+                return RenderCanonicalSpirvCall(node->type_spec.spirv_type);
+            }
+
+            auto& metadata = MetadataManager::GetInstance();
+
+            std::string type_name = node->type_spec.typename_token().text;
+            if (auto subtype = metadata.GetLexicalSubtype(type_name);
+                subtype.has_value() && subtype->contains("Qualifiers"))
+            {
+                return {};
+            }
+
+            if (!node->type_spec.template_args.empty()) {
+                type_name += "<";
+                for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
+                    type_name += node->type_spec.template_args[i].text;
+                    if (i + 1 != node->type_spec.template_args.size()) {
+                        type_name += ", ";
+                    }
+                }
+
+                type_name += ">";
+            }
+
+            const auto* symbol = node->declared_symbol;
+            if (symbol != nullptr) {
+                for (auto array_size : symbol->type_info.array_sizes) {
+                    std::format_to(std::back_inserter(type_name), "[{}]", array_size);
+                }
+            }
+
+            return type_name;
+        }
+
+        std::string BuildHoverSpecifierLine(const auto* node) {
+            std::vector<std::string> layer_exec_env;
+            std::vector<std::string> layer_storage;
+            std::vector<std::string> layer_decorate;
+            auto layer_layout = RenderMergedLayout(node->type_spec.layouts);
+
+            auto& metadata = MetadataManager::GetInstance();
+
+            for (const auto& spec : node->type_spec.specifiers) {
+                if (spec.text == "layout" || spec.type == TokenType::kSpirvIntrinsic ||
+                    spec.text == "true" || spec.text == "false")
+                {
+                    continue;
+                }
+
+                auto text = spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : spec.text;
+                if (auto subtype = metadata.GetLexicalSubtype(spec.text);
+                    subtype.has_value() && subtype->contains("Qualifiers"))
+                {
+                    layer_storage.push_back(text);
+                }
+            }
+
+            for (const auto& spirv : node->type_spec.spirv_intrinsics) {
+                if (spirv == nullptr) {
+                    continue;
+                }
+
+                const auto& name = spirv->keyword.text;
+                auto call = RenderCanonicalSpirvCall(spirv.get());
+
+                if (name == "spirv_execution_mode" || name == "spirv_execution_mode_ide" || name == "spirv_instruction") {
+                    layer_exec_env.push_back(std::move(call));
+                } else if (name == "spirv_storage_class") {
+                    layer_storage.push_back(std::move(call));
+                } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
+                    layer_decorate.push_back(std::move(call));
+                } else if (name == "spirv_by_reference" || name == "spirv_literal") {
+                    layer_decorate.push_back(name);
+                }
+            }
+
+            std::string result;
+            auto Append = [&result](std::string_view sv) -> void {
+                if (sv.empty()) {
+                    return;
+                }
+
+                if (result.empty()) {
+                    result = sv;
+                } else {
+                    result += " " + std::string(sv);
+                }
+            };
+
+            for (const auto& layer : layer_exec_env)
+                Append(layer);
+
+            Append(layer_layout);
+
+            for (const auto& layer : layer_storage)
+                Append(layer);
+            for (const auto& layer : layer_decorate)
+                Append(layer);
+
+            Append(BuildTypeText(node));
+
+            if (result.contains("layout") && !result.contains("set")) {
+                if (auto pos = result.find("binding"); pos != std::string::npos) {
+                    result.insert(pos, "set = 0, ");
+                }
+            }
+
+            return result;
         }
 
         std::string GetVariableSpecifiers(const auto* node) {
-            return {};
+            return BuildHoverSpecifierLine(node);
         }
     }
 
@@ -1281,7 +1484,390 @@ namespace glsld {
 
         return result;
     }
+
+    namespace {
+        std::string SerializeInitializer(const auto* const expr) {
+            if (expr == nullptr) {
+                return {};
+            }
+
+            switch (expr->kind()) {
+            case AstNodeKind::kLiteralExpression: {
+                const auto* node = static_cast<const RawExpressionNode*>(expr);
+                std::string result;
+                for (const auto& token : node->tokens) {
+                    result += token.text;
+                }
+
+                return result;
+            }
+
+            case AstNodeKind::kVariableExpression: {
+                const auto* node = static_cast<const VariableExpressionNode*>(expr);
+                return node->name;
+            }
+
+            case AstNodeKind::kUnaryExpression: {
+                const auto* unary = static_cast<const UnaryExpressionNode*>(expr);
+
+                std::string op_text = [](TokenType op) -> std::string {
+                    switch (op) {
+                    case TokenType::kMinus:       return "-";
+                    case TokenType::kExclamation: return "!";
+                    case TokenType::kTilde:       return "~";
+                    case TokenType::kPlusPlus:    return "++";
+                    case TokenType::kMinusMinus:  return "--";
+                    default:                      return "";
+                    }
+                }(unary->op);
+
+                if (unary->is_postfix) {
+                    return SerializeInitializer(unary->operand.get()) + op_text;
+                }
+
+                return op_text + SerializeInitializer(unary->operand.get());
+            }
+
+            case AstNodeKind::kBinaryExpression: {
+                const auto* binary = static_cast<const BinaryExpressionNode*>(expr);
+
+                std::string op_text = [](TokenType op) -> std::string {
+                    switch (op) {
+                    case TokenType::kPlus:                   return " + ";
+                    case TokenType::kMinus:                  return " - ";
+                    case TokenType::kStar:                   return " * ";
+                    case TokenType::kSlash:                  return " / ";
+                    case TokenType::kPercent:                return " % ";
+                    case TokenType::kEqualEqual:             return " == ";
+                    case TokenType::kNotEqual:               return " != ";
+                    case TokenType::kLessThan:               return " < ";
+                    case TokenType::kGreaterThan:            return " > ";
+                    case TokenType::kLessEqual:              return " <= ";
+                    case TokenType::kGreaterEqual:           return " >= ";
+                    case TokenType::kAmpersand:              return " & ";
+                    case TokenType::kVerticalBar:            return " | ";
+                    case TokenType::kCaret:                  return " ^ ";
+                    case TokenType::kLeftShift:              return " << ";
+                    case TokenType::kRightShift:             return " >> ";
+                    case TokenType::kAmpersandAmpersand:     return " && ";
+                    case TokenType::kVerticalBarVerticalBar: return " || ";
+                    case TokenType::kCaretCaret:             return " ^^ ";
+                    default:                                 return " ? ";
+                    }
+                }(binary->op);
+
+                return SerializeInitializer(binary->left.get()) + op_text + SerializeInitializer(binary->right.get());
+            }
+
+            case AstNodeKind::kCallExpression: {
+                const auto* call = static_cast<const CallExpressionNode*>(expr);
+                std::string result = SerializeInitializer(call->callee.get()) + "(";
+                for (auto i = 0uz; i != call->args.size(); ++i) {
+                    result += SerializeInitializer(call->args[i].get());
+                    if (i + 1 != call->args.size()) {
+                        result += ", ";
+                    }
+                }
+
+                result += ")";
+                return result;
+            }
+
+            case AstNodeKind::kIndexExpression: {
+                const auto* index = static_cast<const IndexExpressionNode*>(expr);
+                return SerializeInitializer(index->base.get()) + "[" + SerializeInitializer(index->index.get()) + "]";
+            }
+
+            case AstNodeKind::kMemberAccessExpression: {
+                const auto* member = static_cast<const MemberAccessExpressionNode*>(expr);
+                return SerializeInitializer(member->object.get()) + "." + SerializeInitializer(member->member.get());
+            }
+
+            case AstNodeKind::kTernaryExpression: {
+                const auto* ternary = static_cast<const TernaryExpressionNode*>(expr);
+                return SerializeInitializer(ternary->condition.get()) + " ? "
+                     + SerializeInitializer(ternary->true_expr.get()) + " : "
+                     + SerializeInitializer(ternary->false_expr.get());
+            }
+
+            default:
+                return {};
+            }
+        };
+    }
+
     std::string BuildHoverMarkdown(const SymbolInfo* symbol, std::string_view current_uri) {
-        return std::string();
+        if (symbol == nullptr) {
+            return {};
+        }
+
+        auto BuildDefinedAt = [current_uri](const SymbolInfo* symbol) -> std::string {
+            if (symbol->location.uri() == current_uri) {
+                return std::format("Defined in this file, line {}", symbol->location.line());
+            }
+
+            auto filename = utils::UriToPath(symbol->location.uri()).filename().generic_string();
+            return std::format("Defined in {}, line {}", filename, symbol->location.line());
+        };
+
+        std::string title;
+        std::string type_arrow;
+        std::string details("Details:\n\n");
+        std::string declare;
+
+        auto SplitLayoutAppendDetails = [&details](std::string_view spec_line) -> void {
+            if (spec_line.contains("layout(")) {
+                details += "**Layout**: `";
+                auto pos = spec_line.find("layout(");
+                auto end = spec_line.find(')', pos);
+                if (pos != std::string::npos && end != std::string::npos) {
+                    details += std::string(spec_line.substr(pos, end - pos + 1)) + "`\n";
+                }
+            }
+        };
+
+        auto AppendHitsCommit = [&details](std::span<const std::string> hits, std::string_view header) -> void {
+            if (hits.empty()) {
+                return;
+            }
+
+            details += std::format("\n**{}**: `", header);
+            for (auto i = 0uz; i != hits.size(); ++i) {
+                details += hits[i];
+                if (i + 1 != hits.size()) {
+                    details += " ";
+                }
+            }
+
+            details += "`\n";
+        };
+
+        auto CollectAndAppendStorageHits = [&details, AppendHitsCommit](const auto* node) -> void {
+            std::vector<std::string> storage_hits;
+            auto& metadata = MetadataManager::GetInstance();
+
+            for (const auto& spec : node->type_spec.specifiers) {
+                if (auto subtype = metadata.GetLexicalSubtype(spec.text);
+                    subtype.has_value() && subtype->contains("Qualifiers")) {
+                    if (spec.text != "layout") {
+                        storage_hits.push_back(spec.text);
+                    }
+                }
+            }
+
+            for (const auto& spirv : node->type_spec.spirv_intrinsics) {
+                if (spirv != nullptr && spirv->keyword.text == "spirv_storage_class") {
+                    storage_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                }
+            }
+
+            AppendHitsCommit(storage_hits, "Storage");
+        };
+
+        auto CollectAndAppendDecorateHits = [&details, AppendHitsCommit](const auto* node) -> void {
+            std::vector<std::string> decorate_hits;
+
+            for (const auto& spirv : node->type_spec.spirv_intrinsics) {
+                if (spirv == nullptr) {
+                    continue;
+                }
+
+                const auto& name = spirv->keyword.text;
+                if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
+                    decorate_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                }
+            }
+
+            AppendHitsCommit(decorate_hits, "Decorate");
+        };
+
+        auto BuildDefinedDeclare = [&declare](const SymbolInfo* symbol, std::string_view type_spec) -> void {
+            const auto* host_symbol = symbol->located_scope->host_symbol();
+
+            std::string host_name;
+            if (host_symbol != nullptr) {
+                if (host_symbol->name.contains("__AnonymousStruct_")) {
+                    host_name = "<anonymous>";
+                } else if (host_symbol->name.contains("__Impl_") || host_symbol->name.contains("__Decl_")) {
+                    host_name = utils::UnmangleFunctionName(host_symbol->name);
+                } else {
+                    host_name = host_symbol->name;
+                }
+            } else {
+                host_name = "<global scope>";
+            }
+
+            std::string full_spec(type_spec);
+            if (auto bracket_pos = full_spec.find('['); bracket_pos != std::string::npos) {
+                full_spec.insert(bracket_pos, " " + symbol->name);
+            } else {
+                full_spec += " " + symbol->name;
+            }
+
+            declare = std::format("// In {}\n{}", host_name, full_spec);
+
+            if (!declare.contains("const") || symbol->kind != SymbolKind::kVariable) {
+                return;
+            }
+
+            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+            if (node == nullptr || node->init == nullptr) {
+                return;
+            }
+
+            auto initializer = SerializeInitializer(node->init.get());
+            if (!initializer.empty()) {
+                declare += " = " + initializer;
+            }
+        };
+
+        switch (symbol->kind) {
+        case SymbolKind::kVariable:
+        case SymbolKind::kParameter: {
+            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+
+            std::string scope_prefix = "**field**";
+            if (symbol->kind == SymbolKind::kParameter) {
+                scope_prefix = "**parameter**";
+            } else if (symbol->located_scope->kind() == ScopeKind::kMacroTemporary) {
+                scope_prefix = "";
+            } else if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
+                scope_prefix = "**global variable**";
+            } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
+                scope_prefix = "**local variable**";
+            }
+
+            if (!scope_prefix.contains("field")) {
+                title = std::format("{} `{}`\n\n{}", scope_prefix, symbol->name, BuildDefinedAt(symbol));
+            } else {
+                title = std::format("{} `{}::{}`\n\n{}", scope_prefix, symbol->located_scope->host_symbol()->name, symbol->name, BuildDefinedAt(symbol));
+            }
+
+            auto type_text = BuildTypeText(node);
+            type_arrow = std::format("**Type** -> `{}`", type_text);
+
+            auto full = BuildHoverSpecifierLine(node);
+            BuildDefinedDeclare(symbol, full);
+
+            SplitLayoutAppendDetails(full);
+            CollectAndAppendStorageHits(node);
+            CollectAndAppendDecorateHits(node);
+
+            break;
+        }
+
+        case SymbolKind::kFunctionDecl:
+        case SymbolKind::kFunctionImpl: {
+            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
+            auto raw_name = utils::UnmangleFunctionName(symbol->name);
+
+            title = std::format("**function** `{}`", raw_name);
+
+            std::string return_typename = symbol->type_info.spirv_type.empty()
+                                        ? symbol->type_info.typename_token.text
+                                        : symbol->type_info.spirv_type;
+
+            for (auto array_size : symbol->type_info.array_sizes) {
+                std::format_to(std::back_inserter(return_typename), "[{}]", array_size);
+            }
+
+            type_arrow = std::format("**Returns** -> `{}`", return_typename);
+
+            std::vector<std::string> parameters;
+            for (const auto& param : node->params) {
+                std::string param_line;
+                param_line += BuildHoverSpecifierLine(param.get());
+                if (param->declared_symbol != nullptr) {
+                    const auto* param_symbol = param->declared_symbol;
+                    if (auto bracket_pos = param_line.find('['); bracket_pos != std::string::npos) {
+                        param_line.insert(bracket_pos, " " + param_symbol->name);
+                    } else {
+                        param_line += " " + param_symbol->name;
+                    }
+                }
+
+                parameters.push_back(std::move(param_line));
+            }
+
+            std::string params_block = "Parameters:\n";
+            for (const auto& param : parameters) {
+                params_block += std::format("- `{}`\n", param);
+            }
+
+            details += params_block + "\n";
+
+            std::vector<std::string> decorate_calls;
+            for (const auto& spirv : node->type_spec.spirv_intrinsics) {
+                if (spirv != nullptr && spirv->keyword.text == "spirv_instruction") {
+                    decorate_calls.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                }
+            }
+
+            if (!decorate_calls.empty()) {
+                details += "Decorate:\n\n";
+                for (const auto& call : decorate_calls) {
+                    details += std::format("`{}`\n", call);
+                }
+            }
+
+            declare += std::format("// {}\n", BuildDefinedAt(symbol));
+
+            std::string declare_line = std::format("{} {}(", return_typename, raw_name);
+            for (auto i = 0uz; i != parameters.size(); ++i) {
+                declare_line += parameters[i];
+                if (i + 1 != parameters.size()) {
+                    declare_line += ", ";
+                }
+            }
+
+            declare_line += ");";
+            declare += declare_line;
+            break;
+        }
+
+        case SymbolKind::kStruct: {
+            title = std::format("**struct** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            type_arrow.clear();
+            details = std::format("struct {};", symbol->name);
+            break;
+        }
+
+        case SymbolKind::kInterface: {
+            const auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
+            title = std::format("**block** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            type_arrow.clear();
+
+            auto full = BuildHoverSpecifierLine(node);
+            BuildDefinedDeclare(symbol, full);
+
+            SplitLayoutAppendDetails(full);
+            CollectAndAppendStorageHits(node);
+            CollectAndAppendDecorateHits(node);
+
+            break;
+        }
+
+        default:
+            title = FormatSymbol(symbol);
+            type_arrow.clear();
+            details = BuildDefinedAt(symbol);
+            break;
+        }
+
+        std::string markdown;
+        markdown += title + "\n";
+        if (!type_arrow.empty()) {
+            markdown += "\n---\n";
+            markdown += type_arrow + "\n";
+        }
+
+        markdown += "\n---\n";
+        if (details.size() > 11) {
+            markdown += details + "\n";
+        }
+
+        markdown += "\n---\n";
+        markdown += "```glsl\n" + declare + "\n```";
+        return markdown;
     }
 }

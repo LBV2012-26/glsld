@@ -14,3 +14,5 @@ public static extern external interface
 sizeof
 cast
 namespace
+
+pervertexEXT

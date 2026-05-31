@@ -864,7 +864,7 @@ namespace glsld {
             );
         };
 
-        auto MakeLeaf = [this, &ComputeTokenEnd](const Token& token) -> std::unique_ptr<QualifierArgumentNode> {
+        auto MakeLeaf = [this, ComputeTokenEnd](const Token& token) -> std::unique_ptr<QualifierArgumentNode> {
             auto node = std::make_unique<QualifierArgumentNode>(current_scope());
 
             node->begin         = token.location;
@@ -876,7 +876,7 @@ namespace glsld {
             return node;
         };
 
-        auto FinalizeRangeFromChildren = [this, &ComputeTokenEnd](QualifierArgumentNode* node) -> void {
+        auto FinalizeRangeFromChildren = [this, ComputeTokenEnd](QualifierArgumentNode* node) -> void {
             if (node == nullptr) {
                 return;
             }
@@ -892,7 +892,7 @@ namespace glsld {
             }
         };
 
-        auto Build = [this, &MakeLeaf, &FinalizeRangeFromChildren](this auto&& self, std::span<const Token> raw_slice)
+        auto Build = [this, MakeLeaf, FinalizeRangeFromChildren](this auto&& self, std::span<const Token> raw_slice)
             -> std::unique_ptr<QualifierArgumentNode>
         {
             auto slice = Trim(raw_slice);
