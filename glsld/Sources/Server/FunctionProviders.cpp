@@ -188,6 +188,15 @@ namespace glsld {
                 symbol_node["range"] = symbol_node["selectionRange"];
             }
 
+            auto& selection_range = symbol_node["selectionRange"];
+            auto& range           = symbol_node["range"];
+            if (range["end"]["line"]      <  selection_range["end"]["line"] ||
+               (range["end"]["line"]      == selection_range["end"]["line"] &&
+                range["end"]["character"] <  selection_range["end"]["character"]))
+            {
+                range["end"] = selection_range["end"];
+            }
+
             symbols.push_back(symbol_node);
         }
 
@@ -1509,11 +1518,13 @@ namespace glsld {
 
         bool NeedSpace(const Token& left, const Token& right) {
             switch (right.type) {
+            case TokenType::kOpenBracket:
             case TokenType::kCloseParen:
             case TokenType::kCloseBracket:
             case TokenType::kCloseBrace:
             case TokenType::kComma:
             case TokenType::kSemicolon:
+            case TokenType::kSharpSharp:
             case TokenType::kColon:
             case TokenType::kColonColon:
             case TokenType::kDot:
@@ -1525,6 +1536,7 @@ namespace glsld {
             switch (left.type) {
             case TokenType::kOpenParen:
             case TokenType::kOpenBracket:
+            case TokenType::kSharpSharp:
             case TokenType::kSharp:
             case TokenType::kDot:
             case TokenType::kExclamation:
@@ -1556,14 +1568,24 @@ namespace glsld {
             const Token* previous = nullptr;
 
             std::string result;
-            for (const auto& token : tokens) {
+            for (auto i = 0uz; i != tokens.size(); ++i) {
+                const auto& token = tokens[i];
                 if (token.type == TokenType::kBackslash) {
                     suppress_next = true;
+                    result += (!result.empty() && result.back() != ' ') ? " \\\n" : "\\\n";
+
+                    if (i + 1 < tokens.size()) {
+                        auto indent = tokens[i + 1].location.column() - 1;
+                        for (auto j = 0uz; j != indent; ++j) {
+                            result += ' ';
+                        }
+                    }
+
                     continue;
                 }
 
                 if (previous != nullptr && !suppress_next && NeedSpace(*previous, token)) {
-                    result += " ";
+                    result += ' ';
                 }
 
                 result += token.text;
@@ -1573,9 +1595,100 @@ namespace glsld {
 
             return result;
         }
+
+        std::string RenderMacroExpansion(std::span<const Token> tokens) {
+            std::string result;
+            int indent = 0;
+            bool line_start = true;
+
+            auto EmitIndent = [&]() -> void {
+                for (int i = 0; i != indent * 4; ++i) {
+                    result += " ";
+                }
+
+                line_start = false;
+            };
+
+            auto EmitNewline = [&]() -> void {
+                result += '\n';
+                line_start = true;
+            };
+
+            const Token* previous = nullptr;
+            for (auto i = 0uz; i != tokens.size(); ++i) {
+                const auto& token = tokens[i];
+
+                if (token.type == TokenType::kOpenBrace) {
+                    if (previous != nullptr) {
+                        result += " ";
+                    }
+
+                    result += "{";
+                    ++indent;
+
+                    if (i + 1 < tokens.size() && tokens[i + 1].type != TokenType::kCloseBrace) {
+                        EmitNewline();
+                    }
+
+                    previous = nullptr;
+                    continue;
+                }
+
+                if (token.type == TokenType::kCloseBrace) {
+                    if (indent > 0)
+                        --indent;
+                    if (!line_start)
+                        EmitNewline();
+
+                    EmitIndent();
+                    result += "}";
+
+                    bool new_decl = false;
+                    if (i + 1 < tokens.size()) {
+                        const auto& next = tokens[i + 1];
+                        new_decl = next.type == TokenType::kPrimitive || next.type == TokenType::kBuiltInType ||
+                            (next.type == TokenType::kKeyword && next.text != "else" && next.text != "while");
+
+                        if (new_decl) {
+                            EmitNewline();
+                        }
+                    }
+
+                    previous = new_decl ? nullptr : &token;
+                    continue;
+                }
+
+                if (token.type == TokenType::kSemicolon) {
+                    result += ";";
+                    EmitNewline();
+                    previous = nullptr;
+                    continue;
+                }
+
+                if (line_start) {
+                    EmitIndent();
+                }
+
+                bool need_space = previous != nullptr && NeedSpace(*previous, token);
+                if (need_space && !line_start) {
+                    result += " ";
+                }
+
+                result += token.text;
+                previous = &token;
+                line_start = false;
+            }
+
+            return result;
+        }
     }
 
-    std::string BuildHoverMarkdown(const SymbolInfo* symbol, std::string_view current_uri) {
+    std::string BuildHoverMarkdown(
+        const SymbolInfo* symbol,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        std::string_view current_uri)
+    {
         if (symbol == nullptr) {
             return {};
         }
@@ -1718,7 +1831,10 @@ namespace glsld {
         case SymbolKind::kMacro: {
             const auto* node = static_cast<const PreprocessorNode*>(symbol->node);
 
+            auto cursor_index = FindCursorTokenIndex(snapshot->raw_tokens, location);
             std::string markdown = std::format("**macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
+            declare.clear();
+            details.clear();
 
             declare = std::format("#define {}", node->symbol->name);
             if (!node->params.empty()) {
@@ -1734,9 +1850,20 @@ namespace glsld {
             }
             declare += " " + RenderTokenSequence(node->tokens);
 
-            auto body = RenderTokenSequence(node->tokens);
-            if (!body.empty()) {
-                details = "\n// Expands to\n" + body + "\n```\n";
+            if (cursor_index.has_value()) {
+                const auto& cursor_token = snapshot->raw_tokens.at(*cursor_index);
+                auto it = snapshot->macro_expansions.find(cursor_token.location);
+                if (it != snapshot->macro_expansions.end()) {
+                    auto expanded = RenderMacroExpansion(it->second);
+                    if (!expanded.empty()) {
+                        details = "\n\n// Expands to\n" + expanded + "\n```\n";
+                    }
+                } else if (location == symbol->location) {
+                    auto body = RenderMacroExpansion(node->tokens);
+                    if (!body.empty()) {
+                        details = "\n\n// Expands to\n" + body + "\n```\n";
+                    }
+                }
             }
 
             markdown = markdown + declare + details;

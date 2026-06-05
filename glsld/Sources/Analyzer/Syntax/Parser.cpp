@@ -1807,6 +1807,9 @@ namespace glsld {
             if (token.location.line() > directive_physical_line) {
                 // #define MACRO sth "\"
                 if (!collected.empty() && collected.back().type == TokenType::kBackslash) {
+                    if (token.location.line() - collected.back().location.line() > 1) {
+                        break;
+                    }
                     directive_physical_line = token.location.line();
                 } else {
                     break;

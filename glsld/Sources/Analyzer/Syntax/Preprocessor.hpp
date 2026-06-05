@@ -24,13 +24,6 @@ namespace glsld {
         std::size_t if_line{};
     };
 
-    struct MacroDefination {
-        bool               is_function{};
-        Token              original_token;
-        std::vector<Token> replacement_list;
-        std::vector<Token> params;
-    };
-
     class Preprocessor {
     public:
         Preprocessor(SourceTable& source_table,
@@ -93,7 +86,6 @@ namespace glsld {
         IncludeLoader&                         include_loader_;
         std::span<const std::filesystem::path> include_dirs_;
         std::vector<std::string>               include_stack_;
-        StringHeteroHashMap<MacroDefination>   macros_;
         std::stack<ConditionalFrame>           condition_stack_;
         std::optional<std::size_t>             open_inactive_begin_line_;
         std::size_t                            token_index_{};

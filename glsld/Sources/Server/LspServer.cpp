@@ -537,7 +537,7 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         if (symbols.size() == 1) {
-            markdown = BuildHoverMarkdown(symbols.front(), uri);
+            markdown = BuildHoverMarkdown(symbols.front(), snapshot, target, uri);
         } else {
             markdown = std::format("Ambiguous call (+{} candidates)\n\n---\n```glsl\n", symbols.size());
             for (const auto* symbol : symbols) {

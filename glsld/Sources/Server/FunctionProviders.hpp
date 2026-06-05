@@ -47,5 +47,10 @@ namespace glsld {
     nlohmann::json GetFieldCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
 
     std::string FormatFunctionSymbol(const SymbolInfo* symbol);
-    std::string BuildHoverMarkdown(const SymbolInfo* symbol, std::string_view current_uri);
+
+    std::string BuildHoverMarkdown(
+        const SymbolInfo* symbol,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        std::string_view current_uri);
 }

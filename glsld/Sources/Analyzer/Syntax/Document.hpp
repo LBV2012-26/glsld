@@ -13,9 +13,19 @@
 #include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
-    using BindingMap        = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
+    using BindingMap = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
+
+    struct MacroDefination {
+        bool               is_function{};
+        Token              original_token;
+        std::vector<Token> replacement_list;
+        std::vector<Token> params;
+    };
+
     using MacroTraceMap     = ankerl::unordered_dense::map<SourceLocation, Token, LocationHash>;
     using MacroArgsTraceMap = MacroTraceMap;
+    using MacroExpansionMap = ankerl::unordered_dense::map<SourceLocation, std::vector<Token>, LocationHash>;
+    using MacroTable        = StringHeteroHashMap<MacroDefination>;
 
     struct InactiveRegion {
         std::size_t begin_line{};
@@ -37,6 +47,8 @@ namespace glsld {
         BindingMap               bindings;
         MacroTraceMap            macro_traces;
         MacroArgsTraceMap        macro_args_traces;
+        MacroExpansionMap        macro_expansions;
+        MacroTable               macros;
         int                      version{};
     };
 

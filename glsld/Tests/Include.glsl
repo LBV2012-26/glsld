@@ -3,9 +3,10 @@
 
 const int kValue = 114514;
 
-// #define DECLARE_STRUCT_ARRAY(type, size) \
-// struct type##Buffer {                    \
-//     type data;                           \
-// } type##_buffer[size];
+#define DECLARE_STRUCT_ARRAY(type, size) \
+struct type##Buffer {                    \
+    type data;                           \
+    type member;                         \
+} type##_buffer[size];
 
 #endif
