@@ -81,13 +81,13 @@ namespace glsld {
 
     struct SymbolInfo;
     struct TypeInfo {
-        Token                             typename_token;
-        TypeDescriptor                    type_desc;
-        const SymbolInfo*                 block_symbol{ nullptr };
-        std::vector<std::int64_t>         array_sizes;
-        std::vector<Token>                qualifiers;
-        std::string                       spirv_type;
-        std::optional<SpirvTypeSignature> spirv_signature;
+        Token                                     typename_token;
+        TypeDescriptor                            type_desc;
+        const SymbolInfo*                         block_symbol{ nullptr };
+        std::vector<std::optional<std::uint64_t>> array_sizes;
+        std::vector<Token>                        qualifiers;
+        std::string                               spirv_type;
+        std::optional<SpirvTypeSignature>         spirv_signature;
 
         bool operator==(const TypeInfo& other) const;
         bool CompareWithoutQualifiers(const TypeInfo& other) const;

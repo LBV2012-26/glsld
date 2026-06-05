@@ -387,7 +387,7 @@ namespace glsld {
 
         if (!decl_sizes.empty() && !init_sizes.empty()) {
             for (auto i = 0uz; i != decl_sizes.size(); ++i) {
-                if (decl_sizes[i] == std::numeric_limits<std::int64_t>::min()) {
+                if (!decl_sizes[i].has_value()) {
                     if (i < init_sizes.size()) {
                         decl_sizes[i] = init_sizes[i];
                     }
@@ -589,22 +589,21 @@ namespace glsld {
         Traverse(node->callee.get());
 
         ExpressionNode* current_base = node->callee.get();
-        std::vector<std::int64_t> dimensions;
+        std::vector<std::optional<std::uint64_t>> dimensions;
         bool is_array_constructor = false;
 
         while (auto* index_node = dynamic_cast<IndexExpressionNode*>(current_base)) {
             is_array_constructor = true;
 
-            auto size = 0z;
+            std::optional<std::uint64_t> size;
             if (index_node->index != nullptr) {
                 ConstantEvaluator evaluator;
-                auto result = evaluator.Evaluate(index_node->index.get());
-                size = result.value_or(std::numeric_limits<std::int64_t>::min());
+                size = evaluator.EvaluateAs<std::uint64_t>(index_node->index.get());
             } else {
-                size = std::numeric_limits<std::int64_t>::min();
+                size = std::nullopt;
             }
 
-            dimensions.push_back(size);
+            dimensions.push_back(std::move(size));
             current_base = index_node->base.get();
         }
 
@@ -639,10 +638,10 @@ namespace glsld {
                     };
 
                     std::ranges::reverse(dimensions);
-                    if (std::ranges::find(dimensions, std::numeric_limits<std::int64_t>::min()) != dimensions.end()) {
+                    if (std::ranges::find(dimensions, std::nullopt) != dimensions.end()) {
                         auto dimensions_from_args = DeduceArraySizesFromArgs(node);
                         for (auto&& [target, source] : std::views::zip(dimensions, dimensions_from_args)) {
-                            if (target == std::numeric_limits<std::int64_t>::min()) {
+                            if (!target.has_value()) {
                                 target = source;
                             }
                         }
@@ -1010,13 +1009,12 @@ namespace glsld {
 
         for (const auto& size : type_spec.array_sizes) {
             if (size == nullptr) {
-                info.array_sizes.push_back(std::numeric_limits<std::int64_t>::min());
+                info.array_sizes.push_back(std::nullopt);
                 continue;
             }
 
             ConstantEvaluator evaluator;
-            auto result = evaluator.Evaluate(size.get());
-            info.array_sizes.push_back(result.value_or(std::numeric_limits<std::int64_t>::min()));
+            info.array_sizes.push_back(evaluator.EvaluateAs<std::uint64_t>(size.get()));
         }
 
         // spirv_type

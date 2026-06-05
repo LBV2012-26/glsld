@@ -226,6 +226,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Analyzer\Ast\Ast.inl" />
+    <None Include="Sources\Analyzer\Passes\ConstantEvaluator.inl" />
     <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />

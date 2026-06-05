@@ -43,6 +43,7 @@ layout(push_constant) uniform PushConstants {
 
 #define MAX_RETURN_ARRAY_SIZE 5
 #define MACRO_FUNC(x) (x * x)
+#define MACRO_FUNCTION(x) if (x) { x = 10; };
 
 int[MAX_RETURN_ARRAY_SIZE] ReturnArray(int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE]) {
     int array[MAX_RETURN_ARRAY_SIZE] = mdarray[0];

@@ -494,7 +494,11 @@ namespace glsld {
         } else {
             type = node->evaluated_type.typename_token.text;
             for (auto array_size : node->evaluated_type.array_sizes) {
-                std::format_to(std::back_inserter(type), "[{}]", array_size);
+                if (array_size.has_value()) {
+                    std::format_to(std::back_inserter(type), "[{}]", *array_size);
+                } else {
+                    type += "[]";
+                }
             }
         }
 

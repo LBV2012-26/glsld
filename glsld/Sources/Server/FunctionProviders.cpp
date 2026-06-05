@@ -14,6 +14,7 @@
 #include <ankerl/unordered_dense.h>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Passes/ConstantEvaluator.hpp"
 #include "Analyzer/Passes/InlayHintVisitor.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
@@ -163,7 +164,7 @@ namespace glsld {
                 for (const auto& child : scope->children()) {
                     ABORT_IF_CANCELLED();
 
-                    if (child->interval().first.line() == info->location.line()) {
+                    if (child->host_symbol() == info.get()) {
                         child_scope = child.get();
                         handled_scopes.insert(child_scope);
                         break;
@@ -917,8 +918,8 @@ namespace glsld {
         }
 
         SourceLocation dot_location;
-        auto it = std::ranges::upper_bound(snapshot->expanded_tokens, location, std::ranges::less{}, &Token::location);
-        if (it != snapshot->expanded_tokens.begin()) {
+        auto it = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
+        if (it != snapshot->raw_tokens.begin()) {
             dot_location = std::prev(it)->location;
         }
 
@@ -1250,7 +1251,11 @@ namespace glsld {
             const auto* symbol = node->declared_symbol;
             if (symbol != nullptr) {
                 for (auto array_size : symbol->type_info.array_sizes) {
-                    std::format_to(std::back_inserter(type_name), "[{}]", array_size);
+                    if (array_size.has_value()) {
+                        type_name += std::format("[{}]", *array_size);
+                    } else {
+                        type_name += "[]";
+                    }
                 }
             }
 
@@ -1332,77 +1337,15 @@ namespace glsld {
 
             return result;
         }
-
-        std::string GetVariableSpecifiers(const auto* node) {
-            return BuildHoverSpecifierLine(node);
-        }
     }
 
-    std::string FormatSymbol(const SymbolInfo* symbol) {
+    std::string FormatFunctionSymbol(const SymbolInfo* symbol) {
         if (symbol == nullptr) {
             return "";
         }
 
         std::string result;
         switch (symbol->kind) {
-        case SymbolKind::kAttribute: {
-            result = std::format("(attribute) {}", symbol->name);
-            break;
-        }
-
-        case SymbolKind::kParameter: {
-            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
-            result = std::format("(parameter) {} {}", GetVariableSpecifiers(node), symbol->name);
-
-            for (auto array_size : symbol->type_info.array_sizes) {
-                std::format_to(std::back_inserter(result), "[{}]", array_size);
-            }
-
-            break;
-        }
-
-        case SymbolKind::kVariable: {
-            std::string prefix;
-            bool is_field = false;
-
-            if (symbol->located_scope->kind() == ScopeKind::kMacroTemporary) {
-                prefix = "";
-            } else if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
-                prefix = "(global variable) ";
-            } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
-                prefix = "(local variable) ";
-            } else {
-                prefix = "(field) ";
-                is_field = true;
-            }
-
-            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
-            auto specifiers = GetVariableSpecifiers(node);
-            std::string name;
-            if (is_field && node->located_scope->host_symbol() != nullptr) {
-                const auto& host_name = node->located_scope->host_symbol()->name;
-
-                std::string_view display_host_name;
-                if (host_name.contains("__AnonymousStruct_")) {
-                    display_host_name = "<anonymous>";
-                } else {
-                    display_host_name = host_name;
-                }
-
-                name = std::format("{} {}::{}", specifiers, display_host_name, symbol->name);
-            } else {
-                name = std::format("{} {}", specifiers, symbol->name);
-            }
-
-            result = std::format("{}{}", prefix, name);
-
-            for (auto array_size : symbol->type_info.array_sizes) {
-                std::format_to(std::back_inserter(result), "[{}]", array_size);
-            }
-
-            break;
-        }
-
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl: {
             std::string return_typename = symbol->type_info.spirv_type.empty()
@@ -1410,7 +1353,11 @@ namespace glsld {
                                         : symbol->type_info.spirv_type;
 
             for (auto array_size : symbol->type_info.array_sizes) {
-                std::format_to(std::back_inserter(return_typename), "[{}]", array_size);
+                if (array_size.has_value()) {
+                    std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
+                } else {
+                    return_typename += "[]";
+                }
             }
 
             auto raw_name = utils::UnmangleFunctionName(symbol->name);
@@ -1419,14 +1366,18 @@ namespace glsld {
             const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
             for (auto i = 0uz; i != node->params.size(); ++i) {
                 const auto& param = node->params[i];
-                result += GetVariableSpecifiers(param.get());
+                result += BuildHoverSpecifierLine(param.get());
 
                 const auto* param_symbol = param->declared_symbol;
                 if (param_symbol != nullptr && param_symbol->name != "") {
                     result += " " + param_symbol->name;
 
-                    for (auto array_size : param_symbol->type_info.array_sizes) {
-                        std::format_to(std::back_inserter(result), "[{}]", array_size);
+                    for (auto array_size : symbol->type_info.array_sizes) {
+                        if (array_size.has_value()) {
+                            std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
+                        } else {
+                            return_typename += "[]";
+                        }
                     }
                 }
 
@@ -1436,45 +1387,6 @@ namespace glsld {
             }
 
             result += ")";
-            break;
-        }
-
-        case SymbolKind::kInterface: {
-            const auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
-            result = std::format("{} {}", GetVariableSpecifiers(node), symbol->name);
-            break;
-        }
-
-        case SymbolKind::kStruct: {
-            result = std::format("struct {}", symbol->name);
-            break;
-        }
-
-        case SymbolKind::kMacro: {
-            const auto* node = static_cast<const PreprocessorNode*>(symbol->node);
-            result = std::format("#define {}", node->symbol->name);
-
-            if (node->params.size() != 0) {
-                result += "(";
-                for (auto i = 0uz; i != node->params.size(); ++i) {
-                    const auto& param = node->params[i];
-                    result += param;
-                    if (i + 1 != node->params.size()) {
-                        result += ", ";
-                    }
-                }
-
-                result += ")";
-            }
-
-            for (const auto& token : node->tokens) {
-                if (token.type == TokenType::kBackslash) {
-                    continue;
-                }
-
-                result += " " + token.text;
-            }
-
             break;
         }
 
@@ -1594,6 +1506,73 @@ namespace glsld {
                 return {};
             }
         };
+
+        bool NeedSpace(const Token& left, const Token& right) {
+            switch (right.type) {
+            case TokenType::kCloseParen:
+            case TokenType::kCloseBracket:
+            case TokenType::kCloseBrace:
+            case TokenType::kComma:
+            case TokenType::kSemicolon:
+            case TokenType::kColon:
+            case TokenType::kColonColon:
+            case TokenType::kDot:
+                return false;
+            default:
+                break;
+            }
+
+            switch (left.type) {
+            case TokenType::kOpenParen:
+            case TokenType::kOpenBracket:
+            case TokenType::kSharp:
+            case TokenType::kDot:
+            case TokenType::kExclamation:
+            case TokenType::kTilde:
+                return false;
+            default:
+                break;
+            }
+
+            if (right.type == TokenType::kOpenParen) {
+                return left.type == TokenType::kKeyword &&
+                      (left.text == "if" ||
+                       left.text == "while" ||
+                       left.text == "for" ||
+                       left.text == "switch" ||
+                       left.text == "do" ||
+                       left.text == "else");
+            }
+
+            if (right.type == TokenType::kOpenBrace) {
+                return false;
+            }
+
+            return true;
+        }
+
+        std::string RenderTokenSequence(std::span<const Token> tokens) {
+            bool suppress_next = false;
+            const Token* previous = nullptr;
+
+            std::string result;
+            for (const auto& token : tokens) {
+                if (token.type == TokenType::kBackslash) {
+                    suppress_next = true;
+                    continue;
+                }
+
+                if (previous != nullptr && !suppress_next && NeedSpace(*previous, token)) {
+                    result += " ";
+                }
+
+                result += token.text;
+                previous = &token;
+                suppress_next = false;
+            }
+
+            return result;
+        }
     }
 
     std::string BuildHoverMarkdown(const SymbolInfo* symbol, std::string_view current_uri) {
@@ -1681,7 +1660,7 @@ namespace glsld {
             AppendHitsCommit(decorate_hits, "Decorate");
         };
 
-        auto BuildDefinedDeclare = [&declare](const SymbolInfo* symbol, std::string_view type_spec) -> void {
+        auto BuildDefinedDeclare = [&declare](const SymbolInfo* symbol, std::string_view type_spec) mutable -> void {
             const auto* host_symbol = symbol->located_scope->host_symbol();
 
             std::string host_name;
@@ -1694,7 +1673,7 @@ namespace glsld {
                     host_name = host_symbol->name;
                 }
             } else {
-                host_name = "<global scope>";
+                host_name = "global scope";
             }
 
             std::string full_spec(type_spec);
@@ -1704,7 +1683,7 @@ namespace glsld {
                 full_spec += " " + symbol->name;
             }
 
-            declare = std::format("// In {}\n{}", host_name, full_spec);
+            declare = std::format("// In {}\n{};", host_name, full_spec);
 
             if (!declare.contains("const") || symbol->kind != SymbolKind::kVariable) {
                 return;
@@ -1717,11 +1696,54 @@ namespace glsld {
 
             auto initializer = SerializeInitializer(node->init.get());
             if (!initializer.empty()) {
-                declare += " = " + initializer;
+                declare.insert(declare.find_last_of(';'), " = " + initializer);
+                if (node->init->kind() != AstNodeKind::kLiteralExpression) {
+                    ConstantEvaluator evaluator;
+                    if (auto value = evaluator.EvaluateAs<std::string>(node->init.get())) {
+                        declare += "\n// Evaluates to\n" + *value;
+                    }
+                }
             }
         };
 
         switch (symbol->kind) {
+        case SymbolKind::kAttribute: {
+            std::string markdown = std::format("attribute `{}`\n\n---\n", symbol->name);
+            // TODO: insert example
+            markdown += "Example:\n\n---\n";
+            markdown += std::format("```glsl\n[[{}]]\n```", symbol->name);
+            return markdown;
+        }
+
+        case SymbolKind::kMacro: {
+            const auto* node = static_cast<const PreprocessorNode*>(symbol->node);
+
+            std::string markdown = std::format("**macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
+
+            declare = std::format("#define {}", node->symbol->name);
+            if (!node->params.empty()) {
+                declare += "(";
+                for (auto i = 0uz; i != node->params.size(); ++i) {
+                    declare += node->params[i];
+                    if (i + 1 != node->params.size()) {
+                        declare += ", ";
+                    }
+                }
+
+                declare += ")";
+            }
+            declare += " " + RenderTokenSequence(node->tokens);
+
+            auto body = RenderTokenSequence(node->tokens);
+            if (!body.empty()) {
+                details = "\n// Expands to\n" + body + "\n```\n";
+            }
+
+            markdown = markdown + declare + details;
+
+            return markdown;
+        }
+
         case SymbolKind::kVariable:
         case SymbolKind::kParameter: {
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
@@ -1768,7 +1790,11 @@ namespace glsld {
                                         : symbol->type_info.spirv_type;
 
             for (auto array_size : symbol->type_info.array_sizes) {
-                std::format_to(std::back_inserter(return_typename), "[{}]", array_size);
+                if (array_size.has_value()) {
+                    std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
+                } else {
+                    return_typename += "[]";
+                }
             }
 
             type_arrow = std::format("**Returns** -> `{}`", return_typename);
@@ -1789,7 +1815,7 @@ namespace glsld {
                 parameters.push_back(std::move(param_line));
             }
 
-            std::string params_block = "Parameters:\n";
+            std::string params_block = "**Parameters:**\n";
             for (const auto& param : parameters) {
                 params_block += std::format("- `{}`\n", param);
             }
@@ -1804,7 +1830,7 @@ namespace glsld {
             }
 
             if (!decorate_calls.empty()) {
-                details += "Decorate:\n\n";
+                details += "**Decorate:**\n\n";
                 for (const auto& call : decorate_calls) {
                     details += std::format("`{}`\n", call);
                 }
@@ -1848,9 +1874,6 @@ namespace glsld {
         }
 
         default:
-            title = FormatSymbol(symbol);
-            type_arrow.clear();
-            details = BuildDefinedAt(symbol);
             break;
         }
 

@@ -78,6 +78,7 @@
     <None Include="Sources\Utils\Utils.inl" />
     <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
     <None Include="Sources\Analyzer\Ast\Ast.inl" />
+    <None Include="Sources\Analyzer\Passes\ConstantEvaluator.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">

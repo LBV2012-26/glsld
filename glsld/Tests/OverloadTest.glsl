@@ -7,7 +7,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
-// #include "../Assets/Meta/BuiltinFunctions.glsl"
+#include "../Assets/Meta/BuiltinFunctions.glsl"
 
 void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
 void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}
@@ -1005,7 +1005,7 @@ void main() {
     TestOverloadFunction(MyStruct.data.middle[0].inner.mat2_field[0][0].xxxx);
     TestOverloadFunction(mat3x4(MyStruct.data.middle[1].v4Array));
     TestOverloadFunction(MyStruct.data.middle[1].inner.intArray2D_2x3[2][1] * MyStruct.data.dvec2_field.zz);
-    TestOverloadFunction(MyStruct.data.middle[0].inner.vec3_field * MyStruct.data.middle[1].inner.int_field * MyStruct.data.middle[0].mat4_field);
+    TestOverloadFunction(MyStruct.data.middle[0].inner.vec3_field * MyStruct.data.middle[1].inner.float_field);
 
     MySpirvType0 type0;
     MySpirvType1 type1;

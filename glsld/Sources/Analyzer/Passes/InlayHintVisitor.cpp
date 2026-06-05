@@ -53,7 +53,11 @@ namespace glsld {
                     std::string label = param->declared_symbol->name;
                     if (!type_info.array_sizes.empty()) {
                         for (auto array_size : type_info.array_sizes) {
-                            std::format_to(std::back_inserter(label), "[{}]", array_size);
+                            if (array_size.has_value()) {
+                                std::format_to(std::back_inserter(label), "[{}]", *array_size);
+                            } else {
+                                label += "[]";
+                            }
                         }
                     }
 

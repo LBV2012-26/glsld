@@ -44,20 +44,15 @@ namespace glsld {
     }
 
     inline auto SourceLocation::operator<=>(const SourceLocation& other) const {
-        if (line_ < other.line_) {
-            return std::strong_ordering::less;
-        } else if (line_ > other.line_) {
-            return std::strong_ordering::greater;
-        } else {
-            // line == other.line
-            if (column_ < other.column_) {
-                return std::strong_ordering::less;
-            } else if (column_ > other.column_) {
-                return std::strong_ordering::greater;
-            } else {
-                return std::strong_ordering::equal;
-            }
+        if (auto compare = source_ <=> other.source_; compare != std::strong_ordering::equal) {
+            return compare;
         }
+
+        if (auto compare = line_ <=> other.line_; compare != std::strong_ordering::equal) {
+            return compare;
+        }
+
+        return column_ <=> other.column_;
     }
 
     inline std::size_t LocationHash::operator()(const SourceLocation& location) const {
