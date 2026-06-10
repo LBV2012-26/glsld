@@ -29,6 +29,7 @@
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -87,5 +88,8 @@
     <Filter Include="源文件">
       <UniqueIdentifier>{d69adafd-6e2c-4924-aecd-7aec521cab30}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Assets\NoExpandHints.txt" />
   </ItemGroup>
 </Project>

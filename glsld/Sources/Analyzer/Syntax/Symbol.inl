@@ -54,6 +54,10 @@ namespace glsld {
         return !name.empty();
     }
 
+    inline void Scope::AddBuiltinScope(const Scope* builtin_scope) {
+        builtin_parents_.push_back(builtin_scope);
+    }
+
     inline const auto& Scope::host_symbol() const {
         return host_symbol_;
     }
@@ -94,6 +98,10 @@ namespace glsld {
 
     inline Scope* const DocumentSymbols::root_scope() const {
         return root_scope_.get();
+    }
+
+    inline void DocumentSymbols::AttachBuiltinSymbols(const DocumentSymbols* builtin) {
+        builtin_symbols_.push_back(builtin);
     }
 
     inline void DocumentSymbols::AddFunctionBaseName(const std::string& base_name, const SymbolInfo* symbol) {

@@ -7,6 +7,7 @@
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
@@ -31,6 +32,7 @@ namespace glsld {
         document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
+        //MetadataManager::GetInstance().AttachBuiltinMetadata(*document, include_dirs_);
 
         try {
             Parser parser(source_table_, source_file, source, include_loader_, include_dirs_, version_replica, version_pointer, *document);
@@ -40,6 +42,8 @@ namespace glsld {
                                 version_replica, version_pointer->load());
                 return;
             }
+
+            MetadataManager::GetInstance().AttachBuiltinMetadata(*document, include_dirs_);
         } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
             GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling lex.",
                             version_replica, version_pointer->load());

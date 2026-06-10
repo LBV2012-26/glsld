@@ -1,6 +1,8 @@
 // ===================================================================
 // Built-in Functions Extracted from GLSL Specification
 // ===================================================================
+int gl_A = 10;
+#define genType float
 
 // Radians
 // Converts degrees to radians, i.e., (PI / 180) * degrees.

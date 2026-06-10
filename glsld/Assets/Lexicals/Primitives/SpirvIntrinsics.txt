@@ -9,3 +9,7 @@ spirv_storage_class
 spirv_by_reference
 spirv_literal
 spirv_id
+
+extensions
+capabilities
+id

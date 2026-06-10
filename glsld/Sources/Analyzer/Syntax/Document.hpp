@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <ankerl/unordered_dense.h>
@@ -50,6 +51,9 @@ namespace glsld {
         MacroExpansionMap        macro_expansions;
         MacroTable               macros;
         int                      version{};
+
+        void InjectMacro(std::string_view name, MacroDefination defination);
+        void InjectMacro(std::string_view name);
     };
 
     struct InlayHint {

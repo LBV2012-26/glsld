@@ -98,6 +98,14 @@ namespace glsld {
             }
         }
 
+        for (const auto* builtin_parent : builtin_parents_) {
+            if (builtin_parent != nullptr) {
+                if (const auto* symbol = builtin_parent->FindSymbol(name)) {
+                    return symbol;
+                }
+            }
+        }
+
         return nullptr;
     }
 
@@ -117,6 +125,14 @@ namespace glsld {
 
                 const auto* symbol = child->FindSymbolInCurrentScope(name);
                 if (symbol != nullptr && (symbol->kind == SymbolKind::kStruct || symbol->kind == SymbolKind::kInterface)) {
+                    return symbol;
+                }
+            }
+        }
+
+        for (const auto* builtin_parent : builtin_parents_) {
+            if (builtin_parent != nullptr) {
+                if (const auto* symbol = builtin_parent->FindTypeSymbol(name)) {
                     return symbol;
                 }
             }
@@ -149,6 +165,12 @@ namespace glsld {
 
         if (parent_ != nullptr) {
             parent_->GetVisibleSymbols(symbols);
+        }
+
+        for (const auto* builtin_parent : builtin_parents_) {
+            if (builtin_parent != nullptr) {
+                builtin_parent->GetVisibleSymbols(symbols);
+            }
         }
     }
 
@@ -198,6 +220,13 @@ namespace glsld {
         auto it = function_name_map_.find(base_name);
         if (it != function_name_map_.end()) {
             return it->second;
+        }
+
+        for (const auto* builtin : builtin_symbols_) {
+            auto result = builtin->FindFunctionsByOriginalName(base_name);
+            if (!std::holds_alternative<std::monostate>(result)) {
+                return result;
+            }
         }
 
         return std::monostate{};

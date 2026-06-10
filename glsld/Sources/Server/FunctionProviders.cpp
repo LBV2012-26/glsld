@@ -1231,14 +1231,36 @@ namespace glsld {
             return std::format("{}({})", name, inside);
         }
 
-        std::string BuildTypeText(const auto* node) {
+        std::string ResolveAlias(const Document* snapshot, const SourceLocation& location) {
+            if (snapshot == nullptr) {
+                return {};
+            }
+
+            const auto& metadata = MetadataManager::GetInstance();
+
+            auto it = snapshot->macro_traces.find(location);
+            if (it != snapshot->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
+                return it->second.text;
+            }
+
+            return {};
+        };
+
+        std::string BuildTypeText(const auto* node, const Document* snapshot) {
             if (node->type_spec.spirv_type != nullptr) {
+                auto alias = ResolveAlias(snapshot, node->type_spec.spirv_type->keyword.location);
+                if (!alias.empty()) {
+                    return alias;
+                }
+
                 return RenderCanonicalSpirvCall(node->type_spec.spirv_type);
             }
 
             auto& metadata = MetadataManager::GetInstance();
 
-            std::string type_name = node->type_spec.typename_token().text;
+            std::string type_name;
+            auto alias = ResolveAlias(snapshot, node->type_spec.typename_token().location);
+            type_name = alias.empty() ? node->type_spec.typename_token().text : alias;
             if (auto subtype = metadata.GetLexicalSubtype(type_name);
                 subtype.has_value() && subtype->contains("Qualifiers"))
             {
@@ -1271,7 +1293,7 @@ namespace glsld {
             return type_name;
         }
 
-        std::string BuildHoverSpecifierLine(const auto* node) {
+        std::string BuildHoverSpecifierLine(const auto* node, const Document* snapshot) {
             std::vector<std::string> layer_exec_env;
             std::vector<std::string> layer_storage;
             std::vector<std::string> layer_decorate;
@@ -1286,7 +1308,8 @@ namespace glsld {
                     continue;
                 }
 
-                auto text = spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : spec.text;
+                auto alias = ResolveAlias(snapshot, spec.location);
+                auto text  = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : spec.text) : alias;
                 if (auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers"))
                 {
@@ -1300,7 +1323,8 @@ namespace glsld {
                 }
 
                 const auto& name = spirv->keyword.text;
-                auto call = RenderCanonicalSpirvCall(spirv.get());
+                auto alias = ResolveAlias(snapshot, spirv->keyword.location);
+                auto call  = alias.empty() ? RenderCanonicalSpirvCall(spirv.get()) : alias;
 
                 if (name == "spirv_execution_mode" || name == "spirv_execution_mode_ide" || name == "spirv_instruction") {
                     layer_exec_env.push_back(std::move(call));
@@ -1319,10 +1343,17 @@ namespace glsld {
                     return;
                 }
 
-                if (result.empty()) {
-                    result = sv;
+                std::string temp;
+                if (sv.contains('(')) {
+                    temp = std::string(sv.substr(0, sv.find_first_of('('))) + "(...)";
                 } else {
-                    result += " " + std::string(sv);
+                    temp = sv;
+                }
+
+                if (result.empty()) {
+                    result = temp;
+                } else {
+                    result += " " + temp;
                 }
             };
 
@@ -1331,12 +1362,12 @@ namespace glsld {
 
             Append(layer_layout);
 
-            for (const auto& layer : layer_storage)
-                Append(layer);
             for (const auto& layer : layer_decorate)
                 Append(layer);
+            for (const auto& layer : layer_storage)
+                Append(layer);
 
-            Append(BuildTypeText(node));
+            Append(BuildTypeText(node, snapshot));
 
             if (result.contains("layout") && !result.contains("set")) {
                 if (auto pos = result.find("binding"); pos != std::string::npos) {
@@ -1348,62 +1379,60 @@ namespace glsld {
         }
     }
 
-    std::string FormatFunctionSymbol(const SymbolInfo* symbol) {
+    FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, std::shared_ptr<const Document> snapshot) {
         if (symbol == nullptr) {
-            return "";
+            return {};
         }
 
-        std::string result;
-        switch (symbol->kind) {
-        case SymbolKind::kFunctionDecl:
-        case SymbolKind::kFunctionImpl: {
-            std::string return_typename = symbol->type_info.spirv_type.empty()
-                                        ? symbol->type_info.typename_token.text
-                                        : symbol->type_info.spirv_type;
+        std::string return_typename = symbol->type_info.spirv_type.empty()
+                                    ? symbol->type_info.typename_token.text
+                                    : symbol->type_info.spirv_type;
 
-            for (auto array_size : symbol->type_info.array_sizes) {
-                if (array_size.has_value()) {
-                    std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
-                } else {
-                    return_typename += "[]";
-                }
+        for (auto array_size : symbol->type_info.array_sizes) {
+            if (array_size.has_value()) {
+                std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
+            } else {
+                return_typename += "[]";
+            }
+        }
+
+        auto raw_name = utils::UnmangleFunctionName(symbol->name);
+        auto result = std::format("{} {}(", return_typename, raw_name);
+
+        std::vector<std::string> params;
+
+        const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
+        for (auto i = 0uz; i != node->params.size(); ++i) {
+            const auto& param = node->params[i];
+
+            auto        param_line   = BuildHoverSpecifierLine(param.get(), snapshot.get());
+            const auto* param_symbol = param->declared_symbol;
+
+            auto last_close_paren = param_line.find(')');
+            auto open_bracket = (last_close_paren != std::string::npos) ? param_line.find('[', last_close_paren) : param_line.find('[');
+
+            if (open_bracket != std::string::npos) {
+                param_line.insert(open_bracket, " " + param_symbol->name);
+            } else {
+                param_line += " " + param_symbol->name;
             }
 
-            auto raw_name = utils::UnmangleFunctionName(symbol->name);
-            result = std::format("{} {}(", return_typename, raw_name);
+            result += param_line;
+            params.push_back(std::move(param_line));
 
-            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
-            for (auto i = 0uz; i != node->params.size(); ++i) {
-                const auto& param = node->params[i];
-                result += BuildHoverSpecifierLine(param.get());
-
-                const auto* param_symbol = param->declared_symbol;
-                if (param_symbol != nullptr && param_symbol->name != "") {
-                    result += " " + param_symbol->name;
-
-                    for (auto array_size : symbol->type_info.array_sizes) {
-                        if (array_size.has_value()) {
-                            std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
-                        } else {
-                            return_typename += "[]";
-                        }
-                    }
-                }
-
-                if (i + 1 != node->params.size()) {
-                    result += ", ";
-                }
+            if (i + 1 != node->params.size()) {
+                result += ", ";
             }
-
-            result += ")";
-            break;
         }
 
-        default:
-            break;
-        }
+        result += ")";
 
-        return result;
+        return {
+            .return_typename = std::move(return_typename),
+            .base_name       = std::string(raw_name),
+            .full_spec       = std::move(result),
+            .params          = std::move(params)
+        };
     }
 
     namespace {
@@ -1518,7 +1547,6 @@ namespace glsld {
 
         bool NeedSpace(const Token& left, const Token& right) {
             switch (right.type) {
-            case TokenType::kOpenBracket:
             case TokenType::kCloseParen:
             case TokenType::kCloseBracket:
             case TokenType::kCloseBrace:
@@ -1554,6 +1582,10 @@ namespace glsld {
                        left.text == "switch" ||
                        left.text == "do" ||
                        left.text == "else");
+            }
+
+            if (right.type == TokenType::kOpenBracket) {
+                return left.type == TokenType::kEqual;
             }
 
             if (right.type == TokenType::kOpenBrace) {
@@ -1707,14 +1739,9 @@ namespace glsld {
         std::string details("Details:\n\n");
         std::string declare;
 
-        auto SplitLayoutAppendDetails = [&details](std::string_view spec_line) -> void {
-            if (spec_line.contains("layout(")) {
-                details += "**Layout**: `";
-                auto pos = spec_line.find("layout(");
-                auto end = spec_line.find(')', pos);
-                if (pos != std::string::npos && end != std::string::npos) {
-                    details += std::string(spec_line.substr(pos, end - pos + 1)) + "`\n";
-                }
+        auto AppendLayoutOnDetails = [&details](std::string_view layout) -> void {
+            if (!layout.empty()) {
+                details += std::format("**Layout**: `{}`\n", layout);
             }
         };
 
@@ -1790,8 +1817,10 @@ namespace glsld {
             }
 
             std::string full_spec(type_spec);
-            if (auto bracket_pos = full_spec.find('['); bracket_pos != std::string::npos) {
-                full_spec.insert(bracket_pos, " " + symbol->name);
+            auto last_close_paren = full_spec.find(')');
+            auto open_bracket = (last_close_paren != std::string::npos) ? full_spec.find('[', last_close_paren) : full_spec.find('[');
+            if (open_bracket != std::string::npos) {
+                full_spec.insert(open_bracket, " " + symbol->name);
             } else {
                 full_spec += " " + symbol->name;
             }
@@ -1892,13 +1921,13 @@ namespace glsld {
                 title = std::format("{} `{}::{}`\n\n{}", scope_prefix, symbol->located_scope->host_symbol()->name, symbol->name, BuildDefinedAt(symbol));
             }
 
-            auto type_text = BuildTypeText(node);
+            auto type_text = BuildTypeText(node, snapshot.get());
             type_arrow = std::format("**Type** -> `{}`", type_text);
 
-            auto full = BuildHoverSpecifierLine(node);
+            auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclare(symbol, full);
 
-            SplitLayoutAppendDetails(full);
+            AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
             CollectAndAppendDecorateHits(node);
 
@@ -1907,48 +1936,19 @@ namespace glsld {
 
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl: {
-            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
-            auto raw_name = utils::UnmangleFunctionName(symbol->name);
+            auto format_result = FormatFunctionSymbol(symbol, snapshot);
 
-            title = std::format("**function** `{}`", raw_name);
-
-            std::string return_typename = symbol->type_info.spirv_type.empty()
-                                        ? symbol->type_info.typename_token.text
-                                        : symbol->type_info.spirv_type;
-
-            for (auto array_size : symbol->type_info.array_sizes) {
-                if (array_size.has_value()) {
-                    std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
-                } else {
-                    return_typename += "[]";
-                }
-            }
-
-            type_arrow = std::format("**Returns** -> `{}`", return_typename);
-
-            std::vector<std::string> parameters;
-            for (const auto& param : node->params) {
-                std::string param_line;
-                param_line += BuildHoverSpecifierLine(param.get());
-                if (param->declared_symbol != nullptr) {
-                    const auto* param_symbol = param->declared_symbol;
-                    if (auto bracket_pos = param_line.find('['); bracket_pos != std::string::npos) {
-                        param_line.insert(bracket_pos, " " + param_symbol->name);
-                    } else {
-                        param_line += " " + param_symbol->name;
-                    }
-                }
-
-                parameters.push_back(std::move(param_line));
-            }
+            title      = std::format("**function** `{}`", format_result.base_name);
+            type_arrow = std::format("**Returns** -> `{}`", format_result.return_typename);
 
             std::string params_block = "**Parameters:**\n";
-            for (const auto& param : parameters) {
+            for (const auto& param : format_result.params) {
                 params_block += std::format("- `{}`\n", param);
             }
 
             details += params_block + "\n";
 
+            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
             std::vector<std::string> decorate_calls;
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_instruction") {
@@ -1964,17 +1964,7 @@ namespace glsld {
             }
 
             declare += std::format("// {}\n", BuildDefinedAt(symbol));
-
-            std::string declare_line = std::format("{} {}(", return_typename, raw_name);
-            for (auto i = 0uz; i != parameters.size(); ++i) {
-                declare_line += parameters[i];
-                if (i + 1 != parameters.size()) {
-                    declare_line += ", ";
-                }
-            }
-
-            declare_line += ");";
-            declare += declare_line;
+            declare += format_result.full_spec;
             break;
         }
 
@@ -1990,10 +1980,10 @@ namespace glsld {
             title = std::format("**block** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
 
-            auto full = BuildHoverSpecifierLine(node);
+            auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclare(symbol, full);
 
-            SplitLayoutAppendDetails(full);
+            AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
             CollectAndAppendDecorateHits(node);
 

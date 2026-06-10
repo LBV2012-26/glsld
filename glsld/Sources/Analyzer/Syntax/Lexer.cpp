@@ -30,7 +30,33 @@ namespace glsld {
     }
 
     Token Lexer::AcquireNextToken() {
+        auto token = ProduceToken();
+        last_token_line_ = token.location.line();
+
+        bool need_deep_paren = (last_token_text_ == "layout" || (last_token_text_.starts_with("spirv")) && (token.text != "spirv_id" && token.text != "spirv_by_reference"));
+
+        if (token.type == TokenType::kSharp)
+            preprocessor_line_ = true;
+        if (token.type == TokenType::kOpenParen && need_deep_paren)
+            ++qualifier_paren_depth_;
+        if (token.type == TokenType::kCloseParen && qualifier_paren_depth_ > 0)
+            --qualifier_paren_depth_;
+        if (token.type == TokenType::kIdentifier  ||
+            token.type == TokenType::kPrimitive   ||
+            token.type == TokenType::kBuiltInType ||
+            token.type == TokenType::kKeyword     ||
+            token.type == TokenType::kSpirvIntrinsic)
+            last_token_text_ = token.text;
+
+        return token;
+    }
+
+    Token Lexer::ProduceToken() {
         SkipWhitespaceAndComments();
+
+        if (line_ > last_token_line_) {
+            preprocessor_line_ = false;
+        }
 
         if (position_ < source_.length() && source_[position_] == '#') {
             TryPrefetchInclude();
@@ -104,6 +130,36 @@ namespace glsld {
 
             auto it = lexical_table_->find(word);
             if (it != lexical_table_->end()) {
+                if (it->second == TokenType::kPreprocessor) {
+                    if (preprocessor_line_) {
+                        return {
+                            .text     = std::string(word),
+                            .location = location,
+                            .type     = it->second
+                        };
+                    } else {
+                        return {
+                            .text     = std::string(word),
+                            .location = location,
+                            .type     = TokenType::kIdentifier
+                        };
+                    }
+                }
+
+                // layout(...)/spirv_xxx(...)
+                if (it->second == TokenType::kPrimitive) {
+                    auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(word);
+                    if (subtype.has_value() && (subtype->starts_with("Primitives.Layout") || subtype->starts_with("Primitives.Spirv"))) {
+                        if (qualifier_paren_depth_ == 0) {
+                            return {
+                                .text     = std::string(word),
+                                .location = location,
+                                .type     = TokenType::kIdentifier
+                            };
+                        }
+                    }
+                }
+
                 return {
                     .text     = std::string(word),
                     .location = location,
@@ -331,8 +387,7 @@ namespace glsld {
             return;
         }
 
-        auto& metadata = MetadataManager::GetInstance();
-        lexical_table_ = metadata.GetLexicalTable();
+        lexical_table_ = MetadataManager::GetInstance().GetLexicalTable();
     }
 
     void Lexer::SkipWhitespaceAndComments() {

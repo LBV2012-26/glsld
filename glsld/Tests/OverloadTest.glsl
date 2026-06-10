@@ -7,7 +7,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
-#include "../Assets/Meta/BuiltinFunctions.glsl"
+//#include "../Assets/Meta/BuiltinFunctions.glsl"
 
 void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
 void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}

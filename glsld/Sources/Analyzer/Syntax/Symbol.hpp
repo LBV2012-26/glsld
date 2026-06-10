@@ -143,13 +143,16 @@ namespace glsld {
 
     private:
         friend class DocumentSymbols;
+        friend class MetadataManager;
         friend class Parser;
 
         SymbolInfo* AddSymbol(SymbolInfo symbol);
         SymbolInfo* AddSymbol(const AstNode* node, std::string_view name, const SourceLocation& location, SymbolKind kind);
         SymbolInfo  RemoveSymbol(std::string_view name);
+        void AddBuiltinScope(const Scope* builtin_scope);
         void CollectLocalSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
+        std::vector<const Scope*>                        builtin_parents_;
         const Scope*                                     parent_;
         const SymbolInfo*                                host_symbol_{ nullptr };
         std::size_t                                      index_;
@@ -171,6 +174,7 @@ namespace glsld {
         SymbolReference FindFunctionsByOriginalName(std::string_view base_name) const;
         void Dump() const;
 
+        void AttachBuiltinSymbols(const DocumentSymbols* builtin);
         void AddFunctionBaseName(const std::string& base_name, const SymbolInfo* symbol);
 
         Scope* const root_scope() const;
@@ -180,6 +184,7 @@ namespace glsld {
         void PrintScopes(const Scope* scope, int indent_level) const;
 
         std::unique_ptr<Scope>               root_scope_;
+        std::vector<const DocumentSymbols*>  builtin_symbols_;
         StringHeteroHashMap<SymbolReference> function_name_map_;
     };
 }

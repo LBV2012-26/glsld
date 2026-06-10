@@ -40,13 +40,50 @@ namespace glsld {
 
             return true;
         }
+
+        std::string MakeMacroFingerprint(const MacroTable& macros) {
+            std::vector<std::string_view> names;
+            for (const auto& [name, _] : macros) {
+                names.push_back(name);
+            }
+
+            std::ranges::sort(names);
+            std::string key;
+            for (const auto& name : names) {
+                key += name;
+                key += ';';
+            }
+
+            return key;
+        }
     }
 
     MetadataManager::MetadataManager()
         : include_loader_{ source_table_, thread_pool_ }
     {}
 
-    void MetadataManager::MergeBuiltinMetadata(Document& target, std::span<const std::filesystem::path> include_dirs) {}
+    void MetadataManager::AttachBuiltinMetadata(Document& target, std::span<const std::filesystem::path> include_dirs) {
+        auto [required_filenames, injected_macros] = CollectRequiredMetadataFiles(target);
+
+        for (const auto& [name, defination] : injected_macros) {
+            target.InjectMacro(name, defination);
+        }
+
+        for (const auto& path : required_filenames) {
+            std::shared_ptr<Document> source = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
+            if (source == nullptr) {
+                continue;
+            }
+
+            for (const auto& [name, defination] : source->macros) {
+                target.InjectMacro(name, defination);
+            }
+
+            auto* target_root = target.symbols.root_scope();
+            target_root->AddBuiltinScope(source->symbols.root_scope());
+            target.symbols.AttachBuiltinSymbols(&source->symbols);
+        }
+    }
 
     const StringHeteroHashMap<TokenType>* MetadataManager::GetLexicalTable() {
         EnsureLexicalLoaded();
@@ -65,6 +102,10 @@ namespace glsld {
         }
 
         return it->second.subtype;
+    }
+
+    bool MetadataManager::IsNoExpandHint(std::string_view word) const {
+        return no_expand_hints_.contains(word);
     }
 
     MetadataManager& MetadataManager::GetInstance() {
@@ -106,11 +147,13 @@ namespace glsld {
         }
 
         lexical_loaded_.store(true, std::memory_order::relaxed);
+        LoadNoExpandHints();
     }
 
-    void MetadataManager::EnsureBuiltinDocumentLoaded(
+    std::shared_ptr<Document> MetadataManager::EnsureBuiltinDocumentLoaded(
         const std::filesystem::path& path,
-        std::span<const std::filesystem::path> include_dirs)
+        std::span<const std::filesystem::path> include_dirs,
+        const MacroTable* injected_macros)
     {
         auto normalized = utils::NormalizePath(path);
         auto filename   = normalized.generic_string();
@@ -118,30 +161,36 @@ namespace glsld {
         std::error_code ec;
         auto latest = std::filesystem::last_write_time(normalized, ec);
         if (ec) {
-            return;
+            return nullptr;
         }
+
+        auto cached_key = injected_macros == nullptr ? "" : MakeMacroFingerprint(*injected_macros);
 
         {
             std::shared_lock lock(builtin_mutex_);
             auto it = builtin_documents_.find(filename);
             if (it != builtin_documents_.end() &&
-                it->second.document != nullptr &&
                 it->second.write_time == latest)
             {
-                return;
+                auto it2 = it->second.variants.find(cached_key);
+                if (it2 != it->second.variants.end() && it2->second != nullptr) {
+                    return it2->second;
+                }
             }
         }
 
-        auto parsed = ParseMetadataDocument(normalized, include_dirs);
+        auto parsed = ParseMetadataDocument(normalized, include_dirs, injected_macros);
         if (parsed == nullptr || parsed->ast == nullptr) {
-            return;
+            return nullptr;
         }
 
         std::unique_lock lock(builtin_mutex_);
-        builtin_documents_[filename] = BuiltinDocumentCache{
-            .write_time = latest,
-            .document   = std::move(parsed)
-        };
+        BuiltinDocumentCache cache;
+        cache.write_time = latest;
+        cache.variants.try_emplace(cached_key, std::move(parsed));
+        builtin_documents_.insert_or_assign(filename, std::move(cache));
+
+        return builtin_documents_[filename].variants[cached_key];
     }
 
     namespace {
@@ -228,7 +277,7 @@ namespace glsld {
         }
     }
 
-    std::vector<std::filesystem::path> MetadataManager::CollectRequiredMetadataFiles(const Document& target) const {
+    MetadataManager::CollectResult MetadataManager::CollectRequiredMetadataFiles(const Document& target) const {
         std::vector<std::filesystem::path> required_files;
 
         auto PushIfExists = [&required_files](std::string_view relative_path) {
@@ -242,15 +291,83 @@ namespace glsld {
         PushIfExists("Assets/Meta/BuiltinVariables.glsl");
 
         auto required_extensions = CollectRequestedExtensions(target);
+        MacroTable injected_macros;
         for (const auto& extension : required_extensions) {
             auto filename = std::format("Assets/Meta/ExtensionHeaders/{}.glsl", extension);
             PushIfExists(filename);
+
+            injected_macros.try_emplace(extension, MacroDefination{
+                .is_function    = false,
+                .original_token = Token{
+                    .text = extension,
+                    .type = TokenType::kIdentifier
+                },
+                .replacement_list = { Token{
+                    .text = "1",
+                    .type = TokenType::kNumberLiteral
+                } },
+            });
+        }
+
+        static const StringHeteroHashMap<std::string> kStageMacros{
+            { "vertex",         "GL_VERTEX_SHADER" },
+            { "fragment",       "GL_FRAGMENT_SHADER" },
+            { "compute",        "GL_COMPUTE_SHADER" },
+            { "geometry",       "GL_GEOMETRY_SHADER" },
+            { "tesscontrol",    "GL_TESS_CONTROL_SHADER" },
+            { "tessevaluation", "GL_TESS_EVALUATION_SHADER" },
+            { "mesh",           "GL_MESH_SHADER_EXT" },
+            { "task",           "GL_TASK_SHADER_EXT" },
+            { "raygen",         "GL_RAY_GENERATION_SHADER_EXT" },
+            { "anyhit",         "GL_ANY_HIT_SHADER_EXT" },
+            { "closesthit",     "GL_CLOSEST_HIT_SHADER_EXT" },
+            { "miss",           "GL_MISS_SHADER_EXT" },
+            { "intersection",   "GL_INTERSECTION_SHADER_EXT" },
+            { "callable",       "GL_CALLABLE_SHADER_EXT" },
+        };
+
+        for (const auto* node : target.ast->preprocessor_references) {
+            if (node == nullptr || node->directive != "pragma")
+                continue;
+            if (node->tokens.front().text != "shader_stage" || node->tokens.size() < 2)
+                continue;
+
+            auto begin = node->tokens.begin() + 1;
+            auto end   = node->tokens.end();
+            if (begin != end && begin->type == TokenType::kOpenParen)
+                ++begin;
+            if (end != begin && (end - 1)->type == TokenType::kCloseParen)
+                --end;
+
+            for (auto it = begin; it != end; ++it) {
+                const auto& stage = it->text;
+                const auto& macro = kStageMacros.find(stage);
+                if (macro == kStageMacros.end()) {
+                    continue;
+                }
+
+                injected_macros.try_emplace(macro->second, MacroDefination{
+                    .is_function = false,
+                    .original_token = Token{
+                        .text = macro->second,
+                        .type = TokenType::kIdentifier
+                    },
+                    .replacement_list = { Token{
+                        .text = "1",
+                        .type = TokenType::kNumberLiteral
+                    } }
+                });
+            }
         }
 
         std::ranges::sort(required_files);
         auto [first, last] = std::ranges::unique(required_files);
         required_files.erase(first, last);
-        return required_files;
+
+        return {
+            .required_filenames = std::move(required_files),
+            .injected_macros    = std::move(injected_macros)
+        };
     }
 
     void MetadataManager::LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path) {
@@ -278,7 +395,8 @@ namespace glsld {
 
     std::shared_ptr<Document> MetadataManager::ParseMetadataDocument(
         const std::filesystem::path& path,
-        std::span<const std::filesystem::path> include_dirs)
+        std::span<const std::filesystem::path> include_dirs,
+        const MacroTable* injected_macros)
     {
         auto normalized = utils::NormalizePath(path);
         auto filename   = normalized.generic_string();
@@ -292,6 +410,10 @@ namespace glsld {
         auto document = std::make_shared<Document>();
         document->source = std::move(source);
 
+        if (injected_macros != nullptr) {
+            document->macros = *injected_macros;
+        }
+
         const auto* source_file = source_table_.Intern(filename, uri);
         Parser parser(source_table_, source_file, document->source, include_loader_, include_dirs, 0, nullptr, *document);
 
@@ -304,5 +426,18 @@ namespace glsld {
         MacroBinder binder(*document, 0, nullptr);
 
         return document;
+    }
+
+    void MetadataManager::LoadNoExpandHints() {
+        auto path = utils::GetFilePath("Assets/NoExpandHints.txt");
+        auto [source, error] = LoadSource(path);
+        if (!error.empty()) {
+            throw std::runtime_error("Failed to load no-expand hints: " + error);
+        }
+
+        auto words = ExtractWords(source);
+        for (auto word : words) {
+            no_expand_hints_.insert(word);
+        }
     }
 }

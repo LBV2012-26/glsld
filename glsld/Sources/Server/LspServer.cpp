@@ -541,7 +541,7 @@ namespace glsld {
         } else {
             markdown = std::format("Ambiguous call (+{} candidates)\n\n---\n```glsl\n", symbols.size());
             for (const auto* symbol : symbols) {
-                markdown += FormatFunctionSymbol(symbol);
+                markdown += FormatFunctionSymbol(symbol, snapshot).full_spec;
                 markdown += "\n";
             }
 
@@ -643,7 +643,7 @@ namespace glsld {
         for (const auto* symbol : signature_help->candidates) {
             ABORT_IF_CANCELLED();
 
-            auto label   = FormatFunctionSymbol(symbol);
+            auto label   = FormatFunctionSymbol(symbol, snapshot).full_spec;
             auto offsets = ExtractParameterOffsets(label);
 
             nlohmann::json params = nlohmann::json::array();
