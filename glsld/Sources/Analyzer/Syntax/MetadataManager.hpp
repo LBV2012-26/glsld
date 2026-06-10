@@ -25,7 +25,10 @@ namespace glsld {
 
     class MetadataManager {
     public:
-        void AttachBuiltinMetadata(Document& target, std::span<const std::filesystem::path> include_dirs);
+        void AttachBuiltinMetadata(
+            Document& target,
+            std::span<const Token> raw_tokens,
+            std::span<const std::filesystem::path> include_dirs);
 
         const StringHeteroHashMap<TokenType>* GetLexicalTable();
         std::optional<std::string_view> GetLexicalSubtype(std::string_view word);
@@ -48,13 +51,6 @@ namespace glsld {
             const std::filesystem::path& path,
             std::span<const std::filesystem::path> include_dirs,
             const MacroTable* injected_macros);
-
-        struct CollectResult {
-            std::vector<std::filesystem::path> required_filenames;
-            MacroTable                         injected_macros;
-        };
-
-        CollectResult CollectRequiredMetadataFiles(const Document& target) const;
 
         void LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path);
 

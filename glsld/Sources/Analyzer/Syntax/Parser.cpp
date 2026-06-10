@@ -23,22 +23,38 @@ namespace glsld {
                    std::shared_ptr<const std::atomic<int>> version_pointer,
                    Document& document)
 
-        : source_file_{ source_file }
-        , lexer_{ source_file_, source, include_loader, include_dirs }
-        , version_replica_{ version_replica }
-        , version_pointer_{ version_pointer }
-        , document_{ document }
+        : document_{ document }
     {
-        raw_tokens_.reserve(source.length() / 5);
+        std::vector<Token> raw_tokens;
+        raw_tokens.reserve(source.length() / 5);
+        Lexer lexer(source_file, source, include_loader, include_dirs);
 
         do {
             if (version_pointer_ != nullptr && version_replica != version_pointer_->load(std::memory_order::relaxed)) {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
             }
 
-            raw_tokens_.push_back(lexer_.AcquireNextToken());
-        } while (raw_tokens_.back().type != TokenType::kEndOfFile);
+            raw_tokens.push_back(lexer.AcquireNextToken());
+        } while (raw_tokens.back().type != TokenType::kEndOfFile);
 
+        Parser(source_table, source_file, std::move(raw_tokens), include_loader, include_dirs, version_replica, version_pointer, document);
+    }
+
+    Parser::Parser(SourceTable& source_table,
+                   const SourceFile* source_file,
+                   std::vector<Token> raw_tokens,
+                   IncludeLoader& include_loader,
+                   std::span<const std::filesystem::path> include_dirs,
+                   int version_replica,
+                   std::shared_ptr<const std::atomic<int>> version_pointer,
+                   Document& document)
+
+        : source_file_{ source_file }
+        , raw_tokens_{ std::move(raw_tokens) }
+        , version_replica_{ version_replica }
+        , version_pointer_{ version_pointer }
+        , document_{ document }
+    {
         Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);
         expanded_tokens_ = processor.Process();
 

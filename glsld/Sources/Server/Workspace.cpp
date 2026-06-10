@@ -32,41 +32,7 @@ namespace glsld {
         document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
-        //MetadataManager::GetInstance().AttachBuiltinMetadata(*document, include_dirs_);
-
-        try {
-            Parser parser(source_table_, source_file, source, include_loader_, include_dirs_, version_replica, version_pointer, *document);
-
-            if (document->ast == nullptr) { // 如果版本更改，会返回 nullptr
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
-                                version_replica, version_pointer->load());
-                return;
-            }
-
-            MetadataManager::GetInstance().AttachBuiltinMetadata(*document, include_dirs_);
-        } catch (const std::runtime_error&) { // 版本更改，Lexer 中止
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling lex.",
-                            version_replica, version_pointer->load());
-        }
-
-        auto Cancelled = [version_replica, &version_pointer]() -> bool {
-            if (version_replica != version_pointer->load()) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling update.",
-                                version_replica, version_pointer->load());
-                return true;
-            }
-
-            return false;
-        };
-
-        if (Cancelled()) return;
-        SymbolLinker linker(*document, version_replica, version_pointer);
-
-        if (Cancelled()) return;
-        TypeResolver resolver(*document, version_replica, version_pointer);
-
-        if (Cancelled()) return;
-        MacroBinder binder(*document, version_replica, version_pointer);
+        ProcessSource(source_file, source, version_replica, version_pointer, *document);
 
         UpdateDependencies(uri, document);
 
@@ -109,6 +75,54 @@ namespace glsld {
         }
 
         return results;
+    }
+
+    void Workspace::ProcessSource(
+        const SourceFile* source_file,
+        std::string_view source,
+        int version_replica,
+        std::shared_ptr<const std::atomic<int>> version_pointer,
+        Document& document)
+    {
+        Lexer lexer(source_file, source, include_loader_, include_dirs_);
+        std::vector<Token> raw_tokens;
+        raw_tokens.reserve(source.length() / 5);
+
+        do {
+            if (version_pointer != nullptr && version_replica != version_pointer->load(std::memory_order::relaxed)) {
+                return;
+            }
+
+            raw_tokens.push_back(lexer.AcquireNextToken());
+        } while (raw_tokens.back().type != TokenType::kEndOfFile);
+
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs_);
+
+        Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
+        if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
+            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
+                            version_replica, version_pointer->load());
+            return;
+        }
+
+        auto Cancelled = [version_replica, &version_pointer]() -> bool {
+            if (version_replica != version_pointer->load()) {
+                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling update.",
+                                version_replica, version_pointer->load());
+                return true;
+            }
+
+            return false;
+        };
+
+        if (Cancelled()) return;
+        SymbolLinker linker(document, version_replica, version_pointer);
+
+        if (Cancelled()) return;
+        TypeResolver resolver(document, version_replica, version_pointer);
+
+        if (Cancelled()) return;
+        MacroBinder binder(document, version_replica, version_pointer);
     }
 
     void Workspace::UnregisterDependencies(std::string_view uri) {

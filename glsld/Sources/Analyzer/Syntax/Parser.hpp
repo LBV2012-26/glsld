@@ -30,6 +30,15 @@ namespace glsld {
                std::shared_ptr<const std::atomic<int>> version_pointer,
                Document& document);
 
+        Parser(SourceTable& source_table,
+               const SourceFile* source_file,
+               std::vector<Token> raw_tokens,
+               IncludeLoader& include_loader,
+               std::span<const std::filesystem::path> include_dirs,
+               int version_replica,
+               std::shared_ptr<const std::atomic<int>> version_pointer,
+               Document& document);
+
     private:
         enum class Precedence : int {
             kLowest = 0,
@@ -125,7 +134,6 @@ namespace glsld {
         Scope* current_scope();
 
         const SourceFile*                       source_file_;
-        Lexer                                   lexer_;
         std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
         std::vector<PreprocessorNode*>          preprocessor_references_;

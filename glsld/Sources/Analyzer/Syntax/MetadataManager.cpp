@@ -56,14 +56,156 @@ namespace glsld {
 
             return key;
         }
+
+        std::optional<std::filesystem::path> TryResolveMetadataFile(const std::filesystem::path& relative_path) {
+            auto path = std::filesystem::path(utils::GetFilePath(relative_path.generic_string()));
+            std::error_code ec;
+            if (!std::filesystem::exists(path, ec) || ec) {
+                return std::nullopt;
+            }
+
+            return utils::NormalizePath(path);
+        }
+
+        MacroTable CollectRequestedExtensions(std::span<const Token> raw_tokens) {
+            MacroTable injected_macros;
+
+            auto InjectMacro = [&injected_macros](std::string_view name) -> void {
+                injected_macros.try_emplace(name, MacroDefination{
+                    .is_function = false,
+                    .original_token = Token{
+                        .text = std::string(name),
+                        .type = TokenType::kIdentifier
+                    },
+                    .replacement_list = { Token{
+                        .text = "1",
+                        .type = TokenType::kNumberLiteral
+                    } },
+                });
+            };
+
+            static const StringHeteroHashMap<std::string> kStageMacros{
+                { "vertex",         "GL_VERTEX_SHADER" },
+                { "fragment",       "GL_FRAGMENT_SHADER" },
+                { "compute",        "GL_COMPUTE_SHADER" },
+                { "geometry",       "GL_GEOMETRY_SHADER" },
+                { "tesscontrol",    "GL_TESS_CONTROL_SHADER" },
+                { "tessevaluation", "GL_TESS_EVALUATION_SHADER" },
+                { "mesh",           "GL_MESH_SHADER_EXT" },
+                { "task",           "GL_TASK_SHADER_EXT" },
+                { "raygen",         "GL_RAY_GENERATION_SHADER_EXT" },
+                { "anyhit",         "GL_ANY_HIT_SHADER_EXT" },
+                { "closesthit",     "GL_CLOSEST_HIT_SHADER_EXT" },
+                { "miss",           "GL_MISS_SHADER_EXT" },
+                { "intersection",   "GL_INTERSECTION_SHADER_EXT" },
+                { "callable",       "GL_CALLABLE_SHADER_EXT" },
+            };
+
+            for (auto i = 0uz; i != raw_tokens.size(); ++i) {
+                if (raw_tokens[i].type != TokenType::kSharp) {
+                    continue;
+                }
+
+                auto j = i + 1;
+                while (j < raw_tokens.size() && raw_tokens[j].type == TokenType::kSharp) {
+                    ++j;
+                }
+
+                if (j >= raw_tokens.size()) {
+                    break;
+                }
+
+                const auto& directive = raw_tokens[j];
+                if (directive.text == "extension" &&
+                    j + 3 < raw_tokens.size() &&
+                    raw_tokens[j + 2].type == TokenType::kColon) {
+                    const auto& action = raw_tokens[j + 3];
+                    if (action.text == "enable" || action.text == "require") {
+                        InjectMacro(raw_tokens[j + 1].text);
+                    }
+
+                    i = j + 3;
+                    continue;
+                }
+
+                if (directive.text == "pragma" && j + 2 < raw_tokens.size() &&
+                    raw_tokens[j + 1].text == "shader_stage" &&
+                    raw_tokens[j + 2].type == TokenType::kOpenParen) {
+                    for (auto k = j + 3; k < raw_tokens.size() && raw_tokens[k].type != TokenType::kCloseParen; ++k) {
+                        if (raw_tokens[k].type == TokenType::kIdentifier) {
+                            auto it = kStageMacros.find(raw_tokens[k].text);
+                            if (it != kStageMacros.end()) {
+                                InjectMacro(it->second);
+                            }
+                        }
+                    }
+
+                    i = j + 3;
+                    continue;
+                }
+            }
+
+            return injected_macros;
+        }
+
+        struct CollectResult {
+            std::vector<std::filesystem::path> required_filenames;
+            MacroTable                         injected_macros;
+        };
+
+        CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
+            std::vector<std::filesystem::path> required_files;
+
+            auto PushIfExists = [&required_files](std::string_view relative_path) {
+                auto resolved = TryResolveMetadataFile(relative_path);
+                if (resolved.has_value()) {
+                    required_files.push_back(*resolved);
+                }
+            };
+
+            PushIfExists("Assets/Meta/BuiltinFunctions.glsl");
+            PushIfExists("Assets/Meta/BuiltinVariables.glsl");
+
+            auto injected_macros = CollectRequestedExtensions(raw_tokens);
+            for (const auto& [name, _] : injected_macros) {
+                PushIfExists(std::format("Assets/Meta/ExtensionHeaders/{}.glsl", name));
+            }
+
+            static const std::vector<std::pair<std::vector<std::string>, std::string>> kCombinedHeaders{
+                { { "GL_EXT_ray_query", "GL_EXT_ray_tracing" }, "Assets/Meta/ExtensionHeaders/GL_EXT_ray_query_ray_tracing.glsl" }
+            };
+
+            for (const auto& [macros, combined] : kCombinedHeaders) {
+                bool all_present = std::ranges::all_of(macros, [&injected_macros](auto& macro) -> bool {
+                    return injected_macros.contains(macro);
+                });
+
+                if (all_present) {
+                    PushIfExists(combined);
+                }
+            }
+
+            std::ranges::sort(required_files);
+            auto [first, last] = std::ranges::unique(required_files);
+            required_files.erase(first, last);
+
+            return {
+                .required_filenames = std::move(required_files),
+                .injected_macros    = std::move(injected_macros)
+            };
+        }
     }
 
     MetadataManager::MetadataManager()
         : include_loader_{ source_table_, thread_pool_ }
     {}
 
-    void MetadataManager::AttachBuiltinMetadata(Document& target, std::span<const std::filesystem::path> include_dirs) {
-        auto [required_filenames, injected_macros] = CollectRequiredMetadataFiles(target);
+    void MetadataManager::AttachBuiltinMetadata(
+        Document& target,
+        std::span<const Token> raw_tokens,
+        std::span<const std::filesystem::path> include_dirs)
+    {
+        auto [required_filenames, injected_macros] = CollectRequiredMetadataFiles(raw_tokens);
 
         for (const auto& [name, defination] : injected_macros) {
             target.InjectMacro(name, defination);
@@ -185,12 +327,11 @@ namespace glsld {
         }
 
         std::unique_lock lock(builtin_mutex_);
-        BuiltinDocumentCache cache;
+        auto& cache = builtin_documents_[filename];
         cache.write_time = latest;
         cache.variants.try_emplace(cached_key, std::move(parsed));
-        builtin_documents_.insert_or_assign(filename, std::move(cache));
 
-        return builtin_documents_[filename].variants[cached_key];
+        return cache.variants[cached_key];
     }
 
     namespace {
@@ -234,140 +375,6 @@ namespace glsld {
             std::ranges::replace(result, '/', '.');
             return result;
         }
-    }
-
-    namespace {
-        std::optional<std::filesystem::path> TryResolveMetadataFile(const std::filesystem::path& relative_path) {
-            auto path = std::filesystem::path(utils::GetFilePath(relative_path.generic_string()));
-            std::error_code ec;
-            if (!std::filesystem::exists(path, ec) || ec) {
-                return std::nullopt;
-            }
-
-            return utils::NormalizePath(path);
-        }
-
-        std::vector<std::string> CollectRequestedExtensions(const Document& target) {
-            if (target.ast == nullptr) {
-                return {};
-            }
-
-            std::vector<std::string> results;
-            for (const auto* node : target.ast->preprocessor_references) {
-                if (node == nullptr || node->directive != "extension" || node->tokens.empty()) {
-                    continue;
-                }
-
-                const auto& extension_token = node->tokens.front();
-                if (extension_token.type != TokenType::kIdentifier && extension_token.type != TokenType::kKeyword) {
-                    continue;
-                }
-
-                if (node->tokens.back().text != "require" && node->tokens.back().text != "enable") {
-                    continue;
-                }
-
-                results.push_back(extension_token.text);
-            }
-
-            std::ranges::sort(results);
-            auto [first, last] = std::ranges::unique(results);
-            results.erase(first, last);
-            return results;
-        }
-    }
-
-    MetadataManager::CollectResult MetadataManager::CollectRequiredMetadataFiles(const Document& target) const {
-        std::vector<std::filesystem::path> required_files;
-
-        auto PushIfExists = [&required_files](std::string_view relative_path) {
-            auto resolved = TryResolveMetadataFile(relative_path);
-            if (resolved.has_value()) {
-                required_files.push_back(*resolved);
-            }
-        };
-
-        PushIfExists("Assets/Meta/BuiltinFunctions.glsl");
-        PushIfExists("Assets/Meta/BuiltinVariables.glsl");
-
-        auto required_extensions = CollectRequestedExtensions(target);
-        MacroTable injected_macros;
-        for (const auto& extension : required_extensions) {
-            auto filename = std::format("Assets/Meta/ExtensionHeaders/{}.glsl", extension);
-            PushIfExists(filename);
-
-            injected_macros.try_emplace(extension, MacroDefination{
-                .is_function    = false,
-                .original_token = Token{
-                    .text = extension,
-                    .type = TokenType::kIdentifier
-                },
-                .replacement_list = { Token{
-                    .text = "1",
-                    .type = TokenType::kNumberLiteral
-                } },
-            });
-        }
-
-        static const StringHeteroHashMap<std::string> kStageMacros{
-            { "vertex",         "GL_VERTEX_SHADER" },
-            { "fragment",       "GL_FRAGMENT_SHADER" },
-            { "compute",        "GL_COMPUTE_SHADER" },
-            { "geometry",       "GL_GEOMETRY_SHADER" },
-            { "tesscontrol",    "GL_TESS_CONTROL_SHADER" },
-            { "tessevaluation", "GL_TESS_EVALUATION_SHADER" },
-            { "mesh",           "GL_MESH_SHADER_EXT" },
-            { "task",           "GL_TASK_SHADER_EXT" },
-            { "raygen",         "GL_RAY_GENERATION_SHADER_EXT" },
-            { "anyhit",         "GL_ANY_HIT_SHADER_EXT" },
-            { "closesthit",     "GL_CLOSEST_HIT_SHADER_EXT" },
-            { "miss",           "GL_MISS_SHADER_EXT" },
-            { "intersection",   "GL_INTERSECTION_SHADER_EXT" },
-            { "callable",       "GL_CALLABLE_SHADER_EXT" },
-        };
-
-        for (const auto* node : target.ast->preprocessor_references) {
-            if (node == nullptr || node->directive != "pragma")
-                continue;
-            if (node->tokens.front().text != "shader_stage" || node->tokens.size() < 2)
-                continue;
-
-            auto begin = node->tokens.begin() + 1;
-            auto end   = node->tokens.end();
-            if (begin != end && begin->type == TokenType::kOpenParen)
-                ++begin;
-            if (end != begin && (end - 1)->type == TokenType::kCloseParen)
-                --end;
-
-            for (auto it = begin; it != end; ++it) {
-                const auto& stage = it->text;
-                const auto& macro = kStageMacros.find(stage);
-                if (macro == kStageMacros.end()) {
-                    continue;
-                }
-
-                injected_macros.try_emplace(macro->second, MacroDefination{
-                    .is_function = false,
-                    .original_token = Token{
-                        .text = macro->second,
-                        .type = TokenType::kIdentifier
-                    },
-                    .replacement_list = { Token{
-                        .text = "1",
-                        .type = TokenType::kNumberLiteral
-                    } }
-                });
-            }
-        }
-
-        std::ranges::sort(required_files);
-        auto [first, last] = std::ranges::unique(required_files);
-        required_files.erase(first, last);
-
-        return {
-            .required_filenames = std::move(required_files),
-            .injected_macros    = std::move(injected_macros)
-        };
     }
 
     void MetadataManager::LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path) {

@@ -157,6 +157,15 @@ namespace glsld {
             }
         }
 
+        // 只有根作用域的 builtin_parents_ 可能不为空
+        for (const auto* builtin_parent : builtin_parents_) {
+            if (builtin_parent != nullptr) {
+                if (const auto* symbol = builtin_parent->FindSymbolInCurrentScope(name)) {
+                    return symbol;
+                }
+            }
+        }
+
         return nullptr;
     }
 

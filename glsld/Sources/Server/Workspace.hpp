@@ -43,6 +43,13 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs() const;
 
     private:
+        void ProcessSource(
+            const SourceFile* source_file,
+            std::string_view source,
+            int version_replica,
+            std::shared_ptr<const std::atomic<int>> version_pointer,
+            Document& document);
+
         void UnregisterDependencies(std::string_view uri);
         void UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document);
         void RemoveDependencies(std::string_view uri);
