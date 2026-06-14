@@ -64,8 +64,13 @@ LightData ReturnLightData(int param) {
     texture2D(my_texture, vec2(0.5)); // test constructor
 }
 
+coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> ReturnCoopMat16() {
+    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix;
+    return matrix;
+}
+
 void main() {
-    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix_a;
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix = ReturnCoopMat16();
     vector<float, 16> long_vector = {};
 
     InStruct in_struct;

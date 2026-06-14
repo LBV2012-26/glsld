@@ -334,6 +334,10 @@ namespace glsld {
             return;
         }
 
+        for (auto& template_arg : node->type_spec.template_args) {
+            Traverse(template_arg.get());
+        }
+
         auto* function_symbol = node->declared_symbol;
         document_.bindings.try_emplace(function_symbol->location, function_symbol);
         function_symbol->type_info = ExtractTypeInfo(node->type_spec, node->located_scope);
@@ -369,6 +373,10 @@ namespace glsld {
     void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
         if (node->declared_symbol == nullptr) {
             return;
+        }
+
+        for (auto& template_arg : node->type_spec.template_args) {
+            Traverse(template_arg.get());
         }
 
         auto* variable_symbol = node->declared_symbol;
@@ -763,6 +771,20 @@ namespace glsld {
                 node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
             }
         }
+
+        if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
+            auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
+            if (symbol && (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl)) {
+                node->evaluated_type.is_function_reference = true;
+            }
+        } else if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
+            auto& list = std::get<SymbolList>(node->linked_symbols);
+            if (!list.empty() && (list.front()->kind == SymbolKind::kFunctionDecl ||
+                                  list.front()->kind == SymbolKind::kFunctionImpl))
+            {
+                node->evaluated_type.is_function_reference = true;
+            }
+        }
     }
 
     void TypeResolver::VisitRawExpression(RawExpressionNode* node) {
@@ -996,6 +1018,10 @@ namespace glsld {
 
         TypeInfo info;
 
+        if (type_spec.typename_token().text == "__Function") {
+            info.is_function_reference = true;
+        }
+
         const auto& typename_token = type_spec.typename_token();
         info.typename_token = typename_token;
 
@@ -1059,6 +1085,21 @@ namespace glsld {
             document_.bindings.try_emplace(typename_token.location, type_symbol);
         }
 
+        for (const auto& template_arg : type_spec.template_args) {
+            std::string arg_text;
+            if (auto* var = dynamic_cast<const VariableExpressionNode*>(template_arg.get())) {
+                arg_text = var->name;
+            } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(template_arg.get())) {
+                if (!raw->tokens.empty()) {
+                    arg_text = raw->tokens.front().text;
+                }
+            }
+
+            if (!arg_text.empty()) {
+                info.template_args.push_back(std::move(arg_text));
+            }
+        }
+
         info.type_desc = ParseTypeDescriptor(typename_token.text);
 
         return info;
@@ -1070,9 +1111,9 @@ namespace glsld {
             "image", "iimage", "uimage",
             "texture", "shadow",
             "subpass", "isubpass", "usubpass",
-            "accelerationStructure", "rayQuery", "rayPayload",
+            "accelerationStructure", "ray", "hit"
             "hitAttribute", "callableData", "shaderRecord",
-            "atomic"
+            "atomic", "NV", "EXT", "KHR"
         };
 
         TypeDescriptor desc;

@@ -503,48 +503,8 @@ namespace glsld {
         node->params = ParseParameterList();
 
         // mangle function name, such as "Func(int array[5], in vec3 v) -> Func(int[5], in vec3)"
-        std::vector<std::string> param_typenames;
-        for (const auto& param : node->params) {
-            std::string param_typename;
-
-            for (const auto& specifier : param->type_spec.specifiers) {
-                if (!param_typename.empty()) {
-                    param_typename += " ";
-                }
-
-                if (specifier.text != "spirv_type") {
-                    param_typename += specifier.text;
-                } else if (param->type_spec.spirv_type != nullptr) {
-                    auto parameters = utils::BuildQualifierParameterList(param->type_spec.spirv_type);
-                    param_typename += std::format("spirv_type({})", parameters);
-                }
-            }
-
-            for (const auto& array_size : param->type_spec.array_sizes) {
-                if (array_size == nullptr) {
-                    param_typename += "[]";
-                    continue;
-                }
-
-                std::string array_dimension;
-
-                if (array_size->kind() == AstNodeKind::kLiteralExpression) {
-                    const auto* raw_node = static_cast<const RawExpressionNode*>(array_size.get());
-                    for (const auto& token : raw_node->tokens) {
-                        array_dimension += token.text;
-                    }
-                } else if (array_size->kind() == AstNodeKind::kVariableExpression) {
-                    const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
-                    array_dimension = var_expr->name;
-                }
-
-                param_typename = std::format("{}[{}]", param_typename, array_dimension);
-            }
-
-            param_typenames.push_back(std::move(param_typename));
-        }
-
-        std::string function_name = MangleFunctionName(name_token.text, param_typenames);
+        auto param_typenames = MangleParameterNames(node.get());
+        auto function_name   = MangleFunctionName(name_token.text, param_typenames);
 
         // current token is ')'
         MatchAndConsume(TokenType::kCloseParen);
@@ -675,20 +635,35 @@ namespace glsld {
                 ConsumeToken();
 
                 if (MatchAndConsume(TokenType::kLessThan)) { // coopmat<float16_t, gl_ScopeSubgroup, M, N, gl_MatrixUseA>;
-                    while (current_token().type != TokenType::kEndOfFile &&
-                           current_token().type != TokenType::kGreaterThan)
-                    {
+                    int level = 1;
+                    while (current_token().type != TokenType::kEndOfFile && level > 0) {
                         const auto& arg_token = current_token();
+
                         if (arg_token.type == TokenType::kComma) {
                             ConsumeToken();
                             continue;
                         }
 
-                        type_spec.template_args.push_back(arg_token);
-                        ConsumeToken();
-                    }
+                        if (arg_token.type == TokenType::kLessThan) {
+                            ++level;
+                        }
 
-                    MatchAndConsume(TokenType::kGreaterThan);
+                        if (arg_token.type == TokenType::kGreaterThan) {
+                            --level;
+                            if (level > 0) {
+                                type_spec.template_args.push_back(ParseTemplateArgument());
+                            } else {
+                                ConsumeToken();
+                            }
+
+                            continue;
+                        }
+
+                        auto argument = ParseTemplateArgument();
+                        if (argument != nullptr) {
+                            type_spec.template_args.push_back(std::move(argument));
+                        }
+                    }
                 }
 
                 continue;
@@ -1074,6 +1049,32 @@ namespace glsld {
         }
 
         node->end = GetPreviousTokenEnd(); // CaptureBalancedTokens has consumed ')'
+        return node;
+    }
+
+    std::unique_ptr<ExpressionNode> Parser::ParseTemplateArgument() {
+        // current token is template argument, which can be a type or an expression
+        const auto& token = current_token();
+
+        if (token.type == TokenType::kNumberLiteral || token.type == TokenType::kStringLiteral) {
+            auto node = std::make_unique<RawExpressionNode>(current_scope());
+            node->tokens.push_back(token);
+            node->begin = token.location;
+            node->end   = GetCurrentTokenEnd();
+
+            ConsumeToken();
+            return node;
+        }
+
+        auto node = std::make_unique<VariableExpressionNode>(current_scope());
+
+        node->name           = token.text;
+        node->original_token = token;
+        node->node_type      = VariableExpressionNode::NodeType::kCommonVariable;
+        node->begin          = token.location;
+        node->end            = GetCurrentTokenEnd();
+
+        ConsumeToken();
         return node;
     }
 
@@ -1890,6 +1891,71 @@ namespace glsld {
             current_scope()->interval_.second = location;
             scope_stack_.pop();
         }
+    }
+
+    std::vector<std::string> Parser::MangleParameterNames(const FunctionDeclarationNode* node) {
+        std::vector<std::string> param_typenames;
+
+        for (const auto& param : node->params) {
+            std::string param_typename;
+
+            for (const auto& specifier : param->type_spec.specifiers) {
+                if (!param_typename.empty()) {
+                    param_typename += " ";
+                }
+
+                if (specifier.text != "spirv_type") {
+                    param_typename += specifier.text;
+                } else if (param->type_spec.spirv_type != nullptr) {
+                    auto parameters = utils::BuildQualifierParameterList(param->type_spec.spirv_type);
+                    param_typename += std::format("spirv_type({})", parameters);
+                }
+            }
+
+            if (!param->type_spec.template_args.empty()) {
+                param_typename += "<";
+                for (auto i = 0uz; i != param->type_spec.template_args.size(); ++i) {
+                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(param->type_spec.template_args[i].get())) {
+                        param_typename += var->name;
+                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(param->type_spec.template_args[i].get())) {
+                        if (!raw->tokens.empty()) {
+                            param_typename += raw->tokens.front().text;
+                        }
+                    }
+
+                    if (i + 1 != param->type_spec.template_args.size()) {
+                        param_typename += ", ";
+                    }
+                }
+
+                param_typename += ">";
+            }
+
+            for (const auto& array_size : param->type_spec.array_sizes) {
+                if (array_size == nullptr) {
+                    param_typename += "[]";
+                    continue;
+                }
+
+                std::string array_dimension;
+
+                if (array_size->kind() == AstNodeKind::kLiteralExpression) {
+                    const auto* raw_node = static_cast<const RawExpressionNode*>(array_size.get());
+                    for (const auto& token : raw_node->tokens) {
+                        array_dimension += token.text;
+                    }
+                } else if (array_size->kind() == AstNodeKind::kVariableExpression) {
+                    const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
+                    array_dimension = var_expr->name;
+                }
+
+                param_typename = std::format("{}[{}]", param_typename, array_dimension);
+            }
+
+            param_typenames.push_back(std::move(param_typename));
+        }
+
+        return param_typenames;
     }
 
     std::string Parser::MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames) {

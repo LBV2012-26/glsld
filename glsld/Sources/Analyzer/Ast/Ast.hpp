@@ -564,7 +564,7 @@ namespace glsld {
 
     struct TypeSpecifier {
         std::vector<Token>                                specifiers;
-        std::vector<Token>                                template_args;
+        std::vector<std::unique_ptr<ExpressionNode>>      template_args;
         std::vector<std::unique_ptr<ExpressionNode>>      array_sizes;
         std::vector<std::unique_ptr<LayoutQualifierNode>> layouts;
         std::vector<std::unique_ptr<SpirvIntrinsicNode>>  spirv_intrinsics;

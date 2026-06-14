@@ -38,6 +38,18 @@ namespace glsld {
             using enum VariableExpressionNode::NodeType;
         case kCommonVariable:
             node->linked_symbols = scope->FindSymbol(node->name);
+
+            if (std::holds_alternative<std::monostate>(node->linked_symbols) ||
+                (std::holds_alternative<const SymbolInfo*>(node->linked_symbols) &&
+                 std::get<const SymbolInfo*>(node->linked_symbols) == nullptr))
+            {
+                auto function = document_.symbols.FindFunctionsByOriginalName(node->name);
+                if (!std::holds_alternative<std::monostate>(function)) {
+                    node->linked_symbols = std::move(function);
+                    node->node_type = VariableExpressionNode::NodeType::kFunctionCallee;
+                }
+            }
+
             break;
         case kFunctionCallee: {
             auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);

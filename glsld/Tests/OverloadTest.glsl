@@ -7,8 +7,6 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
 
-//#include "../Assets/Meta/BuiltinFunctions.glsl"
-
 void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
 void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}
 
@@ -146,6 +144,10 @@ void TestOverloadFunction(MySpirvType1 param1, MySpirvType0 param0);
 
 void TestOverloadFunction(COOPMAT_TYPE_16 coopmat16_param);
 void TestOverloadFunction(COOPMAT_TYPE_32 coopmat32_param);
+void TestOverloadFunction(coopmat matrix, int intarg);
+void TestOverloadFunction(coopmat matrix, uint uintarg);
+
+void TestOverloadFunction(__Function func);
 
 void main() {
     int8_t    int8arg;
@@ -1040,6 +1042,11 @@ void main() {
 
     TestOverloadFunction(matrix_a);
     TestOverloadFunction(matrix_b);
+
+    TestOverloadFunction(matrix_a, int32arg);
+    TestOverloadFunction(matrix_b, uint32arg);
+
+    TestOverloadFunction(TestOverloadFunction);
 }
 
 void TestOverloadFunction() {}

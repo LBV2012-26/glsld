@@ -496,7 +496,7 @@ namespace glsld {
 
     TypeSpecifier::TypeSpecifier(const TypeSpecifier& other)
         : specifiers{ other.specifiers }
-        , template_args{ other.template_args }
+        , template_args{ CloneVector<ExpressionNode>(other.template_args) }
         , array_sizes{ CloneVector<ExpressionNode>(other.array_sizes) }
         , layouts{ CloneVector<LayoutQualifierNode>(other.layouts) }
         , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(other.spirv_intrinsics) }
@@ -509,7 +509,7 @@ namespace glsld {
     TypeSpecifier& TypeSpecifier::operator=(const TypeSpecifier& other) {
         if (this != &other) {
             specifiers       = other.specifiers;
-            template_args    = other.template_args;
+            template_args    = CloneVector<ExpressionNode>(other.template_args);
             array_sizes      = CloneVector<ExpressionNode>(other.array_sizes);
             layouts          = CloneVector<LayoutQualifierNode>(other.layouts);
             spirv_intrinsics = CloneVector<SpirvIntrinsicNode>(other.spirv_intrinsics);

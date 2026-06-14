@@ -53,6 +53,10 @@ namespace glsld {
     }
 
     bool TypeInfo::CompareWithoutQualifiers(const TypeInfo& other) const {
+        if ((is_function_reference && other.is_function_reference)) {
+            return true;
+        }
+
         if (typename_token.text != other.typename_token.text ||
             typename_token.type != other.typename_token.type)
         {
@@ -80,6 +84,18 @@ namespace glsld {
         for (auto i = 0uz; i != array_sizes.size(); ++i) {
             if (array_sizes[i] != other.array_sizes[i]) {
                 return false;
+            }
+        }
+
+        if (!template_args.empty() && !other.template_args.empty()) {
+            if (template_args.size() != other.template_args.size()) {
+                return false;
+            }
+
+            for (auto i = 0uz; i != template_args.size(); ++i) {
+                if (template_args[i] != other.template_args[i]) {
+                    return false;
+                }
             }
         }
 

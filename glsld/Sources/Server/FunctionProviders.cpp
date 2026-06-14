@@ -1300,7 +1300,12 @@ namespace glsld {
             if (!node->type_spec.template_args.empty()) {
                 type_name += "<";
                 for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    type_name += node->type_spec.template_args[i].text;
+                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i].get())) {
+                        type_name += var->name;
+                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i].get())) {
+                        type_name += raw->tokens.front().text;
+                    }
+
                     if (i + 1 != node->type_spec.template_args.size()) {
                         type_name += ", ";
                     }
@@ -1417,6 +1422,15 @@ namespace glsld {
         std::string return_typename = symbol->type_info.spirv_type.empty()
                                     ? symbol->type_info.typename_token.text
                                     : symbol->type_info.spirv_type;
+
+        for (const auto& template_args : symbol->type_info.template_args) {
+            return_typename += (template_args == symbol->type_info.template_args.front()) ? "<" : ", ";
+            return_typename += template_args;
+        }
+
+        if (!symbol->type_info.template_args.empty()) {
+            return_typename += ">";
+        }
 
         for (auto array_size : symbol->type_info.array_sizes) {
             if (array_size.has_value()) {

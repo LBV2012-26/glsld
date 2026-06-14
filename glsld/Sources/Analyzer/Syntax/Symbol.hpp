@@ -86,8 +86,10 @@ namespace glsld {
         const SymbolInfo*                         block_symbol{ nullptr };
         std::vector<std::optional<std::uint64_t>> array_sizes;
         std::vector<Token>                        qualifiers;
+        std::vector<std::string>                  template_args;
         std::string                               spirv_type;
         std::optional<SpirvTypeSignature>         spirv_signature;
+        bool                                      is_function_reference{ false };
 
         bool operator==(const TypeInfo& other) const;
         bool CompareWithoutQualifiers(const TypeInfo& other) const;

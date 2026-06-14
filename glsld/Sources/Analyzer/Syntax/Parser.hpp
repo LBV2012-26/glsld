@@ -82,6 +82,7 @@ namespace glsld {
         std::unique_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
         std::unique_ptr<LayoutQualifierNode> ParseLayoutQualifier();
         std::unique_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
+        std::unique_ptr<ExpressionNode> ParseTemplateArgument();
 
         bool TryParseLayoutQualifier(TypeSpecifier& type_spec);
         bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
@@ -128,6 +129,7 @@ namespace glsld {
         Scope* EnterScope(const SourceLocation& location, const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         void   LeaveScope(const SourceLocation& location);
 
+        std::vector<std::string> MangleParameterNames(const FunctionDeclarationNode* node);
         std::string MangleFunctionName(std::string_view base_name, std::span<const std::string> param_typenames);
         std::size_t GetNextAnonymousId();
 

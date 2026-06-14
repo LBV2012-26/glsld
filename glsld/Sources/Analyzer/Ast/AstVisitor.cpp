@@ -151,6 +151,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+        for (auto& template_arg : node->type_spec.template_args) {
+            Traverse(template_arg.get());
+        }
+
         for (auto& size_expr : node->type_spec.array_sizes) {
             Traverse(size_expr.get());
         }
@@ -165,6 +169,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitVariableDeclaration(VariableDeclarationNode* node) {
+        for (auto& template_arg : node->type_spec.template_args) {
+            Traverse(template_arg.get());
+        }
+
         for (auto& size_expr : node->type_spec.array_sizes) {
             Traverse(size_expr.get());
         }
@@ -175,6 +183,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
+        for (auto& template_arg : node->type_spec.template_args) {
+            Traverse(template_arg.get());
+        }
+
         if (node->body != nullptr) {
             Traverse(node->body.get());
         }

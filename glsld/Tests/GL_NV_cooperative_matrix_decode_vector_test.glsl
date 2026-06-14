@@ -3,6 +3,7 @@
 #extension GL_EXT_cooperative_matrix : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_long_vector : require
+#extension GL_NV_cooperative_matrix2 : require
 #extension GL_NV_cooperative_matrix_decode_vector : require
 
 layout(buffer_reference, std430) readonly buffer WeightBuffer {
@@ -49,7 +50,7 @@ vector<float16_t, 8> VectorDecoder(
 void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix;
     
-    tensorLayoutNV<2> layouts = createTensorLayout(2);
+    tensorLayoutNV<2> layouts = createTensorLayoutNV(2, 0);
     layouts = setTensorLayoutBlockSizeNV(layouts, 1, 32);
 
     coopMatLoadTensorNV(matrix, device_address.address, 0, layouts, ScalarDecoder, VectorDecoder);
