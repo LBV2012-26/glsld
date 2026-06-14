@@ -1,3 +1,5 @@
+#define GL_EXT_float8_e5m2_e4m3 1
+
 // GL_EXT_float_e5m2 / GL_EXT_float_e4m3
 
 // Types

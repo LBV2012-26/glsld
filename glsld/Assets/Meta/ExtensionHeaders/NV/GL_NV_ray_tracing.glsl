@@ -1,3 +1,5 @@
+#define GL_NV_ray_tracing 1
+
 in uvec3 gl_LaunchIDNV;
 in uvec3 gl_LaunchSizeNV;
 

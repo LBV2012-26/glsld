@@ -1,3 +1,5 @@
+#define GL_EXT_bfloat16 1
+
 // GL_EXT_bfloat16
 
 // Types

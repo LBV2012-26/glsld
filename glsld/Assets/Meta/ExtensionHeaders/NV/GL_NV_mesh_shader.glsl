@@ -1,3 +1,5 @@
+#define GL_NV_mesh_shader 1
+
 const uvec3 gl_WorkGroupSize;
 in    uvec3 gl_WorkGroupID;
 in    uvec3 gl_LocalInvocationID;

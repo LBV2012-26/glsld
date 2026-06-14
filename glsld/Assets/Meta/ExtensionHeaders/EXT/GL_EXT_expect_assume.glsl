@@ -1,3 +1,5 @@
+#define GL_EXT_expect_assume 1
+
 // GL_EXT_expect_assume
 
 // Optimization hint functions

@@ -1,3 +1,5 @@
+#define GL_EXT_samplerless_texture_functions 1
+
 // GL_EXT_samplerless_texture_functions
 
 // Texture query functions (no sampler parameter)

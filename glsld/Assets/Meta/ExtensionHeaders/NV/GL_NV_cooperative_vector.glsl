@@ -1,3 +1,5 @@
+#define GL_NV_cooperative_vector 1
+
 const int gl_ComponentTypeFloat16NV            = 0;
 const int gl_ComponentTypeFloat32NV            = 1;
 const int gl_ComponentTypeFloat64NV            = 2;

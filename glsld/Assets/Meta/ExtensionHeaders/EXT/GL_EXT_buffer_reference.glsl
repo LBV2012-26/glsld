@@ -1,3 +1,5 @@
+#define GL_EXT_buffer_reference 1
+
 // GL_EXT_buffer_reference
 // No new functions, types, variables, or constants defined.
 // Adds buffer_reference / buffer_reference_align layout qualifiers

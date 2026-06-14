@@ -1,3 +1,5 @@
+#define GL_EXT_mesh_shader 1
+
 in    uvec3 gl_NumWorkGroups;
 const uvec3 gl_WorkGroupSize;
 

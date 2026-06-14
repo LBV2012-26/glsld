@@ -1,3 +1,5 @@
+#define GL_EXT_shader_atomic_float 1
+
 float atomicAdd(inout float _Mem, float _Data);
 float atomicAdd(inout float _Mem, float _Data, int _Scope, int _Storage, int _Sem);
 double atomicAdd(inout double _Mem, double _Data);

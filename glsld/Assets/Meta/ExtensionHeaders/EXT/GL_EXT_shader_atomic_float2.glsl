@@ -1,3 +1,5 @@
+#define GL_EXT_shader_atomic_float2 1
+
 float atomicMin(inout float _Mem, float _Data);
 float atomicMin(inout float _Mem, float _Data, int _Scope, int _Storage, int _Sem);
 double atomicMin(inout double _Mem, double _Data);

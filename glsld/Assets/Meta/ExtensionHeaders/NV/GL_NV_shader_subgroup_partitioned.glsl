@@ -1,3 +1,5 @@
+#define GL_NV_shader_subgroup_partitioned 1
+
 float subgroupPartitionedAddNV(float _Value, uvec4 _Ballot);
 int subgroupPartitionedAddNV(int _Value, uvec4 _Ballot);
 uint subgroupPartitionedAddNV(uint _Value, uvec4 _Ballot);

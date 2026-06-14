@@ -1,3 +1,5 @@
+#define GL_EXT_shader_16bit_storage 1
+
 // GL_EXT_shader_16bit_storage / GL_EXT_shader_8bit_storage
 
 // Types (8-bit)

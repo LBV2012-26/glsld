@@ -1,3 +1,5 @@
+#define GL_NV_linear_swept_spheres 1
+
 #include "../EXT/GL_EXT_ray_query.glsl"
 
 in vec3  gl_HitSpherePositionNV;

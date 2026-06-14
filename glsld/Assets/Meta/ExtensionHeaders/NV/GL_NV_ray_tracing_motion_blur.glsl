@@ -1,3 +1,5 @@
+#define GL_NV_ray_tracing_motion_blur 1
+
 #define GL_EXT_ray_tracing
 #include "../EXT/GL_EXT_RT_Common.glsl"
 

@@ -1,3 +1,5 @@
+#define GL_EXT_shader_explicit_arithmetic_types 1
+
 // GL_EXT_shader_explicit_arithmetic_types
 // (also covers: _int8, _int16, _int32, _int64, _float16, _float32, _float64)
 

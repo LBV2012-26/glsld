@@ -1,3 +1,5 @@
+#define GL_NV_cooperative_matrix 1
+
 void coopMatLoadNV(out fcoopmatNV _M, volatile coherent float16_t[] _Buf, uint _Element, uint _Stride, bool _ColMajor);
 void coopMatLoadNV(out fcoopmatNV _M, volatile coherent float[] _Buf, uint _Element, uint _Stride, bool _ColMajor);
 void coopMatLoadNV(out fcoopmatNV _M, volatile coherent float64_t[] _Buf, uint _Element, uint _Stride, bool _ColMajor);

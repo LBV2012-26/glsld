@@ -1,3 +1,5 @@
+#define GL_EXT_integer_dot_product 1
+
 uint dotEXT(uvec2 _A, uvec2 _B);
 int dotEXT(ivec2 _A, ivec2 _B);
 int dotEXT(ivec2 _A, uvec2 _B);

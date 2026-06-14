@@ -1,3 +1,5 @@
+#define GL_NV_shader_invocation_reorder 1
+
 #define GL_EXT_ray_tracing
 #include "../EXT/GL_EXT_RT_Common.glsl"
 

@@ -1,3 +1,5 @@
+#define GL_EXT_shader_64bit_indexing 1
+
 // GL_EXT_shader_64bit_indexing
 
 // Pragma: #pragma shader_64bit_indexing

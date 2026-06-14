@@ -1,3 +1,5 @@
+#define GL_EXT_demote_to_helper_invocation 1
+
 // GL_EXT_demote_to_helper_invocation
 
 // Miscellaneous functions (Section 8.X)

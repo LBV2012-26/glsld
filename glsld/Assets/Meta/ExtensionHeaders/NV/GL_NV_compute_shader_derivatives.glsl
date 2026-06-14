@@ -1,0 +1,1 @@
+#define GL_NV_compute_shader_derivatives 1

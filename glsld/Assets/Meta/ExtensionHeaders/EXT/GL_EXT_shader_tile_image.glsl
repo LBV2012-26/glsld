@@ -1,3 +1,5 @@
+#define GL_EXT_shader_tile_image 1
+
 vec4 colorAttachmentReadEXT(attachmentEXT _Attachment);
 ivec4 colorAttachmentReadEXT(iattachmentEXT _Attachment);
 uvec4 colorAttachmentReadEXT(uattachmentEXT _Attachment);

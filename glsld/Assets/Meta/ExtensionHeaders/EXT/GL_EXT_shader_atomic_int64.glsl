@@ -1,3 +1,5 @@
+#define GL_EXT_shader_atomic_int64 1
+
 // GL_EXT_shader_atomic_int64
 
 // Atomic memory functions for 64-bit integer types
