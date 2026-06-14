@@ -4,9 +4,7 @@
 spirv_extension("SPV_KHR_ray_tracing")
 spirv_capability(5353)
 
-#ifndef GL_EXT_ray_query
-#define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
-#endif
+#include "GL_EXT_RT_Common.glsl"
 
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT)
 #define rayPayloadEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5338)
@@ -30,22 +28,9 @@ spirv_capability(5353)
 
 #define shaderRecordEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5343)
 
-#ifndef GL_EXT_ray_query
-const uint gl_RayFlagsNoneEXT                     = 0U;
-const uint gl_RayFlagsOpaqueEXT                   = 1U;
-const uint gl_RayFlagsNoOpaqueEXT                 = 2U;
-const uint gl_RayFlagsTerminateOnFirstHitEXT      = 4U;
-const uint gl_RayFlagsSkipClosestHitShaderEXT     = 8U;
-const uint gl_RayFlagsCullBackFacingTrianglesEXT  = 16U;
-const uint gl_RayFlagsCullFrontFacingTrianglesEXT = 32U;
-const uint gl_RayFlagsCullOpaqueEXT               = 64U;
-const uint gl_RayFlagsCullNoOpaqueEXT             = 128U;
-#endif
-
-const uint gl_HitKindFrontFacingTriangleEXT       = 0xFEU;
-const uint gl_HitKindBackFacingTriangleEXT        = 0xFFU;
-
-const int gl_ScopeShaderCallEXT                   = 6;
+const uint gl_HitKindFrontFacingTriangleEXT = 0xFEU;
+const uint gl_HitKindBackFacingTriangleEXT  = 0xFFU;
+const int  gl_ScopeShaderCallEXT            = 6;
 
 
 spirv_decorate(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 11, 5319)

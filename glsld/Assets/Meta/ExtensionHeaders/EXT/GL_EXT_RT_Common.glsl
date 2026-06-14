@@ -1,7 +1,14 @@
-#if defined(GL_EXT_ray_query) && defined(GL_EXT_ray_tracing)
+#ifndef GL_EXT_RT_COMMON_GLSL_
+#define GL_EXT_RT_COMMON_GLSL_
 
+#if defined(GL_EXT_ray_query) && !defined(GL_EXT_ray_tracing)
+#define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 5341)
+#elif !defined(GL_EXT_ray_query) && defined(GL_EXT_ray_tracing)
+#define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
+#elif (defined(GL_EXT_ray_query) && defined(GL_EXT_ray_tracing)) || defined(GL_EXT_shader_invocation_reorder)
 // capabilities 5353 implicit include 4472
 #define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
+#endif
 
 const uint gl_RayFlagsNoneEXT                     = 0U;
 const uint gl_RayFlagsOpaqueEXT                   = 1U;

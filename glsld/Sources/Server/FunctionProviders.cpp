@@ -878,6 +878,22 @@ namespace glsld {
             default:                     return 1;  // Text
             }
         };
+
+        int SubtypeToKind(std::string_view subtype) {
+            if (subtype == "Builtins.Types")
+                return 22; // Struct
+            if (subtype == "Primitives.Types" || subtype == "Keywords.Meta")
+                return 14; // Keyword
+            if (subtype == "Preprocessors.Meta")
+                return 21; // Constant
+            if (subtype == "Builtins.Functions")
+                return 3;  // Function
+            if (subtype == "Builtins.Variables")
+                return 6;  // Variable
+            if (subtype == "Primitives.Qualifiers" || subtype.contains("Layout"))
+                return 10; // Enum
+            return 1; // Text
+        };
     }
 
     nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
@@ -915,6 +931,20 @@ namespace glsld {
             item["kind"]  = MapSymbolKindToLspCompletion(symbol->kind, symbol->type_info.is_const());
 
             // TODO: document, detail, etc
+            items.push_back(std::move(item));
+        }
+
+        const auto& meta = MetadataManager::GetInstance().GetMeta();
+        for (const auto& [subtype, name] : meta) {
+            if (existing_labels.contains(name)) {
+                continue;
+            }
+
+            existing_labels.emplace(name);
+
+            nlohmann::json item;
+            item["label"] = name;
+            item["kind"]  = SubtypeToKind(subtype);
             items.push_back(std::move(item));
         }
 
@@ -1408,6 +1438,13 @@ namespace glsld {
             auto        param_line   = BuildHoverSpecifierLine(param.get(), snapshot.get());
             const auto* param_symbol = param->declared_symbol;
 
+            if (param_symbol == nullptr) {
+                // param_line auto assigned "void" from BuildHoverSpecifierLine function
+                result += param_line;
+                params.push_back(std::move(param_line));
+                continue;
+            }
+
             auto last_close_paren = param_line.find(')');
             auto open_bracket = (last_close_paren != std::string::npos) ? param_line.find('[', last_close_paren) : param_line.find('[');
 
@@ -1713,6 +1750,30 @@ namespace glsld {
 
             return result;
         }
+
+        const ExpressionNode* FollowConstantChain(const ExpressionNode* expr) {
+            while (expr != nullptr && expr->kind() == AstNodeKind::kVariableExpression) {
+                const auto* variable = static_cast<const VariableExpressionNode*>(expr);
+                const SymbolInfo* symbol = nullptr;
+
+                if (std::holds_alternative<const SymbolInfo*>(variable->linked_symbols)) {
+                    symbol = std::get<const SymbolInfo*>(variable->linked_symbols);
+                }
+
+                if (symbol == nullptr || symbol->kind != SymbolKind::kVariable || !symbol->type_info.is_const()) {
+                    break;
+                }
+
+                const auto* declare = dynamic_cast<const VariableDeclarationNode*>(symbol->node);
+                if (declare == nullptr || declare->init == nullptr) {
+                    break;
+                }
+
+                expr = declare->init.get();
+            }
+
+            return expr;
+        }
     }
 
     std::string BuildHoverMarkdown(
@@ -1843,6 +1904,11 @@ namespace glsld {
                     ConstantEvaluator evaluator;
                     if (auto value = evaluator.EvaluateAs<std::string>(node->init.get())) {
                         declare += "\n// Evaluates to\n" + *value;
+                    } else if (auto* root = FollowConstantChain(node->init.get()); root != nullptr && root != node->init.get()) {
+                        auto root_text = SerializeInitializer(root);
+                        if (!root_text.empty()) {
+                            declare += "\n// Evaluates to\n" + root_text;
+                        }
                     }
                 }
             }

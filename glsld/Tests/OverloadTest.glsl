@@ -141,6 +141,12 @@ void TestOverloadFunction(MySpirvType8 param8);
 void TestOverloadFunction(MySpirvType0 param0, MySpirvType1 param1);
 void TestOverloadFunction(MySpirvType1 param1, MySpirvType0 param0);
 
+#define COOPMAT_TYPE_16 coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>
+#define COOPMAT_TYPE_32 coopmat<float16_t, gl_ScopeSubgroup, 32, 32, gl_MatrixUseB>
+
+void TestOverloadFunction(COOPMAT_TYPE_16 coopmat16_param);
+void TestOverloadFunction(COOPMAT_TYPE_32 coopmat32_param);
+
 void main() {
     int8_t    int8arg;
     int16_t   int16arg;
@@ -1028,6 +1034,12 @@ void main() {
     TestOverloadFunction(type8);
     TestOverloadFunction(type0, type1);
     TestOverloadFunction(type1, type0);
+
+    COOPMAT_TYPE_16 matrix_a;
+    COOPMAT_TYPE_32 matrix_b;
+
+    TestOverloadFunction(matrix_a);
+    TestOverloadFunction(matrix_b);
 }
 
 void TestOverloadFunction() {}

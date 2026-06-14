@@ -6,8 +6,6 @@
 #extension GL_EXT_control_flow_attributes : require
 #extension GL_EXT_control_flow_attributes2 : require
 
-// #include "../Assets/Meta/BuiltinFunctions.glsl"
-
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
 
@@ -24,6 +22,10 @@ layout(location = 1) pervertexEXT in FragInput {
 	vec3 frag_pos;
 	vec4 light_space_frag_pos;
 } input_data;
+
+layout(location = 2) in struct InStruct {
+    vec3 field;
+} input_struct;
 
 struct LightData {
     vec3 position;
@@ -59,13 +61,19 @@ LightData ReturnLightData(int param) {
     output_arg = input_arg + MACRO_FUNC(param);
 
     texture(sampler2D(my_texture, my_sampler), vec2(0.5));
-    // texture2D(my_texture, vec2(0.5)); // test constructor
+    texture2D(my_texture, vec2(0.5)); // test constructor
 }
 
 void main() {
+    coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix_a;
+    vector<float, 16> long_vector = {};
+
+    InStruct in_struct;
+    in_struct.field = vec3(1.0);
+
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
-    mat4 my_matrix = ubo.my_matrix;
-    int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE];
+    const mat4 kMyMatrix = ubo.my_matrix;
+    int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE] = {};
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
 
     vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
@@ -82,4 +90,6 @@ void main() {
     LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
 
     FragColor = vec4(light + ambient * result.position, 1.0);
+
+    gl_Position;
 }

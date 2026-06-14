@@ -1,4 +1,6 @@
-﻿atomic_uint
+atomic_uint
 bool int uint float double
 long short half fixed unsigned superp
 void
+buffer_or_buffer_reference
+__Function

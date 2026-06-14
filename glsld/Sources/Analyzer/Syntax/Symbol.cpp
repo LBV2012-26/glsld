@@ -157,6 +157,15 @@ namespace glsld {
             }
         }
 
+        for (const auto& [key, symbol] : symbols_) {
+            if (symbol->kind == SymbolKind::kInterface && key.length() > name.length() + 1) {
+                auto space_pos = key.rfind(' ');
+                if (space_pos != std::string::npos && key.substr(space_pos + 1) == name) {
+                    return symbol.get();
+                }
+            }
+        }
+
         // 只有根作用域的 builtin_parents_ 可能不为空
         for (const auto* builtin_parent : builtin_parents_) {
             if (builtin_parent != nullptr) {
@@ -181,6 +190,30 @@ namespace glsld {
                 builtin_parent->GetVisibleSymbols(symbols);
             }
         }
+    }
+
+    SymbolInfo* Scope::AddSymbol(SymbolInfo symbol) {
+        auto unique_symbol = std::make_unique<SymbolInfo>(std::move(symbol));
+        auto key           = unique_symbol->name;
+
+        if (unique_symbol->kind == SymbolKind::kInterface && unique_symbol->node != nullptr) {
+            std::string_view storage;
+
+            const auto* declare = static_cast<const InterfaceDeclarationNode*>(unique_symbol->node);
+            for (const auto& specifier : declare->type_spec.specifiers) {
+                if (specifier.text == "in" || specifier.text == "out") {
+                    storage = specifier.text;
+                    break;
+                }
+            }
+
+            if (!storage.empty()) {
+                key = std::format("{} {}", storage, key);
+            }
+        }
+
+        auto [it, _] = symbols_.try_emplace(key, std::move(unique_symbol));
+        return it->second.get();
     }
 
     SymbolInfo Scope::RemoveSymbol(std::string_view name) {

@@ -14,5 +14,26 @@ public static extern external interface
 sizeof
 cast
 namespace
+nontemporal
 
 pervertexEXT
+perprimitiveEXT
+nonuniformEXT
+subgroupuniformEXT
+
+rayPayloadNV
+rayPayloadInNV
+hitAttributeNV
+callableDataNV
+callableDataInNV
+
+perviewNV
+perprimitiveNV
+
+coherent
+noncoherent
+devicecoherent
+queuefamilycoherent
+shadercallcoherent
+subgroupcoherent
+workgroupcoherent

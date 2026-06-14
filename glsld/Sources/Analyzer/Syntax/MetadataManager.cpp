@@ -10,8 +10,6 @@
 #include <ranges>
 #include <stdexcept>
 #include <system_error>
-#include <utility>
-#include <vector>
 
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
@@ -153,6 +151,17 @@ namespace glsld {
             MacroTable                         injected_macros;
         };
 
+        std::string ResolveExtensionFilename(std::string_view extension) {
+            auto first = extension.find('_');
+            if (first == std::string_view::npos) {
+                return "";
+            }
+
+            auto second = extension.find('_', first + 1);
+            auto vendor = (second == std::string_view::npos ? extension.substr(first + 1) : extension.substr(first + 1, second - first - 1));
+            return std::format("Assets/Meta/ExtensionHeaders/{}/{}.glsl", vendor, extension);
+        }
+
         CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
             std::vector<std::filesystem::path> required_files;
 
@@ -164,24 +173,31 @@ namespace glsld {
             };
 
             PushIfExists("Assets/Meta/BuiltinFunctions.glsl");
-            PushIfExists("Assets/Meta/BuiltinVariables.glsl");
+
+            static const StringHeteroHashMap<std::string> kStageMacros{
+                { "GL_VERTEX_SHADER",             "Vertex",         },
+                { "GL_FRAGMENT_SHADER",           "Fragment",       },
+                { "GL_COMPUTE_SHADER",            "Compute",        },
+                { "GL_GEOMETRY_SHADER",           "Geometry",       },
+                { "GL_TESS_CONTROL_SHADER",       "TessControl",    },
+                { "GL_TESS_EVALUATION_SHADER",    "TessEvaluation", },
+                { "GL_MESH_SHADER_EXT",           "Mesh",           },
+                { "GL_TASK_SHADER_EXT",           "Task",           },
+                { "GL_RAY_GENERATION_SHADER_EXT", "RayGen",         },
+                { "GL_ANY_HIT_SHADER_EXT",        "AnyHit",         },
+                { "GL_CLOSEST_HIT_SHADER_EXT",    "ClosestHit",     },
+                { "GL_MISS_SHADER_EXT",           "Miss",           },
+                { "GL_INTERSECTION_SHADER_EXT",   "Intersection",   },
+                { "GL_CALLABLE_SHADER_EXT",       "Callable",       },
+            };
 
             auto injected_macros = CollectRequestedExtensions(raw_tokens);
             for (const auto& [name, _] : injected_macros) {
-                PushIfExists(std::format("Assets/Meta/ExtensionHeaders/{}.glsl", name));
-            }
-
-            static const std::vector<std::pair<std::vector<std::string>, std::string>> kCombinedHeaders{
-                { { "GL_EXT_ray_query", "GL_EXT_ray_tracing" }, "Assets/Meta/ExtensionHeaders/GL_EXT_ray_query_ray_tracing.glsl" }
-            };
-
-            for (const auto& [macros, combined] : kCombinedHeaders) {
-                bool all_present = std::ranges::all_of(macros, [&injected_macros](auto& macro) -> bool {
-                    return injected_macros.contains(macro);
-                });
-
-                if (all_present) {
-                    PushIfExists(combined);
+                auto it = kStageMacros.find(name);
+                if (it != kStageMacros.end()) { // shader_stage
+                    PushIfExists(std::format("Assets/Meta/BuiltinVariables/{}.glsl", it->second));
+                } else {
+                    PushIfExists(ResolveExtensionFilename(name));
                 }
             }
 
@@ -246,6 +262,11 @@ namespace glsld {
         return it->second.subtype;
     }
 
+    const std::vector<std::pair<std::string, std::string>>& MetadataManager::GetMeta() {
+        EnsureLexicalLoaded();
+        return meta_;
+    }
+
     bool MetadataManager::IsNoExpandHint(std::string_view word) const {
         return no_expand_hints_.contains(word);
     }
@@ -290,6 +311,13 @@ namespace glsld {
 
         lexical_loaded_.store(true, std::memory_order::relaxed);
         LoadNoExpandHints();
+
+        for (const auto& [name, entry] : lexical_entries_) {
+            const auto& subtype = entry.subtype;
+            if (!subtype.empty()) {
+                meta_.emplace_back(subtype, name);
+            }
+        }
     }
 
     std::shared_ptr<Document> MetadataManager::EnsureBuiltinDocumentLoaded(

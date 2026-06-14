@@ -11,3 +11,5 @@ if
 return
 switch
 while
+terminateInvocation
+demote
