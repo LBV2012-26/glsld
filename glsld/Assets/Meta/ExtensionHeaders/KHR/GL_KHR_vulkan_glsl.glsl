@@ -1,3 +1,5 @@
+#define GL_KHR_vulkan_glsl 1
+
 in int gl_VertexIndex;
 in int gl_InstanceIndex;
 

@@ -1,3 +1,5 @@
+#define GL_KHR_shader_subgroup_rotate 1
+
 float subgroupRotate(float _Value, uint _Delta);
 int subgroupRotate(int _Value, uint _Delta);
 uint subgroupRotate(uint _Value, uint _Delta);

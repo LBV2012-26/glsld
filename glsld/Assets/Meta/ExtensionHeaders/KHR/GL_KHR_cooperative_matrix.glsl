@@ -1,3 +1,5 @@
+#define GL_KHR_cooperative_matrix 1
+
 const int gl_MatrixUseA           = 0;
 const int gl_MatrixUseB           = 1;
 const int gl_MatrixUseAccumulator = 2;

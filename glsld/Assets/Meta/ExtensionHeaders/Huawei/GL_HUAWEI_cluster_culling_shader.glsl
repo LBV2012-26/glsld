@@ -1,3 +1,5 @@
+#define GL_HUAWEI_cluster_culling_shader 1
+
 // GL_HUAWEI_cluster_culling_shader
 // Output interface block
 out gl_PerClusterHUAWEI {

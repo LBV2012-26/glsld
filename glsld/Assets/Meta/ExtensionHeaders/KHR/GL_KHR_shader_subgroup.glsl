@@ -1,3 +1,5 @@
+#define GL_KHR_shader_subgroup 1
+
 highp in uint gl_NumSubgroups;
 highp in uint gl_SubgroupID;
 mediump in uint gl_SubgroupSize;

@@ -1,3 +1,5 @@
+#define GL_KHR_memory_scope_semantics 1
+
 const int gl_ScopeDevice      = 1;
 const int gl_ScopeWorkgroup   = 2;
 const int gl_ScopeSubgroup    = 3;

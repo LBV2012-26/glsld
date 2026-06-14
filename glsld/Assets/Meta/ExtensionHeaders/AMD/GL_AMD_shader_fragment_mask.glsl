@@ -1,3 +1,5 @@
+#define GL_AMD_shader_fragment_mask 1
+
 uint fragmentMaskFetchAMD(sampler2DMS _Sampler, ivec2 _P);
 uint fragmentMaskFetchAMD(isampler2DMS _Sampler, ivec2 _P);
 uint fragmentMaskFetchAMD(usampler2DMS _Sampler, ivec2 _P);
