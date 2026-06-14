@@ -701,6 +701,12 @@ namespace glsld {
             return include_items;
         }
 
+        if (auto extension_items = GetExtensionCompletionItems(context, snapshot, target);
+            !extension_items.empty())
+        {
+            return extension_items;
+        }
+
         return GetCompletionItems(context, snapshot, target);
     }
 

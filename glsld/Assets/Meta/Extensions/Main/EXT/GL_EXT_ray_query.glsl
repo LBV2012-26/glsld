@@ -2,7 +2,7 @@
 
 #define rayQueryEXT spirv_type(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4472)
 
-#include "GL_EXT_RT_Common.glsl"
+#include "../../Common/RayTracingCommon.glsl"
 
 const uint gl_RayQueryCommittedIntersectionNoneEXT      = 0U;
 const uint gl_RayQueryCommittedIntersectionTriangleEXT  = 1U;

@@ -1,5 +1,5 @@
-#ifndef GL_EXT_RT_COMMON_GLSL_
-#define GL_EXT_RT_COMMON_GLSL_
+#ifndef RAY_TRACING_COMMON_GLSL_
+#define RAY_TRACING_COMMON_GLSL_
 
 #if defined(GL_EXT_ray_query) && !defined(GL_EXT_ray_tracing)
 #define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 5341)

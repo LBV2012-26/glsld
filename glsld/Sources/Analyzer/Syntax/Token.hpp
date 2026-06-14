@@ -26,6 +26,7 @@ namespace glsld {
         kColon,                  // :
         kSemicolon,              // ;
         kDot,                    // .
+        kEllipsis,               // ...
         kQuestion,               // ? (三元运算符)
         kSharp,                  // #
         kBackslash,              // \

@@ -159,7 +159,7 @@ namespace glsld {
 
             auto second = extension.find('_', first + 1);
             auto vendor = (second == std::string_view::npos ? extension.substr(first + 1) : extension.substr(first + 1, second - first - 1));
-            return std::format("Assets/Meta/ExtensionHeaders/{}/{}.glsl", vendor, extension);
+            return std::format("Assets/Meta/Extensions/Main/{}/{}.glsl", vendor, extension);
         }
 
         CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {

@@ -596,6 +596,7 @@ namespace glsld {
     struct VariableDeclarationNode final : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
         TypeSpecifier                   type_spec;
+        bool                            is_variadic{ false };
 
         using DeclarationNode::DeclarationNode;
         VariableDeclarationNode(const VariableDeclarationNode& other);

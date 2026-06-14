@@ -57,14 +57,47 @@ namespace glsld {
             return true;
         }
 
-        if (typename_token.text != other.typename_token.text ||
-            typename_token.type != other.typename_token.type)
-        {
-            return false;
+        if (typename_token.type != other.typename_token.type) {
+            auto IsCore = [](TokenType type, BaseFamily family) -> bool {
+                bool is_core_type = (type == TokenType::kPrimitive || type == TokenType::kBuiltInType);
+
+                bool is_core_family =
+                    (family == BaseFamily::kBool  ||
+                     family == BaseFamily::kInt   ||
+                     family == BaseFamily::kUint  ||
+                     family == BaseFamily::kFloat ||
+                     family == BaseFamily::kVoid);
+
+                return is_core_type && is_core_family;
+            };
+
+            if (!IsCore(typename_token.type, type_desc.family) ||
+                !IsCore(other.typename_token.type, other.type_desc.family))
+            {
+                return false;
+            }
+
+            if (type_desc != other.type_desc) {
+                return false;
+            }
+        } else {
+            if (typename_token.text != other.typename_token.text) {
+                return false;
+            }
         }
 
         if (spirv_signature.has_value() != other.spirv_signature.has_value()) {
             return false;
+        }
+
+        if (typename_token.type == TokenType::kPrimitive) {
+            if (type_desc.family != other.type_desc.family || type_desc.bits != other.type_desc.bits) {
+                return false;
+            }
+        } else if (typename_token.type == TokenType::kBuiltInType || typename_token.type == TokenType::kIdentifier) {
+            if (typename_token.text != other.typename_token.text) {
+                return false;
+            }
         }
 
         if (spirv_signature.has_value() && other.spirv_signature.has_value()) {
@@ -228,7 +261,7 @@ namespace glsld {
             }
         }
 
-        auto [it, _] = symbols_.try_emplace(key, std::move(unique_symbol));
+        auto [it, _] = symbols_.try_emplace(std::move(key), std::move(unique_symbol));
         return it->second.get();
     }
 
@@ -275,19 +308,36 @@ namespace glsld {
     }
 
     SymbolReference DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
-        auto it = function_name_map_.find(base_name);
-        if (it != function_name_map_.end()) {
-            return it->second;
+        SymbolList overloads;
+
+        auto local = function_name_map_.find(base_name);
+        if (local != function_name_map_.end()) {
+            const auto& result = local->second;
+            if (std::holds_alternative<const SymbolInfo*>(result)) {
+                overloads.push_back(std::get<const SymbolInfo*>(result));
+            } else if (std::holds_alternative<SymbolList>(result)) {
+                const auto& list = std::get<SymbolList>(result);
+                overloads.append_range(list);
+            }
         }
 
         for (const auto* builtin : builtin_symbols_) {
             auto result = builtin->FindFunctionsByOriginalName(base_name);
-            if (!std::holds_alternative<std::monostate>(result)) {
-                return result;
+            if (std::holds_alternative<const SymbolInfo*>(result)) {
+                overloads.push_back(std::get<const SymbolInfo*>(result));
+            } else if (std::holds_alternative<SymbolList>(result)) {
+                const auto& list = std::get<SymbolList>(result);
+                overloads.append_range(list);
             }
         }
 
-        return std::monostate{};
+        if (overloads.size() == 1) {
+            return overloads.front();
+        } else if (overloads.size() > 1) {
+            return overloads;
+        } else {
+            return std::monostate{};
+        }
     }
 
     void DocumentSymbols::Dump() const {

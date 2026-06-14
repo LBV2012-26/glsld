@@ -230,5 +230,6 @@ ucoopmatNV
 fcoopmatNV
 
 coopvecNV
-
 tensorLayoutNV
+
+string

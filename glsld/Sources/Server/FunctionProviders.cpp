@@ -596,6 +596,13 @@ namespace glsld {
 
             return unique_signatures;
         }
+
+        void ClampToVariadic(const SymbolInfo* symbol, int& index) {
+            const auto* func = static_cast<const FunctionDeclarationNode*>(symbol->node);
+            if (func != nullptr && !func->params.empty() && func->params.back()->is_variadic) {
+                index = std::min(index, static_cast<int>(func->params.size() - 1));
+            }
+        }
     }
 
     std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
@@ -655,6 +662,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         if (std::holds_alternative<const SymbolInfo*>(candidates)) {
             const auto* symbol = std::get<const SymbolInfo*>(candidates);
+            ClampToVariadic(symbol, active_param_index);
 
             return SignatureHelpResult{
                 .candidates             = { symbol },
@@ -665,6 +673,7 @@ namespace glsld {
 
         auto unique_candidates = DeduplicateSignatures(std::get<SymbolList>(candidates));
         int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
+        ClampToVariadic(unique_candidates[active_signature_index], active_param_index);
 
         return SignatureHelpResult{
             .candidates             = std::move(unique_candidates),
@@ -983,6 +992,57 @@ namespace glsld {
                     items.push_back(std::move(item));
                 }
             }
+        }
+
+        return items;
+    }
+
+    nlohmann::json GetExtensionCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        if (!index.has_value()) {
+            return {};
+        }
+
+        int start = std::max(static_cast<int>(*index - 2), 0);
+        bool is_extension = false;
+        for (int i = static_cast<int>(*index); i >= start; --i) {
+            if (snapshot->raw_tokens[i].type == TokenType::kSharp) {
+                if (i + 1 < static_cast<int>(snapshot->raw_tokens.size()) &&
+                    snapshot->raw_tokens[i + 1].text == "extension")
+                {
+                    is_extension = true;
+                }
+
+                break;
+            }
+        }
+
+        if (!is_extension) {
+            return {};
+        }
+
+        auto root = utils::GetFilePath("Assets/Meta/Extensions/Main");
+        std::error_code ec;
+        nlohmann::json items = nlohmann::json::array();
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(root, ec)) {
+            if (ec || !entry.is_regular_file()) {
+                continue;
+            }
+
+            auto name = entry.path().stem().generic_string();
+            if (name.empty()) {
+                continue;
+            }
+
+            nlohmann::json item;
+            item["label"] = name;
+            item["kind"]  = 9; // Module
+            items.push_back(std::move(item));
         }
 
         return items;
@@ -1448,6 +1508,16 @@ namespace glsld {
         const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
         for (auto i = 0uz; i != node->params.size(); ++i) {
             const auto& param = node->params[i];
+
+            if (param->is_variadic) {
+                result += "...";
+                params.push_back("...");
+                if (i + 1 != node->params.size()) {
+                    result += ", ";
+                }
+
+                continue;
+            }
 
             auto        param_line   = BuildHoverSpecifierLine(param.get(), snapshot.get());
             const auto* param_symbol = param->declared_symbol;
@@ -2023,6 +2093,10 @@ namespace glsld {
 
             std::string params_block = "**Parameters:**\n";
             for (const auto& param : format_result.params) {
+                if (param == "...") {
+                    continue;
+                }
+
                 params_block += std::format("- `{}`\n", param);
             }
 

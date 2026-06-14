@@ -573,6 +573,27 @@ namespace glsld {
         }
 
         while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen) {
+            // variadic parameter: ...
+            if (current_token().type == TokenType::kEllipsis) {
+                auto ellipsis = std::make_unique<VariableDeclarationNode>(current_scope());
+
+                ellipsis->begin = current_token().location;
+                ellipsis->is_variadic = true;
+                ellipsis->type_spec.specifiers.push_back({
+                    .text     = "...",
+                    .location = current_token().location,
+                    .type     = TokenType::kEllipsis
+                });
+
+                ConsumeToken();
+                ellipsis->end = GetPreviousTokenEnd();
+
+                MatchAndConsume(TokenType::kComma);
+                param_list.push_back(std::move(ellipsis));
+
+                continue;
+            }
+
             auto type_spec  = ParseQualifiersAndType();
             auto node       = std::make_unique<VariableDeclarationNode>(current_scope());
             node->begin     = type_spec.begin_location();

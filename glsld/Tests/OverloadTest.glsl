@@ -73,6 +73,9 @@ void TestOverloadFunction(mat2 mat2Array2D_2x2[2][2]) {}
 void TestOverloadFunction(mat3 mat3Array1D_2[2]) {}
 void TestOverloadFunction(mat4 mat4Array1D_2[2]) {}
 
+void TestOverloadFunction(int intArray[]);
+void TestOverloadFunction(uint uintArray[]);
+
 struct InnerData {
     float float_field;
     int   int_field;
@@ -148,6 +151,10 @@ void TestOverloadFunction(coopmat matrix, int intarg);
 void TestOverloadFunction(coopmat matrix, uint uintarg);
 
 void TestOverloadFunction(__Function func);
+
+layout(buffer_reference, scalar) buffer _Buffer {
+    uint data[];
+};
 
 void main() {
     int8_t    int8arg;
@@ -1047,6 +1054,14 @@ void main() {
     TestOverloadFunction(matrix_b, uint32arg);
 
     TestOverloadFunction(TestOverloadFunction);
+
+    int int_array[];
+    uint uint_array[];
+    TestOverloadFunction(int_array);
+    TestOverloadFunction(uint_array);
+
+    _Buffer Buffer;
+    TestOverloadFunction(Buffer.data);
 }
 
 void TestOverloadFunction() {}

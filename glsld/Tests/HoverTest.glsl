@@ -5,6 +5,9 @@
 #extension GL_EXT_maximal_reconvergence : require
 #extension GL_EXT_control_flow_attributes : require
 #extension GL_EXT_control_flow_attributes2 : require
+#extension GL_EXT_debug_printf : require
+#extension GL_KHR_memory_scope_semantics : require
+#extension GL_KHR_cooperative_matrix : require
 
 layout(location = 0) in  vec3 InPosition;
 layout(location = 0) out vec4 FragColor;
@@ -95,6 +98,7 @@ void main() {
     LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
 
     FragColor = vec4(light + ambient * result.position, 1.0);
+    (debugPrintfEXT)("Color: %v3", FragColor);
 
     gl_Position;
 }

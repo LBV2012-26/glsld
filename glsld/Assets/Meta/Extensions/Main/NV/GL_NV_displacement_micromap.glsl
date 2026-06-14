@@ -1,7 +1,7 @@
 #define GL_NV_displacement_micromap 1
 
 #define GL_EXT_ray_tracing
-#include "../EXT/GL_EXT_RT_Common.glsl"
+#include "../../Common/RayTracingCommon.glsl"
 
 in vec3 gl_HitMicroTriangleVertexPositionsNV[3];
 in vec2 gl_HitMicroTriangleVertexBarycentricsNV[3];

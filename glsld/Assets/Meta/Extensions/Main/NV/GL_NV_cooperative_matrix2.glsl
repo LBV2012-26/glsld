@@ -1,3 +1,6 @@
+// [Note] The "__Function" primitive is used for LSP placeholders
+// and should not be used directly in shader code.
+
 #define GL_NV_cooperative_matrix2 1
 
 const int gl_CooperativeMatrixClampModeUndefinedNV    = 0;
@@ -11,17 +14,53 @@ const int gl_CooperativeMatrixReduceColumnNV          = 0x2;
 const int gl_CooperativeMatrixReduceRowAndColumnNV    = 0x3;
 const int gl_CooperativeMatrixReduce2x2NV             = 0x4;
 
-tensorLayoutNV<Dim, Mode> createTensorLayoutNV(uint32_t _Dim, uint32_t _Mode);
-tensorLayoutNV<N, ...> setTensorLayoutBlockSizeNV(tensorLayoutNV<N, ...> _T, uint32_t _BlockSize0, ..., uint32_t _BlockSizeN1);
-tensorLayoutNV<N, ...> setTensorLayoutDimensionNV(tensorLayoutNV<N, ...> _T, uint32_t _Dim0, ..., uint32_t _DimN1);
-tensorLayoutNV<N, ...> setTensorLayoutStrideNV(tensorLayoutNV<N, ...> _T, uint32_t _S0, ..., uint32_t _SN1);
-tensorLayoutNV<N, ...> sliceTensorLayoutNV(tensorLayoutNV<N, ...> _T, int32_t _Offset0, uint32_t _Span0, ..., int32_t _OffsetN1, uint32_t _SpanN1);
-tensorLayoutNV<...> setTensorLayoutClampValueNV(tensorLayoutNV<...> _T, uint32_t _Value);
+tensorLayoutNV createTensorLayoutNV(uint _Dim, uint _Mode);
 
-tensorViewNV<Dim, hasDimensions, p0, ..., pDim1> createTensorViewNV(uint32_t _Dim, bool _HasDimensions, uint32_t _P0, ..., uint32_t _PDim1);
-tensorViewNV<N> setTensorViewDimensionsNV(tensorViewNV<N> _V, uint32_t _Dim0, ..., uint32_t _DimN1);
-tensorViewNV<N, ...> setTensorViewStrideNV(tensorViewNV<N, ...> _V, uint32_t _S0, ..., uint32_t _SN1);
-tensorViewNV<N> setTensorViewClipNV(tensorViewNV<N> _V, uint _ClipRowOffset, uint _ClipRowSpan, uint _ClipColOffset, uint _ClipColSpan);
+tensorLayoutNV setTensorLayoutBlockSizeNV(tensorLayoutNV _T, uint _BlockSize0);
+tensorLayoutNV setTensorLayoutBlockSizeNV(tensorLayoutNV _T, uint _BlockSize0, uint _BlockSize1);
+tensorLayoutNV setTensorLayoutBlockSizeNV(tensorLayoutNV _T, uint _BlockSize0, uint _BlockSize1, uint _BlockSize2);
+tensorLayoutNV setTensorLayoutBlockSizeNV(tensorLayoutNV _T, uint _BlockSize0, uint _BlockSize1, uint _BlockSize2, uint _BlockSize3);
+tensorLayoutNV setTensorLayoutBlockSizeNV(tensorLayoutNV _T, uint _BlockSize0, uint _BlockSize1, uint _BlockSize2, uint _BlockSize3, uint _BlockSize4);
+
+tensorLayoutNV setTensorLayoutDimensionNV(tensorLayoutNV _T, uint _Dim0);
+tensorLayoutNV setTensorLayoutDimensionNV(tensorLayoutNV _T, uint _Dim0, uint _Dim1);
+tensorLayoutNV setTensorLayoutDimensionNV(tensorLayoutNV _T, uint _Dim0, uint _Dim1, uint _Dim2);
+tensorLayoutNV setTensorLayoutDimensionNV(tensorLayoutNV _T, uint _Dim0, uint _Dim1, uint _Dim2, uint _Dim3);
+tensorLayoutNV setTensorLayoutDimensionNV(tensorLayoutNV _T, uint _Dim0, uint _Dim1, uint _Dim2, uint _Dim3, uint _Dim4);
+
+tensorLayoutNV setTensorLayoutStrideNV(tensorLayoutNV _T, uint _S0);
+tensorLayoutNV setTensorLayoutStrideNV(tensorLayoutNV _T, uint _S0, uint _S1);
+tensorLayoutNV setTensorLayoutStrideNV(tensorLayoutNV _T, uint _S0, uint _S1, uint _S2);
+tensorLayoutNV setTensorLayoutStrideNV(tensorLayoutNV _T, uint _S0, uint _S1, uint _S2, uint _S3);
+tensorLayoutNV setTensorLayoutStrideNV(tensorLayoutNV _T, uint _S0, uint _S1, uint _S2, uint _S3, uint _S4);
+
+tensorLayoutNV sliceTensorLayoutNV(tensorLayoutNV _T, int _Offset0, uint _Span0);
+tensorLayoutNV sliceTensorLayoutNV(tensorLayoutNV _T, int _Offset0, uint _Span0, int _Offset1, uint _Span1);
+tensorLayoutNV sliceTensorLayoutNV(tensorLayoutNV _T, int _Offset0, uint _Span0, int _Offset1, uint _Span1, int _Offset2, uint _Span2);
+tensorLayoutNV sliceTensorLayoutNV(tensorLayoutNV _T, int _Offset0, uint _Span0, int _Offset1, uint _Span1, int _Offset2, uint _Span2, int _Offset3, uint _Span3);
+tensorLayoutNV sliceTensorLayoutNV(tensorLayoutNV _T, int _Offset0, uint _Span0, int _Offset1, uint _Span1, int _Offset2, uint _Span2, int _Offset3, uint _Span3, int _Offset4, uint _Span4);
+
+tensorLayoutNV setTensorLayoutClampValueNV(tensorLayoutNV _T, uint _Value);
+
+tensorViewNV createTensorViewNV(uint _Dim, bool _HasDimensions, uint _P0);
+tensorViewNV createTensorViewNV(uint _Dim, bool _HasDimensions, uint _P0, uint _P1);
+tensorViewNV createTensorViewNV(uint _Dim, bool _HasDimensions, uint _P0, uint _P1, uint _P2);
+tensorViewNV createTensorViewNV(uint _Dim, bool _HasDimensions, uint _P0, uint _P1, uint _P2, uint _P3);
+tensorViewNV createTensorViewNV(uint _Dim, bool _HasDimensions, uint _P0, uint _P1, uint _P2, uint _P3, uint _P4);
+
+tensorViewNV setTensorViewDimensionsNV(tensorViewNV _V, uint _Dim0);
+tensorViewNV setTensorViewDimensionsNV(tensorViewNV _V, uint _Dim0, uint _Dim1);
+tensorViewNV setTensorViewDimensionsNV(tensorViewNV _V, uint _Dim0, uint _Dim1, uint _Dim2);
+tensorViewNV setTensorViewDimensionsNV(tensorViewNV _V, uint _Dim0, uint _Dim1, uint _Dim2, uint _Dim3);
+tensorViewNV setTensorViewDimensionsNV(tensorViewNV _V, uint _Dim0, uint _Dim1, uint _Dim2, uint _Dim3, uint _Dim4);
+
+tensorViewNV setTensorViewStrideNV(tensorViewNV _V, uint _S0);
+tensorViewNV setTensorViewStrideNV(tensorViewNV _V, uint _S0, uint _S1);
+tensorViewNV setTensorViewStrideNV(tensorViewNV _V, uint _S0, uint _S1, uint _S2);
+tensorViewNV setTensorViewStrideNV(tensorViewNV _V, uint _S0, uint _S1, uint _S2, uint _S3);
+tensorViewNV setTensorViewStrideNV(tensorViewNV _V, uint _S0, uint _S1, uint _S2, uint _S3, uint _S4);
+
+tensorViewNV setTensorViewClipNV(tensorViewNV _V, uint _ClipRowOffset, uint _ClipRowSpan, uint _ClipColOffset, uint _ClipColSpan);
 
 void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int8_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout);

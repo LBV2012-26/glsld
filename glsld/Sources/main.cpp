@@ -16,6 +16,7 @@
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
@@ -107,8 +108,18 @@ int main() {
 
         const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
 
+        Lexer lexer(source_file, shader_source, loader, include_dirs);
+        std::vector<Token> raw_tokens;
+        raw_tokens.reserve(shader_source.length() / 5);
+
+        do {
+            raw_tokens.push_back(lexer.AcquireNextToken());
+        } while (raw_tokens.back().type != TokenType::kEndOfFile);
+
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs);
+
         auto parse_start = std::chrono::high_resolution_clock::now();
-        Parser parser(source_table, source_file, shader_source, loader, include_dirs, 0, nullptr, document);
+        Parser parser(source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr, document);
         auto parse_end = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 

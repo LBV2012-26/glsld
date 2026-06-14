@@ -314,7 +314,6 @@ namespace glsld {
         case ')':  return Capture(TokenType::kCloseParen);
         case ',':  return Capture(TokenType::kComma);
         case ';':  return Capture(TokenType::kSemicolon);
-        case '.':  return Capture(TokenType::kDot);
         case '~':  return Capture(TokenType::kTilde);
         case '?':  return Capture(TokenType::kQuestion);
         case '\\': return Capture(TokenType::kBackslash);
@@ -357,6 +356,11 @@ namespace glsld {
             if (Peek() == '>')
                 return Peek(2) == '=' ? Capture(TokenType::kRightShiftEqual, 3) : Capture(TokenType::kRightShift, 2);
             return Peek() == '=' ? Capture(TokenType::kGreaterEqual, 2) : Capture(TokenType::kGreaterThan);
+        // XXX
+        case '.':
+            if (Peek() == '.' && Peek(2) == '.')
+                return Capture(TokenType::kEllipsis, 3);
+            return Capture(TokenType::kDot);
         default:
             return {};
         }

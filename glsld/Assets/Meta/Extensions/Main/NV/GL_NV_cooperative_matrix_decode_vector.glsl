@@ -1,0 +1,72 @@
+// [Note] The "__Function" primitive is used for LSP placeholders
+// and should not be used directly in shader code.
+
+#define GL_NV_cooperative_matrix_decode_vector 1
+
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int8_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int32_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint8_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint32_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i8vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u8vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i8vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u8vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int8_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int32_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent int64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint8_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint32_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent uint64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float16_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent float64_t[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i8vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u8vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f16vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f32vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f64vec2[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i8vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent i64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u8vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent u64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f16vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f32vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);
+void coopMatLoadTensorNV(inout coopmat _M, volatile coherent f64vec4[] _Buf, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, __Function _DecodeFunc, __Function _DecodeVectorFunc);

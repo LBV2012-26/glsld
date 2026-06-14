@@ -1,7 +1,7 @@
 #define GL_NV_shader_invocation_reorder 1
 
 #define GL_EXT_ray_tracing
-#include "../EXT/GL_EXT_RT_Common.glsl"
+#include "../../Common/RayTracingCommon.glsl"
 
 void hitObjectTraceRayNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
 void hitObjectTraceRayMotionNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, int _Payload);
