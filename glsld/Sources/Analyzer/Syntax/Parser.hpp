@@ -64,7 +64,12 @@ namespace glsld {
         Precedence GetInfixPrecedence(TokenType type);
         bool IsRightAssociative(TokenType type);
 
-        void Parse();
+        void Parse(SourceTable& source_table,
+                   IncludeLoader& include_loader,
+                   std::span<const std::filesystem::path> include_dirs,
+                   int version_replica,
+                   std::shared_ptr<const std::atomic<int>> version_pointer,
+                   Document& document);
 
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
         std::unique_ptr<StatementNode> ParseStatement();

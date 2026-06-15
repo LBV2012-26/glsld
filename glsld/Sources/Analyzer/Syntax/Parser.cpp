@@ -23,10 +23,10 @@ namespace glsld {
                    std::shared_ptr<const std::atomic<int>> version_pointer,
                    Document& document)
 
-        : document_{ document }
+        : source_file_{ source_file }
+        , document_{ document }
     {
-        std::vector<Token> raw_tokens;
-        raw_tokens.reserve(source.length() / 5);
+        raw_tokens_.reserve(source.length() / 5);
         Lexer lexer(source_file, source, include_loader, include_dirs);
 
         do {
@@ -34,10 +34,10 @@ namespace glsld {
                 throw std::runtime_error("Lexing cancelled due to version modified.");
             }
 
-            raw_tokens.push_back(lexer.AcquireNextToken());
-        } while (raw_tokens.back().type != TokenType::kEndOfFile);
+            raw_tokens_.push_back(lexer.AcquireNextToken());
+        } while (raw_tokens_.back().type != TokenType::kEndOfFile);
 
-        Parser(source_table, source_file, std::move(raw_tokens), include_loader, include_dirs, version_replica, version_pointer, document);
+        Parse(source_table, include_loader, include_dirs, version_replica, version_pointer, document);
     }
 
     Parser::Parser(SourceTable& source_table,
@@ -55,10 +55,7 @@ namespace glsld {
         , version_pointer_{ version_pointer }
         , document_{ document }
     {
-        Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);
-        expanded_tokens_ = processor.Process();
-
-        Parse();
+        Parse(source_table, include_loader, include_dirs, version_replica, version_pointer, document);
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
@@ -130,7 +127,17 @@ namespace glsld {
         }
     }
 
-    void Parser::Parse() {
+    void Parser::Parse(
+        SourceTable& source_table,
+        IncludeLoader& include_loader,
+        std::span<const std::filesystem::path> include_dirs,
+        int version_replica,
+        std::shared_ptr<const std::atomic<int>> version_pointer,
+        Document& document)
+    {
+        Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);
+        expanded_tokens_ = processor.Process();
+
         document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
         scope_stack_.push(document_.symbols.root_scope());
 
