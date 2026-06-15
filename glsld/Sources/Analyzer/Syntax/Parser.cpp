@@ -62,90 +62,52 @@ namespace glsld {
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
-        switch (type) {
-        // 0. 分隔符/终结符
-        case TokenType::kSemicolon:
-        case TokenType::kCloseParen:
-        case TokenType::kCloseBracket:
-        case TokenType::kCloseBrace:
-        case TokenType::kColon:
-            return Precedence::kLowest;
+        static constexpr auto kTokenPrecedence = []() -> auto {
+            std::array<Precedence, magic_enum::enum_count<TokenType>()> table{};
+            std::ranges::fill(table, Precedence::kLowest);
 
-        // 1. 逗号
-        case TokenType::kComma:
-            return Precedence::kComma;
+            table[std::to_underlying(TokenType::kComma)]                  = Precedence::kComma;
+            table[std::to_underlying(TokenType::kEqual)]                  = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kPlusEqual)]              = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kMinusEqual)]             = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kStarEqual)]              = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kSlashEqual)]             = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kPercentEqual)]           = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kLeftShiftEqual)]         = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kRightShiftEqual)]        = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kAmpersandEqual)]         = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kCaretEqual)]             = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kVerticalBarEqual)]       = Precedence::kAssignment;
+            table[std::to_underlying(TokenType::kQuestion)]               = Precedence::kTernary;
+            table[std::to_underlying(TokenType::kVerticalBarVerticalBar)] = Precedence::kLogicalOr;
+            table[std::to_underlying(TokenType::kCaretCaret)]             = Precedence::kLogicalXor;
+            table[std::to_underlying(TokenType::kAmpersandAmpersand)]     = Precedence::kLogicalAnd;
+            table[std::to_underlying(TokenType::kVerticalBar)]            = Precedence::kBitwiseOr;
+            table[std::to_underlying(TokenType::kCaret)]                  = Precedence::kBitwiseXor;
+            table[std::to_underlying(TokenType::kAmpersand)]              = Precedence::kBitwiseAnd;
+            table[std::to_underlying(TokenType::kEqualEqual)]             = Precedence::kEquality;
+            table[std::to_underlying(TokenType::kNotEqual)]               = Precedence::kEquality;
+            table[std::to_underlying(TokenType::kLessThan)]               = Precedence::kRelational;
+            table[std::to_underlying(TokenType::kGreaterThan)]            = Precedence::kRelational;
+            table[std::to_underlying(TokenType::kLessEqual)]              = Precedence::kRelational;
+            table[std::to_underlying(TokenType::kGreaterEqual)]           = Precedence::kRelational;
+            table[std::to_underlying(TokenType::kLeftShift)]              = Precedence::kShift;
+            table[std::to_underlying(TokenType::kRightShift)]             = Precedence::kShift;
+            table[std::to_underlying(TokenType::kPlus)]                   = Precedence::kAdditive;
+            table[std::to_underlying(TokenType::kMinus)]                  = Precedence::kAdditive;
+            table[std::to_underlying(TokenType::kStar)]                   = Precedence::kMultiplicative;
+            table[std::to_underlying(TokenType::kSlash)]                  = Precedence::kMultiplicative;
+            table[std::to_underlying(TokenType::kPercent)]                = Precedence::kMultiplicative;
+            table[std::to_underlying(TokenType::kDot)]                    = Precedence::kPostfix;
+            table[std::to_underlying(TokenType::kOpenBracket)]            = Precedence::kPostfix;
+            table[std::to_underlying(TokenType::kOpenParen)]              = Precedence::kPostfix;
+            table[std::to_underlying(TokenType::kPlusPlus)]               = Precedence::kPostfix;
+            table[std::to_underlying(TokenType::kMinusMinus)]             = Precedence::kPostfix;
 
-        // 2. 赋值运算 (右结合)
-        case TokenType::kEqual:
-        case TokenType::kPlusEqual:
-        case TokenType::kMinusEqual:
-        case TokenType::kStarEqual:
-        case TokenType::kSlashEqual:
-        case TokenType::kPercentEqual:
-        case TokenType::kLeftShiftEqual:
-        case TokenType::kRightShiftEqual:
-        case TokenType::kAmpersandEqual:
-        case TokenType::kCaretEqual:
-        case TokenType::kVerticalBarEqual:
-            return Precedence::kAssignment;
+            return table;
+        }();
 
-        // 3. 三元运算 (右结合起始符)
-        case TokenType::kQuestion:
-            return Precedence::kTernary;
-
-        // 4-6. 逻辑运算
-        case TokenType::kVerticalBarVerticalBar:
-            return Precedence::kLogicalOr;
-        case TokenType::kCaretCaret:
-            return Precedence::kLogicalXor;
-        case TokenType::kAmpersandAmpersand:
-            return Precedence::kLogicalAnd;
-
-        // 7-9. 位运算
-        case TokenType::kVerticalBar:
-            return Precedence::kBitwiseOr;
-        case TokenType::kCaret:
-            return Precedence::kBitwiseXor;
-        case TokenType::kAmpersand:
-            return Precedence::kBitwiseAnd;
-
-        // 10-11. 比较运算
-        case TokenType::kEqualEqual:
-        case TokenType::kNotEqual:
-            return Precedence::kEquality;
-
-        case TokenType::kLessThan:
-        case TokenType::kGreaterThan:
-        case TokenType::kLessEqual:
-        case TokenType::kGreaterEqual:
-            return Precedence::kRelational;
-
-        // 12. 位移
-        case TokenType::kLeftShift:
-        case TokenType::kRightShift:
-            return Precedence::kShift;
-
-        // 13-14. 算术运算
-        case TokenType::kPlus:
-        case TokenType::kMinus:
-            return Precedence::kAdditive;
-
-        case TokenType::kStar:
-        case TokenType::kSlash:
-        case TokenType::kPercent:
-            return Precedence::kMultiplicative;
-
-        // 15. 后缀/最高级
-        case TokenType::kDot:         // 成员
-        case TokenType::kOpenBracket: // 数组
-        case TokenType::kOpenParen:   // 函数调用
-        case TokenType::kPlusPlus:    // 后缀自增
-        case TokenType::kMinusMinus:  // 后缀自减
-            return Precedence::kPostfix;
-
-        default:
-            return Precedence::kLowest;
-        }
+        return kTokenPrecedence[std::to_underlying(type)];
     }
 
     bool Parser::IsRightAssociative(TokenType type) {
@@ -187,6 +149,7 @@ namespace glsld {
     std::unique_ptr<TranslationUnitNode> Parser::ParserMainTask() {
         auto root = std::make_unique<TranslationUnitNode>(current_scope());
         root->begin = SourceLocation(source_file_, 1, 1);
+        root->statements.reserve(expanded_tokens_.size() / 10);
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
@@ -554,6 +517,7 @@ namespace glsld {
     std::vector<std::unique_ptr<VariableDeclarationNode>> Parser::ParseParameterList() {
         // current token is first parameter or "void"
         std::vector<std::unique_ptr<VariableDeclarationNode>> param_list;
+        param_list.reserve(6);
 
         // Function(void)
         if (current_token().type == TokenType::kPrimitive &&

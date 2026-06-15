@@ -459,7 +459,7 @@ namespace glsld {
 
     std::vector<Token> Preprocessor::Process() {
         std::vector<Token> expanded;
-        expanded.reserve(static_cast<std::size_t>(raw_tokens_.size() * 1.1));
+        expanded.reserve(static_cast<std::size_t>(raw_tokens_.size() * 1.3));
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (current_token().type == TokenType::kSharp) {
