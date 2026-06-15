@@ -1333,6 +1333,13 @@ namespace glsld {
                 return it->second.text;
             }
 
+            for (const auto& builtin : snapshot->builtins) {
+                auto it = builtin->macro_traces.find(location);
+                if (it != builtin->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
+                    return it->second.text;
+                }
+            }
+
             return {};
         };
 

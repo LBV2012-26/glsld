@@ -486,9 +486,9 @@ void main() {
     TestOverloadFunction(uint16arg, uint8arg, uint8arg, float32arg);
 
     // test swizzle overloads
-    mat4 matrix = mat4(vec4(1.0f, 2.0f, 3.0f, 4.0f), vec4(5.0f, 6.0f, 7.0f, 8.0f), vec4(9.0f, 10.0f, 11.0f, 12.0f), vec4(13.0f, 14.0f, 15.0f, 16.0f));
-    vec4 vector = matrix[0].xyzw;
-    float component1 = vector.x;
+    mat4 matrix  = mat4(vec4(1.0f, 2.0f, 3.0f, 4.0f), vec4(5.0f, 6.0f, 7.0f, 8.0f), vec4(9.0f, 10.0f, 11.0f, 12.0f), vec4(13.0f, 14.0f, 15.0f, 16.0f));
+    vec4 vector1 = matrix[0].xyzw;
+    float component1 = vector1.x;
     float component2 = matrix[1].xyzw.x;
 
     TestOverloadFunction(component1);

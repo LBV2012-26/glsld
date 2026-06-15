@@ -37,8 +37,10 @@ namespace glsld {
 
     struct Document {
         using AstRoot = std::unique_ptr<TranslationUnitNode>;
+        using Builtin = std::shared_ptr<const Document>;
 
         std::vector<std::string> dependencies; // [URI]
+        std::vector<Builtin>     builtins;
         DocumentSymbols          symbols;
         std::string              source;
         std::vector<Token>       raw_tokens;

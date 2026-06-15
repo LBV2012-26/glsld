@@ -240,6 +240,7 @@ namespace glsld {
             auto* target_root = target.symbols.root_scope();
             target_root->AddBuiltinScope(source->symbols.root_scope());
             target.symbols.AttachBuiltinSymbols(&source->symbols);
+            target.builtins.push_back(source);
         }
     }
 

@@ -99,6 +99,4 @@ void main() {
 
     FragColor = vec4(light + ambient * result.position, 1.0);
     (debugPrintfEXT)("Color: %v3", FragColor);
-
-    gl_Position;
 }

@@ -59,7 +59,7 @@ extern "C" {
     void mainCRTStartup();
 
     void Main() {
-        // InitLargetPage();
+        InitLargetPage();
         mainCRTStartup();
     }
 }
@@ -72,8 +72,8 @@ int main() {
 
     using namespace glsld;
 
-    int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
-    if (result == IDOK) {
+    //int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
+    if (false) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
@@ -82,7 +82,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = "Tests/Debugger.glsl";
+        auto filename = "Tests/BlackHoleHeavy.glsl";
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::println(stderr, "Failed to open test GLSL source.");
@@ -106,17 +106,24 @@ int main() {
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
         };
 
-        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
+        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/BlackHoleHeavy.glsl");
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         std::vector<Token> raw_tokens;
         raw_tokens.reserve(shader_source.length() / 5);
 
+        auto lexer_start = std::chrono::high_resolution_clock::now();
         do {
             raw_tokens.push_back(lexer.AcquireNextToken());
         } while (raw_tokens.back().type != TokenType::kEndOfFile);
 
+        auto lexer_end = std::chrono::high_resolution_clock::now();
+        auto lexer_duration = lexer_end - lexer_start;
+
+        auto attach_start = std::chrono::high_resolution_clock::now();
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs);
+        auto attach_end = std::chrono::high_resolution_clock::now();
+        auto attach_duration = attach_end - attach_start;
 
         auto parse_start = std::chrono::high_resolution_clock::now();
         Parser parser(source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr, document);
@@ -138,17 +145,19 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        AstDumper dumper(0, nullptr);
-        dumper.Traverse(document.ast.get());
+        //AstDumper dumper(0, nullptr);
+        //dumper.Traverse(document.ast.get());
 
-        document.symbols.Dump();
+        //document.symbols.Dump();
 
-        std::println("Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
+        std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
+                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
         std::println("Total time: {}ms",
-                     std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration + link_duration + resolve_duration + bind_duration).count());
+                     std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration + attach_duration + parse_duration + link_duration + resolve_duration + bind_duration).count());
     }
 }

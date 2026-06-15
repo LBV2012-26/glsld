@@ -1591,18 +1591,41 @@ namespace glsld {
     std::unique_ptr<StatementNode> Parser::ParseControlFlowStatement() {
         const auto& keyword = current_token().text;
 
-        if (keyword == "if") {
-            return ParseIfStatement();
-        } else if (keyword == "for") {
-            return ParseForStatement();
-        } else if (keyword == "do") {
-            return ParseDoStatement();
-        } else if (keyword == "while") {
-            return ParseWhileStatement();
-        } else if (keyword == "switch") {
-            return ParseSwitchStatement();
-        } else if (keyword == "return" || keyword == "break" || keyword == "continue" || keyword == "discard") {
-            return ParseJumpStatement();
+        switch (keyword.front()) {
+        case 'i':
+            if (keyword == "if")
+                return ParseIfStatement();
+            break;
+        case 'f':
+            if (keyword == "for")
+                return ParseForStatement();
+            break;
+        case 'd':
+            if (keyword == "do")
+                return ParseDoStatement();
+            if (keyword == "discard" || keyword == "demote" || keyword == "terminateInvocation")
+                return ParseJumpStatement();
+            break;
+        case 'w':
+            if (keyword == "while")
+                return ParseWhileStatement();
+            break;
+        case 's':
+            if (keyword == "switch")
+                return ParseSwitchStatement();
+            break;
+        case 'r':
+            if (keyword == "return")
+                return ParseJumpStatement();
+            break;
+        case 'b':
+            if (keyword == "break")
+                return ParseJumpStatement();
+            break;
+        case 'c':
+            if (keyword == "continue")
+                return ParseJumpStatement();
+            break;
         }
 
         // error
