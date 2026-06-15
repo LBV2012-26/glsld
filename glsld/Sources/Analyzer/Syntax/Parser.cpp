@@ -230,7 +230,7 @@ namespace glsld {
         }
 
         auto& directive_token = current_token();
-        node->directive = std::string(directive_token.text);
+        node->directive = directive_token.text;
         if (directive_token.type == TokenType::kKeyword) {
             // #if defined, #else
             if (directive_token.text == "if" || directive_token.text == "else") {

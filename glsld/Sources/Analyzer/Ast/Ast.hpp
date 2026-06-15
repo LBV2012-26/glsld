@@ -183,9 +183,9 @@ namespace glsld {
     };
 
     struct PreprocessorNode final : public StatementNode {
-        std::string                                 directive;
+        std::string_view                            directive;
         std::vector<Token>                          tokens;
-        std::vector<std::string>                    params;
+        std::vector<std::string_view>               params;
         std::vector<std::unique_ptr<StatementNode>> body;
         const SymbolInfo* symbol{ nullptr };
 

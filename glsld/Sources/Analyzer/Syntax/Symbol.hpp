@@ -177,7 +177,7 @@ namespace glsld {
         void Dump() const;
 
         void AttachBuiltinSymbols(const DocumentSymbols* builtin);
-        void AddFunctionBaseName(const std::string& base_name, const SymbolInfo* symbol);
+        void AddFunctionBaseName(std::string_view base_name, const SymbolInfo* symbol);
 
         Scope* const root_scope() const;
 

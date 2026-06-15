@@ -352,6 +352,19 @@ namespace glsld {
         std::println("==============================================");
     }
 
+    void DocumentSymbols::AddFunctionBaseName(std::string_view base_name, const SymbolInfo* symbol) {
+        auto& symbols = function_name_map_[base_name];
+
+        if (std::holds_alternative<std::monostate>(symbols)) {
+            symbols = symbol;
+        } else if (std::holds_alternative<SymbolList>(symbols)) {
+            std::get<SymbolList>(symbols).push_back(symbol);
+        } else {
+            const auto* existing_symbol = std::get<const SymbolInfo*>(symbols);
+            symbols = SymbolList{ existing_symbol, symbol };
+        }
+    }
+
     const Scope* DocumentSymbols::FindScopeRecursive(const Scope* current, const SourceLocation& location) const {
         auto Comparer = [](const SourceLocation& source_loc, const SourceLocation& scope_loc) -> bool {
             return *source_loc.source_file() == *scope_loc.source_file() && source_loc < scope_loc;

@@ -85,8 +85,6 @@ https://github.com/baopinshui/NPGS/blob/master/NPGS/Sources/Engine/Shaders/Black
 // SECTION 1: 渲染参数
 // =============================================================================
 
-#include "../Assets/Meta/BuiltinFunctions.glsl"
-
 #define iHistoryTex iChannel3
 #define textureQueryLod(s, d) vec2(0.0)
 
@@ -51478,7 +51476,6 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskNormal,
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
-
     vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;

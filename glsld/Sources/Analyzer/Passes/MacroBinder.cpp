@@ -24,8 +24,7 @@ namespace glsld {
 
             auto trace_it = document_.macro_traces.find(token.location);
             if (trace_it != document_.macro_traces.end()) {
-                std::string_view macro_name = trace_it->second.text;
-                if (const auto* macro_symbol = document_.symbols.root_scope()->FindSymbol(macro_name)) {
+                if (const auto* macro_symbol = document_.symbols.root_scope()->FindSymbol(trace_it->second.text)) {
                     document_.bindings.insert_or_assign(token.location, macro_symbol);
                     token.type = TokenType::kIdentifier;
                 }
