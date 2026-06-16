@@ -53,6 +53,10 @@ namespace glsld {
         ArithmeticStructure arithmetic_structure() const;
     };
 
+    struct TypeDescriptorHash {
+        std::size_t operator()(const TypeDescriptor& desc) const;
+    };
+
     enum class SpirvOperandKind {
         kLiteral,
         kIdReference
@@ -135,6 +139,7 @@ namespace glsld {
         const SymbolInfo* FindSymbol(std::string_view name) const;
         const SymbolInfo* FindTypeSymbol(std::string_view name) const;
         const SymbolInfo* FindSymbolInCurrentScope(std::string_view name) const;
+        const SymbolInfo* FindVisibleType(std::string_view name) const;
         void GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
         const auto& host_symbol() const;
@@ -161,6 +166,8 @@ namespace glsld {
         std::pair<SourceLocation, SourceLocation>        interval_;
         std::vector<std::unique_ptr<Scope>>              children_;
         StringHeteroHashMap<std::unique_ptr<SymbolInfo>> symbols_;
+        StringHeteroHashMap<SymbolInfo*>                 block_base_names_;
+        StringHeteroHashMap<SymbolInfo*>                 visible_types_;
         ScopeKind                                        kind_{ ScopeKind::kGlobalTransparent };
     };
 

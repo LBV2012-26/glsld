@@ -128,8 +128,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>Main</EntryPointSymbol>
+      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -152,11 +152,12 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>Main</EntryPointSymbol>
+      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
@@ -191,6 +192,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Base\Arena.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
@@ -241,12 +243,12 @@
     <None Include="vcpkg.json" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="Assets\NoExpandHints.txt" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\mimalloc\mimalloc.vcxproj">
       <Project>{de3ee8f6-d071-4c6a-8528-9d8c9b0a035e}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Assets\NoExpandHints.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

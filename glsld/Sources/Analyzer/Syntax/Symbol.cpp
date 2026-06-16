@@ -6,6 +6,7 @@
 #include <print>
 #include <magic_enum/magic_enum_all.hpp>
 
+#include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -50,6 +51,15 @@ namespace glsld {
         }
 
         return true;
+    }
+
+    std::size_t TypeDescriptorHash::operator()(const TypeDescriptor& desc) const {
+        auto seed = 0uz;
+        HashCombine(seed, static_cast<std::size_t>(desc.family));
+        HashCombine(seed, static_cast<std::size_t>(desc.bits));
+        HashCombine(seed, static_cast<std::size_t>(desc.vector_count));
+        HashCombine(seed, static_cast<std::size_t>(desc.vector_length));
+        return seed;
     }
 
     bool TypeInfo::CompareWithoutQualifiers(const TypeInfo& other) const {
@@ -138,7 +148,11 @@ namespace glsld {
     Scope::Scope(Scope* parent)
         : parent_{ parent }
         , index_{ parent ? parent->index_ + 1 : 0 }
-    {}
+    {
+        if (parent_ != nullptr) {
+            visible_types_ = parent_->visible_types_;
+        }
+    }
 
     const SymbolInfo* Scope::FindSymbol(std::string_view name) const {
         for (const auto* scope = this; scope != nullptr; scope = scope->parent_) {
@@ -206,13 +220,9 @@ namespace glsld {
             }
         }
 
-        for (const auto& [key, symbol] : symbols_) {
-            if (symbol->kind == SymbolKind::kInterface && key.length() > name.length() + 1) {
-                auto space_pos = key.rfind(' ');
-                if (space_pos != std::string::npos && key.substr(space_pos + 1) == name) {
-                    return symbol.get();
-                }
-            }
+        auto interface_it = block_base_names_.find(name);
+        if (interface_it != block_base_names_.end()) {
+            return interface_it->second;
         }
 
         // 只有根作用域的 builtin_parents_ 可能不为空
@@ -245,6 +255,8 @@ namespace glsld {
         auto unique_symbol = std::make_unique<SymbolInfo>(std::move(symbol));
         auto key           = unique_symbol->name;
 
+        std::string base_name;
+
         if (unique_symbol->kind == SymbolKind::kInterface && unique_symbol->node != nullptr) {
             std::string_view storage;
 
@@ -257,12 +269,26 @@ namespace glsld {
             }
 
             if (!storage.empty()) {
+                base_name = key;
                 key = std::format("{} {}", storage, key);
             }
         }
 
         auto [it, _] = symbols_.try_emplace(std::move(key), std::move(unique_symbol));
-        return it->second.get();
+        auto* inserted_symbol = it->second.get();
+
+        if (!base_name.empty()) {
+            block_base_names_.try_emplace(std::move(base_name), inserted_symbol);
+        }
+
+        if (inserted_symbol->kind == SymbolKind::kStruct || inserted_symbol->kind == SymbolKind::kInterface) {
+            visible_types_.try_emplace(inserted_symbol->name, inserted_symbol);
+            if (!base_name.empty()) {
+                visible_types_.try_emplace(std::move(base_name), inserted_symbol);
+            }
+        }
+
+        return inserted_symbol;
     }
 
     SymbolInfo Scope::RemoveSymbol(std::string_view name) {

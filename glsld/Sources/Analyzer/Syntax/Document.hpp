@@ -12,6 +12,7 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Arena.hpp"
 
 namespace glsld {
     using BindingMap = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
@@ -41,6 +42,7 @@ namespace glsld {
 
         std::vector<std::string> dependencies; // [URI]
         std::vector<Builtin>     builtins;
+        std::unique_ptr<Arena>   arena;
         DocumentSymbols          symbols;
         std::string              source;
         std::vector<Token>       raw_tokens;
@@ -53,6 +55,14 @@ namespace glsld {
         MacroExpansionMap        macro_expansions;
         MacroTable               macros;
         int                      version{};
+
+        Document() = default;
+        Document(const Document&) = delete;
+        Document(Document&& other) noexcept;
+        ~Document() = default;
+
+        Document& operator=(const Document&) = delete;
+        Document& operator=(Document&& other) noexcept;
 
         void InjectMacro(std::string_view name, MacroDefination defination);
         void InjectMacro(std::string_view name);

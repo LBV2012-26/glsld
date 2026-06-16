@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <atomic>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -20,9 +22,13 @@ namespace glsld {
               IncludeLoader& include_loader,
               std::span<const std::filesystem::path> include_dirs);
 
-        Token AcquireNextToken();
+        std::vector<Token> Tokenize(int version_replica = 0, std::shared_ptr<const std::atomic<int>> version_pointer = nullptr);
 
     private:
+        friend class Parser;
+        friend class Preprocessor;
+
+        Token AcquireNextToken();
         Token ProduceToken();
         void TryPrefetchInclude();
         std::optional<std::pair<std::size_t, std::size_t>> FindIncludeExprAfterSharp(std::size_t sharp_index) const;

@@ -59,7 +59,7 @@ extern "C" {
     void mainCRTStartup();
 
     void Main() {
-        InitLargetPage();
+        // InitLargetPage();
         mainCRTStartup();
     }
 }
@@ -72,8 +72,8 @@ int main() {
 
     using namespace glsld;
 
-    int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
-    if (result == IDOK) {
+    //int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
+    if (false) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 
@@ -82,7 +82,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = "Tests/BlackHoleHeavy.glsl";
+        auto filename = utils::GetFilePath("Tests/BlackHoleHeavy.glsl");
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::println(stderr, "Failed to open test GLSL source.");
@@ -109,21 +109,19 @@ int main() {
         const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/BlackHoleHeavy.glsl");
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
-        std::vector<Token> raw_tokens;
-        raw_tokens.reserve(shader_source.length() / 5);
-
         auto lexer_start = std::chrono::high_resolution_clock::now();
-        do {
-            raw_tokens.push_back(lexer.AcquireNextToken());
-        } while (raw_tokens.back().type != TokenType::kEndOfFile);
-
+        auto raw_tokens = lexer.Tokenize();
         auto lexer_end = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
+
+        document.arena = std::make_unique<Arena>();
 
         auto attach_start = std::chrono::high_resolution_clock::now();
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs);
         auto attach_end = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
+
+        thread_local_arena = document.arena.get();
 
         auto parse_start = std::chrono::high_resolution_clock::now();
         Parser parser(source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr, document);

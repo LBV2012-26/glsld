@@ -16,32 +16,6 @@
 namespace glsld {
     Parser::Parser(SourceTable& source_table,
                    const SourceFile* source_file,
-                   std::string_view source,
-                   IncludeLoader& include_loader,
-                   std::span<const std::filesystem::path> include_dirs,
-                   int version_replica,
-                   std::shared_ptr<const std::atomic<int>> version_pointer,
-                   Document& document)
-
-        : source_file_{ source_file }
-        , document_{ document }
-    {
-        raw_tokens_.reserve(source.length() / 5);
-        Lexer lexer(source_file, source, include_loader, include_dirs);
-
-        do {
-            if (version_pointer_ != nullptr && version_replica != version_pointer_->load(std::memory_order::relaxed)) {
-                throw std::runtime_error("Lexing cancelled due to version modified.");
-            }
-
-            raw_tokens_.push_back(lexer.AcquireNextToken());
-        } while (raw_tokens_.back().type != TokenType::kEndOfFile);
-
-        Parse(source_table, include_loader, include_dirs, version_replica, version_pointer, document);
-    }
-
-    Parser::Parser(SourceTable& source_table,
-                   const SourceFile* source_file,
                    std::vector<Token> raw_tokens,
                    IncludeLoader& include_loader,
                    std::span<const std::filesystem::path> include_dirs,
@@ -447,7 +421,51 @@ namespace glsld {
 
         if (common_calling || constructor || is_expr_primitive) {
             if (constructor) {
-                token_index_ = statement_begin_index;
+                bool is_complex = !type_spec.template_args.empty() || type_spec.spirv_type != nullptr || !type_spec.array_sizes.empty();
+                if (is_complex) {
+                    token_index_ = statement_begin_index;
+                } else {
+                    const auto& type_token = type_spec.typename_token();
+
+                    auto callee   = std::make_unique<VariableExpressionNode>(current_scope());
+                    callee->begin = type_token.location;
+                    callee->end   = GetCurrentTokenEnd();
+
+                    callee->original_token = type_token;
+                    callee->name           = type_token.text;
+                    callee->node_type      = VariableExpressionNode::NodeType::kFunctionCallee;
+
+                    ConsumeToken(); // consume '('
+
+                    auto call    = std::make_unique<CallExpressionNode>(current_scope());
+                    call->begin  = callee->begin;
+                    call->callee = std::move(callee);
+
+                    if (current_token().type != TokenType::kCloseParen) {
+                        while (true) {
+                            call->args.push_back(ParseExpression(Precedence::kAssignment));
+                            if (!MatchAndConsume(TokenType::kComma)) {
+                                break;
+                            }
+                        }
+                    }
+
+                    MatchAndConsume(TokenType::kCloseParen);
+                    call->end = GetPreviousTokenEnd();
+
+                    auto statement   = std::make_unique<ExpressionStatementNode>(current_scope());
+                    statement->begin = call->begin;
+                    statement->expr  = std::move(call);
+
+                    if (current_token().type == TokenType::kSemicolon) {
+                        statement->end = GetCurrentTokenEnd();
+                        ConsumeToken();
+                    } else {
+                        statement->end = statement->expr->end;
+                    }
+
+                    return statement;
+                }
             }
 
             return ParseExpressionStatement();
@@ -662,10 +680,8 @@ namespace glsld {
             }
 
             if (token.type == TokenType::kIdentifier) {
-                const auto* symbol_info = current_scope()->FindSymbol(token.text);
-                if (symbol_info == nullptr ||
-                    (symbol_info->kind != SymbolKind::kStruct && symbol_info->kind != SymbolKind::kInterface))
-                {
+                const auto* symbol_info = current_scope()->FindVisibleType(token.text);
+                if (symbol_info == nullptr) {
                     break; // 不是类型标识符
                 }
 

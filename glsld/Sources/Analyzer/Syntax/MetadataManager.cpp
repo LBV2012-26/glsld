@@ -14,6 +14,7 @@
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Utils/Utils.hpp"
@@ -445,13 +446,19 @@ namespace glsld {
 
         auto document = std::make_shared<Document>();
         document->source = std::move(source);
+        document->arena  = std::make_unique<Arena>();
 
         if (injected_macros != nullptr) {
             document->macros = *injected_macros;
         }
 
         const auto* source_file = source_table_.Intern(filename, uri);
-        Parser parser(source_table_, source_file, document->source, include_loader_, include_dirs, 0, nullptr, *document);
+        Lexer lexer(source_file, document->source, include_loader_, include_dirs);
+        auto raw_tokens = lexer.Tokenize();
+
+        thread_local_arena = document->arena.get();
+        thread_local_arena->Reset();
+        Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs, 0, nullptr, *document);
 
         if (document->ast == nullptr) {
             return nullptr;

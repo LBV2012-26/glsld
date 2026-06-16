@@ -51481,7 +51481,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
     vec3  CurrentDir    = res.EscapeDir;
     float CurrentShift  = res.FreqShift;
 
-    if ( CurrentStatus > 0.5 && CurrentStatus < 2.5)
+    if (CurrentStatus > 0.5 && CurrentStatus < 2.5)
     {
         vec4 Bg = SampleBackground(CurrentDir, CurrentShift, CurrentStatus);
         FinalColor += 0.9999 * Bg * vec4(pow((1.0 - FinalColor.a),1.0+0.3*(1.0-1.0)),pow((1.0 - FinalColor.a),1.0+0.3*(3.0-1.0)),pow((1.0 - FinalColor.a),1.0+0.3*(6.0-1.0)),1.0);

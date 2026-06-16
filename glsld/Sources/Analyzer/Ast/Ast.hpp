@@ -1,13 +1,16 @@
 // Ast.hpp
 #pragma once
 
+#include <cstddef>
 #include <memory>
+#include <new>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/Arena.hpp"
 
 namespace glsld {
     enum class AstNodeKind {
@@ -71,6 +74,12 @@ namespace glsld {
 
         template <typename Self>
         auto DefaultClone(this Self&& self);
+
+        static void* operator new(std::size_t size);
+        static void* operator new(std::size_t size, std::align_val_t alignment);
+        static void operator delete(void* ptr, std::size_t size) noexcept;
+        static void operator delete(void* ptr, std::align_val_t alignment) noexcept;
+        static void operator delete(void* ptr, std::size_t size, std::align_val_t alignment) noexcept;
     };
 
     enum class QualifierArgumentKind {

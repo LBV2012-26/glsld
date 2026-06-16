@@ -9,6 +9,7 @@
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
+#include "Base/Arena.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
 
@@ -38,14 +39,10 @@ namespace glsld {
 
         {
             std::unique_lock lock(mutex_);
-            if (!open_document) {
-                if (!documents_.contains(uri)) {
-                    return;
-                }
-
-                *documents_.at(std::string(uri)) = std::move(*document);
+            if (open_document) {
+                documents_.try_emplace(uri, std::move(document));
             } else {
-                documents_.try_emplace(std::string(uri), std::move(document));
+                documents_[uri] = std::move(document);
             }
         }
     }
@@ -85,18 +82,16 @@ namespace glsld {
         Document& document)
     {
         Lexer lexer(source_file, source, include_loader_, include_dirs_);
-        std::vector<Token> raw_tokens;
-        raw_tokens.reserve(source.length() / 5);
-
-        do {
-            if (version_pointer != nullptr && version_replica != version_pointer->load(std::memory_order::relaxed)) {
-                return;
-            }
-
-            raw_tokens.push_back(lexer.AcquireNextToken());
-        } while (raw_tokens.back().type != TokenType::kEndOfFile);
+        auto raw_tokens = lexer.Tokenize(version_replica, version_pointer);
+        if (raw_tokens.empty()) {
+            return;
+        }
 
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs_);
+
+        document.arena = std::make_unique<Arena>();
+        thread_local_arena = document.arena.get();
+        thread_local_arena->Reset();
 
         Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr

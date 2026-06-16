@@ -23,15 +23,6 @@ namespace glsld {
     public:
         Parser(SourceTable& source_table,
                const SourceFile* source_file,
-               std::string_view source,
-               IncludeLoader& include_loader,
-               std::span<const std::filesystem::path> include_dirs,
-               int version_replica,
-               std::shared_ptr<const std::atomic<int>> version_pointer,
-               Document& document);
-
-        Parser(SourceTable& source_table,
-               const SourceFile* source_file,
                std::vector<Token> raw_tokens,
                IncludeLoader& include_loader,
                std::span<const std::filesystem::path> include_dirs,

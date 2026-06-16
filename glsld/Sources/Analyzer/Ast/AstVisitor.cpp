@@ -7,6 +7,35 @@ namespace glsld {
         , version_pointer_{ version_pointer }
     {}
 
+    namespace {
+        bool IsStatementKind(AstNodeKind kind) {
+            switch (kind) {
+            case AstNodeKind::kCompoundStatement:
+            case AstNodeKind::kIfStatement:
+            case AstNodeKind::kForStatement:
+            case AstNodeKind::kWhileStatement:
+            case AstNodeKind::kDoStatement:
+            case AstNodeKind::kSwitchStatement:
+            case AstNodeKind::kCaseStatement:
+            case AstNodeKind::kReturnStatement:
+            case AstNodeKind::kBreakStatement:
+            case AstNodeKind::kContinueStatement:
+            case AstNodeKind::kDiscardStatement:
+            case AstNodeKind::kExpressionStatement:
+            case AstNodeKind::kNullStatement:
+            case AstNodeKind::kDeclarationGroup:
+            case AstNodeKind::kPreprocessor:
+            case AstNodeKind::kFunctionDeclaration:
+            case AstNodeKind::kVariableDeclaration:
+            case AstNodeKind::kInterfaceDeclaration:
+            case AstNodeKind::kStructDeclaration:
+                return true;
+            default:
+                return false;
+            }
+        }
+    }
+
     void AstVisitor::Traverse(AstNode* node) {
         if (node == nullptr) {
             return;
@@ -23,8 +52,8 @@ namespace glsld {
             current_scope_ = node->located_scope;
         }
 
-        if (auto* expr_node = dynamic_cast<StatementNode*>(node)) {
-            for (auto& attribute : expr_node->attributes) {
+        if (IsStatementKind(node->kind())) {
+            for (auto& attribute : static_cast<StatementNode*>(node)->attributes) {
                 VisitAttribute(attribute.get());
             }
         }

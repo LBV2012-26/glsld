@@ -54,6 +54,11 @@ namespace glsld {
         return !name.empty();
     }
 
+    inline const SymbolInfo* Scope::FindVisibleType(std::string_view name) const {
+        auto it = visible_types_.find(name);
+        return it != visible_types_.end() ? it->second : nullptr;
+    }
+
     inline void Scope::AddBuiltinScope(const Scope* builtin_scope) {
         builtin_parents_.push_back(builtin_scope);
     }

@@ -52,16 +52,23 @@ namespace glsld {
 
             break;
         case kFunctionCallee: {
-            auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);
+            auto it = function_cache_.find(node->name);
+            if (it != function_cache_.end()) {
+                node->linked_symbols = it->second;
+                break;
+            }
 
-            if (std::holds_alternative<std::monostate>(function_result)) {
+            auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);
+            auto [inserted_it, _] = function_cache_.try_emplace(node->name, std::move(function_result));
+
+            if (std::holds_alternative<std::monostate>(inserted_it->second)) {
                 // constructor calling, like "BufferReference ref = BufferReference(device_address);"
                 const auto* symbol_result = scope->FindSymbol(node->name);
                 node->linked_symbols = symbol_result;
                 break;
             }
 
-            node->linked_symbols = std::move(function_result);
+            node->linked_symbols = inserted_it->second;
             break;
         }
         default:

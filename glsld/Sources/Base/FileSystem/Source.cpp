@@ -49,6 +49,11 @@ namespace glsld {
     }
 
     const SourceFile* SourceTable::Intern(std::string_view filename, std::string_view uri) {
+        auto it = sources_.find(filename);
+        if (it != sources_.end()) {
+            return it->second.get();
+        }
+
         auto source = std::make_unique<SourceFile>(filename, uri);
 
         std::unique_lock lock(shared_mutex_);

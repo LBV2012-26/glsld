@@ -51,6 +51,26 @@ namespace glsld {
         return *this;
     }
 
+    void* AstNode::operator new(std::size_t size) {
+        return thread_local_arena->Allocate(size);
+    }
+
+    void* AstNode::operator new(std::size_t size, std::align_val_t alignment) {
+        return thread_local_arena->Allocate(size, static_cast<std::size_t>(alignment));
+    }
+
+    void AstNode::operator delete(void* ptr, std::size_t size) noexcept {
+        // Do nothing, memory will be freed when arena is reset or destroyed
+    }
+
+    void AstNode::operator delete(void* ptr, std::align_val_t alignment) noexcept {
+        // Do nothing, memory will be freed when arena is reset or destroyed
+    }
+
+    void AstNode::operator delete(void* ptr, std::size_t size, std::align_val_t alignment) noexcept {
+        // Do nothing, memory will be freed when arena is reset or destroyed
+    }
+
     QualifierArgumentNode::QualifierArgumentNode(const QualifierArgumentNode& other)
         : AstNode(other)
         , arg_kind{ other.arg_kind }

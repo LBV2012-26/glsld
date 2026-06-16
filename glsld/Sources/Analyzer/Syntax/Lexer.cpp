@@ -29,6 +29,21 @@ namespace glsld {
         BuildLexicalTable();
     }
 
+    std::vector<Token> Lexer::Tokenize(int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer) {
+        std::vector<Token> tokens;
+        tokens.reserve(source_.length() / 5);
+
+        do {
+            if (version_pointer != nullptr && version_replica != version_pointer->load(std::memory_order::relaxed)) {
+                return {};
+            }
+
+            tokens.push_back(AcquireNextToken());
+        } while (tokens.back().type != TokenType::kEndOfFile);
+
+        return tokens;
+    }
+
     Token Lexer::AcquireNextToken() {
         auto token = ProduceToken();
         last_token_line_ = token.location.line();

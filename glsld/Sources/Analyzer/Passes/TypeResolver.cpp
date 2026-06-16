@@ -14,13 +14,22 @@
 #include <utility>
 #include <variant>
 
+#include <ankerl/unordered_dense.h>
+
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
+#include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
     namespace {
         std::string GetTypeBitsPrefix(const TypeDescriptor& type_desc) {
+            static thread_local ankerl::unordered_dense::map<TypeDescriptor, std::string, TypeDescriptorHash> cache;
+            auto it = cache.find(type_desc);
+            if (it != cache.end()) {
+                return it->second;
+            }
+
             std::string prefix;
             switch (type_desc.family) {
             case BaseFamily::kBool:
@@ -39,10 +48,17 @@ namespace glsld {
                 break;
             }
 
-            return prefix;
+            auto [inserted_it, _] = cache.try_emplace(type_desc, std::move(prefix));
+            return inserted_it->second;
         }
 
         std::string GetScalarTypename(const TypeDescriptor& type_desc) {
+            static thread_local ankerl::unordered_dense::map<TypeDescriptor, std::string, TypeDescriptorHash> cache;
+            auto it = cache.find(type_desc);
+            if (it != cache.end()) {
+                return it->second;
+            }
+
             std::string name;
             switch (type_desc.family) {
             case BaseFamily::kBool:
@@ -61,7 +77,8 @@ namespace glsld {
                 break;
             }
 
-            return name;
+            auto [inserted_it, _] = cache.try_emplace(type_desc, std::move(name));
+            return inserted_it->second;
         }
 
         void SeparateType(TypeInfo& type_info, bool keep_vector) {
@@ -77,6 +94,12 @@ namespace glsld {
         }
 
         TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc) {
+            static thread_local ankerl::unordered_dense::map<TypeDescriptor, TypeInfo, TypeDescriptorHash> cache;
+            auto it = cache.find(type_desc);
+            if (it != cache.end()) {
+                return it->second;
+            }
+
             if (type_desc.family == BaseFamily::kUnknown) {
                 return {
                     .typename_token{
@@ -105,7 +128,9 @@ namespace glsld {
             }
 
             type_info.type_desc = type_desc;
-            return type_info;
+
+            auto [inserted_it, _] = cache.try_emplace(type_desc, std::move(type_info));
+            return inserted_it->second;
         }
 
         MatchGrade TryImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
@@ -600,7 +625,8 @@ namespace glsld {
         std::vector<std::optional<std::uint64_t>> dimensions;
         bool is_array_constructor = false;
 
-        while (auto* index_node = dynamic_cast<IndexExpressionNode*>(current_base)) {
+        while (current_base->kind() == AstNodeKind::kIndexExpression) {
+            auto* index_node = static_cast<IndexExpressionNode*>(current_base);
             is_array_constructor = true;
 
             std::optional<std::uint64_t> size;
@@ -617,10 +643,11 @@ namespace glsld {
 
         // int array[] = int[](...)
         if (is_array_constructor) {
-            if (const auto* base_varexpr = dynamic_cast<const VariableExpressionNode*>(current_base)) {
+            if (current_base->kind() == AstNodeKind::kVariableExpression) {
                 bool is_constructor = false;
                 TypeDescriptor base_desc;
 
+                const auto* base_varexpr = static_cast<VariableExpressionNode*>(current_base);
                 if (base_varexpr->original_token.type == TokenType::kPrimitive ||
                     base_varexpr->original_token.type == TokenType::kBuiltInType)
                 {
@@ -1106,6 +1133,12 @@ namespace glsld {
     }
 
     TypeDescriptor TypeResolver::ParseTypeDescriptor(std::string_view text) {
+        static thread_local StringHeteroHashMap<TypeDescriptor> cache;
+        auto it = cache.find(text);
+        if (it != cache.end()) {
+            return it->second;
+        };
+
         static const std::vector<std::string> kOpaquePrefix{
             "sampler", "isampler", "usampler",
             "image", "iimage", "uimage",
@@ -1234,6 +1267,7 @@ namespace glsld {
             }
         }
 
+        cache.emplace(text, desc);
         return desc;
     }
 
