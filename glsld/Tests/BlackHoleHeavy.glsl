@@ -51476,6 +51476,7 @@ void mainImage( out vec4 FragColor, in vec2 FragCoord )
                                iBlackHoleRelativeDiskNormal,
                                iBlackHoleRelativeDiskTangen,
                                iUniverseSign);
+
     vec4  FinalColor    = res.AccumColor;
     float CurrentStatus = res.Status;
     vec3  CurrentDir    = res.EscapeDir;

@@ -16,10 +16,6 @@ namespace glsld {
         }
     }
 
-    void Router::Use(MiddlewareFunc middleware) {
-        middlewares_.push_back(std::move(middleware));
-    }
-
     void Router::RegisterRequest(std::string_view method, RequestHandler handler) {
         HandlerFunc adapter = [handler](Context& context) -> void {
             try {
@@ -30,7 +26,7 @@ namespace glsld {
             }
         };
 
-        request_routes_[std::string(method)] = BuildPipeline(std::move(adapter));
+        request_routes_[std::string(method)] = std::move(adapter);
     }
 
     void Router::RegisterNotification(std::string_view method, NotificationHandler handler) {
@@ -42,7 +38,7 @@ namespace glsld {
             }
         };
 
-        notification_routes_[std::string(method)] = BuildPipeline(std::move(adapter));
+        notification_routes_[std::string(method)] = std::move(adapter);
     }
 
     void Router::Dispatch(Context& context, bool is_request) {
@@ -61,14 +57,5 @@ namespace glsld {
                 GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Unhandled notification: {}", context.method);
             }
         }
-    }
-
-    HandlerFunc Router::BuildPipeline(HandlerFunc handler) {
-        HandlerFunc chain = std::move(handler);
-
-        for (auto it = middlewares_.rbegin(); it != middlewares_.rend(); ++it) {
-            chain = (*it)(chain);
-        }
-        return chain;
     }
 }

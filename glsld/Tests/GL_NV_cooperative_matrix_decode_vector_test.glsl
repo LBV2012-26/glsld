@@ -1,4 +1,5 @@
 #version 460 core
+#pragma shader_stage(compute)
 
 #extension GL_EXT_long_vector : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require

@@ -72,8 +72,8 @@ int main() {
 
     using namespace glsld;
 
-    //int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
-    if (false) {
+    int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
+    if (result == IDOK) {
         Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
         LoggerManager::GetInstance().Initialize();
 

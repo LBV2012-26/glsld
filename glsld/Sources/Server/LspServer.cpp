@@ -45,17 +45,50 @@ namespace glsld {
 
     LspServer::LspServer()
         : thread_pool_{ std::thread::hardware_concurrency() }
+        , update_pool_{ std::thread::hardware_concurrency() }
         , workspace_{ thread_pool_ }
     {
         RegisterHandlers();
+
+        diagnostic_engine_.SetCallback([this](std::string_view uri, int version, std::vector<Diagnostic> diagnostic) -> void {
+            int current = [&]() -> int {
+                std::shared_lock lock(pending_update_mutex_);
+                auto it = document_versions_.find(uri);
+                return it != document_versions_.end() ? it->second->load(std::memory_order::relaxed) : -1;
+            }();
+
+            if (current != version) {
+                return;  // 过时，丢弃
+            }
+
+            nlohmann::json info = nlohmann::json::array();
+            for (const auto& diagnostic : diagnostic) {
+                info.push_back({
+                    { "range", {
+                        { "start", { { "line", diagnostic.line }, { "character", diagnostic.character } } },
+                        { "end",   { { "line", diagnostic.end_line }, { "character", diagnostic.end_character } } }
+                    } },
+                    { "severity", std::to_underlying(diagnostic.severity) },
+                    { "message",  diagnostic.message }
+                });
+            }
+
+            EnqueueSubmit(LspSubmitItem{
+                .payload       = { { "uri", uri }, { "diagnostics", std::move(info) } },
+                .notify_method = "textDocument/publishDiagnostics",
+                .kind          = LspSubmitItem::Kind::kNotification
+            });
+        });
     }
 
     void LspServer::Run() {
         std::jthread worker_thread([this]() -> void { WorkerLoop(); });
         std::jthread submit_thread([this]() -> void { SubmitLoop(); });
+        std::jthread update_thread([this]() -> void { UpdateLoop(); });
 
         worker_thread.detach();
         submit_thread.detach();
+        update_thread.detach();
 
         while (running_.load(std::memory_order::relaxed) && std::cin.good()) {
             auto message = ReadMessage();
@@ -286,6 +319,27 @@ namespace glsld {
         }
     }
 
+    void LspServer::UpdateLoop() {
+        while (running_.load(std::memory_order::relaxed)) {
+            std::function<void()> work;
+            {
+                std::unique_lock lock(update_mutex_);
+                update_condition_.wait(lock, [this]() -> bool {
+                    return !update_queue_.empty() || !running_.load(std::memory_order::relaxed);
+                });
+
+                if (!running_.load(std::memory_order::relaxed)) {
+                    return;
+                }
+
+                work = std::move(update_queue_.front());
+                update_queue_.pop();
+            }
+
+            work();
+        }
+    }
+
     void LspServer::EnqueueTask(LspTask task) {
         {
             std::lock_guard lock(task_mutex_);
@@ -300,6 +354,16 @@ namespace glsld {
             submit_queue_.push(std::move(item));
         }
         submit_condition_.notify_one();
+    }
+
+    void LspServer::EnqueueUpdate(const std::string& uri, int version_replica, bool open_document) {
+        {
+            std::lock_guard lock(update_mutex_);
+            update_queue_.push([this, uri, version_replica, open_document]() -> void {
+                UpdateWorker(uri, version_replica, open_document);
+            });
+        }
+        update_condition_.notify_one();
     }
 
     void LspServer::CancelRequest(const nlohmann::json& message) {
@@ -722,7 +786,7 @@ namespace glsld {
         auto uri      = NormalizeUri(origin_uri);
 
         {
-            std::lock_guard lock(update_mutex_);
+            std::lock_guard lock(pending_update_mutex_);
             pending_updates_[uri] = {
                 .text     = text,
                 .deadline = deadline
@@ -732,9 +796,7 @@ namespace glsld {
             document_revisions_[uri] = std::make_shared<std::atomic<int>>(0);
         }
 
-        thread_pool_.Submit([this, uri, version]() -> void {
-            UpdateWorker(uri, version, true);
-        });
+        EnqueueUpdate(uri, version, true);
     }
 
     void LspServer::HandleDidChange(Context& context) {
@@ -753,7 +815,7 @@ namespace glsld {
         auto uri      = NormalizeUri(origin_uri);
 
         {
-            std::lock_guard lock(update_mutex_);
+            std::lock_guard lock(pending_update_mutex_);
             pending_updates_[uri] = {
                 .text     = new_text,
                 .deadline = deadline
@@ -770,9 +832,7 @@ namespace glsld {
             }
         }
 
-        thread_pool_.Submit([this, uri, version]() -> void {
-            UpdateWorker(uri, version, false);
-        });
+        EnqueueUpdate(uri, version, false);
     }
 
     void LspServer::HandleDidSave(Context& context) {
@@ -791,7 +851,7 @@ namespace glsld {
             int new_version = 0;
             VersionPointer version_pointer;
             {
-                std::shared_lock lock(update_mutex_);
+                std::shared_lock lock(pending_update_mutex_);
                 auto it = document_revisions_.find(affected_uri);
                 if (it == document_revisions_.end()) {
                     continue;
@@ -805,7 +865,7 @@ namespace glsld {
                                 affected_uri, uri, old_version, new_version);
             }
 
-            thread_pool_.Submit([this, affected_uri, new_version, version_pointer]() -> void {
+            update_pool_.Submit([this, affected_uri, new_version, version_pointer]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(affected_uri);
                 if (snapshot != nullptr) {
                     Update(affected_uri, snapshot->source, new_version, version_pointer, false);
@@ -820,7 +880,7 @@ namespace glsld {
         workspace_.RemoveDocument(uri);
 
         {
-            std::lock_guard lock(update_mutex_);
+            std::lock_guard lock(pending_update_mutex_);
             pending_updates_.erase(uri);
 
             auto version_it = document_versions_.find(uri);
@@ -855,7 +915,7 @@ namespace glsld {
     }
 
     void LspServer::UpdateWorker(const std::string& uri, int version_replica, bool open_document) {
-        std::shared_lock lock(update_mutex_);
+        std::shared_lock lock(pending_update_mutex_);
         auto& update = pending_updates_.at(uri);
         if (std::chrono::steady_clock::now() < update.deadline) {
             std::this_thread::sleep_until(update.deadline);
@@ -865,7 +925,7 @@ namespace glsld {
 
         VersionPointer version_pointer;
         {
-            std::shared_lock lock(update_mutex_);
+            std::shared_lock lock(pending_update_mutex_);
             auto it = document_versions_.find(uri);
             if (it == document_versions_.end()) {
                 return;
@@ -880,7 +940,7 @@ namespace glsld {
 
         std::string text = std::move(update.text);
         {
-            std::lock_guard lock(update_mutex_);
+            std::lock_guard lock(pending_update_mutex_);
             pending_updates_.erase(uri);
         }
 
@@ -891,17 +951,13 @@ namespace glsld {
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer, open_document);
         ready_condition_.notify_all();
 
-        LspSubmitItem item{
-            .payload = {
-                { "uri", uri },
-                { "version", version_replica },
-                { "diagnostics", nlohmann::json::array() } // 发送空数组清空错误
-            },
-            .notify_method = "textDocument/publishDiagnostics",
-            .kind          = LspSubmitItem::Kind::kNotification
-        };
-
-        EnqueueSubmit(std::move(item));
+        diagnostic_engine_.Submit(DiagnosticTask{
+            .uri             = uri,
+            .source          = std::string(text),
+            .filename        = utils::UriToPath(uri).generic_string(),
+            .version         = version_replica,
+            .version_pointer = version_pointer
+        });
     }
 
     std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, const std::string& uri) const {
@@ -914,7 +970,7 @@ namespace glsld {
 
             int expected_version = 0;
             {
-                std::shared_lock lock(update_mutex_);
+                std::shared_lock lock(pending_update_mutex_);
                 auto it = document_versions_.find(uri);
                 if (it != document_versions_.end()) {
                     expected_version = it->second->load(std::memory_order::relaxed);
@@ -936,8 +992,7 @@ namespace glsld {
             }
 
             std::unique_lock lock(ready_mutex_);
-            using namespace std::chrono_literals;
-            ready_condition_.wait_for(lock, 25ms, [this, &context, &uri, expected_version]() -> bool {
+            ready_condition_.wait(lock, [this, &context, &uri, expected_version]() -> bool {
                 if (context.cancelled()) {
                     GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Waiting for document {} exit because request {} cancelled while waiting.", uri, context.request_id->dump());
                     return true;

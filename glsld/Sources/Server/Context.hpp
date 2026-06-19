@@ -28,8 +28,7 @@ namespace glsld {
         }
     };
 
-    using HandlerFunc    = std::function<void(Context&)>;
-    using MiddlewareFunc = std::function<HandlerFunc(HandlerFunc)>;
+    using HandlerFunc = std::function<void(Context&)>;
 }
 
 #define ABORT_IF_CANCELLED()                                              \

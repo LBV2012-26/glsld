@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -16,6 +17,7 @@
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
 #include "Server/Context.hpp"
+#include "Server/DiagnosticEngine.hpp"
 #include "Server/Router.hpp"
 #include "Server/Workspace.hpp"
 
@@ -58,8 +60,10 @@ namespace glsld {
 
         void WorkerLoop();
         void SubmitLoop();
+        void UpdateLoop();
         void EnqueueTask(LspTask task);
         void EnqueueSubmit(LspSubmitItem item);
+        void EnqueueUpdate(const std::string& uri, int version_replica, bool open_document);
         void CancelRequest(const nlohmann::json& message);
 
         nlohmann::json HandleInitialize(Context& context);
@@ -92,13 +96,15 @@ namespace glsld {
         std::atomic<bool>                   running_{ true };
         Router                              router_;
         ThreadPool                          thread_pool_;
+        ThreadPool                          update_pool_;
         Workspace                           workspace_;
+        DiagnosticEngine                    diagnostic_engine_;
         mutable std::condition_variable     ready_condition_;
         mutable std::mutex                  ready_mutex_;
 
         StringHeteroHashMap<PendingUpdate>  pending_updates_;
         StringHeteroHashMap<VersionPointer> document_versions_;   // [Uri, Version]
-        mutable std::shared_mutex           update_mutex_;
+        mutable std::shared_mutex           pending_update_mutex_;
 
         StringHeteroHashMap<VersionPointer> document_revisions_;  // [Uri, Revision], for background include affected document update
         std::shared_mutex                   revision_mutex_;
@@ -110,6 +116,10 @@ namespace glsld {
         std::mutex                          submit_mutex_;
         std::condition_variable             submit_condition_;
         std::queue<LspSubmitItem>           submit_queue_;
+
+        std::mutex                          update_mutex_;
+        std::condition_variable             update_condition_;
+        std::queue<std::function<void()>>   update_queue_;
 
         CancellationTokenTable              cancellation_tokens_; // [Request ID, Token]
         std::mutex                          cancellation_mutex_;

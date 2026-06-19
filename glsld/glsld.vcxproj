@@ -74,11 +74,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)Win64\</OutDir>
-    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(VULKAN_SDK)\Lib;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VULKAN_SDK)\Include;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(ProjectDir)Win64\</OutDir>
-    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(VULKAN_SDK)\Lib;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>$(VULKAN_SDK)\Include;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -129,7 +131,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>Main</EntryPointSymbol>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>mimalloc.lib;shaderc_combined.lib;SPIRV-Toolsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -153,7 +155,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>Main</EntryPointSymbol>
-      <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>mimalloc.lib;shaderc_combined.lib;SPIRV-Tools.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -169,6 +171,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
     <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
+    <ClCompile Include="Sources\Server\DiagnosticEngine.cpp" />
     <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
@@ -203,6 +206,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
+    <ClInclude Include="Sources\Server\DiagnosticEngine.hpp" />
     <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
