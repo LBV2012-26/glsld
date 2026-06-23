@@ -84,20 +84,20 @@ namespace glsld {
             };
 
             static const StringHeteroHashMap<std::string> kStageMacros{
-                { "vertex",         "GL_VERTEX_SHADER" },
-                { "fragment",       "GL_FRAGMENT_SHADER" },
-                { "compute",        "GL_COMPUTE_SHADER" },
-                { "geometry",       "GL_GEOMETRY_SHADER" },
-                { "tesscontrol",    "GL_TESS_CONTROL_SHADER" },
-                { "tessevaluation", "GL_TESS_EVALUATION_SHADER" },
-                { "mesh",           "GL_MESH_SHADER_EXT" },
-                { "task",           "GL_TASK_SHADER_EXT" },
-                { "raygen",         "GL_RAY_GENERATION_SHADER_EXT" },
-                { "anyhit",         "GL_ANY_HIT_SHADER_EXT" },
-                { "closesthit",     "GL_CLOSEST_HIT_SHADER_EXT" },
-                { "miss",           "GL_MISS_SHADER_EXT" },
-                { "intersection",   "GL_INTERSECTION_SHADER_EXT" },
-                { "callable",       "GL_CALLABLE_SHADER_EXT" },
+                { "vertex",      "GL_VERTEX_SHADER" },
+                { "fragment",    "GL_FRAGMENT_SHADER" },
+                { "tesscontrol", "GL_TESS_CONTROL_SHADER" },
+                { "tesseval",    "GL_TESS_EVALUATION_SHADER" },
+                { "geometry",    "GL_GEOMETRY_SHADER" },
+                { "compute",     "GL_COMPUTE_SHADER" },
+                { "raygen",      "GL_RAY_GENERATION_SHADER_EXT" },
+                { "intersect",   "GL_INTERSECTION_SHADER_EXT" },
+                { "anyhit",      "GL_ANY_HIT_SHADER_EXT" },
+                { "closest",     "GL_CLOSEST_HIT_SHADER_EXT" },
+                { "miss",        "GL_MISS_SHADER_EXT" },
+                { "callable",    "GL_CALLABLE_SHADER_EXT" },
+                { "task",        "GL_TASK_SHADER_EXT" },
+                { "mesh",        "GL_MESH_SHADER_EXT" }
             };
 
             for (auto i = 0uz; i != raw_tokens.size(); ++i) {
@@ -178,18 +178,18 @@ namespace glsld {
             static const StringHeteroHashMap<std::string> kStageMacros{
                 { "GL_VERTEX_SHADER",             "Vertex",         },
                 { "GL_FRAGMENT_SHADER",           "Fragment",       },
-                { "GL_COMPUTE_SHADER",            "Compute",        },
-                { "GL_GEOMETRY_SHADER",           "Geometry",       },
                 { "GL_TESS_CONTROL_SHADER",       "TessControl",    },
                 { "GL_TESS_EVALUATION_SHADER",    "TessEvaluation", },
-                { "GL_MESH_SHADER_EXT",           "Mesh",           },
-                { "GL_TASK_SHADER_EXT",           "Task",           },
+                { "GL_GEOMETRY_SHADER",           "Geometry",       },
+                { "GL_COMPUTE_SHADER",            "Compute",        },
                 { "GL_RAY_GENERATION_SHADER_EXT", "RayGen",         },
+                { "GL_INTERSECTION_SHADER_EXT",   "Intersection",   },
                 { "GL_ANY_HIT_SHADER_EXT",        "AnyHit",         },
                 { "GL_CLOSEST_HIT_SHADER_EXT",    "ClosestHit",     },
                 { "GL_MISS_SHADER_EXT",           "Miss",           },
-                { "GL_INTERSECTION_SHADER_EXT",   "Intersection",   },
                 { "GL_CALLABLE_SHADER_EXT",       "Callable",       },
+                { "GL_TASK_SHADER_EXT",           "Task",           },
+                { "GL_MESH_SHADER_EXT",           "Mesh",           }
             };
 
             auto injected_macros = CollectRequestedExtensions(raw_tokens);

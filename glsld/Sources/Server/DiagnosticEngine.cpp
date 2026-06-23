@@ -12,6 +12,7 @@
 #include <ranges>
 #include <system_error>
 #include <thread>
+#include <tuple>
 #include <utility>
 
 namespace glsld {
@@ -73,15 +74,39 @@ namespace glsld {
                 queue_.pop();
             }
 
-            if (task.version != task.version_pointer->load(std::memory_order::relaxed)) {
+            if (task.version_replica != task.version_pointer->load(std::memory_order::relaxed)) {
                 continue;
             }
 
             auto diagnostics = Compile(task);
-            if (task.version == task.version_pointer->load(std::memory_order::relaxed) && callback_) {
-                callback_(task.uri, task.version, std::move(diagnostics));
+            if (task.version_replica == task.version_pointer->load(std::memory_order::relaxed) && callback_) {
+                callback_(task.uri, task.version_replica, std::move(diagnostics));
             }
         }
+    }
+
+    std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
+        if (task.stages.empty()) {
+            return Compile(task, std::nullopt);
+        }
+
+        std::vector<Diagnostic> merged;
+
+        for (const auto& stage : task.stages) {
+            auto result = Compile(task, stage);
+            merged.append_range(result | std::views::as_rvalue);
+        }
+
+        std::ranges::sort(merged, {}, [](const Diagnostic& diag) -> auto {
+            return std::tie(diag.line, diag.character, diag.message);
+        });
+
+        auto [first, last] = std::ranges::unique(merged, {}, [](const Diagnostic& diag) -> auto {
+            return std::tie(diag.line, diag.character, diag.message);
+        });
+
+        merged.erase(first, last);
+        return merged;
     }
 
     namespace {
@@ -90,7 +115,7 @@ namespace glsld {
                 | std::views::split('\n')
                 | std::views::transform([](auto&& subrange) -> std::string_view {
                       return std::string_view(subrange);
-                })
+                  })
                 | std::ranges::to<std::vector<std::string_view>>();
         }
 
@@ -298,7 +323,6 @@ namespace glsld {
             HANDLE write = nullptr;
             CreatePipe(&read, &write, &attributes, 0);
 
-            PROCESS_INFORMATION info{};
             STARTUPINFO startup{ sizeof(startup) };
             startup.dwFlags    = STARTF_USESTDHANDLES;
             startup.hStdOutput = write;
@@ -310,12 +334,13 @@ namespace glsld {
                 return MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, buffer, static_cast<int>(buffer_size));
             });
 
-            auto result = CreateProcess(nullptr, wcommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info);
+            PROCESS_INFORMATION info{};
+            auto ok = CreateProcess(nullptr, wcommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info);
 
             CloseHandle(write);
 
             std::string output;
-            if (result) {
+            if (ok) {
                 WaitForSingleObject(info.hProcess, 30000);
                 std::array<char, 4096> buffer{};
                 DWORD read_bytes = 0;
@@ -333,7 +358,10 @@ namespace glsld {
         }
     }
 
-    std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
+    std::vector<Diagnostic> DiagnosticEngine::Compile(
+        const DiagnosticTask& task,
+        std::optional<std::string> shader_stage)
+    {
         auto extension_name = std::filesystem::path(task.filename).extension().string();
         auto compile_path = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
 
@@ -341,13 +369,17 @@ namespace glsld {
         std::string target_path = std::format("{}.spv", compile_path);
 
         auto command = std::format("\"{}\" -o {} ", glslc_path_, target_path);
+        if (shader_stage.has_value()) {
+            command += std::format("-fshader-stage={} ", *shader_stage);
+        }
+
         command += std::format("-I \"{}\" ", std::filesystem::path(task.filename).parent_path().generic_string());
         for (const auto& dir : task.include_dirs) {
             command += std::format("-I \"{}\" ", dir.generic_string());
         }
 
-        command += std::format("\"{}\"", compile_path);
-        command += " --target-env=vulkan1.4 --target-spv=spv1.6";
+        command += std::format("\"{}\" ", compile_path);
+        command += "--target-env=vulkan1.4 --target-spv=spv1.6";
 
         auto output = ExecuteCommand(command);
         std::filesystem::remove(compile_path);

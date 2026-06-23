@@ -86,6 +86,13 @@ namespace glsld {
         void UpdateWorker(const std::string& uri, int version_replica, bool open_document);
         void Update(const std::string& uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
+        void SubmitDiagnositcTask(
+            const std::string& uri,
+            std::string_view source,
+            std::string_view filename,
+            int version_replica,
+            VersionPointer version_pointer);
+
         std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, const std::string& uri) const;
 
         struct PendingUpdate {

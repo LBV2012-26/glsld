@@ -2,6 +2,7 @@
 #include "LspServer.hpp"
 
 #include <cstddef>
+#include <algorithm>
 #include <charconv>
 #include <exception>
 #include <format>
@@ -951,13 +952,158 @@ namespace glsld {
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer, open_document);
         ready_condition_.notify_all();
 
-        diagnostic_engine_.Submit(DiagnosticTask{
+        SubmitDiagnositcTask(uri, text, utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
+    }
+
+    namespace {
+        bool StartsWithVersion(std::string_view source) {
+            auto trimmed = source;
+            // 跳过空白行
+            while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+                                        trimmed.front() == '\r' || trimmed.front() == '\n'))
+            {
+                trimmed.remove_prefix(1);
+            }
+            // 跳过 // 注释
+            while (trimmed.starts_with("//")) {
+                auto eol = trimmed.find('\n');
+                if (eol == std::string_view::npos) {
+                    break;
+                }
+
+                trimmed.remove_prefix(eol + 1);
+                while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+                                            trimmed.front() == '\r' || trimmed.front() == '\n'))
+                {
+                    trimmed.remove_prefix(1);
+                }
+            }
+            // 跳过 /* */ 注释
+            while (trimmed.starts_with("/*")) {
+                auto end = trimmed.find("*/", 2);
+                if (end == std::string_view::npos) {
+                    break;
+                }
+
+                trimmed.remove_prefix(end + 2);
+                while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+                                            trimmed.front() == '\r' || trimmed.front() == '\n'))
+                {
+                    trimmed.remove_prefix(1);
+                }
+            }
+
+            return trimmed.starts_with("#version");
+        }
+
+        std::string InferStageFromFilename(std::string_view filename) {
+            auto extension = std::filesystem::path(filename).extension().string();
+
+            if (extension == ".vert" || extension == "vs")
+                return "vert";
+            if (extension == ".frag" || extension == "fs")
+                return "frag";
+            if (extension == ".comp" || extension == "cs")
+                return "comp";
+            if (extension == ".geom" || extension == "gs")
+                return "geom";
+            if (extension == ".tesc")
+                return "tesc";
+            if (extension == ".tese")
+                return "tese";
+            if (extension == ".mesh")
+                return "mesh";
+            if (extension == ".task")
+                return "task";
+            if (extension == ".rgen")
+                return "rgen";
+            if (extension == ".rahit")
+                return "rahit";
+            if (extension == ".rchit")
+                return "rchit";
+            if (extension == ".rmiss")
+                return "rmiss";
+            if (extension == ".rint")
+                return "rint";
+            if (extension == ".rcall")
+                return "rcall";
+
+            return "";
+        }
+
+        std::string InferStageFromSource(std::string_view source) {
+            // #pragma shader_stage(vertex)
+            auto pos = source.find("shader_stage");
+            if (pos != std::string_view::npos) {
+                auto open = source.find('(', pos);
+                if (open != std::string_view::npos) {
+                    auto close = source.find(')', open);
+                    if (close != std::string_view::npos) {
+                        auto stage = source.substr(open + 1, close - open - 1);
+                        return std::string(stage);
+                    }
+                }
+            }
+
+            return {};
+        }
+
+        std::string InferStage(std::string_view source, std::string_view filename) {
+            auto stage = InferStageFromFilename(filename);
+            if (!stage.empty()) {
+                return stage;
+            }
+
+            return InferStageFromSource(source);
+        }
+    }
+
+    void LspServer::SubmitDiagnositcTask(
+        const std::string& uri,
+        std::string_view source,
+        std::string_view filename,
+        int version_replica,
+        VersionPointer version_pointer)
+    {
+        DiagnosticTask task{
             .uri             = uri,
-            .source          = std::string(text),
-            .filename        = utils::UriToPath(uri).generic_string(),
-            .version         = version_replica,
+            .filename        = std::string(filename),
+            .include_dirs    = workspace_.include_dirs(),
+            .version_replica = version_replica,
             .version_pointer = version_pointer
-        });
+        };
+
+        if (StartsWithVersion(source)) {
+            task.source = std::string(source);
+            diagnostic_engine_.Submit(std::move(task));
+            return;
+        }
+
+        // include headers
+        std::string version_codes = "#version 460\n#line 1\n"; // TODO: select version from config
+        auto modified_source = version_codes + std::string(source);
+        task.source = std::move(modified_source);
+
+        std::vector<std::string> stages;
+        auto dependent_uris = workspace_.GetAffectedDocuments(uri);
+        for (const auto& uri : dependent_uris) {
+            const auto* source_file = workspace_.source_table_.GetByUri(uri);
+            if (source_file == nullptr) {
+                continue;
+            }
+
+            auto snapshot = workspace_.GetDocumentSnapshot(uri);
+            auto filename = source_file->filename();
+            auto stage    = InferStage(snapshot->source, filename);
+
+            if (std::ranges::find(stages, stage) == stages.end()) {
+                stages.push_back(std::move(stage));
+            }
+        }
+
+        task.stages = std::move(stages);
+
+        diagnostic_engine_.Submit(std::move(task));
     }
 
     std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, const std::string& uri) const {

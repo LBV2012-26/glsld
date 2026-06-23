@@ -43,6 +43,8 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs() const;
 
     private:
+        friend class LspServer;
+
         void ProcessSource(
             const SourceFile* source_file,
             std::string_view source,
