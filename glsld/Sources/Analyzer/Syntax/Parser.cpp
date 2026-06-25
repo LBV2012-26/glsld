@@ -685,7 +685,13 @@ namespace glsld {
                     break; // 不是类型标识符
                 }
 
-                if (PeekToken().type != TokenType::kIdentifier) {
+                const auto& next_token = PeekToken();
+                if (next_token.type != TokenType::kIdentifier) {
+                    break;
+                }
+
+                const auto* next_symbol = current_scope()->FindVisibleType(next_token.text);
+                if (next_symbol != nullptr) {
                     break;
                 }
 
@@ -942,12 +948,30 @@ namespace glsld {
                 node->token    = slice[*equal_pos];
 
                 auto lhs = self(slice.first(*equal_pos));
-                auto rhs = self(slice.subspan(*equal_pos + 1));
-
-                if (lhs != nullptr)
+                if (lhs != nullptr) {
                     node->children.push_back(std::move(lhs));
-                if (rhs != nullptr)
+                }
+
+                // layout(heap_offset = pc.value) xxx
+                auto slice_rhs   = slice.subspan(*equal_pos + 1);
+                auto saved       = std::move(expanded_tokens_);
+                auto saved_index = token_index_;
+
+                std::vector<Token> local(slice_rhs.begin(), slice_rhs.end());
+                local.push_back({ .type = TokenType::kSemicolon });
+
+                expanded_tokens_ = std::move(local);
+                token_index_     = 0;
+
+                node->rhs_expr = ParseExpression(Precedence::kLowest);
+
+                expanded_tokens_ = std::move(saved);
+                token_index_     = saved_index;
+
+                auto rhs = self(slice_rhs);
+                if (rhs != nullptr) {
                     node->children.push_back(std::move(rhs));
+                }
 
                 FinalizeRangeFromChildren(node.get());
                 return node;

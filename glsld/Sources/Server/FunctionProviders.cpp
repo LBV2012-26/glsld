@@ -1050,7 +1050,9 @@ namespace glsld {
 
     namespace {
         bool IsAssignmentWithKey(const QualifierArgumentNode* node, std::string_view key) {
-            if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
+            if (node == nullptr || node->children.size() != 2 ||
+                node->arg_kind != QualifierArgumentKind::kAssignment)
+            {
                 return false;
             }
 

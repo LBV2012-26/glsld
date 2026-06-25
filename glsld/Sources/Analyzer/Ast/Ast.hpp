@@ -94,9 +94,11 @@ namespace glsld {
         kSequence    // token sequence
     };
 
+    struct ExpressionNode;
     struct QualifierArgumentNode final : public AstNode {
         QualifierArgumentKind arg_kind{ QualifierArgumentKind::kUnknown };
         Token                 token;
+        std::unique_ptr<ExpressionNode>                     rhs_expr;
         std::vector<std::unique_ptr<QualifierArgumentNode>> children;
 
         using AstNode::AstNode;

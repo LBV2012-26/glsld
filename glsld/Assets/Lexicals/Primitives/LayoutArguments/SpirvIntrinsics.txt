@@ -1,1 +1,3 @@
-extensions capabilities id
+extensions
+capabilities
+id

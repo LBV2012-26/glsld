@@ -74,6 +74,15 @@ namespace glsld {
         case AstNodeKind::kPreprocessor:
             VisitPreprocessor(static_cast<PreprocessorNode*>(node));
             break;
+        case AstNodeKind::kQualifierArgument:
+            VisitQualifierArgument(static_cast<QualifierArgumentNode*>(node));
+            break;
+        case AstNodeKind::kLayoutQualifier:
+            VisitLayoutQualifier(static_cast<LayoutQualifierNode*>(node));
+            break;
+        case AstNodeKind::kSpirvIntrinsic:
+            VisitSpirvIntrinsic(static_cast<SpirvIntrinsicNode*>(node));
+            break;
         case AstNodeKind::kFunctionDeclaration:
             VisitFunctionDeclaration(static_cast<FunctionDeclarationNode*>(node));
             break;
@@ -179,7 +188,37 @@ namespace glsld {
         Traverse(node->argument.get());
     }
 
+    void AstVisitor::VisitQualifierArgument(QualifierArgumentNode* node) {
+        for (auto& child : node->children) {
+            Traverse(child.get());
+        }
+
+        if (node->rhs_expr != nullptr) {
+            Traverse(node->rhs_expr.get());
+        }
+    }
+
+    void AstVisitor::VisitLayoutQualifier(LayoutQualifierNode* node) {
+        for (auto& param : node->params) {
+            Traverse(param.get());
+        }
+    }
+
+    void AstVisitor::VisitSpirvIntrinsic(SpirvIntrinsicNode* node) {
+        for (auto& param : node->params) {
+            Traverse(param.get());
+        }
+    }
+
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+        for (auto& layout : node->type_spec.layouts) {
+            Traverse(layout.get());
+        }
+
+        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
+            Traverse(spirv_intrinsic.get());
+        }
+
         for (auto& template_arg : node->type_spec.template_args) {
             Traverse(template_arg.get());
         }
@@ -198,6 +237,14 @@ namespace glsld {
     }
 
     void AstVisitor::VisitVariableDeclaration(VariableDeclarationNode* node) {
+        for (auto& layout : node->type_spec.layouts) {
+            Traverse(layout.get());
+        }
+
+        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
+            Traverse(spirv_intrinsic.get());
+        }
+
         for (auto& template_arg : node->type_spec.template_args) {
             Traverse(template_arg.get());
         }
@@ -212,6 +259,14 @@ namespace glsld {
     }
 
     void AstVisitor::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
+        for (auto& layout : node->type_spec.layouts) {
+            Traverse(layout.get());
+        }
+
+        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
+            Traverse(spirv_intrinsic.get());
+        }
+
         for (auto& template_arg : node->type_spec.template_args) {
             Traverse(template_arg.get());
         }

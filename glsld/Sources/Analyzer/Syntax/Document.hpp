@@ -37,6 +37,7 @@ namespace glsld {
     using InactiveRegionMap = ankerl::unordered_dense::map<const SourceFile*, std::vector<InactiveRegion>, SourceFileHash>;
 
     struct Document {
+    public:
         using AstRoot = std::unique_ptr<TranslationUnitNode>;
         using Builtin = std::shared_ptr<const Document>;
 
@@ -53,7 +54,7 @@ namespace glsld {
         MacroTraceMap            macro_traces;
         MacroArgsTraceMap        macro_args_traces;
         MacroExpansionMap        macro_expansions;
-        MacroTable               macros;
+        MacroTable               macro_table;
         int                      version{};
 
         Document() = default;
@@ -66,6 +67,11 @@ namespace glsld {
 
         void InjectMacro(std::string_view name, MacroDefination defination);
         void InjectMacro(std::string_view name);
+        void FinalizeInjectedMacros(const SourceFile* source_file);
+
+    private:
+        std::vector<MacroDefination>                   pending_macros_;
+        std::vector<std::unique_ptr<PreprocessorNode>> injected_nodes_;
     };
 
     struct InlayHint {

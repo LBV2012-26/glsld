@@ -56,6 +56,33 @@ namespace glsld {
         }
     }
 
+    void AstDumper::VisitQualifierArgument(QualifierArgumentNode* node) {
+        PrintIndent();
+        std::println("QualifierArgument Kind: {} Token: {}", magic_enum::enum_name(node->kind()), node->token.text);
+
+        ++indent_level_;
+        Base::VisitQualifierArgument(node);
+        --indent_level_;
+    }
+
+    void AstDumper::VisitLayoutQualifier(LayoutQualifierNode* node) {
+        PrintIndent();
+        std::println("LayoutQualifier (Tokens: {}) {}", node->raw_tokens.size(), FormatRange(node));
+
+        ++indent_level_;
+        Base::VisitLayoutQualifier(node);
+        --indent_level_;
+    }
+
+    void AstDumper::VisitSpirvIntrinsic(SpirvIntrinsicNode* node) {
+        PrintIndent();
+        std::println("SpirvIntrinsic Kind: {} Keyword: {} {}", magic_enum::enum_name(node->intrinsic_kind), node->keyword.text, FormatRange(node));
+
+        ++indent_level_;
+        Base::VisitSpirvIntrinsic(node);
+        --indent_level_;
+    }
+
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         PrintIndent();
         std::string name = node->declared_symbol ? node->declared_symbol->name : "unnamed";

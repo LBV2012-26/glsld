@@ -20,6 +20,9 @@ namespace glsld {
         virtual void VisitDeclarationGroup(DeclarationGroupNode* node);
         virtual void VisitPreprocessor(PreprocessorNode* node);
         virtual void VisitAttribute(AttributeNode* node);
+        virtual void VisitQualifierArgument(QualifierArgumentNode* node);
+        virtual void VisitLayoutQualifier(LayoutQualifierNode* node);
+        virtual void VisitSpirvIntrinsic(SpirvIntrinsicNode* node);
         virtual void VisitFunctionDeclaration(FunctionDeclarationNode* node);
         virtual void VisitVariableDeclaration(VariableDeclarationNode* node);
         virtual void VisitInterfaceDeclaration(InterfaceDeclarationNode* node);

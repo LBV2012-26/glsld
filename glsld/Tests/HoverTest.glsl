@@ -7,6 +7,7 @@
 #extension GL_EXT_control_flow_attributes : require
 #extension GL_EXT_control_flow_attributes2 : require
 #extension GL_EXT_debug_printf : require
+#extension GL_EXT_structured_descriptor_heap : require
 #extension GL_KHR_memory_scope_semantics : require
 #extension GL_KHR_cooperative_matrix : require
 
@@ -40,12 +41,28 @@ layout(std430, binding = 2) buffer LightBuffer {
 };
 
 layout(buffer_reference, std430) buffer LightDataBuffer {
-    LightData data;
+    LightBuffer light_buffer;
+    LightData   data;
 } light_data_buffer;
 
 layout(push_constant) uniform PushConstants {
     layout(offset = 0) uint64_t push_constant_value;
 } push_constants;
+
+layout(buffer_type, scalar) buffer Material {
+    vec4 data;
+};
+
+layout(heap_offset = push_constants.push_constant_value) resourceheap ResourceHeap {
+    uint global_time;
+    layout(descriptor_size = 64) LightData light;
+    Material materials[];
+} resource_heap;
+
+layout(heap_offset = push_constants.push_constant_value) samplerheap SamplerHeap {
+    sampler repeat;
+    sampler shadow;
+} sampler_heap;
 
 #define MAX_RETURN_ARRAY_SIZE 5
 #define MACRO_FUNC(x) (x * x)
@@ -97,6 +114,8 @@ void main() {
     vec3 data = mddata[ReturnArray(mdarray)[0]][3].position + input_data.frag_pos;
 
     LightData result = ReturnLightData(MAX_RETURN_ARRAY_SIZE);
+
+    resource_heap.light * resource_heap.materials[0].data;
 
     FragColor = vec4(light + ambient * result.position, 1.0);
     (debugPrintfEXT)("Color: %v3", FragColor);

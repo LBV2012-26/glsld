@@ -337,7 +337,7 @@ namespace glsld {
                 update_queue_.pop();
             }
 
-            work();
+            update_pool_.Submit(work);
         }
     }
 

@@ -5,6 +5,10 @@
 
 #extension GL_EXT_ray_tracing : require
 
+#ifdef GL_RAY_GENERATION_SHADER_EXT
+const int kArraySize = 10;
+#endif
+
 layout(location = 0) rayPayloadEXT vec4 payload;
 layout(binding  = 0) uniform accelerationStructureEXT TLAS;
 
@@ -13,12 +17,10 @@ struct HitAttribute {
 };
 
 void main() {
-    DECLARE_STRUCT_ARRAY(vec3, 10);
+    DECLARE_STRUCT_ARRAY(vec3, kArraySize);
     vec3_buffer[0].data;
 
     vec3 origin = vec3(0.0);
     vec3 direction = vec3(0.0, 0.0, -1.0);
-    traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT,
-        0xFF, 0, 0,
-        0, origin, 0.001, direction, 10000.0, 0);
+    traceRayEXT(TLAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin, 0.001, direction, 10000.0, 0);
 }

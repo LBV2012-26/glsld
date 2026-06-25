@@ -1,5 +1,5 @@
 attribute varying
-layout readonly writeonly uniform buffer
+layout readonly writeonly uniform buffer resourceheap samplerheap
 shared volatile
 centroid flat smooth noperspective patch sample
 subroutine

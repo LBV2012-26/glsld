@@ -18,7 +18,7 @@ namespace glsld {
         , macro_traces{ std::move(other.macro_traces) }
         , macro_args_traces{ std::move(other.macro_args_traces) }
         , macro_expansions{ std::move(other.macro_expansions) }
-        , macros{ std::move(other.macros) }
+        , macro_table{ std::move(other.macro_table) }
         , version{ std::exchange(other.version, 0) }
     {}
 
@@ -37,7 +37,7 @@ namespace glsld {
             macro_traces      = std::move(other.macro_traces);
             macro_args_traces = std::move(other.macro_args_traces);
             macro_expansions  = std::move(other.macro_expansions);
-            macros            = std::move(other.macros);
+            macro_table       = std::move(other.macro_table);
             version           = std::exchange(other.version, 0);
         }
 
@@ -45,7 +45,8 @@ namespace glsld {
     }
 
     void Document::InjectMacro(std::string_view name, MacroDefination defination) {
-        macros.insert_or_assign(name, std::move(defination));
+        macro_table.insert_or_assign(name, defination);
+        pending_macros_.push_back(std::move(defination));
     }
 
     void Document::InjectMacro(std::string_view name) {
@@ -60,5 +61,33 @@ namespace glsld {
                 .type = TokenType::kNumberLiteral
             } }
         });
+    }
+
+    void Document::FinalizeInjectedMacros(const SourceFile* source_file) {
+        auto* root = symbols.root_scope();
+
+        for (const auto& pending : pending_macros_) {
+            const auto& macro_name = pending.original_token.text;
+            if (root->FindSymbolInCurrentScope(macro_name) != nullptr) {
+                continue;
+            }
+
+            auto location = SourceLocation(source_file, 0, 0);
+
+            auto node = std::make_unique<PreprocessorNode>(root);
+            node->directive = "define";
+            node->begin     = location;
+            node->end       = location;
+            node->tokens    = pending.replacement_list;
+
+            auto* symbol = root->AddSymbol(node.get(), macro_name, location, SymbolKind::kMacro);
+            symbol->node = node.get();
+            node->symbol = symbol;
+
+            ast->preprocessor_references.push_back(node.get());
+            injected_nodes_.push_back(std::move(node));
+        }
+
+        pending_macros_.clear();
     }
 }

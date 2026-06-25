@@ -174,9 +174,15 @@ namespace glsld::utils {
         case QualifierArgumentKind::kSequence: {
             std::string result;
             for (auto i = 0uz; i != argument->children.size(); ++i) {
-                result += SerializeQualifierArguments(argument->children[i].get());
-                if (i + 1 != argument->children.size()) {
-                    result += " ";
+                const auto* current = argument->children[i].get();
+                result += SerializeQualifierArguments(current);
+                if (i + 1 < argument->children.size()) {
+                    const auto& next = *argument->children[i + 1];
+                    if (current->token.type != TokenType::kDot &&
+                        next.token.type != TokenType::kDot)
+                    {
+                        result += " ";
+                    }
                 }
             }
 

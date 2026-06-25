@@ -472,7 +472,7 @@ namespace glsld {
                 continue;
             }
 
-            if (document_.macros.contains(current_token().text)) {
+            if (document_.macro_table.contains(current_token().text)) {
                 StringHeteroHashSet active_macros;
                 if (ExpandMacro(active_macros, expanded)) {
                     continue;
@@ -553,8 +553,8 @@ namespace glsld {
         // current token is macro name
         const auto& macro_token = current_token();
 
-        auto it = document_.macros.find(macro_token.text);
-        if (it == document_.macros.end()) {
+        auto it = document_.macro_table.find(macro_token.text);
+        if (it == document_.macro_table.end()) {
             output.push_back(macro_token);
             ConsumeToken();
             return true;
@@ -624,8 +624,8 @@ namespace glsld {
                 continue;
             }
 
-            auto it = document_.macros.find(token.text);
-            if (it == document_.macros.end() || active_macros.contains(token.text)) {
+            auto it = document_.macro_table.find(token.text);
+            if (it == document_.macro_table.end() || active_macros.contains(token.text)) {
                 PushAtCallSite(token);
                 continue;
             }
@@ -959,7 +959,7 @@ namespace glsld {
             }
         } else if (directive_text == "undef") {
             if (!body.empty() && body.front().type == TokenType::kIdentifier) {
-                document_.macros.erase(body.front().text);
+                document_.macro_table.erase(body.front().text);
             }
         }
 
@@ -1024,7 +1024,7 @@ namespace glsld {
             defination.replacement_list.assign_range(body_tokens | std::views::drop(index));
         }
 
-        document_.macros.insert_or_assign(defination.original_token.text, std::move(defination));
+        document_.macro_table.insert_or_assign(defination.original_token.text, std::move(defination));
     }
 
     bool Preprocessor::HandleConditionalDirective(
@@ -1050,7 +1050,7 @@ namespace glsld {
             bool parent_active = IsCurrentBranchActive();
             bool macro_defined = false;
             if (!body_tokens.empty() && body_tokens.front().type == TokenType::kIdentifier) {
-                macro_defined = document_.macros.contains(body_tokens.front().text);
+                macro_defined = document_.macro_table.contains(body_tokens.front().text);
             } // #ifdef 和 #ifndef 不看宏本身的数值，只要被定义就算
 
             bool condition = (directive == "ifdef") ? macro_defined : !macro_defined;
@@ -1126,7 +1126,7 @@ namespace glsld {
             return false;
         }
 
-        ConditionEvaluator evaluator(expanded, document_.macros);
+        ConditionEvaluator evaluator(expanded, document_.macro_table);
         return evaluator.Evaluate();
     }
 
@@ -1168,7 +1168,7 @@ namespace glsld {
                 }
 
                 if (j < input.size() && input[j].type == TokenType::kIdentifier) {
-                    exists = document_.macros.contains(input[j].text);
+                    exists = document_.macro_table.contains(input[j].text);
                     valid  = true;
                     ++j;
                 }

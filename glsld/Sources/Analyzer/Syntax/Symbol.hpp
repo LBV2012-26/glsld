@@ -149,6 +149,7 @@ namespace glsld {
         ScopeKind   kind() const;
 
     private:
+        friend struct Document;
         friend class DocumentSymbols;
         friend class MetadataManager;
         friend class Parser;

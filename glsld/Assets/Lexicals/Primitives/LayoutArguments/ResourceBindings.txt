@@ -4,3 +4,4 @@ binding
 index
 input_attachment_index
 constant_id
+buffer_type

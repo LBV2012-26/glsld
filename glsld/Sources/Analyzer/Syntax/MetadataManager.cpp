@@ -234,7 +234,7 @@ namespace glsld {
                 continue;
             }
 
-            for (const auto& [name, defination] : source->macros) {
+            for (const auto& [name, defination] : source->macro_table) {
                 target.InjectMacro(name, defination);
             }
 
@@ -449,7 +449,7 @@ namespace glsld {
         document->arena  = std::make_unique<Arena>();
 
         if (injected_macros != nullptr) {
-            document->macros = *injected_macros;
+            document->macro_table = *injected_macros;
         }
 
         const auto* source_file = source_table_.Intern(filename, uri);
@@ -463,6 +463,8 @@ namespace glsld {
         if (document->ast == nullptr) {
             return nullptr;
         }
+
+        document->FinalizeInjectedMacros(source_file);
 
         SymbolLinker linker(*document, 0, nullptr);
         TypeResolver resolver(*document, 0, nullptr);

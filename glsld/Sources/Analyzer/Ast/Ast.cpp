@@ -75,6 +75,7 @@ namespace glsld {
         : AstNode(other)
         , arg_kind{ other.arg_kind }
         , token{ other.token }
+        , rhs_expr{ CloneNode(other.rhs_expr) }
         , children{ CloneVector<QualifierArgumentNode>(other.children) }
     {}
 

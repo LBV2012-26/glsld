@@ -35,6 +35,10 @@ namespace glsld {
         const auto* source_file = source_table_.InternByUri(uri);
         ProcessSource(source_file, source, version_replica, version_pointer, *document);
 
+        if (document->ast == nullptr) {
+            return;
+        }
+
         UpdateDependencies(uri, document);
 
         {
@@ -109,6 +113,8 @@ namespace glsld {
 
             return false;
         };
+
+        document.FinalizeInjectedMacros(source_file);
 
         if (Cancelled()) return;
         SymbolLinker linker(document, version_replica, version_pointer);
