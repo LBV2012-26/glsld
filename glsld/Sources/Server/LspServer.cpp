@@ -397,6 +397,42 @@ namespace glsld {
 #endif
     }
 
+    void LspServer::Configure(Context& context) {
+        const auto& settings = context.params["settings"];
+        if (!settings.contains("glsld")) {
+            return;
+        }
+
+        const auto& glsld = settings["glsld"];
+        if (!glsld.contains("shaderConfig")) {
+            return;
+        }
+
+        const auto& shader_config = glsld["shaderConfig"];
+        if (!shader_config.is_object()) {
+            return;
+        }
+
+        for (const auto& [key, value] : shader_config.items()) {
+            if (!value.is_object()) {
+                continue;
+            }
+
+            ExtraShaderConfig config;
+
+            if (value.contains("version") && value["version"].is_string())
+                config.version = value["version"].get<std::string>();
+            if (value.contains("shaderStage") && value["shaderStage"].is_string())
+                config.shader_stage = value["shaderStage"].get<std::string>();
+            if (value.contains("targetEnv") && value["targetEnv"].is_string())
+                config.target_env = value["targetEnv"].get<std::string>();
+            if (value.contains("targetSpv") && value["targetSpv"].is_string())
+                config.target_spv = value["targetSpv"].get<std::string>();
+
+            workspace_.shader_configs_[key] = std::move(config);
+        }
+    }
+
     // Request Handlers
     // ----------------
     nlohmann::json LspServer::HandleInitialize(Context& context) {
@@ -995,67 +1031,6 @@ namespace glsld {
 
             return trimmed.starts_with("#version");
         }
-
-        std::string InferStageFromFilename(std::string_view filename) {
-            auto extension = std::filesystem::path(filename).extension().string();
-
-            if (extension == ".vert" || extension == "vs")
-                return "vert";
-            if (extension == ".frag" || extension == "fs")
-                return "frag";
-            if (extension == ".comp" || extension == "cs")
-                return "comp";
-            if (extension == ".geom" || extension == "gs")
-                return "geom";
-            if (extension == ".tesc")
-                return "tesc";
-            if (extension == ".tese")
-                return "tese";
-            if (extension == ".mesh")
-                return "mesh";
-            if (extension == ".task")
-                return "task";
-            if (extension == ".rgen")
-                return "rgen";
-            if (extension == ".rahit")
-                return "rahit";
-            if (extension == ".rchit")
-                return "rchit";
-            if (extension == ".rmiss")
-                return "rmiss";
-            if (extension == ".rint")
-                return "rint";
-            if (extension == ".rcall")
-                return "rcall";
-
-            return "";
-        }
-
-        std::string InferStageFromSource(std::string_view source) {
-            // #pragma shader_stage(vertex)
-            auto pos = source.find("shader_stage");
-            if (pos != std::string_view::npos) {
-                auto open = source.find('(', pos);
-                if (open != std::string_view::npos) {
-                    auto close = source.find(')', open);
-                    if (close != std::string_view::npos) {
-                        auto stage = source.substr(open + 1, close - open - 1);
-                        return std::string(stage);
-                    }
-                }
-            }
-
-            return {};
-        }
-
-        std::string InferStage(std::string_view source, std::string_view filename) {
-            auto stage = InferStageFromFilename(filename);
-            if (!stage.empty()) {
-                return stage;
-            }
-
-            return InferStageFromSource(source);
-        }
     }
 
     void LspServer::SubmitDiagnositcTask(
@@ -1073,35 +1048,20 @@ namespace glsld {
             .version_pointer = version_pointer
         };
 
-        if (StartsWithVersion(source)) {
+        const auto& shader_configs = workspace_.shader_configs();
+        auto it = shader_configs.find(uri);
+
+        if (StartsWithVersion(source) || it == shader_configs.end()) {
             task.source = std::string(source);
-            diagnostic_engine_.Submit(std::move(task));
-            return;
+        } else if (it->second.version.has_value()) {
+            task.source = std::format("#version {}\n#line 1\n{}", *it->second.version, source);
         }
 
-        // include headers
-        std::string version_codes = "#version 460\n#line 1\n"; // TODO: select version from config
-        auto modified_source = version_codes + std::string(source);
-        task.source = std::move(modified_source);
-
-        std::vector<std::string> stages;
-        auto dependent_uris = workspace_.GetAffectedDocuments(uri);
-        for (const auto& uri : dependent_uris) {
-            const auto* source_file = workspace_.source_table_.GetByUri(uri);
-            if (source_file == nullptr) {
-                continue;
-            }
-
-            auto snapshot = workspace_.GetDocumentSnapshot(uri);
-            auto filename = source_file->filename();
-            auto stage    = InferStage(snapshot->source, filename);
-
-            if (std::ranges::find(stages, stage) == stages.end()) {
-                stages.push_back(std::move(stage));
-            }
+        if (it != shader_configs.end()) {
+            task.shader_stage = it->second.shader_stage.value_or("");
+            task.target_env   = it->second.target_env.value_or("");
+            task.target_spv   = it->second.target_spv.value_or("");
         }
-
-        task.stages = std::move(stages);
 
         diagnostic_engine_.Submit(std::move(task));
     }

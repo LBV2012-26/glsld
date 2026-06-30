@@ -1,5 +1,5 @@
 #version 460 core
-#pragma shader_stage(fragment)
+// #pragma shader_stage(fragment)
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_subgroup_uniform_control_flow : require
@@ -102,7 +102,7 @@ void main() {
     int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE] = {};
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
 
-    vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(0.1);
+    vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(gl_FragCoord.xyz);
 
     const int max_iter = 10;
     #define MIN_ITER max_iter

@@ -117,7 +117,7 @@ int main() {
         document.arena = std::make_unique<Arena>();
 
         auto attach_start = std::chrono::high_resolution_clock::now();
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs);
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, filename, raw_tokens, include_dirs);
         auto attach_end = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 

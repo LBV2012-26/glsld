@@ -91,7 +91,18 @@ namespace glsld {
             return;
         }
 
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, raw_tokens, include_dirs_);
+        std::string shader_stage;
+        auto config_it = shader_configs_.find(source_file->uri());
+        if (config_it != shader_configs_.end()) {
+            shader_stage = config_it->second.shader_stage.value_or("");
+        } else {
+            auto extension = std::filesystem::path(source_file->filename()).extension().generic_string();
+            if (!extension.empty() && extension.starts_with('.')) {
+                shader_stage = extension.substr(1);
+            }
+        }
+
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, shader_stage, raw_tokens, include_dirs_);
 
         document.arena = std::make_unique<Arena>();
         thread_local_arena = document.arena.get();

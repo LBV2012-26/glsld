@@ -84,20 +84,20 @@ namespace glsld {
             };
 
             static const StringHeteroHashMap<std::string> kStageMacros{
-                { "vertex",      "GL_VERTEX_SHADER" },
-                { "fragment",    "GL_FRAGMENT_SHADER" },
-                { "tesscontrol", "GL_TESS_CONTROL_SHADER" },
-                { "tesseval",    "GL_TESS_EVALUATION_SHADER" },
-                { "geometry",    "GL_GEOMETRY_SHADER" },
-                { "compute",     "GL_COMPUTE_SHADER" },
+                { "vertex",      "GL_VERTEX_SHADER"             },
+                { "fragment",    "GL_FRAGMENT_SHADER"           },
+                { "tesscontrol", "GL_TESS_CONTROL_SHADER"       },
+                { "tesseval",    "GL_TESS_EVALUATION_SHADER"    },
+                { "geometry",    "GL_GEOMETRY_SHADER"           },
+                { "compute",     "GL_COMPUTE_SHADER"            },
                 { "raygen",      "GL_RAY_GENERATION_SHADER_EXT" },
-                { "intersect",   "GL_INTERSECTION_SHADER_EXT" },
-                { "anyhit",      "GL_ANY_HIT_SHADER_EXT" },
-                { "closest",     "GL_CLOSEST_HIT_SHADER_EXT" },
-                { "miss",        "GL_MISS_SHADER_EXT" },
-                { "callable",    "GL_CALLABLE_SHADER_EXT" },
-                { "task",        "GL_TASK_SHADER_EXT" },
-                { "mesh",        "GL_MESH_SHADER_EXT" }
+                { "intersect",   "GL_INTERSECTION_SHADER_EXT"   },
+                { "anyhit",      "GL_ANY_HIT_SHADER_EXT"        },
+                { "closest",     "GL_CLOSEST_HIT_SHADER_EXT"    },
+                { "miss",        "GL_MISS_SHADER_EXT"           },
+                { "callable",    "GL_CALLABLE_SHADER_EXT"       },
+                { "task",        "GL_TASK_SHADER_EXT"           },
+                { "mesh",        "GL_MESH_SHADER_EXT"           }
             };
 
             for (auto i = 0uz; i != raw_tokens.size(); ++i) {
@@ -148,7 +148,7 @@ namespace glsld {
         }
 
         struct CollectResult {
-            std::vector<std::filesystem::path> required_filenames;
+            std::vector<std::filesystem::path> required_files;
             MacroTable                         injected_macros;
         };
 
@@ -160,7 +160,7 @@ namespace glsld {
 
             auto second = extension.find('_', first + 1);
             auto vendor = (second == std::string_view::npos ? extension.substr(first + 1) : extension.substr(first + 1, second - first - 1));
-            return std::format("Assets/Meta/Extensions/Main/{}/{}.glsl", vendor, extension);
+            return std::format("Database/Meta/Extensions/Main/{}/{}.glsl", vendor, extension);
         }
 
         CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
@@ -173,9 +173,9 @@ namespace glsld {
                 }
             };
 
-            PushIfExists("Assets/Meta/BuiltinFunctions.glsl");
+            PushIfExists("Database/Meta/BuiltinFunctions.glsl");
 
-            static const StringHeteroHashMap<std::string> kStageMacros{
+            static const StringHeteroHashMap<std::string> kMacroStages{
                 { "GL_VERTEX_SHADER",             "Vertex",         },
                 { "GL_FRAGMENT_SHADER",           "Fragment",       },
                 { "GL_TESS_CONTROL_SHADER",       "TessControl",    },
@@ -194,9 +194,9 @@ namespace glsld {
 
             auto injected_macros = CollectRequestedExtensions(raw_tokens);
             for (const auto& [name, _] : injected_macros) {
-                auto it = kStageMacros.find(name);
-                if (it != kStageMacros.end()) { // shader_stage
-                    PushIfExists(std::format("Assets/Meta/BuiltinVariables/{}.glsl", it->second));
+                auto it = kMacroStages.find(name);
+                if (it != kMacroStages.end()) { // shader_stage
+                    PushIfExists(std::format("Database/Meta/BuiltinVariables/{}.glsl", it->second));
                 } else {
                     PushIfExists(ResolveExtensionFilename(name));
                 }
@@ -207,8 +207,8 @@ namespace glsld {
             required_files.erase(first, last);
 
             return {
-                .required_filenames = std::move(required_files),
-                .injected_macros    = std::move(injected_macros)
+                .required_files  = std::move(required_files),
+                .injected_macros = std::move(injected_macros)
             };
         }
     }
@@ -219,16 +219,85 @@ namespace glsld {
 
     void MetadataManager::AttachBuiltinMetadata(
         Document& target,
+        std::optional<std::string> shader_stage,
         std::span<const Token> raw_tokens,
         std::span<const std::filesystem::path> include_dirs)
     {
-        auto [required_filenames, injected_macros] = CollectRequiredMetadataFiles(raw_tokens);
+        static const StringHeteroHashMap<std::string> kMacros{
+            { "vert",  "GL_VERTEX_SHADER"             },
+            { "frag",  "GL_FRAGMENT_SHADER"           },
+            { "comp",  "GL_COMPUTE_SHADER"            },
+            { "geom",  "GL_GEOMETRY_SHADER"           },
+            { "tesc",  "GL_TESS_CONTROL_SHADER"       },
+            { "tese",  "GL_TESS_EVALUATION_SHADER"    },
+            { "mesh",  "GL_MESH_SHADER_EXT"           },
+            { "task",  "GL_TASK_SHADER_EXT"           },
+            { "rgen",  "GL_RAY_GENERATION_SHADER_EXT" },
+            { "rahit", "GL_ANY_HIT_SHADER_EXT"        },
+            { "rchit", "GL_CLOSEST_HIT_SHADER_EXT"    },
+            { "rmiss", "GL_MISS_SHADER_EXT"           },
+            { "rint",  "GL_INTERSECTION_SHADER_EXT"   },
+            { "rcall", "GL_CALLABLE_SHADER_EXT"       },
+        };
+
+        static const StringHeteroHashMap<std::string> kStages{
+            { "vert",  "Vertex"         },
+            { "frag",  "Fragment"       },
+            { "comp",  "Compute"        },
+            { "geom",  "Geometry"       },
+            { "tesc",  "TessControl"    },
+            { "tese",  "TessEvaluation" },
+            { "mesh",  "Mesh"           },
+            { "task",  "Task"           },
+            { "rgen",  "RayGen"         },
+            { "rahit", "AnyHit"         },
+            { "rchit", "ClosestHit"     },
+            { "rmiss", "Miss"           },
+            { "rint",  "Intersection"   },
+            { "rcall", "Callable"       },
+        };
+
+        auto [required_files, injected_macros] = CollectRequiredMetadataFiles(raw_tokens);
+
+        auto macro_it = kMacros.find(shader_stage.value_or(""));
+        if (macro_it != kMacros.end()) {
+            bool has_stage = false;
+            for (const auto& [name, _] : injected_macros) {
+                if (kMacros.contains(name)) {
+                    has_stage = true;
+                    break;
+                }
+            }
+
+            if (!has_stage) {
+                target.InjectMacro(macro_it->second, MacroDefination{
+                    .is_function = false,
+                    .original_token = Token{
+                        .text = macro_it->second,
+                        .type = TokenType::kIdentifier
+                    },
+                    .replacement_list = { Token{
+                        .text = "1",
+                        .type = TokenType::kNumberLiteral
+                    } },
+                });
+            }
+
+            auto stage_it = kStages.find(shader_stage.value_or(""));
+            if (stage_it != kStages.end()) {
+                auto builtin_filename = std::format("Database/Meta/BuiltinVariables/{}.glsl", stage_it->second);
+                auto resolved = TryResolveMetadataFile(builtin_filename);
+                if (resolved.has_value()) {
+                    required_files.push_back(*resolved);
+                }
+            }
+        }
 
         for (const auto& [name, defination] : injected_macros) {
             target.InjectMacro(name, defination);
         }
 
-        for (const auto& path : required_filenames) {
+        for (const auto& path : required_files) {
             std::shared_ptr<Document> source = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
             if (source == nullptr) {
                 continue;
@@ -291,7 +360,7 @@ namespace glsld {
         lexical_entries_.clear();
         lexical_table_.clear();
 
-        auto lexical_root = std::filesystem::path(utils::GetFilePath("Assets/Lexicals"));
+        auto lexical_root = std::filesystem::path(utils::GetFilePath("Database/Lexicals"));
         std::error_code ec;
         if (!std::filesystem::exists(lexical_root, ec) || ec) {
             throw std::runtime_error("Lexical metadata directory does not exist: " + lexical_root.string());
@@ -474,7 +543,7 @@ namespace glsld {
     }
 
     void MetadataManager::LoadNoExpandHints() {
-        auto path = utils::GetFilePath("Assets/NoExpandHints.txt");
+        auto path = utils::GetFilePath("Database/NoExpandHints.txt");
         auto [source, error] = LoadSource(path);
         if (!error.empty()) {
             throw std::runtime_error("Failed to load no-expand hints: " + error);

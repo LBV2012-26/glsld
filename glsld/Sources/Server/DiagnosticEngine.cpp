@@ -85,30 +85,6 @@ namespace glsld {
         }
     }
 
-    std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
-        if (task.stages.empty()) {
-            return Compile(task, std::nullopt);
-        }
-
-        std::vector<Diagnostic> merged;
-
-        for (const auto& stage : task.stages) {
-            auto result = Compile(task, stage);
-            merged.append_range(result | std::views::as_rvalue);
-        }
-
-        std::ranges::sort(merged, {}, [](const Diagnostic& diag) -> auto {
-            return std::tie(diag.line, diag.character, diag.message);
-        });
-
-        auto [first, last] = std::ranges::unique(merged, {}, [](const Diagnostic& diag) -> auto {
-            return std::tie(diag.line, diag.character, diag.message);
-        });
-
-        merged.erase(first, last);
-        return merged;
-    }
-
     namespace {
         std::vector<std::string_view> SplitLines(std::string_view text) {
             return text
@@ -358,19 +334,16 @@ namespace glsld {
         }
     }
 
-    std::vector<Diagnostic> DiagnosticEngine::Compile(
-        const DiagnosticTask& task,
-        std::optional<std::string> shader_stage)
-    {
+    std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
         auto extension_name = std::filesystem::path(task.filename).extension().string();
-        auto compile_path = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
+        auto compile_path   = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
 
         std::ofstream(compile_path, std::ios::binary) << task.source;
         std::string target_path = std::format("{}.spv", compile_path);
 
         auto command = std::format("\"{}\" -o {} ", glslc_path_, target_path);
-        if (shader_stage.has_value()) {
-            command += std::format("-fshader-stage={} ", *shader_stage);
+        if (task.shader_stage.has_value()) {
+            command += std::format("-fshader-stage={} ", *task.shader_stage);
         }
 
         command += std::format("-I \"{}\" ", std::filesystem::path(task.filename).parent_path().generic_string());
@@ -379,7 +352,11 @@ namespace glsld {
         }
 
         command += std::format("\"{}\" ", compile_path);
-        command += "--target-env=vulkan1.4 --target-spv=spv1.6";
+
+        if (task.target_env.has_value())
+            command += std::format("--target-env={} ", *task.target_env);
+        if (task.target_spv.has_value())
+            command += std::format("--target-spv={} ", *task.target_spv);
 
         auto output = ExecuteCommand(command);
         std::filesystem::remove(compile_path);

@@ -3,6 +3,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <span>
 #include <string>
@@ -16,6 +17,13 @@
 #include "Base/ThreadPool.hpp"
 
 namespace glsld {
+    struct ExtraShaderConfig {
+        std::optional<std::string> version;
+        std::optional<std::string> shader_stage;
+        std::optional<std::string> target_env;
+        std::optional<std::string> target_spv;
+    };
+
     class Workspace {
     public:
         explicit Workspace(ThreadPool& thread_pool);
@@ -41,6 +49,7 @@ namespace glsld {
 
         void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
         std::span<const std::filesystem::path> include_dirs() const;
+        const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
 
     private:
         friend class LspServer;
@@ -57,6 +66,7 @@ namespace glsld {
         void RemoveDependencies(std::string_view uri);
 
         StringHeteroHashMap<std::shared_ptr<Document>> documents_;
+        StringHeteroHashMap<ExtraShaderConfig>         shader_configs_; // [Uri, Config]
         ThreadPool&                                    thread_pool_;
         SourceTable                                    source_table_;
         IncludeLoader                                  include_loader_;

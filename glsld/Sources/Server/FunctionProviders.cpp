@@ -1025,7 +1025,7 @@ namespace glsld {
             return {};
         }
 
-        auto root = utils::GetFilePath("Assets/Meta/Extensions/Main");
+        auto root = utils::GetFilePath("Database/Meta/Extensions/Main");
         std::error_code ec;
         nlohmann::json items = nlohmann::json::array();
 

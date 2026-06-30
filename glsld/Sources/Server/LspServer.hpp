@@ -65,6 +65,7 @@ namespace glsld {
         void EnqueueSubmit(LspSubmitItem item);
         void EnqueueUpdate(const std::string& uri, int version_replica, bool open_document);
         void CancelRequest(const nlohmann::json& message);
+        void Configure(Context& context);
 
         nlohmann::json HandleInitialize(Context& context);
         nlohmann::json HandleShutdown(Context& context);

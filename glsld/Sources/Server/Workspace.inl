@@ -33,4 +33,8 @@ namespace glsld {
     inline std::span<const std::filesystem::path> Workspace::include_dirs() const {
         return include_dirs_;
     }
+
+    inline const StringHeteroHashMap<ExtraShaderConfig>& Workspace::shader_configs() const {
+        return shader_configs_;
+    }
 }
