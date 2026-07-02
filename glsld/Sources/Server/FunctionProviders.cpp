@@ -570,6 +570,58 @@ namespace glsld {
         return results;
     }
 
+    ReferenceResult GetReferences(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+        if (snapshot == nullptr) {
+            return {};
+        }
+
+        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        if (!index.has_value()) {
+            return {};
+        }
+
+        const auto& cursor_token = snapshot->raw_tokens[*index];
+        auto it = snapshot->bindings.find(cursor_token.location);
+        if (it == snapshot->bindings.end()) {
+            return {};
+        }
+
+        const SymbolInfo* symbol = nullptr;
+        if (std::holds_alternative<const SymbolInfo*>(it->second)) {
+            symbol = std::get<const SymbolInfo*>(it->second);
+        } else if (std::holds_alternative<SymbolList>(it->second)) {
+            const auto& symbols = std::get<SymbolList>(it->second);
+            if (!symbols.empty()) {
+                symbol = symbols.front();
+            }
+        }
+
+        if (symbol == nullptr) {
+            return {};
+        }
+
+        std::vector<SourceLocation> locations;
+        for (const auto& [ref_location, ref_symbol] : snapshot->bindings) {
+            ABORT_IF_CANCELLED();
+
+            if (std::holds_alternative<const SymbolInfo*>(ref_symbol)) {
+                if (std::get<const SymbolInfo*>(ref_symbol) == symbol) {
+                    locations.push_back(ref_location);
+                }
+            } else if (std::holds_alternative<SymbolList>(ref_symbol)) {
+                const auto& symbols = std::get<SymbolList>(ref_symbol);
+                if (std::ranges::any_of(symbols, [symbol](const SymbolInfo* storaged) -> bool { return storaged == symbol; })) {
+                    locations.push_back(ref_location);
+                }
+            }
+        }
+
+        return {
+            .locations = std::move(locations),
+            .symbol    = symbol
+        };
+    }
+
     std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot) {
         if (snapshot == nullptr || snapshot->ast == nullptr) {
             return {};
@@ -2011,7 +2063,7 @@ namespace glsld {
         case SymbolKind::kAttribute: {
             std::string markdown = std::format("attribute `{}`\n\n---\n", symbol->name);
             // TODO: insert example
-            markdown += "Example:\n\n---\n";
+            // markdown += "Example:\n\n---\n";
             markdown += std::format("```glsl\n[[{}]]\n```", symbol->name);
             return markdown;
         }

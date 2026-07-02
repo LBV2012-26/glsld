@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstddef>
 #include <algorithm>
+#include <charconv>
 #include <format>
 #include <fstream>
 #include <ios>
@@ -66,10 +67,15 @@ namespace glsld {
             return utils::NormalizePath(path);
         }
 
-        MacroTable CollectRequestedExtensions(std::span<const Token> raw_tokens) {
+        struct MacroCollectResult {
             MacroTable injected_macros;
+            int        version{};
+        };
 
-            auto InjectMacro = [&injected_macros](std::string_view name) -> void {
+        MacroCollectResult CollectRequestedExtensionsAndVersion(std::span<const Token> raw_tokens) {
+            MacroCollectResult result;
+
+            auto InjectMacro = [&injected_macros = result.injected_macros](std::string_view name) -> void {
                 injected_macros.try_emplace(name, MacroDefination{
                     .is_function = false,
                     .original_token = Token{
@@ -115,9 +121,25 @@ namespace glsld {
                 }
 
                 const auto& directive = raw_tokens[j];
+
+                if (directive.text == "version" &&
+                    j + 1 < raw_tokens.size() &&
+                    raw_tokens[j + 1].type == TokenType::kNumberLiteral)
+                {
+                    int version = 0;
+                    std::from_chars(
+                        raw_tokens[j + 1].text.data(),
+                        raw_tokens[j + 1].text.data() + raw_tokens[j + 1].text.size(),
+                        result.version);
+
+                    i = j + 1;
+                    continue;
+                }
+
                 if (directive.text == "extension" &&
                     j + 3 < raw_tokens.size() &&
-                    raw_tokens[j + 2].type == TokenType::kColon) {
+                    raw_tokens[j + 2].type == TokenType::kColon)
+                {
                     const auto& action = raw_tokens[j + 3];
                     if (action.text == "enable" || action.text == "require") {
                         InjectMacro(raw_tokens[j + 1].text);
@@ -144,13 +166,8 @@ namespace glsld {
                 }
             }
 
-            return injected_macros;
+            return result;
         }
-
-        struct CollectResult {
-            std::vector<std::filesystem::path> required_files;
-            MacroTable                         injected_macros;
-        };
 
         std::string ResolveExtensionFilename(std::string_view extension) {
             auto first = extension.find('_');
@@ -162,6 +179,12 @@ namespace glsld {
             auto vendor = (second == std::string_view::npos ? extension.substr(first + 1) : extension.substr(first + 1, second - first - 1));
             return std::format("Database/Meta/Extensions/Main/{}/{}.glsl", vendor, extension);
         }
+
+        struct CollectResult {
+            std::vector<std::filesystem::path> required_files;
+            MacroTable                         injected_macros;
+            int                                version{};
+        };
 
         CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
             std::vector<std::filesystem::path> required_files;
@@ -182,7 +205,7 @@ namespace glsld {
                 { "GL_TESS_EVALUATION_SHADER",    "TessEvaluation", },
                 { "GL_GEOMETRY_SHADER",           "Geometry",       },
                 { "GL_COMPUTE_SHADER",            "Compute",        },
-                { "GL_RAY_GENERATION_SHADER_EXT", "RayGen",         },
+                { "GL_RAY_GENERATION_SHADER_EXT", "RayGeneration",  },
                 { "GL_INTERSECTION_SHADER_EXT",   "Intersection",   },
                 { "GL_ANY_HIT_SHADER_EXT",        "AnyHit",         },
                 { "GL_CLOSEST_HIT_SHADER_EXT",    "ClosestHit",     },
@@ -192,7 +215,7 @@ namespace glsld {
                 { "GL_MESH_SHADER_EXT",           "Mesh",           }
             };
 
-            auto injected_macros = CollectRequestedExtensions(raw_tokens);
+            auto [injected_macros, version] = CollectRequestedExtensionsAndVersion(raw_tokens);
             for (const auto& [name, _] : injected_macros) {
                 auto it = kMacroStages.find(name);
                 if (it != kMacroStages.end()) { // shader_stage
@@ -208,7 +231,8 @@ namespace glsld {
 
             return {
                 .required_files  = std::move(required_files),
-                .injected_macros = std::move(injected_macros)
+                .injected_macros = std::move(injected_macros),
+                .version         = version
             };
         }
     }
@@ -223,6 +247,21 @@ namespace glsld {
         std::span<const Token> raw_tokens,
         std::span<const std::filesystem::path> include_dirs)
     {
+        target.InjectMacro("__glsld__", MacroDefination{
+            .is_function = false,
+            .original_token = Token{
+                .text = "__glsld__",
+                .type = TokenType::kIdentifier
+            },
+            .replacement_list = { Token{
+                .text = "1",
+                .type = TokenType::kNumberLiteral
+            } },
+        });
+
+        target.InjectMacro("__LINE__");
+        target.InjectMacro("__FILE__");
+
         static const StringHeteroHashMap<std::string> kMacros{
             { "vert",  "GL_VERTEX_SHADER"             },
             { "frag",  "GL_FRAGMENT_SHADER"           },
@@ -249,7 +288,7 @@ namespace glsld {
             { "tese",  "TessEvaluation" },
             { "mesh",  "Mesh"           },
             { "task",  "Task"           },
-            { "rgen",  "RayGen"         },
+            { "rgen",  "RayGeneration"  },
             { "rahit", "AnyHit"         },
             { "rchit", "ClosestHit"     },
             { "rmiss", "Miss"           },
@@ -257,7 +296,19 @@ namespace glsld {
             { "rcall", "Callable"       },
         };
 
-        auto [required_files, injected_macros] = CollectRequiredMetadataFiles(raw_tokens);
+        auto [required_files, injected_macros, version] = CollectRequiredMetadataFiles(raw_tokens);
+
+        target.InjectMacro("__VERSION__", MacroDefination{
+            .is_function = false,
+            .original_token = Token{
+                .text = "__VERSION__",
+                .type = TokenType::kIdentifier
+            },
+            .replacement_list = { Token{
+                .text = std::format("{}", version),
+                .type = TokenType::kNumberLiteral
+            } }
+        });
 
         auto macro_it = kMacros.find(shader_stage.value_or(""));
         if (macro_it != kMacros.end()) {

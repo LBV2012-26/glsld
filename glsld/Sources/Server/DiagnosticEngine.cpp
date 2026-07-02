@@ -343,7 +343,7 @@ namespace glsld {
 
         auto command = std::format("\"{}\" -o {} ", glslc_path_, target_path);
         if (task.shader_stage.has_value()) {
-            command += std::format("-fshader-stage={} ", *task.shader_stage);
+            command += std::format("-fshader-stage={} -D__glsld__", *task.shader_stage);
         }
 
         command += std::format("-I \"{}\" ", std::filesystem::path(task.filename).parent_path().generic_string());

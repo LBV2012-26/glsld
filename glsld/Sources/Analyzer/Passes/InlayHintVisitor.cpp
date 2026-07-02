@@ -19,6 +19,21 @@ namespace glsld {
         return hints_;
     }
 
+    void InlayHintVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+        for (auto i = 0uz; i != node->elements.size(); ++i) {
+            if (node->elements[i] == nullptr) {
+                continue;
+            }
+
+            hints_.push_back({
+                .location = &node->elements[i]->begin,
+                .label = std::format("[{}]=", i)
+            });
+        }
+
+        AstVisitor::VisitInitializerListExpression(node);
+    }
+
     void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {
         const SymbolInfo* symbol = nullptr;
 

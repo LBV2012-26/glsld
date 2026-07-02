@@ -144,6 +144,10 @@ namespace glsld {
             return HandleDefinition(context);
         });
 
+        router_.RegisterRequest("textDocument/references", [this](Context& context) -> nlohmann::json {
+            return HandleReferences(context);
+        });
+
         router_.RegisterRequest("textDocument/hover", [this](Context& context) -> nlohmann::json {
             return HandleHover(context);
         });
@@ -500,6 +504,7 @@ namespace glsld {
         };
 
         capabilities["definitionProvider"] = true;
+        capabilities["referencesProvider"] = true;
         capabilities["hoverProvider"]      = true;
         capabilities["inlayHintProvider"]  = true;
 
@@ -591,15 +596,15 @@ namespace glsld {
 
         for (const auto& symbol : symbols) {
             ABORT_IF_CANCELLED();
-            std::size_t start_line  = symbol->location.line()   - 1;
-            std::size_t start_char  = symbol->location.column() - 1;
+            auto start_line  = symbol->location.line()   - 1;
+            auto start_char  = symbol->location.column() - 1;
 
-            std::string symbol_name = symbol->name;
+            auto symbol_name = symbol->name;
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
                 symbol_name = utils::UnmangleFunctionName(symbol_name);
             }
 
-            std::size_t name_length = symbol_name.length();
+            auto name_length = symbol_name.length();
 
             nlohmann::json result;
 
@@ -613,6 +618,38 @@ namespace glsld {
         }
 
         return response_array;
+    }
+
+    nlohmann::json LspServer::HandleReferences(Context& context) {
+        ABORT_IF_CANCELLED();
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+
+        if (snapshot == nullptr) {
+            throw std::runtime_error("Document closed or not found.");
+        }
+
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+
+        ABORT_IF_CANCELLED();
+        auto [locations, symbol] = GetReferences(context, snapshot, target);
+
+        nlohmann::json response = nlohmann::json::array();
+        auto name_length = symbol != nullptr ? static_cast<int>(symbol->name.size()) : 1;
+
+        for (const auto& location : locations) {
+            response.push_back({
+                { "uri", location.uri() },
+                { "range", {
+                    { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
+                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + name_length } } }
+                } }
+            });
+        }
+
+        return response;
     }
 
     nlohmann::json LspServer::HandleHover(Context& context) {
@@ -1040,6 +1077,10 @@ namespace glsld {
         int version_replica,
         VersionPointer version_pointer)
     {
+        if (filename.contains("Database/Meta/Builtin") || filename.contains("Database/Meta/Extensions")) {
+            return;
+        }
+
         DiagnosticTask task{
             .uri             = uri,
             .filename        = std::string(filename),

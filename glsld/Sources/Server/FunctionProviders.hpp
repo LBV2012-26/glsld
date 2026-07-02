@@ -27,6 +27,14 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs);
 
     SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
+
+    struct ReferenceResult {
+        std::vector<SourceLocation> locations;
+        const SymbolInfo*           symbol{ nullptr };
+    };
+
+    ReferenceResult GetReferences(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+
     std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot);
 
     struct SignatureHelpResult {

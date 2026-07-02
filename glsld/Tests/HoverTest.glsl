@@ -78,7 +78,11 @@ LightData ReturnLightData(int param) {
     return data;
 }
 
-[[subgroup_uniform_control_flow]] void Func(const in float input_arg, out float output_arg, inout float param) {
+
+#ifdef __glsld__
+[[subgroup_uniform_control_flow]]
+#endif
+void Func(const in float input_arg, out float output_arg, inout float param) {
     output_arg = input_arg + MACRO_FUNC(param);
 
     texture(sampler2D(my_texture, my_sampler), vec2(0.5));
@@ -95,7 +99,7 @@ void main() {
     vector<float, 16> long_vector = {};
 
     InStruct in_struct;
-    in_struct.field = vec3(1.0);
+    in_struct.field = vec3(__VERSION__);
 
     LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
     const mat4 kMyMatrix = ubo.my_matrix;

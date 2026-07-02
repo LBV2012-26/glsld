@@ -12,6 +12,7 @@ namespace glsld {
         const std::vector<InlayHint>& hints() const;
 
     private:
+        void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;
 
         std::vector<InlayHint> hints_;
