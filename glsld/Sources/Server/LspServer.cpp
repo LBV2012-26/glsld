@@ -326,7 +326,9 @@ namespace glsld {
                 submit_queue_.pop();
             }
 
-            if (item.kind == LspSubmitItem::Kind::kResponse) {
+            if (item.kind == LspSubmitItem::Kind::kServerRequest) {
+                SendServerRequest(*item.id, item.notify_method, item.payload);
+            } else if (item.kind == LspSubmitItem::Kind::kResponse) {
                 SendResponse(*item.id, item.payload);
             } else if (item.kind == LspSubmitItem::Kind::kError) {
                 SendError(*item.id, item.error_code, item.error_message);
@@ -477,6 +479,12 @@ namespace glsld {
                 }
             },
             { "full", true }
+        };
+
+        capabilities["workspace"] = {
+            { "semanticTokens", {
+                { "refreshSupport", true }
+            } }
         };
 
         capabilities["definitionProvider"] = true;
@@ -1027,8 +1035,9 @@ namespace glsld {
         UpdateImmediately(uri);
 
         LspSubmitItem item{
+            .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
             .notify_method = "workspace/semanticTokens/refresh",
-            .kind          = LspSubmitItem::Kind::kNotification
+            .kind          = LspSubmitItem::Kind::kServerRequest
         };
 
         EnqueueSubmit(std::move(item));
@@ -1042,8 +1051,9 @@ namespace glsld {
         UpdateImmediately(uri);
 
         LspSubmitItem item{
+            .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
             .notify_method = "workspace/semanticTokens/refresh",
-            .kind          = LspSubmitItem::Kind::kNotification
+            .kind          = LspSubmitItem::Kind::kServerRequest
         };
 
         EnqueueSubmit(std::move(item));

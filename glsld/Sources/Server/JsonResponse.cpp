@@ -20,6 +20,20 @@ namespace glsld {
         }
     }
 
+    void SendServerRequest(const nlohmann::json& id, std::string_view method, const nlohmann::json& params) {
+        nlohmann::json request{
+            { "jsonrpc", "2.0" },
+            { "id", id },
+            { "method", method }
+        };
+
+        if (!params.is_null()) {
+            request["params"] = params;
+        }
+
+        SendRaw(request.dump());
+    }
+
     void SendResponse(const nlohmann::json& id, const nlohmann::json& result) {
         nlohmann::json response{
             { "jsonrpc", "2.0" },

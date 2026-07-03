@@ -32,6 +32,7 @@ namespace glsld {
 
     struct LspSubmitItem {
         enum class Kind {
+            kServerRequest,
             kResponse,
             kNotification,
             kError
@@ -106,6 +107,7 @@ namespace glsld {
         };
 
         std::atomic<bool>                   running_{ true };
+        std::atomic<int>                    server_request_id_{};
         Router                              router_;
         ThreadPool                          thread_pool_;
         ThreadPool                          update_pool_;
