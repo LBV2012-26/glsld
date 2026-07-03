@@ -65,7 +65,6 @@ namespace glsld {
         void EnqueueSubmit(LspSubmitItem item);
         void EnqueueUpdate(const std::string& uri, int version_replica, bool open_document);
         void CancelRequest(const nlohmann::json& message);
-        void Configure(Context& context);
 
         nlohmann::json HandleInitialize(Context& context);
         nlohmann::json HandleShutdown(Context& context);
@@ -84,18 +83,22 @@ namespace glsld {
         void HandleDidClose(Context& context);
         void HandleInitialized(Context& context);
         void HandleExit(Context& context);
+        void HandleConfigure(Context& context);
+        void HandleChangeVariant(Context& context);
+        void HandleRemoveVariant(Context& context);
 
-        void UpdateWorker(const std::string& uri, int version_replica, bool open_document);
-        void Update(const std::string& uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
+        void UpdateImmediately(std::string_view uri);
+        void UpdateWorker(std::string_view uri, int version_replica, bool open_document);
+        void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
         void SubmitDiagnositcTask(
-            const std::string& uri,
+            std::string_view uri,
             std::string_view source,
             std::string_view filename,
             int version_replica,
             VersionPointer version_pointer);
 
-        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, const std::string& uri) const;
+        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, std::string_view uri) const;
 
         struct PendingUpdate {
             std::string                           text;

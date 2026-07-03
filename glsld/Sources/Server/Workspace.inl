@@ -26,6 +26,10 @@ namespace glsld {
         });
     }
 
+    inline void Workspace::Configure(std::string_view key, ExtraShaderConfig config) {
+        shader_configs_[key] = std::move(config);
+    }
+
     inline void Workspace::set_include_dirs(std::vector<std::filesystem::path> include_dirs) {
         include_dirs_ = std::move(include_dirs);
     }

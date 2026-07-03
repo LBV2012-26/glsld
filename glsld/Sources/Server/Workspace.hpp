@@ -3,6 +3,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <span>
@@ -22,6 +23,11 @@ namespace glsld {
         std::optional<std::string> shader_stage;
         std::optional<std::string> target_env;
         std::optional<std::string> target_spv;
+    };
+
+    struct ActiveVariant {
+        std::string variant_name;
+        MacroTable  macros;
     };
 
     class Workspace {
@@ -47,13 +53,16 @@ namespace glsld {
         void AddIncludeDirectory(std::filesystem::path directory);
         void RemoveIncludeDirectory(const std::filesystem::path& directory);
 
+        void Configure(std::string_view key, ExtraShaderConfig config);
+
+        void ChangeVariant(std::string_view uri, ActiveVariant variant);
+        void RemoveVariant(std::string_view uri);
+
         void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
         std::span<const std::filesystem::path> include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
 
     private:
-        friend class LspServer;
-
         void ProcessSource(
             const SourceFile* source_file,
             std::string_view source,
@@ -73,7 +82,10 @@ namespace glsld {
         std::vector<std::filesystem::path>             include_dirs_;
         StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
         StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
-        mutable std::shared_mutex                      mutex_;
+        StringHeteroHashMap<ActiveVariant>             active_variants_;
+        mutable std::mutex                             dependency_mutex_;
+        mutable std::shared_mutex                      document_mutex_;
+        std::shared_mutex                              variant_mutex_;
     };
 }
 

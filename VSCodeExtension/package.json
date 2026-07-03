@@ -1,13 +1,14 @@
 {
-	"name": "lsp-sample-client",
-	"description": "VSCode part of a language server",
-	"author": "Microsoft Corporation",
+	"name": "glsld",
+	"displayName": "GLSL Language Server",
+	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
+	"author": "glsld",
+	"publisher": "glsld",
+	"version": "0.1.0",
 	"license": "MIT",
-	"version": "0.0.1",
-	"publisher": "vscode",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Microsoft/vscode-extension-samples"
+		"url": "https://github.com/glsld/glsld"
 	},
 	"engines": {
 		"vscode": "^1.100.0"
@@ -31,9 +32,23 @@
 		"languages": [
 			{
 				"id": "glsl",
-				"aliases": ["OpenGL Shading Language"],
+				"aliases": ["OpenGL Shading Language", "GLSL"],
 				"extensions": [
-					".glsl"
+					".glsl",
+					".vert",
+					".frag",
+					".comp",
+					".geom",
+					".tesc",
+					".tese",
+					".mesh",
+					".task",
+					".rgen",
+					".rahit",
+					".rchit",
+					".rmiss",
+					".rint",
+					".rcall"
 				],
 				"configuration": "./language-configuration.json"
 			}
@@ -45,11 +60,148 @@
 				"path": "./syntaxes/glsl.tmLanguage.json"
 			}
 		],
+		"configuration": {
+			"title": "GLSL Language Server",
+			"properties": {
+				"glsld.server.path": {
+					"type": "string",
+					"default": "glsld",
+					"description": "Path to the glsld language server executable."
+				},
+				"glsld.glslc.path": {
+					"type": "string",
+					"default": "",
+					"description": "Path to glslc executable. Leave empty to auto-detect from VULKAN_SDK environment variable."
+				},
+				"glsld.diagnostics.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable diagnostic errors and warnings via glslc compilation."
+				},
+				"glsld.shaderExtensions": {
+					"type": "object",
+					"default": {},
+					"description": "Per-file shader stage and version overrides.",
+					"patternProperties": {
+						".*": {
+							"type": "object",
+							"properties": {
+								"shaderStage": {
+									"type": "string",
+									"enum": ["vertex", "fragment", "compute", "geometry", "tesscontrol", "tessevaluation", "mesh", "task", "raygen", "anyhit", "closesthit", "miss", "intersection", "callable"],
+									"description": "Shader stage for this file"
+								},
+								"version": {
+									"type": "string",
+									"default": "460",
+									"description": "GLSL version (e.g. 460, 450)"
+								},
+								"targetEnv": {
+									"type": "string",
+									"default": "vulkan1.3",
+									"enum": ["vulkan1.0", "vulkan1.1", "vulkan1.2", "vulkan1.3", "vulkan1.4"],
+									"description": "Target Vulkan environment for diagnostics"
+								},
+								"targetSpv": {
+									"type": "string",
+									"default": "spv1.6",
+									"enum": ["spv1.0", "spv1.1", "spv1.2", "spv1.3", "spv1.4", "spv1.5", "spv1.6"],
+									"description": "Target SPIR-V version for diagnostics"
+								}
+							}
+						}
+					}
+				},
+				"glsld.shaderVariants": {
+					"type": "object",
+					"default": {},
+					"description": "Shader macro variants. Also editable via the sidebar UI.",
+					"patternProperties": {
+						".*": {
+							"type": "object",
+							"description": "Macro definitions for this variant."
+						}
+					}
+				}
+			}
+		},
 		"configurationDefaults": {
 			"editor.semanticHighlighting.enabled": true,
 			"[glsl]": {
-				"editor.semanticHighlighting.enabled": true
+				"editor.semanticHighlighting.enabled": true,
+				"editor.tabSize": 4,
+				"editor.insertSpaces": true
 			}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "glsld-sidebar",
+					"title": "GLSL Shader",
+					"icon": "resources/icons/sidebar_icon.svg"
+				}
+			]
+		},
+		"views": {
+			"glsld-sidebar": [
+				{
+					"id": "glsld.shaderVariant",
+					"name": "Shader Variant"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "glsld.selectVariant",
+				"title": "Select Shader Variant",
+				"category": "GLSL"
+			},
+			{
+				"command": "glsld.addVariant",
+				"title": "Add Shader Variant",
+				"category": "GLSL",
+				"icon": "$(add)"
+			},
+			{
+				"command": "glsld.editVariant",
+				"title": "Edit Shader Variant",
+				"category": "GLSL"
+			},
+			{
+				"command": "glsld.removeVariantCmd",
+				"title": "Delete Shader Variant",
+				"category": "GLSL"
+			},
+			{
+				"command": "glsld.refreshVariants",
+				"title": "Refresh Variants",
+				"category": "GLSL",
+				"icon": "$(refresh)"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "glsld.addVariant",
+					"when": "view == glsld.shaderVariant",
+					"group": "navigation@1"
+				},
+				{
+					"command": "glsld.refreshVariants",
+					"when": "view == glsld.shaderVariant",
+					"group": "navigation@2"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "glsld.editVariant",
+					"when": "view == glsld.shaderVariant && viewItem == variant"
+				},
+				{
+					"command": "glsld.removeVariantCmd",
+					"when": "view == glsld.shaderVariant && viewItem == variant"
+				}
+			]
 		},
 		"semanticTokenScopes": [
 			{

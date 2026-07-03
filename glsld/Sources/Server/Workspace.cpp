@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "Workspace.hpp"
 
-#include <mutex>
 #include <utility>
 
 #include "Analyzer/Passes/MacroBinder.hpp"
@@ -12,6 +11,7 @@
 #include "Base/Arena.hpp"
 #include "Base/Config.hpp"
 #include "Base/Logger.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     Workspace::Workspace(ThreadPool& thread_pool)
@@ -42,7 +42,7 @@ namespace glsld {
         UpdateDependencies(uri, document);
 
         {
-            std::unique_lock lock(mutex_);
+            std::lock_guard lock(document_mutex_);
             if (open_document) {
                 documents_.try_emplace(uri, std::move(document));
             } else {
@@ -52,13 +52,18 @@ namespace glsld {
     }
 
     void Workspace::RemoveDocument(std::string_view uri) {
-        std::unique_lock lock(mutex_);
-        documents_.erase(uri);
+        RemoveVariant(uri);
+
+        {
+            std::lock_guard lock(document_mutex_);
+            documents_.erase(uri);
+        }
+
         RemoveDependencies(uri);
     }
 
     std::shared_ptr<Document> Workspace::GetDocumentSnapshot(std::string_view uri) const {
-        std::shared_lock lock(mutex_);
+        std::shared_lock lock(document_mutex_);
 
         auto it = documents_.find(uri);
         if (it != documents_.end()) {
@@ -76,6 +81,19 @@ namespace glsld {
         }
 
         return results;
+    }
+
+    void Workspace::ChangeVariant(std::string_view uri, ActiveVariant variant) {
+        auto filename       = utils::UriToPath(uri);
+        auto normalized_uri = utils::PathToUri(filename);
+
+        std::lock_guard lock(variant_mutex_);
+        active_variants_[normalized_uri] = std::move(variant);
+    }
+
+    void Workspace::RemoveVariant(std::string_view uri) {
+        std::lock_guard lock(variant_mutex_);
+        active_variants_.erase(uri);
     }
 
     void Workspace::ProcessSource(
@@ -103,6 +121,16 @@ namespace glsld {
         }
 
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, shader_stage, raw_tokens, include_dirs_);
+
+        {
+            std::shared_lock lock(variant_mutex_);
+            auto variant_it = active_variants_.find(source_file->uri());
+            if (variant_it != active_variants_.end()) {
+                for (const auto& [name, macro] : variant_it->second.macros) {
+                    document.InjectMacro(name, macro);
+                }
+            }
+        }
 
         document.arena = std::make_unique<Arena>();
         thread_local_arena = document.arena.get();
@@ -157,6 +185,8 @@ namespace glsld {
     }
 
     void Workspace::UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document) {
+        std::lock_guard lock(dependency_mutex_);
+
         UnregisterDependencies(uri);
 
         forward_dependencies_[std::string(uri)] = document->dependencies;
@@ -166,6 +196,8 @@ namespace glsld {
     }
 
     void Workspace::RemoveDependencies(std::string_view uri) {
+        std::lock_guard lock(dependency_mutex_);
+
         UnregisterDependencies(uri);
         forward_dependencies_.erase(uri);
     }

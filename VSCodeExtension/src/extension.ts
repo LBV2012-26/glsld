@@ -19,24 +19,21 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
+import { activateSidebar } from './sidebar';
+
 let client: LanguageClient;
 let inactiveDecorationDisposable: TextEditorDecorationType | undefined;
 const inactiveRangesByUri = new Map<string, Range[]>();
 const scheduledUpdates = new Map<string, NodeJS.Timeout>();
 const runtimeDisposables: Disposable[] = [];
 
-export async function activate() {
-	// If the extension is launched in debug mode then the debug server options are used
-	// Otherwise the run options are used
+export async function activate(context: any) {
+	const config     = workspace.getConfiguration('glsld');
+	const serverPath = config.get<string>('server.path', 'glsld');
+
 	const serverOptions: ServerOptions = {
-		run: {
-			command: "Z:/Source/glsld/glsld/Win64/glsld.exe",
-			transport: TransportKind.stdio
-		},
-		debug: {
-			command: "Z:/Source/glsld/glsld/Win64/glsld.exe",
-			transport: TransportKind.stdio,
-		}
+		run:   { command: serverPath, transport: TransportKind.stdio },
+		debug: { command: serverPath, transport: TransportKind.stdio },
 	};
 
 	// Options to control the language client
@@ -75,8 +72,8 @@ export async function activate() {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'languageServerExample',
-		'Language Server Example',
+		'glsld',
+		'GLSL Language Server',
 		serverOptions,
 		clientOptions
 	);
@@ -84,6 +81,17 @@ export async function activate() {
 	// Start the client. This will also launch the server
 	await client.start();
 	initializeInactiveTokenDimming();
+	activateSidebar(context, client);
+
+	// Push shader config to server when settings change
+	context.subscriptions.push(
+		workspace.onDidChangeConfiguration(async (e) => {
+			if (e.affectsConfiguration('glsld')) {
+				await pushShaderConfig();
+			}
+		})
+	);
+	await pushShaderConfig();
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -175,6 +183,10 @@ function scheduleInactiveUpdate(document: TextDocument, delayMs = 120): void {
 	scheduledUpdates.set(uri, timeout);
 }
 
+export function refreshHighlights(document: TextDocument): void {
+	scheduleInactiveUpdate(document, 0);
+}
+
 async function updateInactiveRanges(document: TextDocument): Promise<void> {
 	try {
 		const response = await client.sendRequest<{ data?: number[] }>('textDocument/semanticTokens/full', {
@@ -264,4 +276,28 @@ function getSemanticTokensLegend(): { tokenModifiers: string[] } | undefined {
 	return {
 		tokenModifiers: provider.legend.tokenModifiers
 	};
+}
+
+async function pushShaderConfig(): Promise<void> {
+	const config = workspace.getConfiguration('glsld');
+	const shaderExtensions = config.get<Record<string, object>>('shaderExtensions', {});
+	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
+
+	const shaderConfig: Record<string, object> = {};
+	if (shaderExtensions) {
+		for (const [filePath, cfg] of Object.entries(shaderExtensions)) {
+			if (cfg && typeof cfg === 'object') {
+				shaderConfig[filePath] = cfg;
+			}
+		}
+	}
+
+	await client.sendNotification('workspace/didChangeConfiguration', {
+		settings: {
+			glsld: {
+				shaderConfig,
+				diagnosticsEnabled
+			}
+		}
+	});
 }

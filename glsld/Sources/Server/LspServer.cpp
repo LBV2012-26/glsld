@@ -187,6 +187,18 @@ namespace glsld {
         router_.RegisterNotification("exit", [this](Context& context) -> void {
             HandleExit(context);
         });
+
+        router_.RegisterNotification("workspace/didChangeConfiguration", [this](Context& context) -> void {
+            HandleConfigure(context);
+        });
+
+        router_.RegisterNotification("glsld/selectVariant", [this](Context& context) -> void {
+            HandleChangeVariant(context);
+        });
+
+        router_.RegisterNotification("glsld/removeVariant", [this](Context& context) -> void {
+            HandleRemoveVariant(context);
+        });
     }
 
     std::optional<nlohmann::json> LspServer::ReadMessage() {
@@ -399,42 +411,6 @@ namespace glsld {
                             id.dump(), token->load(std::memory_order::relaxed));
         }
 #endif
-    }
-
-    void LspServer::Configure(Context& context) {
-        const auto& settings = context.params["settings"];
-        if (!settings.contains("glsld")) {
-            return;
-        }
-
-        const auto& glsld = settings["glsld"];
-        if (!glsld.contains("shaderConfig")) {
-            return;
-        }
-
-        const auto& shader_config = glsld["shaderConfig"];
-        if (!shader_config.is_object()) {
-            return;
-        }
-
-        for (const auto& [key, value] : shader_config.items()) {
-            if (!value.is_object()) {
-                continue;
-            }
-
-            ExtraShaderConfig config;
-
-            if (value.contains("version") && value["version"].is_string())
-                config.version = value["version"].get<std::string>();
-            if (value.contains("shaderStage") && value["shaderStage"].is_string())
-                config.shader_stage = value["shaderStage"].get<std::string>();
-            if (value.contains("targetEnv") && value["targetEnv"].is_string())
-                config.target_env = value["targetEnv"].get<std::string>();
-            if (value.contains("targetSpv") && value["targetSpv"].is_string())
-                config.target_spv = value["targetSpv"].get<std::string>();
-
-            workspace_.shader_configs_[key] = std::move(config);
-        }
     }
 
     // Request Handlers
@@ -988,7 +964,114 @@ namespace glsld {
         running_.store(false);
     }
 
-    void LspServer::UpdateWorker(const std::string& uri, int version_replica, bool open_document) {
+    void LspServer::HandleConfigure(Context& context) {
+        const auto& settings = context.params["settings"];
+        if (!settings.contains("glsld")) {
+            return;
+        }
+
+        const auto& glsld = settings["glsld"];
+        if (!glsld.contains("shaderConfig")) {
+            return;
+        }
+
+        const auto& shader_config = glsld["shaderConfig"];
+        if (!shader_config.is_object()) {
+            return;
+        }
+
+        for (const auto& [key, value] : shader_config.items()) {
+            if (!value.is_object()) {
+                continue;
+            }
+
+            ExtraShaderConfig config;
+
+            if (value.contains("version") && value["version"].is_string())
+                config.version = value["version"].get<std::string>();
+            if (value.contains("shaderStage") && value["shaderStage"].is_string())
+                config.shader_stage = value["shaderStage"].get<std::string>();
+            if (value.contains("targetEnv") && value["targetEnv"].is_string())
+                config.target_env = value["targetEnv"].get<std::string>();
+            if (value.contains("targetSpv") && value["targetSpv"].is_string())
+                config.target_spv = value["targetSpv"].get<std::string>();
+
+            workspace_.Configure(key, std::move(config));
+        }
+    }
+
+    void LspServer::HandleChangeVariant(Context& context) {
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        const auto& macros     = context.params["macros"];
+
+        ActiveVariant variant;
+        variant.variant_name = context.params["variant"];
+
+        for (const auto& [name, value] : macros.items()) {
+            variant.macros[name] = MacroDefination{
+                .is_function = false,
+                .original_token = Token{
+                    .text = name,
+                    .type = TokenType::kIdentifier
+                },
+                .replacement_list = { Token{
+                    .text = value.is_string() ? value.get<std::string>() : "1",
+                    .type = TokenType::kNumberLiteral
+                } }
+            };
+        }
+
+        auto uri = NormalizeUri(origin_uri);
+        workspace_.ChangeVariant(uri, std::move(variant));
+
+        UpdateImmediately(uri);
+
+        LspSubmitItem item{
+            .notify_method = "workspace/semanticTokens/refresh",
+            .kind          = LspSubmitItem::Kind::kNotification
+        };
+
+        EnqueueSubmit(std::move(item));
+    }
+
+    void LspServer::HandleRemoveVariant(Context& context) {
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        auto uri = NormalizeUri(origin_uri);
+        workspace_.RemoveVariant(uri);
+
+        UpdateImmediately(uri);
+
+        LspSubmitItem item{
+            .notify_method = "workspace/semanticTokens/refresh",
+            .kind          = LspSubmitItem::Kind::kNotification
+        };
+
+        EnqueueSubmit(std::move(item));
+    }
+
+    void LspServer::UpdateImmediately(std::string_view uri) {
+        VersionPointer version_pointer;
+        int version_replica = 0;
+        {
+            std::shared_lock lock(pending_update_mutex_);
+            auto it = document_versions_.find(uri);
+            if (it == document_versions_.end()) {
+                return;
+            }
+
+            version_pointer = it->second;
+            version_replica = version_pointer->load(std::memory_order::relaxed);
+        }
+
+        auto snapshot = workspace_.GetDocumentSnapshot(uri);
+        if (snapshot == nullptr) {
+            return;
+        }
+
+        Update(uri, snapshot->source, version_replica, version_pointer, false);
+    }
+
+    void LspServer::UpdateWorker(std::string_view uri, int version_replica, bool open_document) {
         std::shared_lock lock(pending_update_mutex_);
         auto& update = pending_updates_.at(uri);
         if (std::chrono::steady_clock::now() < update.deadline) {
@@ -1021,7 +1104,7 @@ namespace glsld {
         Update(uri, text, version_replica, version_pointer, open_document);
     }
 
-    void LspServer::Update(const std::string& uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document) {
+    void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document) {
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer, open_document);
         ready_condition_.notify_all();
 
@@ -1071,7 +1154,7 @@ namespace glsld {
     }
 
     void LspServer::SubmitDiagnositcTask(
-        const std::string& uri,
+        std::string_view uri,
         std::string_view source,
         std::string_view filename,
         int version_replica,
@@ -1082,7 +1165,7 @@ namespace glsld {
         }
 
         DiagnosticTask task{
-            .uri             = uri,
+            .uri             = std::string(uri),
             .filename        = std::string(filename),
             .include_dirs    = workspace_.include_dirs(),
             .version_replica = version_replica,
@@ -1107,7 +1190,7 @@ namespace glsld {
         diagnostic_engine_.Submit(std::move(task));
     }
 
-    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, const std::string& uri) const {
+    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) const {
         while (true) {
             GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
             if (context.cancelled()) {

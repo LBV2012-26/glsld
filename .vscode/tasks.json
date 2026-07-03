@@ -4,6 +4,8 @@
 		{
 			"type": "npm",
 			"script": "compile",
+			"path": "VSCodeExtension",
+			"label": "npm: compile - VSCodeExtension",
 			"group": "build",
 			"presentation": {
 				"panel": "dedicated",
@@ -16,6 +18,7 @@
 		{
 			"type": "npm",
 			"script": "watch",
+			"path": "VSCodeExtension",
 			"isBackground": true,
 			"group": {
 				"kind": "build",
