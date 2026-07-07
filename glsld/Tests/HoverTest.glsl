@@ -46,20 +46,20 @@ layout(buffer_reference, std430) buffer LightDataBuffer {
 } light_data_buffer;
 
 layout(push_constant) uniform PushConstants {
-    layout(offset = 0) uint64_t push_constant_value;
-} push_constants;
+    layout(offset = 0) uint64_t data;
+} push_constant;
 
 layout(buffer_type, scalar) buffer Material {
     vec4 data;
 };
 
-layout(heap_offset = push_constants.push_constant_value) resourceheap ResourceHeap {
+layout(heap_offset = push_constant.data) resourceheap ResourceHeap {
     uint global_time;
     layout(descriptor_size = 64) LightData light;
     Material materials[];
 } resource_heap;
 
-layout(heap_offset = push_constants.push_constant_value) samplerheap SamplerHeap {
+layout(heap_offset = push_constant.data) samplerheap SamplerHeap {
     sampler repeat;
     sampler shadow;
 } sampler_heap;
@@ -104,7 +104,7 @@ void main() {
     InStruct in_struct;
     in_struct.field = vec3(__VERSION__);
 
-    LightDataBuffer data_buffer = LightDataBuffer(push_constants.push_constant_value);
+    LightDataBuffer data_buffer = LightDataBuffer(push_constant.data);
     const mat4 kMyMatrix = ubo.my_matrix;
     int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE] = {};
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);

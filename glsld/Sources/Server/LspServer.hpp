@@ -73,6 +73,7 @@ namespace glsld {
         nlohmann::json HandleSemanticTokens(Context& context);
         nlohmann::json HandleDefinition(Context& context);
         nlohmann::json HandleReferences(Context& context);
+        nlohmann::json HandleRename(Context& context);
         nlohmann::json HandleHover(Context& context);
         nlohmann::json HandleInlayHints(Context& context);
         nlohmann::json HandleSignatureHelp(Context& context);

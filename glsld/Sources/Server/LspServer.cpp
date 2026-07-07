@@ -148,6 +148,10 @@ namespace glsld {
             return HandleReferences(context);
         });
 
+        router_.RegisterRequest("textDocument/rename", [this](Context& context) -> nlohmann::json {
+            return HandleRename(context);
+        });
+
         router_.RegisterRequest("textDocument/hover", [this](Context& context) -> nlohmann::json {
             return HandleHover(context);
         });
@@ -489,6 +493,7 @@ namespace glsld {
 
         capabilities["definitionProvider"] = true;
         capabilities["referencesProvider"] = true;
+        capabilities["renameProvider"]     = true;
         capabilities["hoverProvider"]      = true;
         capabilities["inlayHintProvider"]  = true;
 
@@ -619,6 +624,9 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         auto [locations, symbol] = GetReferences(context, snapshot, target);
+        if (symbol == nullptr) {
+            return {};
+        }
 
         nlohmann::json response = nlohmann::json::array();
         auto name_length = symbol != nullptr ? static_cast<int>(symbol->name.size()) : 1;
@@ -634,6 +642,42 @@ namespace glsld {
         }
 
         return response;
+    }
+
+    nlohmann::json LspServer::HandleRename(Context& context) {
+        ABORT_IF_CANCELLED();
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        const auto& position   = context.params["position"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+
+        if (snapshot == nullptr) {
+            throw std::runtime_error("Document closed or not found.");
+        }
+
+        auto target   = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        auto new_name = context.params["newName"].get<std::string>();
+
+        ABORT_IF_CANCELLED();
+        auto [locations, symbol] = GetReferences(context, snapshot, target);
+        if (symbol == nullptr) {
+            return {};
+        }
+
+        nlohmann::json changes = nlohmann::json::object();
+        auto& edits = changes[symbol->location.uri()] = nlohmann::json::array();
+
+        for (const auto& location : locations) {
+            edits.push_back({
+                { "range", {
+                    { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
+                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol->name.size()) } } }
+                } },
+                { "newText", new_name }
+            });
+        }
+
+        return { { "changes", changes } };
     }
 
     nlohmann::json LspServer::HandleHover(Context& context) {
