@@ -1,8 +1,8 @@
 {
 	"variants": {
-		"Debug": {},
 		"Release": {
 			"MACRO_NAME": "1"
-		}
+		},
+		"Debug": {}
 	}
 }

@@ -89,6 +89,7 @@ namespace glsld {
         void HandleRemoveVariant(Context& context);
 
         void UpdateImmediately(std::string_view uri);
+        void RebuildDocuments();
         void UpdateWorker(std::string_view uri, int version_replica, bool open_document);
         void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
@@ -112,6 +113,7 @@ namespace glsld {
         ThreadPool                          thread_pool_;
         ThreadPool                          update_pool_;
         Workspace                           workspace_;
+        std::vector<std::string>            document_uris_;
         DiagnosticEngine                    diagnostic_engine_;
         mutable std::condition_variable     ready_condition_;
         mutable std::mutex                  ready_mutex_;

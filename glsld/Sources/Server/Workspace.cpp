@@ -52,7 +52,7 @@ namespace glsld {
     }
 
     void Workspace::RemoveDocument(std::string_view uri) {
-        RemoveVariant(uri);
+        RemoveVariant(VariantType::kPerFile, uri);
 
         {
             std::lock_guard lock(document_mutex_);
@@ -83,7 +83,13 @@ namespace glsld {
         return results;
     }
 
-    void Workspace::ChangeVariant(std::string_view uri, ActiveVariant variant) {
+    void Workspace::ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri) {
+        if (type == VariantType::kShared) {
+            std::lock_guard lock(variant_mutex_);
+            shared_variant_ = std::move(variant);
+            return;
+        }
+
         auto filename       = utils::UriToPath(uri);
         auto normalized_uri = utils::PathToUri(filename);
 
@@ -91,7 +97,13 @@ namespace glsld {
         active_variants_[normalized_uri] = std::move(variant);
     }
 
-    void Workspace::RemoveVariant(std::string_view uri) {
+    void Workspace::RemoveVariant(VariantType type, std::string_view uri) {
+        if (type == VariantType::kShared) {
+            std::lock_guard lock(variant_mutex_);
+            shared_variant_.reset();
+            return;
+        }
+
         std::lock_guard lock(variant_mutex_);
         active_variants_.erase(uri);
     }
@@ -127,6 +139,12 @@ namespace glsld {
             auto variant_it = active_variants_.find(source_file->uri());
             if (variant_it != active_variants_.end()) {
                 for (const auto& [name, macro] : variant_it->second.macros) {
+                    document.InjectMacro(name, macro);
+                }
+            }
+
+            if (shared_variant_.has_value()) {
+                for (const auto& [name, macro] : shared_variant_->macros) {
                     document.InjectMacro(name, macro);
                 }
             }

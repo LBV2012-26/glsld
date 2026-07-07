@@ -1,7 +1,9 @@
 #version 460
 #pragma shader_stage(raygen)
 
+#ifdef MACRO_NAME
 #include "Include.glsl"
+#endif
 
 #extension GL_EXT_ray_tracing : require
 

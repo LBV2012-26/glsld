@@ -786,6 +786,12 @@ namespace glsld {
                 .typename_token = Token{
                     .text = "bool",
                     .type = TokenType::kPrimitive
+                },
+                .type_desc = TypeDescriptor{
+                    .family        = BaseFamily::kBool,
+                    .bits          = 32,
+                    .vector_count  = 1,
+                    .vector_length = 1
                 }
             };
 

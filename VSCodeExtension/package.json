@@ -146,7 +146,11 @@
 			"glsld-sidebar": [
 				{
 					"id": "glsld.shaderVariant",
-					"name": "Shader Variant"
+					"name": "Global Variant"
+				},
+				{
+					"id": "glsld.fileVariant",
+					"name": "File Variant"
 				}
 			]
 		},
@@ -157,19 +161,29 @@
 				"category": "GLSL"
 			},
 			{
+				"command": "glsld.selectFileVariant",
+				"title": "Apply to This File",
+				"category": "GLSL"
+			},
+			{
+				"command": "glsld.clearFileVariant",
+				"title": "Clear File Override",
+				"category": "GLSL"
+			},
+			{
 				"command": "glsld.addVariant",
-				"title": "Add Shader Variant",
+				"title": "Add Variant",
 				"category": "GLSL",
 				"icon": "$(add)"
 			},
 			{
 				"command": "glsld.editVariant",
-				"title": "Edit Shader Variant",
+				"title": "Edit Variant",
 				"category": "GLSL"
 			},
 			{
 				"command": "glsld.removeVariantCmd",
-				"title": "Delete Shader Variant",
+				"title": "Delete Variant",
 				"category": "GLSL"
 			},
 			{
@@ -188,18 +202,22 @@
 				},
 				{
 					"command": "glsld.refreshVariants",
-					"when": "view == glsld.shaderVariant",
+					"when": "view == glsld.shaderVariant || view == glsld.fileVariant",
 					"group": "navigation@2"
 				}
 			],
 			"view/item/context": [
 				{
-					"command": "glsld.editVariant",
+					"command": "glsld.selectFileVariant",
 					"when": "view == glsld.shaderVariant && viewItem == variant"
 				},
 				{
+					"command": "glsld.editVariant",
+					"when": "viewItem == variant"
+				},
+				{
 					"command": "glsld.removeVariantCmd",
-					"when": "view == glsld.shaderVariant && viewItem == variant"
+					"when": "viewItem == variant"
 				}
 			]
 		},

@@ -1,5 +1,5 @@
 #version 460 core
-// #pragma shader_stage(fragment)
+#pragma shader_stage(fragment)
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
 #extension GL_EXT_buffer_reference : require
 #extension GL_EXT_subgroup_uniform_control_flow : require

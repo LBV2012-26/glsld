@@ -855,6 +855,7 @@ namespace glsld {
         }
 
         EnqueueUpdate(uri, version, true);
+        document_uris_.push_back(std::move(uri));
     }
 
     void LspServer::HandleDidChange(Context& context) {
@@ -964,6 +965,7 @@ namespace glsld {
         };
 
         EnqueueSubmit(std::move(item));
+        std::erase_if(document_uris_, [&uri](std::string_view u) -> bool { return u == uri; });
     }
 
     void LspServer::HandleInitialized(Context& context) {}
@@ -1009,8 +1011,8 @@ namespace glsld {
     }
 
     void LspServer::HandleChangeVariant(Context& context) {
-        const auto& origin_uri = context.params["textDocument"]["uri"];
-        const auto& macros     = context.params["macros"];
+        const auto& macros = context.params["macros"];
+        const auto& scope  = context.params.value("scope", "global");
 
         ActiveVariant variant;
         variant.variant_name = context.params["variant"];
@@ -1029,34 +1031,29 @@ namespace glsld {
             };
         }
 
-        auto uri = NormalizeUri(origin_uri);
-        workspace_.ChangeVariant(uri, std::move(variant));
-
-        UpdateImmediately(uri);
-
-        LspSubmitItem item{
-            .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
-            .notify_method = "workspace/semanticTokens/refresh",
-            .kind          = LspSubmitItem::Kind::kServerRequest
-        };
-
-        EnqueueSubmit(std::move(item));
+        if (scope == "global") {
+            workspace_.ChangeVariant(VariantType::kShared, std::move(variant));
+            RebuildDocuments();
+        } else {
+            const auto& origin_uri = context.params["textDocument"]["uri"];
+            auto uri = NormalizeUri(origin_uri);
+            workspace_.ChangeVariant(VariantType::kPerFile, std::move(variant), uri);
+            UpdateImmediately(uri);
+        }
     }
 
     void LspServer::HandleRemoveVariant(Context& context) {
-        const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto uri = NormalizeUri(origin_uri);
-        workspace_.RemoveVariant(uri);
+        const auto& scope = context.params.value("scope", "global");
 
-        UpdateImmediately(uri);
-
-        LspSubmitItem item{
-            .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
-            .notify_method = "workspace/semanticTokens/refresh",
-            .kind          = LspSubmitItem::Kind::kServerRequest
-        };
-
-        EnqueueSubmit(std::move(item));
+        if (scope == "global") {
+            workspace_.RemoveVariant(VariantType::kShared);
+            RebuildDocuments();
+        } else {
+            const auto& origin_uri = context.params["textDocument"]["uri"];
+            auto uri = NormalizeUri(origin_uri);
+            workspace_.RemoveVariant(VariantType::kPerFile, uri);
+            UpdateImmediately(uri);
+        }
     }
 
     void LspServer::UpdateImmediately(std::string_view uri) {
@@ -1079,11 +1076,67 @@ namespace glsld {
         }
 
         Update(uri, snapshot->source, version_replica, version_pointer, false);
+
+        LspSubmitItem item{
+            .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
+            .notify_method = "workspace/semanticTokens/refresh",
+            .kind          = LspSubmitItem::Kind::kServerRequest
+        };
+
+        EnqueueSubmit(std::move(item));
+    }
+
+    void LspServer::RebuildDocuments() {
+        std::vector<StringHeteroHashMap<VersionPointer>::iterator> exists;
+        auto total = 0uz;
+        for (const auto& uri : document_uris_) {
+            auto it = document_versions_.find(uri);
+            if (it != document_versions_.end()) {
+                exists.push_back(std::move(it));
+                ++total;
+            }
+        }
+
+        if (total == 0) {
+            return;
+        }
+
+        auto counter = std::make_shared<std::atomic<std::size_t>>(0);
+        std::shared_lock lock(pending_update_mutex_);
+
+        for (const auto& it : exists) {
+            const auto& uri      = it->first;
+            auto version_pointer = it->second;
+            auto version_replica = version_pointer->load(std::memory_order::relaxed);
+
+            update_pool_.Submit([this, counter, total, uri, version_replica, version_pointer]() -> void {
+                auto snapshot = workspace_.GetDocumentSnapshot(uri);
+                if (snapshot != nullptr) {
+                    Update(uri, snapshot->source, version_replica, version_pointer, false);
+                }
+
+                if (counter->fetch_add(1, std::memory_order::relaxed) + 1 == total) {
+                    LspSubmitItem item{
+                        .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
+                        .notify_method = "workspace/semanticTokens/refresh",
+                        .kind          = LspSubmitItem::Kind::kServerRequest
+                    };
+
+                    EnqueueSubmit(std::move(item));
+                }
+            });
+        }
     }
 
     void LspServer::UpdateWorker(std::string_view uri, int version_replica, bool open_document) {
         std::shared_lock lock(pending_update_mutex_);
-        auto& update = pending_updates_.at(uri);
+        auto pending_it = pending_updates_.find(uri);
+        if (pending_it == pending_updates_.end()) {
+            return;
+        }
+
+        auto& update = pending_it->second;
+
         if (std::chrono::steady_clock::now() < update.deadline) {
             std::this_thread::sleep_until(update.deadline);
         }

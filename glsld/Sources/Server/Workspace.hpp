@@ -30,6 +30,11 @@ namespace glsld {
         MacroTable  macros;
     };
 
+    enum class VariantType {
+        kShared,
+        kPerFile
+    };
+
     class Workspace {
     public:
         explicit Workspace(ThreadPool& thread_pool);
@@ -55,8 +60,8 @@ namespace glsld {
 
         void Configure(std::string_view key, ExtraShaderConfig config);
 
-        void ChangeVariant(std::string_view uri, ActiveVariant variant);
-        void RemoveVariant(std::string_view uri);
+        void ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri = "");
+        void RemoveVariant(VariantType type, std::string_view uri = "");
 
         void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
         std::span<const std::filesystem::path> include_dirs() const;
@@ -83,6 +88,7 @@ namespace glsld {
         StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
         StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
         StringHeteroHashMap<ActiveVariant>             active_variants_;
+        std::optional<ActiveVariant>                   shared_variant_;
         mutable std::mutex                             dependency_mutex_;
         mutable std::shared_mutex                      document_mutex_;
         std::shared_mutex                              variant_mutex_;
