@@ -63,6 +63,12 @@ namespace glsld {
             token.type == TokenType::kSpirvIntrinsic)
             last_token_text_ = token.text;
 
+        if (qualifier_paren_depth_ > 0 && token.type == TokenType::kEqual) {
+            qualifier_after_equal_ = true;
+        } else {
+            qualifier_after_equal_ = false;
+        }
+
         return token;
     }
 
@@ -94,7 +100,7 @@ namespace glsld {
         };
 
         if (std::isdigit(current_char) || (current_char == '.' && std::isdigit(Peek()))) {
-            std::size_t begin = position_;
+            auto begin = position_;
             Advance();
             while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
@@ -165,7 +171,7 @@ namespace glsld {
                 if (it->second == TokenType::kPrimitive) {
                     auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(word);
                     if (subtype.has_value() && (subtype->starts_with("Primitives.Layout") || subtype->starts_with("Primitives.Spirv"))) {
-                        if (qualifier_paren_depth_ == 0) {
+                        if (qualifier_paren_depth_ == 0 || qualifier_after_equal_) {
                             return {
                                 .text     = std::string(word),
                                 .location = location,

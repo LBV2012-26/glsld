@@ -50,6 +50,7 @@ namespace glsld {
         std::size_t                            column_{ 1 };
         int                                    qualifier_paren_depth_{};
         bool                                   preprocessor_line_{ false };
+        bool                                   qualifier_after_equal_{ false };
         std::size_t                            last_token_line_{};
         std::string                            last_token_text_{};
 

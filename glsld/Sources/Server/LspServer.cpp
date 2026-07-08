@@ -668,10 +668,14 @@ namespace glsld {
         auto& edits = changes[symbol->location.uri()] = nlohmann::json::array();
 
         for (const auto& location : locations) {
+            const auto& symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
+                ? utils::UnmangleFunctionName(symbol->name)
+                : symbol->name;
+
             edits.push_back({
                 { "range", {
                     { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
-                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol->name.size()) } } }
+                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol_name.size()) } } }
                 } },
                 { "newText", new_name }
             });
