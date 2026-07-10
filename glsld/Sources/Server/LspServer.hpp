@@ -86,6 +86,7 @@ namespace glsld {
         void HandleInitialized(Context& context);
         void HandleExit(Context& context);
         void HandleConfigure(Context& context);
+        void HandleRemoveConfiguration(Context& context);
         void HandleChangeVariant(Context& context);
         void HandleRemoveVariant(Context& context);
 

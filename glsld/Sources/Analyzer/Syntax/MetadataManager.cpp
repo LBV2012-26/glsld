@@ -247,10 +247,10 @@ namespace glsld {
         std::span<const Token> raw_tokens,
         std::span<const std::filesystem::path> include_dirs)
     {
-        target.InjectMacro("__glsld__", MacroDefination{
+        target.InjectMacro("_GLSLD", MacroDefination{
             .is_function = false,
             .original_token = Token{
-                .text = "__glsld__",
+                .text = "_GLSLD",
                 .type = TokenType::kIdentifier
             },
             .replacement_list = { Token{

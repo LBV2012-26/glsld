@@ -4,10 +4,12 @@
  * ------------------------------------------------------------------------------------------ */
 
 import {
+	commands,
 	Disposable,
 	Range,
 	TextDocument,
 	TextEditorDecorationType,
+	Uri,
 	window,
 	workspace
 } from 'vscode';
@@ -19,7 +21,10 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-import { activateSidebar } from './sidebar';
+import { activateSidebar, getShaderConfigs } from './sidebar';
+import { compileWorkspace } from './compile';
+import * as path from 'path';
+import { ShaderConfigProvider } from './shaderConfig';
 
 let client: LanguageClient;
 let inactiveDecorationDisposable: TextEditorDecorationType | undefined;
@@ -83,11 +88,63 @@ export async function activate(context: any) {
 	initializeInactiveTokenDimming();
 	activateSidebar(context, client);
 
+	
+// Shader Config view (per-file stage/version overrides)
+	
+const shaderConfigProvider = new ShaderConfigProvider();
+	
+context.subscriptions.push(
+	
+	
+window.registerTreeDataProvider('glsld.shaderConfig', shaderConfigProvider),
+	
+	
+commands.registerCommand('glsld.addShaderConfig', () => shaderConfigProvider.addConfig()),
+	
+	
+commands.registerCommand('glsld.editShaderConfigProp', (node: any) => {
+	
+	
+	
+if (node?.kind === 'configProp') { shaderConfigProvider.editProperty(node); }
+	
+	
+	
+else { shaderConfigProvider.editConfigProps(); }
+	
+	
+}),
+	
+	
+commands.registerCommand('glsld.removeShaderConfig', (node: any) => {
+	
+	
+	
+if (node?.kind === 'fileConfig') { shaderConfigProvider.removeConfig(node); }
+	
+	
+}),
+	
+	
+commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvider.generateConfigs()),
+			commands.registerCommand('glsld.applyShaderConfigTemplate', () => shaderConfigProvider.applyTemplate()),
+	
+);
+
+
+		// Register compile-to-SPIR-V command
+		context.subscriptions.push(
+			commands.registerCommand('glsld.compileWorkspace', () => {
+				compileWorkspace();
+			})
+		);
+
 	// Push shader config to server when settings change
 	context.subscriptions.push(
 		workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('glsld')) {
 				await pushShaderConfig();
+				shaderConfigProvider.refresh();
 			}
 		})
 	);
@@ -278,26 +335,55 @@ function getSemanticTokensLegend(): { tokenModifiers: string[] } | undefined {
 	};
 }
 
-async function pushShaderConfig(): Promise<void> {
+export function notifyRemoveConfig(key: string): void {
+	const uri = resolveKey(key).toString();
+	client.sendNotification('glsld/removeConfiguration', {
+		uri,
+	});
+}
+
+export async function pushShaderConfig(): Promise<void> {
 	const config = workspace.getConfiguration('glsld');
-	const shaderExtensions = config.get<Record<string, object>>('shaderExtensions', {});
+	const shaderExtensions = getShaderConfigs(); // from .glsld/config.json
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 
 	const shaderConfig: Record<string, object> = {};
 	if (shaderExtensions) {
 		for (const [filePath, cfg] of Object.entries(shaderExtensions)) {
 			if (cfg && typeof cfg === 'object') {
-				shaderConfig[filePath] = cfg;
+				shaderConfig[resolveKey(filePath).toString()] = cfg;
 			}
 		}
 	}
 
-	await client.sendNotification('workspace/didChangeConfiguration', {
-		settings: {
-			glsld: {
-				shaderConfig,
-				diagnosticsEnabled
+		// Strip VSCode config proxies before JSON-RPC serialization
+		const payload = JSON.parse(JSON.stringify({
+			settings: {
+				glsld: {
+					shaderConfig,
+					diagnosticsEnabled
+				}
 			}
-		}
-	});
+		}));
+		console.log('[glsld] pushShaderConfig sending: %o', payload);
+		await client.sendNotification('workspace/didChangeConfiguration', payload);
+}
+
+/**
+ * Resolve a user config key to a file:// URI.
+ *   - "file:///..."  already a URI, pass-through
+ *   - "/abs/path"    convert to Uri.file()
+ *   - "rel/path"     resolve against workspace root
+ */
+function resolveKey(key: string): Uri {
+	// Already a URI
+	if (/^[a-z]+:\/\//i.test(key)) { return Uri.parse(key); }
+	// Absolute path
+	if (path.isAbsolute(key)) { return Uri.file(key); }
+	// Workspace-relative
+	const folders = workspace.workspaceFolders;
+	if (folders && folders.length > 0) {
+		return Uri.joinPath(folders[0].uri, key);
+	}
+	return Uri.file(key); // fallback
 }

@@ -82,7 +82,7 @@ LightData ReturnLightData(int param) {
 }
 
 
-#ifdef __glsld__
+#ifdef _GLSLD
 [[subgroup_uniform_control_flow]]
 #endif
 void Func(const in float input_arg, out float output_arg, inout float param) {

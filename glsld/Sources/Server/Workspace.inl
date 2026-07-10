@@ -30,6 +30,10 @@ namespace glsld {
         shader_configs_[key] = std::move(config);
     }
 
+    inline void Workspace::RemoveConfiguration(std::string_view key) {
+        shader_configs_.erase(key);
+    }
+
     inline void Workspace::set_include_dirs(std::vector<std::filesystem::path> include_dirs) {
         include_dirs_ = std::move(include_dirs);
     }

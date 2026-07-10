@@ -1,7 +1,7 @@
 #version 460
 #pragma shader_stage(raygen)
 
-#ifdef MACRO_NAME
+#if defined(MACRO_NAME) && THIS_MACRO && !defined(FUCK_MACRO)
 #include "Include.glsl"
 #endif
 
@@ -20,7 +20,7 @@ struct HitAttribute {
 
 void main() {
     DECLARE_STRUCT_ARRAY(vec3, kArraySize);
-    vec3_buffer[0].data;
+    vec3_buffer[kValueMain].data;
 
     vec3 origin = vec3(0.0);
     vec3 direction = vec3(0.0, 0.0, -1.0);

@@ -59,6 +59,7 @@ namespace glsld {
         void RemoveIncludeDirectory(const std::filesystem::path& directory);
 
         void Configure(std::string_view key, ExtraShaderConfig config);
+        void RemoveConfiguration(std::string_view key);
 
         void ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri = "");
         void RemoveVariant(VariantType type, std::string_view uri = "");

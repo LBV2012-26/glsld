@@ -196,6 +196,10 @@ namespace glsld {
             HandleConfigure(context);
         });
 
+        router_.RegisterNotification("glsld/removeConfiguration", [this](Context& context) -> void {
+            HandleRemoveConfiguration(context);
+        });
+
         router_.RegisterNotification("glsld/selectVariant", [this](Context& context) -> void {
             HandleChangeVariant(context);
         });
@@ -665,13 +669,13 @@ namespace glsld {
         }
 
         nlohmann::json changes = nlohmann::json::object();
-        auto& edits = changes[symbol->location.uri()] = nlohmann::json::array();
 
         for (const auto& location : locations) {
             const auto& symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
                 ? utils::UnmangleFunctionName(symbol->name)
                 : symbol->name;
 
+            auto& edits = changes[location.uri()];
             edits.push_back({
                 { "range", {
                     { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
@@ -1054,8 +1058,19 @@ namespace glsld {
             if (value.contains("targetSpv") && value["targetSpv"].is_string())
                 config.target_spv = value["targetSpv"].get<std::string>();
 
-            workspace_.Configure(key, std::move(config));
+            auto normalized_uri = NormalizeUri(key);
+
+            workspace_.Configure(std::move(normalized_uri), std::move(config));
+            UpdateImmediately(normalized_uri);
         }
+    }
+
+    void LspServer::HandleRemoveConfiguration(Context& context) {
+        const auto& origin_uri = context.params["uri"];
+        auto uri = NormalizeUri(origin_uri);
+
+        workspace_.RemoveConfiguration(uri);
+        UpdateImmediately(uri);
     }
 
     void LspServer::HandleChangeVariant(Context& context) {
@@ -1289,7 +1304,7 @@ namespace glsld {
         if (StartsWithVersion(source) || it == shader_configs.end()) {
             task.source = std::string(source);
         } else if (it->second.version.has_value()) {
-            task.source = std::format("#version {}\n#line 1\n{}", *it->second.version, source);
+            task.source = std::format("#version {}\n#line 1\n{}\n\nvoid main() {{}}\n", *it->second.version, source);
         }
 
         if (it != shader_configs.end()) {
