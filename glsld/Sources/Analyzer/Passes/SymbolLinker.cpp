@@ -52,9 +52,19 @@ namespace glsld {
 
             break;
         case kFunctionCallee: {
+            auto FindConstructor = [node, scope]() -> void {
+                const auto* symbol_result = scope->FindSymbol(node->name);
+                node->linked_symbols = symbol_result;
+            };
+
             auto it = function_cache_.find(node->name);
             if (it != function_cache_.end()) {
-                node->linked_symbols = it->second;
+                if (std::holds_alternative<std::monostate>(it->second)) {
+                    FindConstructor();
+                } else {
+                    node->linked_symbols = it->second;
+                }
+
                 break;
             }
 
@@ -63,8 +73,7 @@ namespace glsld {
 
             if (std::holds_alternative<std::monostate>(inserted_it->second)) {
                 // constructor calling, like "BufferReference ref = BufferReference(device_address);"
-                const auto* symbol_result = scope->FindSymbol(node->name);
-                node->linked_symbols = symbol_result;
+                FindConstructor();
                 break;
             }
 
