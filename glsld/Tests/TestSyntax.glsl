@@ -2,8 +2,8 @@
 #pragma shader_stage(raygen)
 
 #if defined(MACRO_NAME) && THIS_MACRO && !defined(FUCK_MACRO)
-#include "Include.glsl"
 #endif
+#include "Include.glsl"
 
 #extension GL_EXT_ray_tracing : require
 
@@ -20,7 +20,7 @@ struct HitAttribute {
 
 void main() {
     DECLARE_STRUCT_ARRAY(vec3, kArraySize);
-    vec3_buffer[kValueMain].data;
+    vec3_buffer[kValue].data;
 
     vec3 origin = vec3(0.0);
     vec3 direction = vec3(0.0, 0.0, -1.0);

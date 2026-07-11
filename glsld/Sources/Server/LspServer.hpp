@@ -64,7 +64,7 @@ namespace glsld {
         void UpdateLoop();
         void EnqueueTask(LspTask task);
         void EnqueueSubmit(LspSubmitItem item);
-        void EnqueueUpdate(const std::string& uri, int version_replica, bool open_document);
+        void EnqueueUpdate(const std::string& uri);
         void CancelRequest(const nlohmann::json& message);
 
         nlohmann::json HandleInitialize(Context& context);
@@ -92,7 +92,7 @@ namespace glsld {
 
         void UpdateImmediately(std::string_view uri);
         void RebuildDocuments();
-        void UpdateWorker(std::string_view uri, int version_replica, bool open_document);
+        void UpdateWorker(std::string_view uri);
         void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
         void SubmitDiagnositcTask(
@@ -102,11 +102,13 @@ namespace glsld {
             int version_replica,
             VersionPointer version_pointer);
 
-        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, std::string_view uri) const;
+        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, std::string_view uri);
 
         struct PendingUpdate {
             std::string                           text;
             std::chrono::steady_clock::time_point deadline;
+            int                                   version_replica{};
+            bool                                  open_document{ false };
         };
 
         std::atomic<bool>                   running_{ true };
@@ -117,15 +119,16 @@ namespace glsld {
         Workspace                           workspace_;
         std::vector<std::string>            document_uris_;
         DiagnosticEngine                    diagnostic_engine_;
-        mutable std::condition_variable     ready_condition_;
-        mutable std::mutex                  ready_mutex_;
+        std::condition_variable             ready_condition_;
+        std::mutex                          ready_mutex_;
 
         StringHeteroHashMap<PendingUpdate>  pending_updates_;
+        std::shared_mutex                   pending_mutex_;
         StringHeteroHashMap<VersionPointer> document_versions_;   // [Uri, Version]
-        mutable std::shared_mutex           pending_update_mutex_;
+        std::shared_mutex                   version_mutex_;
 
-        StringHeteroHashMap<VersionPointer> document_revisions_;  // [Uri, Revision], for background include affected document update
-        std::shared_mutex                   revision_mutex_;
+        StringHeteroHashSet                 include_affected_uris_;
+        std::shared_mutex                   affected_mutex_;
 
         std::mutex                          task_mutex_;
         std::condition_variable             task_condition_;

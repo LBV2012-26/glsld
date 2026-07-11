@@ -53,7 +53,7 @@ namespace glsld {
 
         diagnostic_engine_.SetCallback([this](std::string_view uri, int version, std::vector<Diagnostic> diagnostic) -> void {
             int current = [&]() -> int {
-                std::shared_lock lock(pending_update_mutex_);
+                std::shared_lock lock(pending_mutex_);
                 auto it = document_versions_.find(uri);
                 return it != document_versions_.end() ? it->second->load(std::memory_order::relaxed) : -1;
             }();
@@ -272,7 +272,8 @@ namespace glsld {
             if (task.is_request) {
                 thread_pool_.Submit([this, context = std::move(context)]() mutable -> void {
                     GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Received request: {}", context.method);
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Method: {} with ID: {}", context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
+                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Method: {} with ID: {}",
+                                    context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
 
                     try {
                         router_.Dispatch(context, true);
@@ -284,20 +285,21 @@ namespace glsld {
                     item.id = context.request_id;
 
                     if (context.cancelled()) {
-                        item.kind = LspSubmitItem::Kind::kError;
-                        item.error_code = -32800;
+                        item.kind          = LspSubmitItem::Kind::kError;
+                        item.error_code    = -32800;
                         item.error_message = "Request cancelled.";
                     } else if (context.error.has_value()) {
-                        item.kind = LspSubmitItem::Kind::kError;
-                        item.error_code = context.error->first;
+                        item.kind          = LspSubmitItem::Kind::kError;
+                        item.error_code    = context.error->first;
                         item.error_message = context.error->second;
                     } else {
-                        item.kind = LspSubmitItem::Kind::kResponse;
-                        item.payload = context.response.value_or(nlohmann::json(nullptr));
+                        item.kind          = LspSubmitItem::Kind::kResponse;
+                        item.payload       = context.response.value_or(nlohmann::json(nullptr));
                     }
 
                     EnqueueSubmit(std::move(item));
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Request {} completed, erased cancellation token.", context.request_id.value_or(nlohmann::json("null")).dump());
+                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Request {} completed, erased cancellation token.",
+                                    context.request_id.value_or(nlohmann::json("null")).dump());
 
                     {
                         std::lock_guard lock(cancellation_mutex_);
@@ -363,7 +365,7 @@ namespace glsld {
                 update_queue_.pop();
             }
 
-            update_pool_.Submit(work);
+            work();
         }
     }
 
@@ -383,11 +385,11 @@ namespace glsld {
         submit_condition_.notify_one();
     }
 
-    void LspServer::EnqueueUpdate(const std::string& uri, int version_replica, bool open_document) {
+    void LspServer::EnqueueUpdate(const std::string& uri) {
         {
             std::lock_guard lock(update_mutex_);
-            update_queue_.push([this, uri, version_replica, open_document]() -> void {
-                UpdateWorker(uri, version_replica, open_document);
+            update_queue_.push([this, uri]() -> void {
+                UpdateWorker(uri);
             });
         }
         update_condition_.notify_one();
@@ -671,9 +673,13 @@ namespace glsld {
         nlohmann::json changes = nlohmann::json::object();
 
         for (const auto& location : locations) {
+            if (location.uri().contains("Database/Meta")) {
+                continue;
+            }
+
             const auto& symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
-                ? utils::UnmangleFunctionName(symbol->name)
-                : symbol->name;
+                                    ? utils::UnmangleFunctionName(symbol->name)
+                                    : symbol->name;
 
             auto& edits = changes[location.uri()];
             edits.push_back({
@@ -896,17 +902,18 @@ namespace glsld {
         auto uri      = NormalizeUri(origin_uri);
 
         {
-            std::lock_guard lock(pending_update_mutex_);
+            std::scoped_lock lock(pending_mutex_, version_mutex_);
             pending_updates_[uri] = {
-                .text     = text,
-                .deadline = deadline
+                .text            = text,
+                .deadline        = deadline,
+                .version_replica = version,
+                .open_document   = true
             };
 
-            document_versions_[uri]  = std::make_shared<std::atomic<int>>(version);
-            document_revisions_[uri] = std::make_shared<std::atomic<int>>(0);
+            document_versions_[uri] = std::make_shared<std::atomic<int>>(version);
         }
 
-        EnqueueUpdate(uri, version, true);
+        EnqueueUpdate(uri);
         document_uris_.push_back(std::move(uri));
     }
 
@@ -926,10 +933,12 @@ namespace glsld {
         auto uri      = NormalizeUri(origin_uri);
 
         {
-            std::lock_guard lock(pending_update_mutex_);
+            std::scoped_lock lock(pending_mutex_, version_mutex_);
             pending_updates_[uri] = {
-                .text     = new_text,
-                .deadline = deadline
+                .text            = new_text,
+                .deadline        = deadline,
+                .version_replica = version,
+                .open_document   = false
             };
 
             auto it = document_versions_.find(uri);
@@ -943,7 +952,7 @@ namespace glsld {
             }
         }
 
-        EnqueueUpdate(uri, version, false);
+        EnqueueUpdate(uri);
     }
 
     void LspServer::HandleDidSave(Context& context) {
@@ -954,34 +963,14 @@ namespace glsld {
         workspace_.InvalidateInclude(uri);
 
         auto affected_uris = workspace_.GetAffectedDocuments(uri);
+
+        std::scoped_lock lock(version_mutex_, affected_mutex_);
         for (const auto& affected_uri : affected_uris) {
             if (!document_versions_.contains(affected_uri)) {
                 continue;
             }
 
-            int new_version = 0;
-            VersionPointer version_pointer;
-            {
-                std::shared_lock lock(pending_update_mutex_);
-                auto it = document_revisions_.find(affected_uri);
-                if (it == document_revisions_.end()) {
-                    continue;
-                }
-
-                version_pointer = it->second;
-                int old_version = version_pointer->load(std::memory_order::relaxed);
-                    new_version = version_pointer->fetch_add(1, std::memory_order::relaxed) + 1;
-
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} affected by the change in {}, revision updated from {} to {}",
-                                affected_uri, uri, old_version, new_version);
-            }
-
-            update_pool_.Submit([this, affected_uri, new_version, version_pointer]() -> void {
-                auto snapshot = workspace_.GetDocumentSnapshot(affected_uri);
-                if (snapshot != nullptr) {
-                    Update(affected_uri, snapshot->source, new_version, version_pointer, false);
-                }
-            });
+            include_affected_uris_.insert(affected_uri);
         }
     }
 
@@ -991,19 +980,13 @@ namespace glsld {
         workspace_.RemoveDocument(uri);
 
         {
-            std::lock_guard lock(pending_update_mutex_);
+            std::scoped_lock lock(pending_mutex_, version_mutex_);
             pending_updates_.erase(uri);
 
-            auto version_it = document_versions_.find(uri);
-            if (version_it != document_versions_.end()) {
-                version_it->second->store(kDocumentClosedVersion, std::memory_order::relaxed);
-                document_versions_.erase(version_it);
-            }
-
-            auto revision_it = document_revisions_.find(uri);
-            if (revision_it != document_revisions_.end()) {
-                revision_it->second->store(kDocumentClosedVersion, std::memory_order::relaxed);
-                document_revisions_.erase(revision_it);
+            auto it = document_versions_.find(uri);
+            if (it != document_versions_.end()) {
+                it->second->store(kDocumentClosedVersion, std::memory_order::relaxed);
+                document_versions_.erase(it);
             }
         }
 
@@ -1123,7 +1106,7 @@ namespace glsld {
         VersionPointer version_pointer;
         int version_replica = 0;
         {
-            std::shared_lock lock(pending_update_mutex_);
+            std::shared_lock lock(version_mutex_);
             auto it = document_versions_.find(uri);
             if (it == document_versions_.end()) {
                 return;
@@ -1152,6 +1135,9 @@ namespace glsld {
     void LspServer::RebuildDocuments() {
         std::vector<StringHeteroHashMap<VersionPointer>::iterator> exists;
         auto total = 0uz;
+
+        std::shared_lock lock(version_mutex_);
+
         for (const auto& uri : document_uris_) {
             auto it = document_versions_.find(uri);
             if (it != document_versions_.end()) {
@@ -1165,7 +1151,6 @@ namespace glsld {
         }
 
         auto counter = std::make_shared<std::atomic<std::size_t>>(0);
-        std::shared_lock lock(pending_update_mutex_);
 
         for (const auto& it : exists) {
             const auto& uri      = it->first;
@@ -1191,40 +1176,48 @@ namespace glsld {
         }
     }
 
-    void LspServer::UpdateWorker(std::string_view uri, int version_replica, bool open_document) {
-        std::shared_lock lock(pending_update_mutex_);
-        auto pending_it = pending_updates_.find(uri);
-        if (pending_it == pending_updates_.end()) {
-            return;
+    void LspServer::UpdateWorker(std::string_view uri) {
+        std::chrono::steady_clock::time_point deadline;
+        {
+            std::shared_lock lock(pending_mutex_);
+            auto it = pending_updates_.find(uri);
+            if (it == pending_updates_.end()) {
+                return;
+            }
+
+            deadline = it->second.deadline;
         }
 
-        auto& update = pending_it->second;
-
-        if (std::chrono::steady_clock::now() < update.deadline) {
-            std::this_thread::sleep_until(update.deadline);
+        if (std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_until(deadline);
         }
 
-        lock.unlock();
-
+        std::string    text;
         VersionPointer version_pointer;
+        int            version_replica = 0;
+        bool           open_document   = false;
         {
-            std::shared_lock lock(pending_update_mutex_);
-            auto it = document_versions_.find(uri);
-            if (it == document_versions_.end()) {
+            std::scoped_lock lock(pending_mutex_, version_mutex_);
+
+            auto pending_it = pending_updates_.find(uri);
+            if (pending_it == pending_updates_.end()) {
                 return;
             }
 
-            if (version_replica != it->second->load(std::memory_order::relaxed)) {
+            auto version_it = document_versions_.find(uri);
+            if (version_it == document_versions_.end()) {
                 return;
             }
 
-            version_pointer = it->second;
-        }
+            auto& update = pending_it->second;
+            if (update.version_replica != version_it->second->load(std::memory_order::relaxed)) {
+                return;
+            }
 
-        std::string text = std::move(update.text);
-        {
-            std::lock_guard lock(pending_update_mutex_);
-            pending_updates_.erase(uri);
+            text            = std::move(update.text);
+            version_pointer = version_it->second;
+            version_replica = update.version_replica;
+            open_document   = update.open_document;
         }
 
         Update(uri, text, version_replica, version_pointer, open_document);
@@ -1233,7 +1226,6 @@ namespace glsld {
     void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document) {
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer, open_document);
         ready_condition_.notify_all();
-
         SubmitDiagnositcTask(uri, text, utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
     }
 
@@ -1316,7 +1308,15 @@ namespace glsld {
         diagnostic_engine_.Submit(std::move(task));
     }
 
-    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) const {
+    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) {
+        {
+            std::lock_guard lock(affected_mutex_);
+            if (include_affected_uris_.contains(uri)) {
+                UpdateImmediately(uri);
+                include_affected_uris_.erase(uri);
+            }
+        }
+
         while (true) {
             GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
             if (context.cancelled()) {
@@ -1326,7 +1326,7 @@ namespace glsld {
 
             int expected_version = 0;
             {
-                std::shared_lock lock(pending_update_mutex_);
+                std::shared_lock lock(version_mutex_);
                 auto it = document_versions_.find(uri);
                 if (it != document_versions_.end()) {
                     expected_version = it->second->load(std::memory_order::relaxed);

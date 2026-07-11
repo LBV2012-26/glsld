@@ -690,11 +690,6 @@ namespace glsld {
                     break;
                 }
 
-                const auto* next_symbol = current_scope()->FindVisibleType(next_token.text);
-                if (next_symbol != nullptr) {
-                    break;
-                }
-
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
                 continue;
