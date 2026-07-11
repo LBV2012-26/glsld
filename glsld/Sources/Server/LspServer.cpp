@@ -365,7 +365,7 @@ namespace glsld {
                 update_queue_.pop();
             }
 
-            work();
+            update_pool_.Submit(work);
         }
     }
 
@@ -1044,7 +1044,7 @@ namespace glsld {
             auto normalized_uri = NormalizeUri(key);
 
             workspace_.Configure(std::move(normalized_uri), std::move(config));
-            UpdateImmediately(normalized_uri);
+            RefreshDocument(normalized_uri);
         }
     }
 
@@ -1053,7 +1053,7 @@ namespace glsld {
         auto uri = NormalizeUri(origin_uri);
 
         workspace_.RemoveConfiguration(uri);
-        UpdateImmediately(uri);
+        RefreshDocument(uri);
     }
 
     void LspServer::HandleChangeVariant(Context& context) {
@@ -1084,7 +1084,7 @@ namespace glsld {
             const auto& origin_uri = context.params["textDocument"]["uri"];
             auto uri = NormalizeUri(origin_uri);
             workspace_.ChangeVariant(VariantType::kPerFile, std::move(variant), uri);
-            UpdateImmediately(uri);
+            RefreshDocument(uri);
         }
     }
 
@@ -1098,11 +1098,11 @@ namespace glsld {
             const auto& origin_uri = context.params["textDocument"]["uri"];
             auto uri = NormalizeUri(origin_uri);
             workspace_.RemoveVariant(VariantType::kPerFile, uri);
-            UpdateImmediately(uri);
+            RefreshDocument(uri);
         }
     }
 
-    void LspServer::UpdateImmediately(std::string_view uri) {
+    void LspServer::RefreshDocument(std::string_view uri) {
         VersionPointer version_pointer;
         int version_replica = 0;
         {
@@ -1192,6 +1192,10 @@ namespace glsld {
             std::this_thread::sleep_until(deadline);
         }
 
+        PickupPendingUpdate(uri);
+    }
+
+    void LspServer::PickupPendingUpdate(std::string_view uri) {
         std::string    text;
         VersionPointer version_pointer;
         int            version_replica = 0;
@@ -1218,6 +1222,8 @@ namespace glsld {
             version_pointer = version_it->second;
             version_replica = update.version_replica;
             open_document   = update.open_document;
+
+            pending_updates_.erase(pending_it);
         }
 
         Update(uri, text, version_replica, version_pointer, open_document);
@@ -1309,12 +1315,17 @@ namespace glsld {
     }
 
     std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) {
+        bool need_update = false;
         {
-            std::lock_guard lock(affected_mutex_);
+            std::unique_lock lock(affected_mutex_);
             if (include_affected_uris_.contains(uri)) {
-                UpdateImmediately(uri);
+                need_update = true;
                 include_affected_uris_.erase(uri);
             }
+        }
+
+        if (need_update) {
+            PickupPendingUpdate(uri);
         }
 
         while (true) {

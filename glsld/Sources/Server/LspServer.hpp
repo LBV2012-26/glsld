@@ -90,9 +90,10 @@ namespace glsld {
         void HandleChangeVariant(Context& context);
         void HandleRemoveVariant(Context& context);
 
-        void UpdateImmediately(std::string_view uri);
+        void RefreshDocument(std::string_view uri);
         void RebuildDocuments();
         void UpdateWorker(std::string_view uri);
+        void PickupPendingUpdate(std::string_view uri);
         void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
 
         void SubmitDiagnositcTask(
