@@ -113,11 +113,12 @@
 		}
 	],
 	"shaderConfigs": {
-		"Tests/Include.glsl": {
-			"shaderStage": "frag",
+		"Tests/TestSyntax.glsl": {
+			"shaderStage": "rgen",
 			"version": "460",
 			"targetEnv": "vulkan1.4",
 			"targetSpv": "spv1.6"
 		}
-	}
+	},
+	"activeVariant": "Debug"
 }

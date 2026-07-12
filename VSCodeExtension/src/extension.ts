@@ -21,7 +21,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-import { activateSidebar, getShaderConfigs } from './sidebar';
+import { activateSidebar, getShaderConfigs, pushMacroState } from './sidebar';
 import { compileWorkspace } from './compile';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
@@ -148,7 +148,24 @@ commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvid
 			}
 		})
 	);
+
+	// Re-push shader config when a GLSL file is opened, so the server
+	// can apply stored per-file configs to the now-open document.
+	context.subscriptions.push(
+		workspace.onDidOpenTextDocument(async (doc) => {
+			if (doc.languageId === 'glsl') {
+				await pushShaderConfig();
+			}
+		})
+	);
+
 	await pushShaderConfig();
+
+	// Push variant/macro state for any already-open GLSL documents.
+	// This ensures the server knows about the active variant and per-file
+	// macros immediately on startup, rather than waiting for the user to
+	// switch editor tabs.
+	pushMacroState(client);
 }
 
 export function deactivate(): Thenable<void> | undefined {

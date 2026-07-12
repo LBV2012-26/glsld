@@ -1,7 +1,7 @@
 #ifndef INCLUDE_GLSL_
 #define INCLUDE_GLSL_
 
-const int kFuckShit114514 = 114514;
+const int k114514 = 114514;
 
 #define DECLARE_STRUCT_ARRAY(type, size) \
 struct type##Buffer {                    \

@@ -27,6 +27,7 @@ interface ConfigFile {
 	fileMacros?: FileMacrosMap;
 	shaderConfigs?: Record<string, Record<string, string>>;
 	templates?: { name: string; shaderStage?: string; version?: string; targetEnv?: string; targetSpv?: string }[];
+	activeVariant?: string | null;
 }
 
 // ============================================================
@@ -162,9 +163,9 @@ let globalActive: string | null = null;
 let lastClickedVariant: string | null = null;
 const onEvent = new vscode.EventEmitter<void>();
 
-function glslEditor(): vscode.TextEditor | null {
-	const e = vscode.window.activeTextEditor;
-	return (e && e.document.languageId === 'glsl') ? e : null;
+/** Find any open GLSL document (not just visible editor). */
+function anyGlslDocument(): vscode.TextDocument | undefined {
+	return vscode.workspace.textDocuments.find(d => d.languageId === 'glsl');
 }
 
 // ============================================================
@@ -172,17 +173,14 @@ function glslEditor(): vscode.TextEditor | null {
 // ============================================================
 
 function sendGlobalVariant(client: LanguageClient, name: string | null): void {
+	const doc = anyGlslDocument();
+	if (!doc) { return; } // no GLSL file open yet — will retry on didOpen
+
 	if (name === null) {
-		// Send empty macros to clear the global variant
-		// We send to the active editor's URI as a signal; the server
-		// applies the variant globally regardless of URI
-		const editor = glslEditor();
-		if (editor) {
-			client.sendNotification('glsld/removeVariant', {
-				textDocument: { uri: editor.document.uri.toString() },
-				scope: 'global',
-			});
-		}
+		client.sendNotification('glsld/removeVariant', {
+			textDocument: { uri: doc.uri.toString() },
+			scope: 'global',
+		});
 		return;
 	}
 
@@ -193,13 +191,10 @@ function sendGlobalVariant(client: LanguageClient, name: string | null): void {
 		return;
 	}
 
-	const editor = glslEditor();
-	if (editor) {
-		client.sendNotification('glsld/selectVariant', {
-			textDocument: { uri: editor.document.uri.toString() },
-			variant: name, macros, scope: 'global',
-		});
-	}
+	client.sendNotification('glsld/selectVariant', {
+		textDocument: { uri: doc.uri.toString() },
+		variant: name, macros, scope: 'global',
+	});
 }
 
 function sendFileMacros(client: LanguageClient, fileUri: vscode.Uri): void {
@@ -290,6 +285,10 @@ class GlobalVariantProvider implements vscode.TreeDataProvider<VariantTreeItem> 
 
 	public async select(name: string | null): Promise<void> {
 		globalActive = name;
+		// Persist active variant so it survives restart
+		const data = getData();
+		data.activeVariant = name;
+		putData(data);
 		this.refresh();
 		onEvent.fire();
 		sendGlobalVariant(this._client, name);
@@ -611,6 +610,10 @@ async function inputMacros(
 export function activateSidebar(context: vscode.ExtensionContext, client: LanguageClient): void {
 	gStorageUri = context.globalStorageUri;
 
+	// Restore last active variant from config
+	const data = getData();
+	globalActive = data.activeVariant ?? null;
+
 	const globalProvider = new GlobalVariantProvider(client);
 	const fileProvider   = new FileMacroProvider(client);
 
@@ -685,8 +688,8 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 
 		// --- Add current file to File view ---
 		vscode.commands.registerCommand('glsld.addFileMacro', async () => {
-			const editor = glslEditor();
-			if (!editor) {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || editor.document.languageId !== 'glsl') {
 				vscode.window.showWarningMessage('Open a GLSL file first.');
 				return;
 			}
@@ -719,6 +722,23 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 			globalProvider.refresh();
 			fileProvider.refresh();
 		}),
+
+		// When a GLSL file is opened, push macro state to server.
+		// This handles the case where config was loaded before any GLSL
+		// document existed (e.g. right after extension activation).
+		vscode.workspace.onDidOpenTextDocument((doc) => {
+			if (doc.languageId === 'glsl') {
+				pushMacroState(client, doc.uri);
+			}
+		}),
+
+		// When switching GLSL files, push per-file macros
+		vscode.window.onDidChangeActiveTextEditor(() => {
+			const editor = vscode.window.activeTextEditor;
+			if (editor && editor.document.languageId === 'glsl') {
+				pushMacroState(client, editor.document.uri);
+			}
+		}),
 	);
 }
 
@@ -738,3 +758,32 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 
 	export { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates };
 	export type { FileMacrosMap };
+
+	/** Push active variant + per-file macros to server on startup / file open. */
+	export function pushMacroState(client: LanguageClient, fileUri?: vscode.Uri): void {
+		// Determine which documents to push for
+		const targets = fileUri
+			? [fileUri]
+			: vscode.workspace.textDocuments
+				.filter(d => d.languageId === 'glsl')
+				.map(d => d.uri);
+
+		if (targets.length === 0) { return; }
+
+		// Global variant — use first available document URI as reference
+		if (globalActive !== null) {
+			const variants = getVariants();
+			const macros = variants[globalActive];
+			if (macros) {
+				client.sendNotification('glsld/selectVariant', {
+					textDocument: { uri: targets[0].toString() },
+					variant: globalActive, macros, scope: 'global',
+				});
+			}
+		}
+
+		// Per-file macros
+		for (const uri of targets) {
+			sendFileMacros(client, uri);
+		}
+	}

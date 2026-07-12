@@ -673,7 +673,7 @@ namespace glsld {
         nlohmann::json changes = nlohmann::json::object();
 
         for (const auto& location : locations) {
-            if (location.uri().contains("Database/Meta")) {
+            if (location.uri().contains("Database/Meta/Builtin") || location.uri().contains("Database/Meta/Extensions")) {
                 continue;
             }
 
@@ -1239,7 +1239,7 @@ namespace glsld {
         bool StartsWithVersion(std::string_view source) {
             auto trimmed = source;
             // 跳过空白行
-            while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+            while (!trimmed.empty() && (trimmed.front() == ' '  || trimmed.front() == '\t' ||
                                         trimmed.front() == '\r' || trimmed.front() == '\n'))
             {
                 trimmed.remove_prefix(1);
@@ -1252,7 +1252,7 @@ namespace glsld {
                 }
 
                 trimmed.remove_prefix(eol + 1);
-                while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+                while (!trimmed.empty() && (trimmed.front() == ' '  || trimmed.front() == '\t' ||
                                             trimmed.front() == '\r' || trimmed.front() == '\n'))
                 {
                     trimmed.remove_prefix(1);
@@ -1266,7 +1266,7 @@ namespace glsld {
                 }
 
                 trimmed.remove_prefix(end + 2);
-                while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' ||
+                while (!trimmed.empty() && (trimmed.front() == ' '  || trimmed.front() == '\t' ||
                                             trimmed.front() == '\r' || trimmed.front() == '\n'))
                 {
                     trimmed.remove_prefix(1);
