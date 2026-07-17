@@ -32,6 +32,7 @@
     <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Server\DiagnosticEngine.cpp" />
+    <ClCompile Include="Sources\Server\GlobalIndex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -69,6 +70,7 @@
     <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
     <ClInclude Include="Sources\Base\Arena.hpp" />
     <ClInclude Include="Sources\Server\DiagnosticEngine.hpp" />
+    <ClInclude Include="Sources\Server\GlobalIndex.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\Config.inl" />

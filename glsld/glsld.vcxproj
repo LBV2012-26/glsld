@@ -157,6 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Sources\Server\GlobalIndex.cpp" />
     <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
@@ -193,6 +194,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Sources\Server\GlobalIndex.hpp" />
     <ClInclude Include="Sources\Base\Arena.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />

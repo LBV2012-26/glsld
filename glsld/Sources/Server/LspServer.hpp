@@ -118,7 +118,7 @@ namespace glsld {
         ThreadPool                          thread_pool_;
         ThreadPool                          update_pool_;
         Workspace                           workspace_;
-        std::vector<std::string>            document_uris_;
+        StringHeteroHashSet                 document_uris_;
         DiagnosticEngine                    diagnostic_engine_;
         std::condition_variable             ready_condition_;
         std::mutex                          ready_mutex_;

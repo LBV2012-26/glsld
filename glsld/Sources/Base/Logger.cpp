@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "logger.hpp"
+#include "Logger.hpp"
 
 #include <algorithm>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -51,8 +51,9 @@ namespace glsld {
         initialized_ = true;
     }
 
-    void LoggerManager::OnConfigChange(const ankerl::unordered_dense::set<LoggerConfig>& old_configs,
-                                       const ankerl::unordered_dense::set<LoggerConfig>& new_configs)
+    void LoggerManager::OnConfigChange(
+        const ankerl::unordered_dense::set<LoggerConfig>& old_configs,
+        const ankerl::unordered_dense::set<LoggerConfig>& new_configs)
     {
         StringHeteroHashMap<LoggerConfig> new_configs_map;
         for (const auto& config : new_configs) {

@@ -629,7 +629,7 @@ namespace glsld {
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         ABORT_IF_CANCELLED();
-        auto [locations, symbol] = GetReferences(context, snapshot, target);
+        auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
         if (symbol == nullptr) {
             return {};
         }
@@ -665,7 +665,7 @@ namespace glsld {
         auto new_name = context.params["newName"].get<std::string>();
 
         ABORT_IF_CANCELLED();
-        auto [locations, symbol] = GetReferences(context, snapshot, target);
+        auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
         if (symbol == nullptr) {
             return {};
         }
@@ -865,7 +865,7 @@ namespace glsld {
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
 
         if (context.params["context"]["triggerCharacter"] == ".") {
-            return GetFieldCompletionItems(context, snapshot, target);
+            return GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
         }
 
         if (context.params["context"]["triggerCharacter"] == "\"" ||
@@ -914,7 +914,7 @@ namespace glsld {
         }
 
         EnqueueUpdate(uri);
-        document_uris_.push_back(std::move(uri));
+        document_uris_.insert(std::move(uri));
     }
 
     void LspServer::HandleDidChange(Context& context) {
@@ -1000,7 +1000,8 @@ namespace glsld {
         };
 
         EnqueueSubmit(std::move(item));
-        std::erase_if(document_uris_, [&uri](std::string_view u) -> bool { return u == uri; });
+        document_uris_.erase(uri);
+        include_affected_uris_.erase(uri);
     }
 
     void LspServer::HandleInitialized(Context& context) {}

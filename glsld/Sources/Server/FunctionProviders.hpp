@@ -15,6 +15,7 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Server/Context.hpp"
+#include "Server/GlobalIndex.hpp"
 
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope);
@@ -33,7 +34,11 @@ namespace glsld {
         const SymbolInfo*           symbol{ nullptr };
     };
 
-    ReferenceResult GetReferences(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    ReferenceResult GetReferences(
+        Context& context,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        const GlobalIndex& global_index);
 
     std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot);
 
@@ -52,7 +57,13 @@ namespace glsld {
         std::span<const std::filesystem::path> include_dirs);
 
     nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
-    nlohmann::json GetFieldCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+
+    nlohmann::json GetFieldCompletionItems(
+        Context& context,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        const TypeMemberIndex& type_member_index);
+
     nlohmann::json GetExtensionCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
 
     struct FunctionFormatResult {

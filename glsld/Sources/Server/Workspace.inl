@@ -45,4 +45,12 @@ namespace glsld {
     inline const StringHeteroHashMap<ExtraShaderConfig>& Workspace::shader_configs() const {
         return shader_configs_;
     }
+
+    inline const GlobalIndex& Workspace::global_index() const {
+        return global_index_;
+    }
+
+    inline const TypeMemberIndex& Workspace::type_member_index() const {
+        return type_member_index_;
+    }
 }

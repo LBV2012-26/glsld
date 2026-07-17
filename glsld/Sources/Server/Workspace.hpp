@@ -16,6 +16,7 @@
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
+#include "Server/GlobalIndex.hpp"
 
 namespace glsld {
     struct ExtraShaderConfig {
@@ -67,6 +68,8 @@ namespace glsld {
         void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
         std::span<const std::filesystem::path> include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
+        const GlobalIndex& global_index() const;
+        const TypeMemberIndex& type_member_index() const;
 
     private:
         void ProcessSource(
@@ -93,6 +96,9 @@ namespace glsld {
         mutable std::mutex                             dependency_mutex_;
         mutable std::shared_mutex                      document_mutex_;
         std::shared_mutex                              variant_mutex_;
+        GlobalIndex                                    global_index_;
+        TypeMemberIndex                                type_member_index_;
+        std::mutex                                     index_mutex_;
     };
 }
 

@@ -36,10 +36,21 @@ namespace glsld {
         ProcessSource(source_file, source, version_replica, version_pointer, *document);
 
         if (document->ast == nullptr) {
+            std::lock_guard lock(index_mutex_);
+            global_index_.RemoveDocument(uri);
+            type_member_index_.RemoveDocument(uri);
             return;
         }
 
         UpdateDependencies(uri, document);
+
+        {
+            std::lock_guard lock(index_mutex_);
+            global_index_.RemoveDocument(uri);
+            global_index_.IndexDocument(uri, *document);
+            type_member_index_.RemoveDocument(uri);
+            type_member_index_.IndexDocument(uri, document->symbols);
+        }
 
         {
             std::lock_guard lock(document_mutex_);
@@ -53,6 +64,12 @@ namespace glsld {
 
     void Workspace::RemoveDocument(std::string_view uri) {
         RemoveVariant(VariantType::kPerFile, uri);
+
+        {
+            std::lock_guard lock(index_mutex_);
+            global_index_.RemoveDocument(uri);
+            type_member_index_.RemoveDocument(uri);
+        }
 
         {
             std::lock_guard lock(document_mutex_);

@@ -570,7 +570,12 @@ namespace glsld {
         return results;
     }
 
-    ReferenceResult GetReferences(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    ReferenceResult GetReferences(
+        Context& context,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        const GlobalIndex& global_index)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -600,21 +605,23 @@ namespace glsld {
             return {};
         }
 
-        std::vector<SourceLocation> locations;
-        for (const auto& [ref_location, ref_symbol] : snapshot->bindings) {
-            ABORT_IF_CANCELLED();
+        // std::vector<SourceLocation> locations;
+        // for (const auto& [ref_location, ref_symbol] : snapshot->bindings) {
+        //     ABORT_IF_CANCELLED();
+        // 
+        //     if (std::holds_alternative<const SymbolInfo*>(ref_symbol)) {
+        //         if (std::get<const SymbolInfo*>(ref_symbol) == symbol) {
+        //             locations.push_back(ref_location);
+        //         }
+        //     } else if (std::holds_alternative<SymbolList>(ref_symbol)) {
+        //         const auto& symbols = std::get<SymbolList>(ref_symbol);
+        //         if (std::ranges::any_of(symbols, [symbol](const SymbolInfo* storaged) -> bool { return storaged == symbol; })) {
+        //             locations.push_back(ref_location);
+        //         }
+        //     }
+        // }
 
-            if (std::holds_alternative<const SymbolInfo*>(ref_symbol)) {
-                if (std::get<const SymbolInfo*>(ref_symbol) == symbol) {
-                    locations.push_back(ref_location);
-                }
-            } else if (std::holds_alternative<SymbolList>(ref_symbol)) {
-                const auto& symbols = std::get<SymbolList>(ref_symbol);
-                if (std::ranges::any_of(symbols, [symbol](const SymbolInfo* storaged) -> bool { return storaged == symbol; })) {
-                    locations.push_back(ref_location);
-                }
-            }
-        }
+        auto locations = global_index.GetReferences(symbol->location);
 
         return {
             .locations = std::move(locations),
@@ -1012,7 +1019,12 @@ namespace glsld {
         return items;
     }
 
-    nlohmann::json GetFieldCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    nlohmann::json GetFieldCompletionItems(
+        Context& context,
+        std::shared_ptr<const Document> snapshot,
+        const SourceLocation& location,
+        const TypeMemberIndex& type_member_index)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -1028,21 +1040,44 @@ namespace glsld {
         const auto* node = locator.result();
 
         nlohmann::json items = nlohmann::json::array();
+        StringHeteroHashSet existing_labels;
 
         if (const auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
             const auto& type_info = expr_node->evaluated_type;
 
-            if (type_info.block_symbol != nullptr && type_info.block_symbol->internal_scope != nullptr) {
+            if (!type_info.is_valid()) {
+                return items;
+            }
+
+            SymbolList fields;
+            if (type_info.block_symbol != nullptr && !type_info.block_symbol->name.empty()) {
+                fields = type_member_index.GetMembers(type_info.block_symbol->name);
+            }
+
+            if (fields.empty() && type_info.block_symbol != nullptr &&
+                type_info.block_symbol->internal_scope != nullptr)
+            {
                 const auto* scope = type_info.block_symbol->internal_scope;
                 for (const auto& symbol : scope->symbols()) {
                     ABORT_IF_CANCELLED();
-
-                    nlohmann::json item;
-                    item["label"] = symbol.first;
-                    item["kind"]  = 5;
-
-                    items.push_back(std::move(item));
+                    fields.push_back(symbol.second.get());
                 }
+            }
+
+            for (const auto* field : fields) {
+                ABORT_IF_CANCELLED();
+
+                if (existing_labels.contains(field->name)) {
+                    continue;
+                }
+
+                existing_labels.emplace(field->name);
+
+                nlohmann::json item;
+                item["label"] = field->name;
+                item["kind"]  = 5;
+
+                items.push_back(std::move(item));
             }
         }
 
