@@ -1,43 +1,66 @@
 #include "stdafx.h"
 #include "Source.hpp"
 
-#include <cstddef>
+#include <algorithm>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <mutex>
+#include <ranges>
+#include <system_error>
 #include <utility>
 
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path) {
-        std::ifstream stream(path, std::ios::binary);
+    std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename) {
+        std::ifstream stream(filename, std::ios::binary);
 
         if (!stream.is_open()) {
-            return { "", std::format("Failed to open {}: no such file or directory.", path.generic_string()) };
+            return std::unexpected(std::format("Failed to open {}: no such file or directory.", filename.generic_string()));
         }
 
         std::error_code ec;
-        auto size = std::filesystem::file_size(path, ec);
+        auto size = std::filesystem::file_size(filename, ec);
         if (ec) {
-            return { "", std::format("Failed to get {} size", path.generic_string()) };
+            return std::unexpected(std::format("Failed to get {} size", filename.generic_string()));
         }
 
-        std::vector<std::byte> pubsetbuf(1024 * 1024);
-        stream.rdbuf()->pubsetbuf(reinterpret_cast<char*>(pubsetbuf.data()), pubsetbuf.size());
+        std::vector<char> pubsetbuf(64 * 1024);
+        stream.rdbuf()->pubsetbuf(pubsetbuf.data(), pubsetbuf.size());
 
-        std::string source;
-        source.resize_and_overwrite(size, [&stream](char* data, auto size) -> std::size_t {
-            stream.read(data, size);
-            return stream.gcount();
-        });
+        std::vector<std::byte> binary(size);
+        stream.read(reinterpret_cast<char*>(binary.data()), size);
 
         if (!stream) {
-            return { "", std::format("Failed to read {}", path.generic_string()) };
+            return std::unexpected(std::format("Failed to read {}", filename.generic_string()));
         }
 
-        return { std::move(source), "" };
+        if (auto gcount = static_cast<std::size_t>(stream.gcount()); gcount != size) {
+            binary.resize(gcount);
+        }
+
+        return binary;
+    }
+
+    std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename) {
+        auto binary = LoadBinary(filename);
+        if (!binary.has_value()) {
+            return std::unexpected(binary.error());
+        }
+
+        auto size  = binary->size();
+        auto bytes = (*binary) | std::views::take(size) | std::views::transform([](std::byte byte) -> char {
+            return static_cast<char>(byte);
+        });
+
+        std::string source;
+        source.resize_and_overwrite(size, [&](char* buffer, std::size_t size) -> std::size_t {
+            std::ranges::copy(bytes, buffer);
+            return size;
+        });
+
+        return source;
     }
 
     SourceFile::SourceFile(std::string_view filename, std::string_view uri)

@@ -1040,7 +1040,6 @@ namespace glsld {
         const auto* node = locator.result();
 
         nlohmann::json items = nlohmann::json::array();
-        StringHeteroHashSet existing_labels;
 
         if (const auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
             const auto& type_info = expr_node->evaluated_type;
@@ -1063,6 +1062,8 @@ namespace glsld {
                     fields.push_back(symbol.second.get());
                 }
             }
+
+            StringHeteroHashSet existing_labels;
 
             for (const auto* field : fields) {
                 ABORT_IF_CANCELLED();

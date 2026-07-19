@@ -528,12 +528,12 @@ namespace glsld {
     }
 
     void MetadataManager::LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path) {
-        auto [source, error] = LoadSource(path);
-        if (!error.empty()) {
-            throw std::runtime_error("Failed to load lexical metadata: " + error);
+        auto source = LoadSource(path);
+        if (!source.has_value()) {
+            throw std::runtime_error("Failed to load lexical metadata: " + source.error());
         }
 
-        auto words      = ExtractWords(source);
+        auto words      = ExtractWords(*source);
         auto token_type = ResolveTokenType(relative_path);
         auto subtype    = BuildSubtype(relative_path);
 
@@ -559,13 +559,13 @@ namespace glsld {
         auto filename   = normalized.generic_string();
         auto uri        = utils::PathToUri(normalized);
 
-        auto [source, error] = LoadSource(normalized);
-        if (!error.empty()) {
-            throw std::runtime_error("Failed to load metadata: " + error);
+        auto source = LoadSource(normalized);
+        if (!source.has_value()) {
+            throw std::runtime_error("Failed to load metadata: " + source.error());
         }
 
         auto document = std::make_shared<Document>();
-        document->source = std::move(source);
+        document->source = std::move(*source);
         document->arena  = std::make_unique<Arena>();
 
         if (injected_macros != nullptr) {
@@ -595,12 +595,12 @@ namespace glsld {
 
     void MetadataManager::LoadNoExpandHints() {
         auto path = utils::GetFilePath("Database/NoExpandHints.txt");
-        auto [source, error] = LoadSource(path);
-        if (!error.empty()) {
-            throw std::runtime_error("Failed to load no-expand hints: " + error);
+        auto source = LoadSource(path);
+        if (!source.has_value()) {
+            throw std::runtime_error("Failed to load no-expand hints: " + source.error());
         }
 
-        auto words = ExtractWords(source);
+        auto words = ExtractWords(*source);
         for (auto word : words) {
             no_expand_hints_.insert(word);
         }

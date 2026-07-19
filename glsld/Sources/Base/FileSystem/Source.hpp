@@ -1,16 +1,18 @@
 #pragma once
 
 #include <cstddef>
+#include <expected>
 #include <memory>
 #include <shared_mutex>
 #include <string>
 #include <string_view>
-#include <utility>
+#include <vector>
 
 #include "Base/Hash.hpp"
 
 namespace glsld {
-    std::pair<std::string, std::string> LoadSource(const std::filesystem::path& path);
+    std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
+    std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
 
     class SourceFile {
     public:

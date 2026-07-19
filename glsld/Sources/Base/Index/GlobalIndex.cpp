@@ -12,34 +12,11 @@
 
 namespace glsld {
     void GlobalIndex::IndexDocument(std::string_view uri, const Document& document) {
-        std::vector<Contribution> contributions;
-        contributions.reserve(document.bindings.size());
+        auto contributions = CollectContributions(document);
+        ApplyContributions(uri, std::move(contributions));
+    }
 
-        auto AddSymbol = [&](const SourceLocation& ref_location, const SymbolInfo* symbol) -> void {
-            if (symbol == nullptr) {
-                return;
-            }
-
-            if (symbol->location.source_file() == nullptr || ref_location.source_file() == nullptr) {
-                return;
-            }
-
-            contributions.push_back({
-                .def_location = symbol->location,
-                .ref_location = ref_location
-            });
-        };
-
-        for (const auto& [location, symbol] : document.bindings) {
-            if (const auto* single = std::get_if<const SymbolInfo*>(&symbol)) {
-                AddSymbol(location, *single);
-            } else if (const auto* list = std::get_if<SymbolList>(&symbol)) {
-                for (const auto* single : *list) {
-                    AddSymbol(location, single);
-                }
-            }
-        }
-
+    void GlobalIndex::RestoreDocument(std::string_view uri, std::vector<Contribution> contributions) {
         ApplyContributions(uri, std::move(contributions));
     }
 
@@ -55,44 +32,13 @@ namespace glsld {
         document_contributions_.erase(document_it);
     }
 
-    void GlobalIndex::ApplyContributions(std::string_view uri, std::vector<Contribution> contributions) {
-        std::ranges::sort(contributions, [](const auto& lhs, const auto& rhs) -> bool {
-            const auto def_compare = lhs.def_location <=> rhs.def_location;
-
-            if (!std::is_eq(def_compare)) {
-                return std::is_lt(def_compare);
-            }
-
-            return std::is_lt(lhs.ref_location <=> rhs.ref_location);
-        });
-
-        auto [first, last] = std::ranges::unique(contributions, [](const auto& lhs, const auto& rhs) -> bool {
-            return lhs.def_location == rhs.def_location && lhs.ref_location == rhs.ref_location;
-        });
-
-        contributions.erase(first, last);
-
-        std::lock_guard lock(mutex_);
-
-        auto old_document_it = document_contributions_.find(uri);
-        if (old_document_it != document_contributions_.end()) {
-            WithdrawOldContributionLocked(old_document_it->second);
-        }
-
-        for (const auto& [def_location, ref_location] : contributions) {
-            ++references_[def_location][ref_location];
-        }
-
-        document_contributions_.insert_or_assign(uri, std::move(contributions));
-    }
-
-    std::vector<SourceLocation> GlobalIndex::GetReferences(const SourceLocation& def_location) const {
+    std::vector<SourceLocation> GlobalIndex::GetReferences(const SourceLocation& definition) const {
         std::vector<SourceLocation> result;
 
         {
             std::shared_lock lock(mutex_);
 
-            auto it = references_.find(def_location);
+            auto it = references_.find(definition);
             if (it == references_.end()) {
                 return result;
             }
@@ -143,15 +89,78 @@ namespace glsld {
         document_contributions_.clear();
     }
 
+    std::vector<Contribution> GlobalIndex::CollectContributions(const Document& document) {
+        std::vector<Contribution> contributions;
+        contributions.reserve(document.bindings.size());
+
+        auto AddSymbol = [&](const SourceLocation& reference, const SymbolInfo* symbol) -> void {
+            if (symbol == nullptr) {
+                return;
+            }
+
+            if (symbol->location.source_file() == nullptr || reference.source_file() == nullptr) {
+                return;
+            }
+
+            contributions.push_back({
+                .definition = symbol->location,
+                .reference  = reference
+            });
+        };
+
+        for (const auto& [location, symbol] : document.bindings) {
+            if (const auto* single = std::get_if<const SymbolInfo*>(&symbol)) {
+                AddSymbol(location, *single);
+            } else if (const auto* list = std::get_if<SymbolList>(&symbol)) {
+                for (const auto* single : *list) {
+                    AddSymbol(location, single);
+                }
+            }
+        }
+
+        return contributions;
+    }
+
+    void GlobalIndex::ApplyContributions(std::string_view uri, std::vector<Contribution> contributions) {
+        std::ranges::sort(contributions, [](const auto& lhs, const auto& rhs) -> bool {
+            const auto def_compare = lhs.definition <=> rhs.definition;
+
+            if (!std::is_eq(def_compare)) {
+                return std::is_lt(def_compare);
+            }
+
+            return std::is_lt(lhs.reference <=> rhs.reference);
+        });
+
+        auto [first, last] = std::ranges::unique(contributions, [](const auto& lhs, const auto& rhs) -> bool {
+            return lhs.definition == rhs.definition && lhs.reference == rhs.reference;
+        });
+
+        contributions.erase(first, last);
+
+        std::lock_guard lock(mutex_);
+
+        auto old_document_it = document_contributions_.find(uri);
+        if (old_document_it != document_contributions_.end()) {
+            WithdrawOldContributionLocked(old_document_it->second);
+        }
+
+        for (const auto& [definition, reference] : contributions) {
+            ++references_[definition][reference];
+        }
+
+        document_contributions_.insert_or_assign(uri, std::move(contributions));
+    }
+
     void GlobalIndex::WithdrawOldContributionLocked(std::span<const Contribution> contributions) {
-        for (const auto& [def_location, ref_location] : contributions) {
-            auto definition_it = references_.find(def_location);
+        for (const auto& [definition, reference] : contributions) {
+            auto definition_it = references_.find(definition);
             if (definition_it == references_.end()) {
                 continue;
             }
 
             auto& ref_counts = definition_it->second;
-            auto reference_it = ref_counts.find(ref_location);
+            auto reference_it = ref_counts.find(reference);
             if (reference_it == ref_counts.end()) {
                 continue;
             }

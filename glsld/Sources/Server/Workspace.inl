@@ -1,6 +1,7 @@
 #include "Workspace.hpp"
 
 #include <utility>
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     inline const SourceFile* Workspace::InternSource(std::string_view uri) {
@@ -32,6 +33,10 @@ namespace glsld {
 
     inline void Workspace::RemoveConfiguration(std::string_view key) {
         shader_configs_.erase(key);
+    }
+
+    inline void Workspace::ScheduleDiskIndexByUri(std::string_view uri) {
+        ScheduleDiskIndex(utils::PathToUri(uri));
     }
 
     inline void Workspace::set_include_dirs(std::vector<std::filesystem::path> include_dirs) {

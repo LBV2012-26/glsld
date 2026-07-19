@@ -15,22 +15,25 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
+    struct Contribution {
+        SourceLocation definition;
+        SourceLocation reference;
+    };
+
     class GlobalIndex {
     public:
-        struct Contribution {
-            SourceLocation def_location;
-            SourceLocation ref_location;
-        };
-
         void IndexDocument(std::string_view uri, const Document& document);
+        void RestoreDocument(std::string_view uri, std::vector<Contribution> contributions);
         void RemoveDocument(std::string_view uri);
-        void ApplyContributions(std::string_view uri, std::vector<Contribution> contributions);
 
-        std::vector<SourceLocation> GetReferences(const SourceLocation& def_location) const;
+        std::vector<SourceLocation> GetReferences(const SourceLocation& definition) const;
         void DumpStatus() const;
         void Clear();
 
+        static std::vector<Contribution> CollectContributions(const Document& document);
+
     private:
+        void ApplyContributions(std::string_view uri, std::vector<Contribution> contributions);
         void WithdrawOldContributionLocked(std::span<const Contribution> contributions);
 
         using RefCountMap = ankerl::unordered_dense::map<SourceLocation, std::size_t, LocationHash>;

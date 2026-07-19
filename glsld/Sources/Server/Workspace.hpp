@@ -1,12 +1,16 @@
 #pragma once
 
+#include <cstdint>
 #include <atomic>
+#include <condition_variable>
 #include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <shared_mutex>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -14,9 +18,10 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Index/GlobalIndex.hpp"
+#include "Base/Index/IndexCache.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
-#include "Server/GlobalIndex.hpp"
 
 namespace glsld {
     struct ExtraShaderConfig {
@@ -65,6 +70,19 @@ namespace glsld {
         void ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri = "");
         void RemoveVariant(VariantType type, std::string_view uri = "");
 
+        void StartBackgroundIndex(
+            std::vector<std::filesystem::path> roots,
+            std::filesystem::path cache_path,
+            std::string cache_key);
+
+        void StopBackgroundIndex();
+
+        void MarkDocumentOpen(std::string_view uri);
+        void CloseDocument(std::string_view uri);
+
+        void ScheduleDiskIndex(const std::filesystem::path& filename);
+        void ScheduleDiskIndexByUri(std::string_view uri);
+
         void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
         std::span<const std::filesystem::path> include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
@@ -80,8 +98,23 @@ namespace glsld {
             Document& document);
 
         void UnregisterDependencies(std::string_view uri);
+        void UpdateDependencies(std::string_view uri, std::span<const std::string> dependencies);
         void UpdateDependencies(std::string_view uri, std::shared_ptr<const Document> document);
         void RemoveDependencies(std::string_view uri);
+
+        void BackgroundIndexLoop(std::stop_token stop_token);
+        void LoadBackgroundCache();
+        void ReconcileWorkspace();
+
+        void ProcessDiskIndexTask(
+            std::string_view uri,
+            const std::filesystem::path& filename,
+            std::uint64_t generation);
+
+        void FlushBackgroundCache();
+
+        std::vector<std::filesystem::path> DiscoverIndexCandidates() const;
+        bool IsIndexCandidate(const std::filesystem::path& filename) const;
 
         StringHeteroHashMap<std::shared_ptr<Document>> documents_;
         StringHeteroHashMap<ExtraShaderConfig>         shader_configs_; // [Uri, Config]
@@ -99,6 +132,23 @@ namespace glsld {
         GlobalIndex                                    global_index_;
         TypeMemberIndex                                type_member_index_;
         std::mutex                                     index_mutex_;
+
+        std::vector<std::filesystem::path>             index_roots_;
+        std::filesystem::path                          index_cache_path_;
+        std::string                                    index_cache_key_;
+
+        StringHeteroHashMap<DiskIndexRecord>           disk_index_records_;
+        StringHeteroHashMap<std::filesystem::path>     pending_disk_paths_;
+        StringHeteroHashMap<std::uint64_t>             index_generations_;
+        StringHeteroHashSet                            open_document_uris_;
+        StringHeteroHashSet                            queued_disk_uris_;
+
+        std::queue<std::string>                        disk_index_queue_;
+
+        std::mutex                                     background_index_mutex_;
+        std::condition_variable_any                    background_index_condition_;
+        std::jthread                                   background_index_thread_;
+        bool                                           background_cache_dirty_{ false };
     };
 }
 
