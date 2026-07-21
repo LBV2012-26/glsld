@@ -41,9 +41,6 @@ namespace glsld {
         ProcessSource(source_file, source, version_replica, version_pointer, *document);
 
         if (document->ast == nullptr) {
-            std::lock_guard lock(index_mutex_);
-            global_index_.RemoveDocument(uri);
-            type_member_index_.RemoveDocument(uri);
             return;
         }
 
@@ -51,7 +48,7 @@ namespace glsld {
 
         {
             std::lock_guard lock(index_mutex_);
-            global_index_.RemoveDocument(uri);
+
             global_index_.IndexDocument(uri, *document);
             type_member_index_.RemoveDocument(uri);
             type_member_index_.IndexDocument(uri, document->symbols);
@@ -65,23 +62,6 @@ namespace glsld {
                 documents_[uri] = std::move(document);
             }
         }
-    }
-
-    void Workspace::RemoveDocument(std::string_view uri) {
-        RemoveVariant(VariantType::kPerFile, uri);
-
-        {
-            std::lock_guard lock(index_mutex_);
-            global_index_.RemoveDocument(uri);
-            type_member_index_.RemoveDocument(uri);
-        }
-
-        {
-            std::lock_guard lock(document_mutex_);
-            documents_.erase(uri);
-        }
-
-        RemoveDependencies(uri);
     }
 
     std::shared_ptr<Document> Workspace::GetDocumentSnapshot(std::string_view uri) const {
@@ -260,13 +240,16 @@ namespace glsld {
 
         Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
-                            version_replica, version_pointer->load());
+            if (version_pointer != nullptr) {
+                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
+                version_replica, version_pointer->load());
+            }
+
             return;
         }
 
         auto Cancelled = [version_replica, &version_pointer]() -> bool {
-            if (version_replica != version_pointer->load()) {
+            if (version_pointer != nullptr && version_replica != version_pointer->load()) {
                 GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling update.",
                                 version_replica, version_pointer->load());
                 return true;
@@ -505,10 +488,9 @@ namespace glsld {
         document->source  = std::move(*source);
         document->version = 0;
 
-        auto version = std::make_shared<std::atomic<int>>(0);
         const auto* source_file = source_table_.InternByUri(uri);
 
-        ProcessSource(source_file, document->source, 0, version, *document);
+        ProcessSource(source_file, document->source, 0, nullptr, *document);
         if (document->ast == nullptr) {
             return;
         }

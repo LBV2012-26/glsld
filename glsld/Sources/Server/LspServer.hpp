@@ -2,12 +2,14 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
 #include <shared_mutex>
+#include <stop_token>
 #include <string>
 
 #include <ankerl/unordered_dense.h>
@@ -112,7 +114,7 @@ namespace glsld {
             bool                                  open_document{ false };
         };
 
-        std::atomic<bool>                   running_{ true };
+        std::stop_source                    stop_source_;
         std::atomic<int>                    server_request_id_{};
         Router                              router_;
         ThreadPool                          thread_pool_;
@@ -120,8 +122,10 @@ namespace glsld {
         Workspace                           workspace_;
         StringHeteroHashSet                 document_uris_;
         DiagnosticEngine                    diagnostic_engine_;
-        std::condition_variable             ready_condition_;
+        std::condition_variable_any         ready_condition_;
         std::mutex                          ready_mutex_;
+
+        std::vector<std::filesystem::path>  workspace_roots_;
 
         StringHeteroHashMap<PendingUpdate>  pending_updates_;
         std::shared_mutex                   pending_mutex_;
@@ -132,15 +136,15 @@ namespace glsld {
         std::shared_mutex                   affected_mutex_;
 
         std::mutex                          task_mutex_;
-        std::condition_variable             task_condition_;
+        std::condition_variable_any         task_condition_;
         std::queue<LspTask>                 task_queue_;
 
         std::mutex                          submit_mutex_;
-        std::condition_variable             submit_condition_;
+        std::condition_variable_any         submit_condition_;
         std::queue<LspSubmitItem>           submit_queue_;
 
         std::mutex                          update_mutex_;
-        std::condition_variable             update_condition_;
+        std::condition_variable_any         update_condition_;
         std::queue<std::function<void()>>   update_queue_;
 
         CancellationTokenTable              cancellation_tokens_; // [Request ID, Token]

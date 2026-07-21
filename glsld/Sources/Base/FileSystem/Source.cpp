@@ -72,6 +72,8 @@ namespace glsld {
     }
 
     const SourceFile* SourceTable::Intern(std::string_view filename, std::string_view uri) {
+        std::lock_guard lock(shared_mutex_);
+
         auto it = sources_.find(filename);
         if (it != sources_.end()) {
             return it->second.get();
@@ -79,7 +81,6 @@ namespace glsld {
 
         auto source = std::make_unique<SourceFile>(filename, uri);
 
-        std::unique_lock lock(shared_mutex_);
         auto [inserted_it, _] = sources_.try_emplace(std::string(filename), std::move(source));
         return inserted_it->second.get();
     }
@@ -122,11 +123,13 @@ namespace glsld {
 
     void SourceTable::RemoveByFilename(std::string_view filename) {
         auto normalized = utils::NormalizePath(std::filesystem::path(filename)).generic_string();
+        std::lock_guard lock(shared_mutex_);
         sources_.erase(normalized);
     }
 
     void SourceTable::RemoveByUri(std::string_view uri) {
         auto filename = utils::UriToPath(uri).generic_string();
+        std::lock_guard lock(shared_mutex_);
         sources_.erase(filename);
     }
 

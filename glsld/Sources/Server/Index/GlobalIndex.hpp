@@ -37,7 +37,7 @@ namespace glsld {
         void WithdrawOldContributionLocked(std::span<const Contribution> contributions);
 
         using RefCountMap = ankerl::unordered_dense::map<SourceLocation, std::size_t, LocationHash>;
-        ankerl::unordered_dense::map<SourceLocation, RefCountMap, LocationHash> references_; // [def_location, [ref_location, count]]
+        ankerl::unordered_dense::map<SourceLocation, RefCountMap, LocationHash> references_; // [Definition, [Reference, RefCount]]
 
         StringHeteroHashMap<std::vector<Contribution>>                          document_contributions_;
         mutable std::shared_mutex                                               mutex_;
@@ -52,28 +52,8 @@ namespace glsld {
         void Clear();
 
     private:
-        StringHeteroHashMap<SymbolList>               type_members_;       // [type_name, members]
-        StringHeteroHashMap<std::vector<std::string>> document_typenames_; // [uri, typenames]
+        StringHeteroHashMap<SymbolList>               type_members_;       // [TypeName, Fields]
+        StringHeteroHashMap<std::vector<std::string>> document_typenames_; // [Uri, TypeNames]
         mutable std::shared_mutex                     mutex_;
-    };
-
-    class CompletionTrie {
-    public:
-        struct TrieNode {
-            SymbolList                                                    symbols;
-            ankerl::unordered_dense::map<char, std::unique_ptr<TrieNode>> children;
-        };
-
-        CompletionTrie();
-
-        void Build(const DocumentSymbols& symbols);
-        void Search(std::string_view prefix, SymbolList& result) const;
-        void Clear();
-
-    private:
-        void Insert(std::string_view name, const SymbolInfo* symbol);
-        void CollectScope(const Scope& scope);
-
-        std::unique_ptr<TrieNode> root_;
     };
 }

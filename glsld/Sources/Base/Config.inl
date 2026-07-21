@@ -25,13 +25,13 @@ namespace glsld {
     }
 
     template <IsPod From>
-    std::string LexicalCast<From, std::string>::operator()(const From& value) {
+    std::string LexicalCast<From, std::string>::operator()(From value) {
         std::size_t buffer_size = 0;
-        if constexpr (std::is_same_v<From, float>) {
+        if constexpr (std::same_as<From, float>) {
             buffer_size = 50;
-        } else if constexpr (std::is_same_v<From, double>) {
+        } else if constexpr (std::same_as<From, double>) {
             buffer_size = 330;
-        } else if constexpr (std::is_same_v<From, long double>) {
+        } else if constexpr (std::same_as<From, long double>) {
             buffer_size = 4955;
         } else {
             buffer_size = std::numeric_limits<From>::digits10 + 2;
@@ -90,7 +90,7 @@ namespace glsld {
 
         YAML::Emitter emitter;
         emitter << node;
-        return emitter.c_str();
+        return std::string(emitter.c_str());
     }
 
     // template <IsSequenceLikeContainer Ty>
@@ -102,7 +102,7 @@ namespace glsld {
     // 
     //     YAML::Emitter emitter;
     //     emitter << node;
-    //     return emitter.c_str();
+    //     return std::string(emitter.c_str());
     // }
 
     // template <IsMapContainer Ty>
@@ -114,7 +114,7 @@ namespace glsld {
     // 
     //     YAML::Emitter emitter;
     //     emitter << node;
-    //     return emitter.c_str();
+    //     return std::string(emitter.c_str());
     // }
 
     inline const std::string& ConfigBase::name() const {

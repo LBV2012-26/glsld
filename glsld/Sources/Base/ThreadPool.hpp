@@ -3,7 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <atomic>
+#include <condition_variable>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -24,13 +28,16 @@ namespace glsld {
         std::uint32_t max_thread_count() const;
 
     private:
-        struct Worker;
+        struct Worker {
+            std::queue<std::function<void()>> tasks;
+            std::condition_variable_any       condition;
+            std::mutex                        mutex;
+        };
 
         std::vector<std::unique_ptr<Worker>> workers_;
         std::vector<std::jthread>            threads_;
         std::atomic<std::size_t>             next_thread_index_{};
         std::uint32_t                        max_thread_count_;
-        std::atomic<bool>                    terminate_{ false };
     };
 }
 

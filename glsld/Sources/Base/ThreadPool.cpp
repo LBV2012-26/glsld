@@ -3,8 +3,7 @@
 
 #include <cstdint>
 #include <algorithm>
-#include <functional>
-#include <mutex>
+#include <stop_token>
 #include <utility>
 
 namespace glsld {
@@ -19,17 +18,17 @@ namespace glsld {
         }
 
         for (auto i = 0uz; i != max_thread_count_; ++i) {
-            threads_.emplace_back([this, i]() -> void {
+            threads_.emplace_back([this, i](std::stop_token stop_token) -> void {
                 Worker& worker = *workers_[i];
-                while (true) {
+                while (!stop_token.stop_requested()) {
                     std::function<void()> task;
                     {
                         std::unique_lock lock(worker.mutex);
-                        worker.condition.wait(lock, [this, &worker]() -> bool {
-                            return !worker.tasks.empty() || terminate_;
+                        bool normally = worker.condition.wait(lock, stop_token, [&worker]() -> bool {
+                            return !worker.tasks.empty();
                         });
 
-                        if (terminate_ && worker.tasks.empty()) {
+                        if (!normally && worker.tasks.empty()) {
                             return;
                         }
 
@@ -44,8 +43,12 @@ namespace glsld {
     }
 
     ThreadPool::~ThreadPool() {
-        terminate_.store(true);
+        for (auto& thread : threads_) {
+            thread.request_stop();
+        }
+
         for (auto& worker : workers_) {
+            std::lock_guard lock(worker->mutex);
             worker->condition.notify_one();
         }
     }

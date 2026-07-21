@@ -1,19 +1,10 @@
 #include "ThreadPool.hpp"
 
-#include <functional>
 #include <future>
-#include <mutex>
-#include <queue>
 #include <type_traits>
 #include <utility>
 
 namespace glsld {
-    struct ThreadPool::Worker {
-        std::queue<std::function<void()>> tasks;
-        std::condition_variable           condition;
-        std::mutex                        mutex;
-    };
-
     template <typename Func, typename... Types>
     auto ThreadPool::Submit(Func&& pred, Types&&... args) {
         using ReturnType = std::invoke_result_t<Func, Types...>;

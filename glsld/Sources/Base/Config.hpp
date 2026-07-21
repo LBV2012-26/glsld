@@ -36,7 +36,7 @@ namespace glsld {
 
     template <IsPod From>
     struct LexicalCast<From, std::string> {
-        std::string operator()(const From& value);
+        std::string operator()(From value);
     };
 
     template <typename Ty>
@@ -120,7 +120,7 @@ namespace glsld {
 
             YAML::Emitter emitter;
             emitter << node;
-            return emitter.c_str();
+            return std::string(emitter.c_str());
         }
     };
 
@@ -134,7 +134,7 @@ namespace glsld {
 
             YAML::Emitter emitter;
             emitter << node;
-            return emitter.c_str();
+            return std::string(emitter.c_str());
         }
     };
 

@@ -18,10 +18,10 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
-#include "Base/Index/GlobalIndex.hpp"
-#include "Base/Index/IndexCache.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
+#include "Server/Index/GlobalIndex.hpp"
+#include "Server/Index/IndexCache.hpp"
 
 namespace glsld {
     struct ExtraShaderConfig {
@@ -55,7 +55,6 @@ namespace glsld {
             std::shared_ptr<const std::atomic<int>> version_pointer,
             bool open_document = false);
 
-        void RemoveDocument(std::string_view uri);
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
         std::vector<std::string> GetAffectedDocuments(std::string_view changed_uri) const;
 

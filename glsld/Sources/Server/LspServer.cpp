@@ -91,7 +91,9 @@ namespace glsld {
         submit_thread.detach();
         update_thread.detach();
 
-        while (running_.load(std::memory_order::relaxed) && std::cin.good()) {
+        auto stop_token = stop_source_.get_token();
+
+        while (!stop_token.stop_requested() && std::cin.good()) {
             auto message = ReadMessage();
             if (!message.has_value()) {
                 break;
@@ -246,15 +248,16 @@ namespace glsld {
     }
 
     void LspServer::WorkerLoop() {
-        while (running_.load(std::memory_order::relaxed)) {
+        auto stop_token = stop_source_.get_token();
+        while (!stop_token.stop_requested()) {
             LspTask task;
             {
                 std::unique_lock lock(task_mutex_);
-                task_condition_.wait(lock, [this]() -> bool {
-                    return !task_queue_.empty() || !running_.load(std::memory_order::relaxed);
+                bool keep = task_condition_.wait(lock, stop_token, [this]() -> bool {
+                    return !task_queue_.empty();
                 });
 
-                if (!running_.load(std::memory_order::relaxed)) {
+                if (!keep) {
                     return;
                 }
 
@@ -320,15 +323,16 @@ namespace glsld {
     }
 
     void LspServer::SubmitLoop() {
-        while (running_.load(std::memory_order::relaxed)) {
+        auto stop_token = stop_source_.get_token();
+        while (!stop_token.stop_requested()) {
             LspSubmitItem item;
             {
                 std::unique_lock lock(submit_mutex_);
-                submit_condition_.wait(lock, [this]() -> bool {
-                    return !submit_queue_.empty() || !running_.load(std::memory_order::relaxed);
+                bool keep = submit_condition_.wait(lock, stop_token, [this]() -> bool {
+                    return !submit_queue_.empty();
                 });
 
-                if (!running_.load(std::memory_order::relaxed)) {
+                if (!keep) {
                     return;
                 }
 
@@ -349,15 +353,16 @@ namespace glsld {
     }
 
     void LspServer::UpdateLoop() {
-        while (running_.load(std::memory_order::relaxed)) {
+        auto stop_token = stop_source_.get_token();
+        while (!stop_token.stop_requested()) {
             std::function<void()> work;
             {
                 std::unique_lock lock(update_mutex_);
-                update_condition_.wait(lock, [this]() -> bool {
-                    return !update_queue_.empty() || !running_.load(std::memory_order::relaxed);
+                bool keep = update_condition_.wait(lock, stop_token, [this]() -> bool {
+                    return !update_queue_.empty();
                 });
 
-                if (!running_.load(std::memory_order::relaxed)) {
+                if (!keep) {
                     return;
                 }
 
@@ -428,6 +433,18 @@ namespace glsld {
     // Request Handlers
     // ----------------
     nlohmann::json LspServer::HandleInitialize(Context& context) {
+        workspace_roots_.clear();
+
+        if (context.params.contains("workspaceFolders") && context.params["workspaceFolders"].is_array()) {
+            for (const auto& folder : context.params["workspaceFolders"]) {
+                if (folder.contains("uri")) {
+                    workspace_roots_.push_back(utils::UriToPath(folder["uri"].get<std::string>()));
+                }
+            }
+        } else if (context.params.contains("rootUri") && !context.params["rootUri"].is_null()) {
+            workspace_roots_.push_back(utils::UriToPath(context.params["rootUri"].get<std::string>()));
+        }
+
         nlohmann::json capabilities;
 
         capabilities["textDocumentSync"] = {
@@ -913,6 +930,7 @@ namespace glsld {
             document_versions_[uri] = std::make_shared<std::atomic<int>>(version);
         }
 
+        workspace_.MarkDocumentOpen(uri);
         EnqueueUpdate(uri);
         document_uris_.insert(std::move(uri));
     }
@@ -952,6 +970,7 @@ namespace glsld {
             }
         }
 
+        workspace_.ScheduleDiskIndexByUri(uri);
         EnqueueUpdate(uri);
     }
 
@@ -977,7 +996,7 @@ namespace glsld {
     void LspServer::HandleDidClose(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         auto uri = NormalizeUri(origin_uri);
-        workspace_.RemoveDocument(uri);
+        workspace_.CloseDocument(uri);
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -992,7 +1011,7 @@ namespace glsld {
 
         LspSubmitItem item{
             .payload = {
-                { "uri", std::move(uri) },
+                { "uri", uri },
                 { "diagnostics", nlohmann::json::array() }
             },
             .notify_method = "textDocument/publishDiagnostics",
@@ -1004,10 +1023,19 @@ namespace glsld {
         include_affected_uris_.erase(uri);
     }
 
-    void LspServer::HandleInitialized(Context& context) {}
+    void LspServer::HandleInitialized(Context& context) {
+        if (workspace_roots_.empty()) {
+            return;
+        }
+
+        auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
+        std::string cache_key = "glsld-global-index-parser-v1";
+
+        workspace_.StartBackgroundIndex(workspace_roots_, std::move(cache_path), std::move(cache_key));
+    }
 
     void LspServer::HandleExit(Context& context) {
-        running_.store(false);
+        stop_source_.request_stop();
     }
 
     void LspServer::HandleConfigure(Context& context) {
@@ -1329,7 +1357,9 @@ namespace glsld {
             PickupPendingUpdate(uri);
         }
 
-        while (true) {
+        auto stop_token = stop_source_.get_token();
+
+        while (!stop_token.stop_requested()) {
             GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
             if (context.cancelled()) {
                 GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Validation for document {} exit beacuse request {} cancelled.", uri, context.request_id->dump());
@@ -1360,7 +1390,7 @@ namespace glsld {
             }
 
             std::unique_lock lock(ready_mutex_);
-            ready_condition_.wait(lock, [this, &context, &uri, expected_version]() -> bool {
+            ready_condition_.wait(lock, stop_token, [this, &context, &uri, expected_version]() -> bool {
                 if (context.cancelled()) {
                     GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Waiting for document {} exit because request {} cancelled while waiting.", uri, context.request_id->dump());
                     return true;

@@ -14,7 +14,7 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/Source.hpp"
-#include "Base/Index/GlobalIndex.hpp"
+#include "Server/Index/GlobalIndex.hpp"
 #include "Server/Context.hpp"
 
 namespace glsld {
