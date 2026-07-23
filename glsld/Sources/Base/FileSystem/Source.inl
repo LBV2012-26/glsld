@@ -15,6 +15,14 @@ namespace glsld {
         return uri_;
     }
 
+    inline SourceKind SourceFile::kind() const {
+        return kind_;
+    }
+
+    inline bool SourceFile::indexable() const {
+        return kind_ == SourceKind::kWorkspace;
+    }
+
     inline std::size_t SourceFileHash::operator()(const SourceFile* source) const {
         return source->cached_hash_;
     }

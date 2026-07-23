@@ -1138,6 +1138,44 @@ namespace glsld {
         return true;
     }
 
+    namespace {
+        // const int kConstant = 0;
+        // layout(constant_id = 0) kConstant;
+        bool IsLayoutAttachment(const TypeSpecifier& type_spec) {
+            if (type_spec.layouts.empty() ||
+                !type_spec.template_args.empty() ||
+                !type_spec.array_sizes.empty() ||
+                !type_spec.spirv_intrinsics.empty())
+            {
+                return false;
+            }
+
+            if (!std::ranges::all_of(type_spec.specifiers, [](const Token& token) -> bool {
+                return token.text == "layout";
+            })) {
+                return false;
+            }
+
+            return std::ranges::any_of(type_spec.layouts, [](const auto& layout) -> bool {
+                return std::ranges::any_of(layout->params, [](const auto& param) -> bool {
+                    return param->arg_kind == QualifierArgumentKind::kAssignment
+                        && !param->children.empty()
+                        && param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier
+                        && param->children.front()->token.text == "constant_id";
+                });
+            });
+        }
+
+        void MergeAttachedLayouts(TypeSpecifier& target, TypeSpecifier&& attachment) {
+            auto spec_pos = std::ranges::find_if(target.specifiers, [](const Token& token) -> bool {
+                return token.text != "layout";
+            });
+
+            target.specifiers.insert_range(spec_pos, attachment.specifiers | std::views::as_rvalue);
+            target.layouts.append_range(attachment.layouts | std::views::as_rvalue);
+        }
+    }
+
     std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpecifier type_spec) {
         // current token is variable name or semicolon
         if (current_token().type == TokenType::kSemicolon) {
@@ -1157,9 +1195,31 @@ namespace glsld {
             const auto& name_token = current_token();
             auto node = std::make_unique<VariableDeclarationNode>(current_scope());
 
-            node->begin           = type_spec.begin_location();
-            node->type_spec       = type_spec;
-            node->declared_symbol = current_scope()->AddSymbol(node.get(), name_token.text, name_token.location, SymbolKind::kVariable);
+            node->begin     = type_spec.begin_location();
+            node->type_spec = type_spec;
+
+            if (IsLayoutAttachment(node->type_spec) && PeekToken().type == TokenType::kSemicolon) {
+                const auto& existing_symbol = current_scope()->FindSymbol(name_token.text);
+                if (existing_symbol != nullptr && existing_symbol->kind == SymbolKind::kVariable) {
+                    document_.bindings.try_emplace(name_token.location, existing_symbol);
+
+                    auto it = variable_declaration_cache_.find(existing_symbol);
+                    if (it != variable_declaration_cache_.end()) {
+                        auto* original_decl = it->second;
+                        MergeAttachedLayouts(original_decl->type_spec, std::move(node->type_spec));
+                    }
+                }
+
+                ConsumeToken(); // kConstant
+                return nullptr;
+            }
+
+            node->declared_symbol = current_scope()->AddSymbol(
+                node.get(), name_token.text, name_token.location, SymbolKind::kVariable);
+
+            if (node->declared_symbol != nullptr && node->declared_symbol->node == node.get()) {
+                variable_declaration_cache_.try_emplace(node->declared_symbol, node.get());
+            }
 
             ConsumeToken();
 

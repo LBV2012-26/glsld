@@ -79,7 +79,7 @@ namespace glsld {
         std::shared_mutex                         builtin_mutex_;
         std::atomic<bool>                         lexical_loaded_{ false };
         ThreadPool                                thread_pool_{ std::thread::hardware_concurrency() };
-        SourceTable                               source_table_;
+        SourceTable                               source_table_{ SourceKind::kMetadata };
         IncludeLoader                             include_loader_;
     };
 }

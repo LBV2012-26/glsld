@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include <ankerl/unordered_dense.h>
+
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
@@ -141,6 +143,11 @@ namespace glsld {
         int                                     version_replica_{};
         std::shared_ptr<const std::atomic<int>> version_pointer_;
         Document&                               document_;
+
+        // for re-attach syntax like
+        // const int kConstant = 0;
+        // layout(constant_id = 0) kConstant;
+        ankerl::unordered_dense::map<const SymbolInfo*, VariableDeclarationNode*> variable_declaration_cache_;
     };
 }
 

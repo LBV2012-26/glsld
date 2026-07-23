@@ -27,11 +27,11 @@ namespace glsld {
         });
     }
 
-    inline void Workspace::Configure(std::string_view key, ExtraShaderConfig config) {
+    inline void Workspace::AddExtraShaderConfig(std::string_view key, ExtraShaderConfig config) {
         shader_configs_[key] = std::move(config);
     }
 
-    inline void Workspace::RemoveConfiguration(std::string_view key) {
+    inline void Workspace::RemoveExtraShaderConfig(std::string_view key) {
         shader_configs_.erase(key);
     }
 

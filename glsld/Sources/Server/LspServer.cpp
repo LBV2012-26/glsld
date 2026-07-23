@@ -690,7 +690,7 @@ namespace glsld {
         nlohmann::json changes = nlohmann::json::object();
 
         for (const auto& location : locations) {
-            if (location.uri().contains("Database/Meta/Builtin") || location.uri().contains("Database/Meta/Extensions")) {
+            if (location.source_file()->kind() == SourceKind::kMetadata) {
                 continue;
             }
 
@@ -1072,7 +1072,7 @@ namespace glsld {
 
             auto normalized_uri = NormalizeUri(key);
 
-            workspace_.Configure(std::move(normalized_uri), std::move(config));
+            workspace_.AddExtraShaderConfig(std::move(normalized_uri), std::move(config));
             RefreshDocument(normalized_uri);
         }
     }
@@ -1081,7 +1081,7 @@ namespace glsld {
         const auto& origin_uri = context.params["uri"];
         auto uri = NormalizeUri(origin_uri);
 
-        workspace_.RemoveConfiguration(uri);
+        workspace_.RemoveExtraShaderConfig(uri);
         RefreshDocument(uri);
     }
 

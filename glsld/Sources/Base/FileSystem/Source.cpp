@@ -63,13 +63,18 @@ namespace glsld {
         return source;
     }
 
-    SourceFile::SourceFile(std::string_view filename, std::string_view uri)
+    SourceFile::SourceFile(std::string_view filename, std::string_view uri, SourceKind kind)
         : filename_{ filename }
         , uri_{ uri }
+        , kind_{ kind }
     {
         HashCombine(cached_hash_, filename_);
         HashCombine(cached_hash_, uri_);
     }
+
+    SourceTable::SourceTable(SourceKind default_kind)
+        : default_kind_{ default_kind }
+    {}
 
     const SourceFile* SourceTable::Intern(std::string_view filename, std::string_view uri) {
         std::lock_guard lock(shared_mutex_);
@@ -79,7 +84,7 @@ namespace glsld {
             return it->second.get();
         }
 
-        auto source = std::make_unique<SourceFile>(filename, uri);
+        auto source = std::make_unique<SourceFile>(filename, uri, default_kind_);
 
         auto [inserted_it, _] = sources_.try_emplace(std::string(filename), std::move(source));
         return inserted_it->second.get();

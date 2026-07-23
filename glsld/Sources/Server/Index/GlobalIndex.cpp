@@ -11,6 +11,18 @@
 #include "Base/Logger.hpp"
 
 namespace glsld {
+    namespace {
+        bool IsIndexableLocation(const SourceLocation& location) {
+            const auto* source = location.source_file();
+            return source != nullptr && source->indexable();
+        }
+
+        bool IsIndexableContribution(const Contribution& contribution) {
+            return IsIndexableLocation(contribution.definition)
+                && IsIndexableLocation(contribution.reference);
+        }
+    }
+
     void GlobalIndex::IndexDocument(std::string_view uri, const Document& document) {
         auto contributions = CollectContributions(document);
         ApplyContributions(uri, std::move(contributions));
@@ -94,18 +106,23 @@ namespace glsld {
         contributions.reserve(document.bindings.size());
 
         auto AddSymbol = [&](const SourceLocation& reference, const SymbolInfo* symbol) -> void {
-            if (symbol == nullptr) {
+            if (symbol == nullptr ||
+                symbol->location.source_file() == nullptr ||
+                reference.source_file() == nullptr)
+            {
                 return;
             }
 
-            if (symbol->location.source_file() == nullptr || reference.source_file() == nullptr) {
-                return;
-            }
-
-            contributions.push_back({
+            Contribution contribution{
                 .definition = symbol->location,
                 .reference  = reference
-            });
+            };
+
+            if (!IsIndexableContribution(contribution)) {
+                return;
+            }
+
+            contributions.push_back(std::move(contribution));
         };
 
         for (const auto& [location, symbol] : document.bindings) {
@@ -122,6 +139,10 @@ namespace glsld {
     }
 
     void GlobalIndex::ApplyContributions(std::string_view uri, std::vector<Contribution> contributions) {
+        std::erase_if(contributions, [](const auto& contribution) -> bool {
+            return !IsIndexableContribution(contribution);
+        });
+
         std::ranges::sort(contributions, [](const auto& lhs, const auto& rhs) -> bool {
             const auto def_compare = lhs.definition <=> rhs.definition;
 

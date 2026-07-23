@@ -14,14 +14,21 @@ namespace glsld {
     std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
     std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
 
+    enum class SourceKind {
+        kWorkspace,
+        kMetadata
+    };
+
     class SourceFile {
     public:
-        SourceFile(std::string_view filename, std::string_view uri);
+        SourceFile(std::string_view filename, std::string_view uri, SourceKind kind = SourceKind::kWorkspace);
 
         bool operator==(const SourceFile& other) const;
 
         std::string_view filename() const;
         std::string_view uri() const;
+        SourceKind kind() const;
+        bool indexable() const;
 
     private:
         friend struct SourceFileHash;
@@ -30,6 +37,7 @@ namespace glsld {
         std::string filename_;
         std::string uri_;
         std::size_t cached_hash_{};
+        SourceKind  kind_{};
     };
 
     struct SourceFileHash {
@@ -38,6 +46,8 @@ namespace glsld {
 
     class SourceTable {
     public:
+        explicit SourceTable(SourceKind default_kind = SourceKind::kWorkspace);
+
         const SourceFile* Intern(std::string_view filename, std::string_view uri);
         const SourceFile* InternByFilename(std::string_view filename);
         const SourceFile* InternByUri(std::string_view uri);
@@ -49,6 +59,7 @@ namespace glsld {
     private:
         StringHeteroHashMap<std::unique_ptr<SourceFile>> sources_; // [GenericFilename, SourceFile]
         mutable std::shared_mutex                        shared_mutex_;
+        SourceKind                                       default_kind_{};
     };
 
     class SourceLocation {
