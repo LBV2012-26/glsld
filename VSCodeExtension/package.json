@@ -78,39 +78,18 @@
 					"default": true,
 					"description": "Enable diagnostic errors and warnings via glslc compilation."
 				},
-				"glsld.shaderConfigs": {
-					"type": "object",
-					"default": {},
-					"description": "Per-file shader stage/version overrides for files without explicit #version/#pragma shader_stage. Keys are workspace-relative paths (e.g. \"include/common.glsl\") or file:// URIs.",
-					"patternProperties": {
-						".*": {
-							"type": "object",
-							"properties": {
-								"shaderStage": {
-									"type": "string",
-									"enum": ["vertex", "fragment", "compute", "geometry", "tesscontrol", "tessevaluation", "mesh", "task", "raygen", "anyhit", "closesthit", "miss", "intersection", "callable"],
-									"description": "Shader stage for this file"
-								},
-								"version": {
-									"type": "string",
-									"default": "460",
-									"description": "GLSL version (e.g. 460, 450)"
-								},
-								"targetEnv": {
-									"type": "string",
-									"default": "vulkan1.3",
-									"enum": ["vulkan1.0", "vulkan1.1", "vulkan1.2", "vulkan1.3", "vulkan1.4"],
-									"description": "Target Vulkan environment for diagnostics"
-								},
-								"targetSpv": {
-									"type": "string",
-									"default": "spv1.6",
-									"enum": ["spv1.0", "spv1.1", "spv1.2", "spv1.3", "spv1.4", "spv1.5", "spv1.6"],
-									"description": "Target SPIR-V version for diagnostics"
-								}
-							}
-						}
-					}
+				"glsld.capabilities.inlayHints": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable inlay hints provided by glsld."
+				},
+				"glsld.backgroundIndex.roots": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string"
+					},
+					"description": "Workspace-relative or absolute directories included in the background index. No directories are indexed when this list is empty."
 				},
 				"glsld.shaderVariants": {
 					"type": "object",

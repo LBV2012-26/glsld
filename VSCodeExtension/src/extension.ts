@@ -139,11 +139,11 @@ commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvid
 			})
 		);
 
-	// Push shader config to server when settings change
+	// Push configuration to server when settings change
 	context.subscriptions.push(
 		workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('glsld')) {
-				await pushShaderConfig();
+				await pushConfiguration();
 				shaderConfigProvider.refresh();
 			}
 		})
@@ -154,12 +154,12 @@ commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvid
 	context.subscriptions.push(
 		workspace.onDidOpenTextDocument(async (doc) => {
 			if (doc.languageId === 'glsl') {
-				await pushShaderConfig();
+				await pushConfiguration();
 			}
 		})
 	);
 
-	await pushShaderConfig();
+	await pushConfiguration();
 
 	// Push variant/macro state for any already-open GLSL documents.
 	// This ensures the server knows about the active variant and per-file
@@ -359,10 +359,12 @@ export function notifyRemoveConfig(key: string): void {
 	});
 }
 
-export async function pushShaderConfig(): Promise<void> {
+export async function pushConfiguration(): Promise<void> {
 	const config = workspace.getConfiguration('glsld');
 	const shaderExtensions = getShaderConfigs(); // from .glsld/config.json
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
+	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
+	const backgroundIndexRoots = config.get<string[]>('backgroundIndex.roots', []);
 
 	const shaderConfig: Record<string, object> = {};
 	if (shaderExtensions) {
@@ -378,11 +380,13 @@ export async function pushShaderConfig(): Promise<void> {
 			settings: {
 				glsld: {
 					shaderConfig,
-					diagnosticsEnabled
+					diagnosticsEnabled,
+					capabilities: { inlayHints },
+					backgroundIndex: { roots: backgroundIndexRoots }
 				}
 			}
 		}));
-		console.log('[glsld] pushShaderConfig sending: %o', payload);
+		console.log('[glsld] pushConfiguration sending: %o', payload);
 		await client.sendNotification('workspace/didChangeConfiguration', payload);
 }
 

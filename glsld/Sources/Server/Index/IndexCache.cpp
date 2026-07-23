@@ -137,14 +137,21 @@ namespace glsld::IndexCache {
 
             stream.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
             stream.flush();
+            stream.close();
 
             if (!stream) {
                 return false;
             }
 
+            ec.clear();
             std::filesystem::remove(filename, ec);
-            std::filesystem::rename(temporary, filename, ec);
+            if (ec) {
+                std::filesystem::remove(temporary, ec);
+                return false;
+            }
 
+            ec.clear();
+            std::filesystem::rename(temporary, filename, ec);
             if (ec) {
                 std::filesystem::remove(temporary, ec);
                 return false;

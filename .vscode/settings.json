@@ -2,10 +2,9 @@
 	"C_Cpp.intelliSenseEngine": "disabled",
 	"C_Cpp.formatting": "disabled",
 	"C_Cpp.errorSquiggles": "disabled",
+	"C_Cpp.default.compilerPath": "cl.exe",
 	"editor.insertSpaces": false,
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
-	},
-	"C_Cpp.default.compilerPath": "cl.exe",
-	"cmake.sourceDirectory": "Z:/Source/glsld/glsld/vcpkg_installed/x64-windows/vcpkg/blds/nlohmann-json/src/v3.12.0-087f34fe5c.clean"
+	}
 }

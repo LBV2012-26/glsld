@@ -1023,22 +1023,15 @@ namespace glsld {
         include_affected_uris_.erase(uri);
     }
 
-    void LspServer::HandleInitialized(Context& context) {
-        if (workspace_roots_.empty()) {
-            return;
-        }
-
-        auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
-        std::string cache_key = "glsld-global-index-parser-v1";
-
-        workspace_.StartBackgroundIndex(workspace_roots_, std::move(cache_path), std::move(cache_key));
-    }
+    void LspServer::HandleInitialized(Context& context) {}
 
     void LspServer::HandleExit(Context& context) {
         stop_source_.request_stop();
     }
 
     void LspServer::HandleConfigure(Context& context) {
+        GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Configure dump: {}", context.params.dump());
+
         const auto& settings = context.params["settings"];
         if (!settings.contains("glsld")) {
             return;
@@ -1047,6 +1040,24 @@ namespace glsld {
         const auto& glsld = settings["glsld"];
         if (!glsld.contains("shaderConfig")) {
             return;
+        }
+
+        std::vector<std::filesystem::path> index_roots;
+        if (!workspace_roots_.empty() &&
+            glsld.contains("backgroundIndex") &&
+            glsld["backgroundIndex"].contains("roots") &&
+            glsld["backgroundIndex"]["roots"].is_array())
+        {
+            for (const auto& value : glsld["backgroundIndex"]["roots"]) {
+                auto path = std::filesystem::path(value.get<std::string>());
+                index_roots.push_back(path.is_absolute() ? path : workspace_roots_.front() / path);
+            }
+        }
+
+        if (workspace_roots_.empty()) {
+            workspace_.StopBackgroundIndex();
+        } else {
+            workspace_.StartBackgroundIndex(std::move(index_roots), workspace_roots_.front() / ".glsld" / "BlobIndex.idx", "glsld-global-index-parser-v1");
         }
 
         const auto& shader_config = glsld["shaderConfig"];
@@ -1411,5 +1422,7 @@ namespace glsld {
                 return false;
             });
         }
+
+        return nullptr;
     }
 }

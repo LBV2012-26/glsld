@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates } from './sidebar';
-import { pushShaderConfig, notifyRemoveConfig } from './extension';
+import { pushConfiguration, notifyRemoveConfig } from './extension';
 
 // ============================================================
 // Types
@@ -178,7 +178,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 
 		const all = [...existing, ...newTemplates];
 		putTemplates(all);
-			pushShaderConfig();
+			pushConfiguration();
 
 		vscode.window.showInformationMessage(
 			'Generated ' + newTemplates.length + ' templates: ' + label,
@@ -256,7 +256,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 		(sc[node.fileKey] as any)[node.property] = newValue;
 
 		putShaderConfigs(sc);
-		pushShaderConfig();
+		pushConfiguration();
 		this.refresh();
 	}
 
@@ -320,7 +320,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 		}
 
 		putShaderConfigs(all);
-		pushShaderConfig();
+		pushConfiguration();
 		this.refresh();
 	}
 
@@ -337,7 +337,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 
 		putShaderConfigs(all);
 		notifyRemoveConfig(node.key);
-		pushShaderConfig();
+		pushConfiguration();
 		this.refresh();
 	}
 
@@ -389,7 +389,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 		all[key] = cfg as Record<string, string>;
 
 		putShaderConfigs(all);
-		pushShaderConfig();
+		pushConfiguration();
 		this.refresh();
 		vscode.window.showInformationMessage('"' + template.name + '" applied to "' + key + '"');
 	}
