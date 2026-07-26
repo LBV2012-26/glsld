@@ -21,7 +21,7 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-import { activateSidebar, getShaderConfigs, pushMacroState } from './sidebar';
+import { activateSidebar, getActiveVariants, getShaderConfigs } from './sidebar';
 import { compileWorkspace } from './compile';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
@@ -161,11 +161,6 @@ commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvid
 
 	await pushConfiguration();
 
-	// Push variant/macro state for any already-open GLSL documents.
-	// This ensures the server knows about the active variant and per-file
-	// macros immediately on startup, rather than waiting for the user to
-	// switch editor tabs.
-	pushMacroState(client);
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -365,12 +360,13 @@ export async function pushConfiguration(): Promise<void> {
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
 	const backgroundIndexRoots = config.get<string[]>('backgroundIndex.roots', []);
+	const activeVariants = getActiveVariants();
 
-	const shaderConfig: Record<string, object> = {};
+	const shaderConfigs: Record<string, object> = {};
 	if (shaderExtensions) {
 		for (const [filePath, cfg] of Object.entries(shaderExtensions)) {
 			if (cfg && typeof cfg === 'object') {
-				shaderConfig[resolveKey(filePath).toString()] = cfg;
+				shaderConfigs[resolveKey(filePath).toString()] = cfg;
 			}
 		}
 	}
@@ -379,7 +375,8 @@ export async function pushConfiguration(): Promise<void> {
 		const payload = JSON.parse(JSON.stringify({
 			settings: {
 				glsld: {
-					shaderConfig,
+					shaderConfigs,
+					activeVariants,
 					diagnosticsEnabled,
 					capabilities: { inlayHints },
 					backgroundIndex: { roots: backgroundIndexRoots }

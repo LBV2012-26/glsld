@@ -756,6 +756,30 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		return getFileMacros();
 	}
 
+	export function getActiveVariants() {
+		const variants = getVariants();
+		const activeVariants: Array<{ textDocument?: { uri: string }; variant: string; macros: Record<string, string>; scope: 'global' | 'file' }> = [];
+
+		if (globalActive !== null) {
+			activeVariants.push({ variant: globalActive, macros: variants[globalActive] ?? {}, scope: 'global' });
+		}
+
+		for (const [uri, macros] of Object.entries(getFileMacros())) {
+			const enabled: Record<string, string> = {};
+			for (const [name, entry] of Object.entries(macros)) {
+				if (entry.enabled) {
+					enabled[name] = entry.value;
+				}
+			}
+
+			if (Object.keys(enabled).length !== 0) {
+				activeVariants.push({ textDocument: { uri }, variant: '__file__', macros: enabled, scope: 'file' });
+			}
+		}
+
+		return activeVariants;
+	}
+
 	export { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates };
 	export type { FileMacrosMap };
 

@@ -186,7 +186,7 @@ namespace glsld::IndexCache {
         };
     }
 
-    bool IsFresh(const DiskIndexRecord& record) {
+    bool IsLatest(const DiskIndexRecord& record) {
         if (record.stamps.empty()) {
             return false;
         }

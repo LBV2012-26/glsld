@@ -38,12 +38,12 @@ namespace glsld {
 
     enum class VariantType {
         kShared,
-        kPerFile
+        kUnique
     };
 
     class Workspace {
     public:
-        explicit Workspace(ThreadPool& thread_pool);
+        Workspace();
 
         const SourceFile* InternSource(std::string_view uri);
         const SourceFile* GetSource(std::string_view uri) const;
@@ -66,6 +66,7 @@ namespace glsld {
         void AddExtraShaderConfig(std::string_view key, ExtraShaderConfig config);
         void RemoveExtraShaderConfig(std::string_view key);
 
+        void ApplyVariants(std::optional<ActiveVariant> shared, StringHeteroHashMap<ActiveVariant> unique);
         void ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri = "");
         void RemoveVariant(VariantType type, std::string_view uri = "");
 
@@ -108,19 +109,26 @@ namespace glsld {
         void ProcessDiskIndexTask(
             std::string_view uri,
             const std::filesystem::path& filename,
-            std::uint64_t generation);
+            std::uint64_t revision);
 
         void FlushBackgroundCache();
 
         std::vector<std::filesystem::path> DiscoverIndexCandidates() const;
         bool IsIndexCandidate(const std::filesystem::path& filename) const;
 
+        struct DiskIndexTask {
+            std::string           uri;
+            std::filesystem::path filename;
+        };
+
         StringHeteroHashMap<std::shared_ptr<Document>> documents_;
         StringHeteroHashMap<ExtraShaderConfig>         shader_configs_; // [Uri, Config]
-        ThreadPool&                                    thread_pool_;
         SourceTable                                    source_table_;
+
+        ThreadPool                                     loader_pool_;
         IncludeLoader                                  include_loader_;
         std::vector<std::filesystem::path>             include_dirs_;
+
         StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
         StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
         StringHeteroHashMap<ActiveVariant>             active_variants_;
@@ -128,22 +136,21 @@ namespace glsld {
         mutable std::mutex                             dependency_mutex_;
         mutable std::shared_mutex                      document_mutex_;
         std::shared_mutex                              variant_mutex_;
+
         GlobalIndex                                    global_index_;
         TypeMemberIndex                                type_member_index_;
         std::mutex                                     index_mutex_;
-
         std::vector<std::filesystem::path>             index_roots_;
         std::filesystem::path                          index_cache_path_;
         std::string                                    index_cache_key_;
 
         StringHeteroHashMap<DiskIndexRecord>           disk_index_records_;
-        StringHeteroHashMap<std::filesystem::path>     pending_disk_paths_;
-        StringHeteroHashMap<std::uint64_t>             index_generations_;
+        StringHeteroHashMap<std::uint64_t>             index_revisions_;
         StringHeteroHashSet                            open_document_uris_;
         StringHeteroHashSet                            queued_disk_uris_;
+        std::queue<DiskIndexTask>                      index_task_queue_;
 
-        std::queue<std::string>                        disk_index_queue_;
-
+        ThreadPool                                     background_index_pool_;
         std::mutex                                     background_index_mutex_;
         std::condition_variable_any                    background_index_condition_;
         std::jthread                                   background_index_thread_;

@@ -8,7 +8,7 @@
 
 namespace glsld {
     ThreadPool::ThreadPool(std::uint32_t max_thread_count)
-        : max_thread_count_{ std::clamp(max_thread_count, 0u, std::thread::hardware_concurrency()) }
+        : max_thread_count_{ std::clamp(max_thread_count, 1u, std::thread::hardware_concurrency()) }
     {
         workers_.reserve(max_thread_count_);
         threads_.reserve(max_thread_count_);
@@ -24,11 +24,11 @@ namespace glsld {
                     std::function<void()> task;
                     {
                         std::unique_lock lock(worker.mutex);
-                        bool normally = worker.condition.wait(lock, stop_token, [&worker]() -> bool {
+                        worker.condition.wait(lock, stop_token, [&worker]() -> bool {
                             return !worker.tasks.empty();
                         });
 
-                        if (!normally && worker.tasks.empty()) {
+                        if (stop_token.stop_requested() && worker.tasks.empty()) {
                             return;
                         }
 

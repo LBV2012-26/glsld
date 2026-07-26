@@ -44,6 +44,6 @@ namespace glsld {
         std::optional<DiskIndexSnapshot> Load(const std::filesystem::path& filename, std::string_view expected_cache_key);
         bool Save(const std::filesystem::path& filename, const DiskIndexSnapshot& snapshot);
         std::optional<IndexedFileStamp> CaptureStamp(std::string_view uri);
-        bool IsFresh(const DiskIndexRecord& record);
+        bool IsLatest(const DiskIndexRecord& record);
     }
 }

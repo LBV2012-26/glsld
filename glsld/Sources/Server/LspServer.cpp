@@ -45,9 +45,8 @@ namespace glsld {
     }
 
     LspServer::LspServer()
-        : thread_pool_{ std::thread::hardware_concurrency() }
-        , update_pool_{ std::thread::hardware_concurrency() }
-        , workspace_{ thread_pool_ }
+        : thread_pool_{ std::jthread::hardware_concurrency() }
+        , update_pool_{ std::jthread::hardware_concurrency() }
     {
         RegisterHandlers();
 
@@ -253,11 +252,11 @@ namespace glsld {
             LspTask task;
             {
                 std::unique_lock lock(task_mutex_);
-                bool keep = task_condition_.wait(lock, stop_token, [this]() -> bool {
+                task_condition_.wait(lock, stop_token, [this]() -> bool {
                     return !task_queue_.empty();
                 });
 
-                if (!keep) {
+                if (stop_token.stop_requested()) {
                     return;
                 }
 
@@ -328,11 +327,11 @@ namespace glsld {
             LspSubmitItem item;
             {
                 std::unique_lock lock(submit_mutex_);
-                bool keep = submit_condition_.wait(lock, stop_token, [this]() -> bool {
+                submit_condition_.wait(lock, stop_token, [this]() -> bool {
                     return !submit_queue_.empty();
                 });
 
-                if (!keep) {
+                if (stop_token.stop_requested()) {
                     return;
                 }
 
@@ -358,11 +357,11 @@ namespace glsld {
             std::function<void()> work;
             {
                 std::unique_lock lock(update_mutex_);
-                bool keep = update_condition_.wait(lock, stop_token, [this]() -> bool {
+                update_condition_.wait(lock, stop_token, [this]() -> bool {
                     return !update_queue_.empty();
                 });
 
-                if (!keep) {
+                if (stop_token.stop_requested()) {
                     return;
                 }
 
@@ -1023,14 +1022,16 @@ namespace glsld {
         include_affected_uris_.erase(uri);
     }
 
-    void LspServer::HandleInitialized(Context& context) {}
+    void LspServer::HandleInitialized(Context& context) {
+        workspace_.StopBackgroundIndex();
+    }
 
     void LspServer::HandleExit(Context& context) {
         stop_source_.request_stop();
     }
 
     void LspServer::HandleConfigure(Context& context) {
-        GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Configure dump: {}", context.params.dump());
+        GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Configure dump: {}", context.params.dump(4));
 
         const auto& settings = context.params["settings"];
         if (!settings.contains("glsld")) {
@@ -1038,34 +1039,87 @@ namespace glsld {
         }
 
         const auto& glsld = settings["glsld"];
-        if (!glsld.contains("shaderConfig")) {
-            return;
-        }
 
-        std::vector<std::filesystem::path> index_roots;
-        if (!workspace_roots_.empty() &&
-            glsld.contains("backgroundIndex") &&
-            glsld["backgroundIndex"].contains("roots") &&
-            glsld["backgroundIndex"]["roots"].is_array())
-        {
-            for (const auto& value : glsld["backgroundIndex"]["roots"]) {
-                auto path = std::filesystem::path(value.get<std::string>());
-                index_roots.push_back(path.is_absolute() ? path : workspace_roots_.front() / path);
+        ApplyShaderConfigs(glsld);
+        ApplyVariantConfigs(glsld);
+        ApplyIndexConfigs(glsld);
+    }
+
+    void LspServer::HandleRemoveConfiguration(Context& context) {
+        const auto& origin_uri = context.params["uri"];
+        auto uri = NormalizeUri(origin_uri);
+
+        workspace_.RemoveExtraShaderConfig(uri);
+        RefreshDocument(uri);
+    }
+
+    namespace {
+        ActiveVariant ParseVariant(const nlohmann::json& value) {
+            ActiveVariant variant;
+            variant.variant_name = value.value("variant", "");
+
+            if (value.contains("macros") && value["macros"].is_object()) {
+                for (const auto& [name, replacement] : value["macros"].items()) {
+                    variant.macros[name] = MacroDefination{
+                        .is_function = false,
+                        .original_token = Token{
+                            .text = name,
+                            .type = TokenType::kIdentifier
+                        },
+                        .replacement_list = { Token{
+                            .text = replacement.is_string() ? replacement.get<std::string>() : "1",
+                            .type = TokenType::kNumberLiteral
+                        } }
+                    };
+                }
             }
-        }
 
-        if (workspace_roots_.empty()) {
-            workspace_.StopBackgroundIndex();
+            return variant;
+        }
+    }
+
+    void LspServer::HandleChangeVariant(Context& context) {
+        const auto& macros = context.params["macros"];
+        const auto& scope  = context.params.value("scope", "global");
+
+        auto variant = ParseVariant(context.params);
+
+        if (scope == "global") {
+            workspace_.ChangeVariant(VariantType::kShared, std::move(variant));
+            RebuildDocuments();
         } else {
-            workspace_.StartBackgroundIndex(std::move(index_roots), workspace_roots_.front() / ".glsld" / "BlobIndex.idx", "glsld-global-index-parser-v1");
+            const auto& origin_uri = context.params["textDocument"]["uri"];
+            auto uri = NormalizeUri(origin_uri);
+            workspace_.ChangeVariant(VariantType::kUnique, std::move(variant), uri);
+            RefreshDocument(uri);
         }
+    }
 
-        const auto& shader_config = glsld["shaderConfig"];
-        if (!shader_config.is_object()) {
+    void LspServer::HandleRemoveVariant(Context& context) {
+        const auto& scope = context.params.value("scope", "global");
+
+        if (scope == "global") {
+            workspace_.RemoveVariant(VariantType::kShared);
+            RebuildDocuments();
+        } else {
+            const auto& origin_uri = context.params["textDocument"]["uri"];
+            auto uri = NormalizeUri(origin_uri);
+            workspace_.RemoveVariant(VariantType::kUnique, uri);
+            RefreshDocument(uri);
+        }
+    }
+
+    void LspServer::ApplyShaderConfigs(const nlohmann::json& glsld) {
+        if (!glsld.contains("shaderConfigs")) {
             return;
         }
 
-        for (const auto& [key, value] : shader_config.items()) {
+        const auto& shader_configs = glsld["shaderConfigs"];
+        if (!shader_configs.is_object()) {
+            return;
+        }
+
+        for (const auto& [key, value] : shader_configs.items()) {
             if (!value.is_object()) {
                 continue;
             }
@@ -1088,57 +1142,63 @@ namespace glsld {
         }
     }
 
-    void LspServer::HandleRemoveConfiguration(Context& context) {
-        const auto& origin_uri = context.params["uri"];
-        auto uri = NormalizeUri(origin_uri);
-
-        workspace_.RemoveExtraShaderConfig(uri);
-        RefreshDocument(uri);
-    }
-
-    void LspServer::HandleChangeVariant(Context& context) {
-        const auto& macros = context.params["macros"];
-        const auto& scope  = context.params.value("scope", "global");
-
-        ActiveVariant variant;
-        variant.variant_name = context.params["variant"];
-
-        for (const auto& [name, value] : macros.items()) {
-            variant.macros[name] = MacroDefination{
-                .is_function = false,
-                .original_token = Token{
-                    .text = name,
-                    .type = TokenType::kIdentifier
-                },
-                .replacement_list = { Token{
-                    .text = value.is_string() ? value.get<std::string>() : "1",
-                    .type = TokenType::kNumberLiteral
-                } }
-            };
+    void LspServer::ApplyVariantConfigs(const nlohmann::json& glsld) {
+        if (!glsld.contains("activeVariants") || !glsld["activeVariants"].is_array()) {
+            return;
         }
 
-        if (scope == "global") {
-            workspace_.ChangeVariant(VariantType::kShared, std::move(variant));
-            RebuildDocuments();
-        } else {
-            const auto& origin_uri = context.params["textDocument"]["uri"];
-            auto uri = NormalizeUri(origin_uri);
-            workspace_.ChangeVariant(VariantType::kPerFile, std::move(variant), uri);
-            RefreshDocument(uri);
+        std::optional<ActiveVariant> shared;
+        StringHeteroHashMap<ActiveVariant> unique;
+
+        const auto& active_variants = glsld["activeVariants"];
+        for (const auto& value : active_variants) {
+            if (!value.is_object() ||
+                !value.contains("variant") ||
+                !value["variant"].is_string() ||
+                !value.contains("macros") ||
+                !value["macros"].is_object())
+            {
+                continue;
+            }
+
+            const auto scope = value.value("scope", "file");
+            if (scope == "global") {
+                shared = ParseVariant(value);
+                continue;
+            }
+
+            if (scope != "file" || !value.contains("textDocument") || !value["textDocument"].is_object()) {
+                continue;
+            }
+
+            const auto& text_document = value["textDocument"];
+            if (!text_document.contains("uri") || !text_document["uri"].is_string()) {
+                continue;
+            }
+
+            unique.insert_or_assign(NormalizeUri(text_document["uri"].get<std::string>()), ParseVariant(value));
         }
+
+        workspace_.ApplyVariants(std::move(shared), std::move(unique));
     }
 
-    void LspServer::HandleRemoveVariant(Context& context) {
-        const auto& scope = context.params.value("scope", "global");
+    void LspServer::ApplyIndexConfigs(const nlohmann::json& glsld) {
+        std::vector<std::filesystem::path> index_roots;
+        if (!workspace_roots_.empty() &&
+            glsld.contains("backgroundIndex") &&
+            glsld["backgroundIndex"].contains("roots") &&
+            glsld["backgroundIndex"]["roots"].is_array()) {
+            for (const auto& value : glsld["backgroundIndex"]["roots"]) {
+                auto path = std::filesystem::path(value.get<std::string>());
+                index_roots.push_back(path.is_absolute() ? path : workspace_roots_.front() / path);
+            }
+        }
 
-        if (scope == "global") {
-            workspace_.RemoveVariant(VariantType::kShared);
-            RebuildDocuments();
+        if (workspace_roots_.empty()) {
+            workspace_.StopBackgroundIndex();
         } else {
-            const auto& origin_uri = context.params["textDocument"]["uri"];
-            auto uri = NormalizeUri(origin_uri);
-            workspace_.RemoveVariant(VariantType::kPerFile, uri);
-            RefreshDocument(uri);
+            auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
+            workspace_.StartBackgroundIndex(std::move(index_roots), cache_path, "glsld-global-index-parser-v1");
         }
     }
 

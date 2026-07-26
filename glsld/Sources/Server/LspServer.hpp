@@ -92,6 +92,10 @@ namespace glsld {
         void HandleChangeVariant(Context& context);
         void HandleRemoveVariant(Context& context);
 
+        void ApplyShaderConfigs(const nlohmann::json& glsld);
+        void ApplyVariantConfigs(const nlohmann::json& glsld);
+        void ApplyIndexConfigs(const nlohmann::json& glsld);
+
         void RefreshDocument(std::string_view uri);
         void RebuildDocuments();
         void UpdateWorker(std::string_view uri);

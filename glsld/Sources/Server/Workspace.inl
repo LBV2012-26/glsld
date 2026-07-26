@@ -36,7 +36,7 @@ namespace glsld {
     }
 
     inline void Workspace::ScheduleDiskIndexByUri(std::string_view uri) {
-        ScheduleDiskIndex(utils::PathToUri(uri));
+        ScheduleDiskIndex(utils::UriToPath(uri));
     }
 
     inline void Workspace::set_include_dirs(std::vector<std::filesystem::path> include_dirs) {
