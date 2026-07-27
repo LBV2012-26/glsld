@@ -7,8 +7,7 @@
     "nlohmann-json",
     "rapidhash",
     "spdlog",
-    "unordered-dense",
-    "yaml-cpp"
+    "unordered-dense"
   ],
-  "builtin-baseline": "2a5ea1e58fc6776ede8fd1470db0aea26ae320c4"
+  "builtin-baseline": "6d9d7df564a1ccdaa994e4ad39ccd4a32360867b"
 }

@@ -16,7 +16,6 @@
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Arena.hpp"
-#include "Base/Config.hpp"
 #include "Base/Logger.hpp"
 #include "Utils/Utils.hpp"
 
@@ -298,7 +297,7 @@ namespace glsld {
         Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling parse.",
+                GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",
                 version_replica, version_pointer->load());
             }
 
@@ -307,8 +306,8 @@ namespace glsld {
 
         auto Cancelled = [version_replica, &version_pointer]() -> bool {
             if (version_pointer != nullptr && version_replica != version_pointer->load()) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Version changed during document update (replica: {}, current: {}), cancelling update.",
-                                version_replica, version_pointer->load());
+                GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling update.",
+                          version_replica, version_pointer->load());
                 return true;
             }
 
@@ -398,11 +397,11 @@ namespace glsld {
                         try {
                             ProcessDiskIndexTask(index_task.uri, index_task.filename, revision);
                         } catch (const std::exception& e) {
-                            GLSLD_LOG_WARN(GLSLD_LOG_ROOT(), "Background index task failed for {}: {}",
-                                           index_task.filename.generic_string(), e.what());
+                            GLSLD_LOG(warn, "Background index task failed for {}: {}",
+                                      index_task.filename.generic_string(), e.what());
                         } catch (...) {
-                            GLSLD_LOG_WARN(GLSLD_LOG_ROOT(), "Background index task failed for {} with an unknown exception.",
-                                           index_task.filename.generic_string());
+                            GLSLD_LOG(warn, "Background index task failed for {} with an unknown exception.",
+                                      index_task.filename.generic_string());
                         }
                     }));
                 }
@@ -548,7 +547,7 @@ namespace glsld {
     {
         auto source = LoadSource(filename);
         if (!source.has_value()) {
-            GLSLD_LOG_WARN(GLSLD_LOG_ROOT(), "Failed to load source file for disk index: {}", source.error());
+            GLSLD_LOG(warn, "Failed to load source file for disk index: {}", source.error());
             return;
         }
 
@@ -605,8 +604,8 @@ namespace glsld {
                 it->second != revision ||
                 open_document_uris_.contains(uri))
             {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Revision mismatch for disk index of {} (expected: {}, current: {}), skipping.",
-                                uri, revision, it != index_revisions_.end() ? it->second : 0);
+                GLSLD_LOG(warn, "Revision mismatch for disk index of {} (expected: {}, current: {}), skipping.",
+                          uri, revision, it != index_revisions_.end() ? it->second : 0);
                 return;
             }
 

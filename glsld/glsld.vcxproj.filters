@@ -4,7 +4,6 @@
     <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Symbol.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Lexer.cpp" />
-    <ClCompile Include="Sources\Base\Config.cpp" />
     <ClCompile Include="Sources\Base\Logger.cpp" />
     <ClCompile Include="Sources\Base\ThreadPool.cpp" />
     <ClCompile Include="Sources\main.cpp" />
@@ -40,11 +39,8 @@
     <ClInclude Include="Sources\Analyzer\Syntax\Symbol.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Lexer.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
-    <ClInclude Include="Sources\Base\Config.hpp" />
-    <ClInclude Include="Sources\Base\ConfigIniter.hpp" />
     <ClInclude Include="Sources\Base\Logger.hpp" />
     <ClInclude Include="Sources\Base\ThreadPool.hpp" />
-    <ClInclude Include="Sources\Base\YamlTypes.hpp" />
     <ClInclude Include="Sources\Server\Context.hpp" />
     <ClInclude Include="Sources\Server\JsonResponse.hpp" />
     <ClInclude Include="Sources\Server\Router.hpp" />
@@ -75,8 +71,6 @@
     <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Sources\Base\Config.inl" />
-    <None Include="Sources\Base\Logger.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="vcpkg.json" />
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />

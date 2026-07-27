@@ -85,8 +85,8 @@ namespace glsld {
             contribution_count += contributions.size();
         }
 
-        GLSLD_LOG_DEBUG(
-            GLSLD_LOG_ROOT(),
+        GLSLD_LOG(
+            debug,
             "[GlobalRefIndex] {} definitions, {} unique references, "
             "{} document contributions across {} documents",
             references_.size(),

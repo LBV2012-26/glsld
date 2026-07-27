@@ -34,7 +34,7 @@ namespace glsld {
             try {
                 handler(context);
             } catch (const std::exception& e) {
-                GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Notification handler error: {}", e.what());
+                GLSLD_LOG(err, "Notification handler error: {}", e.what());
             }
         };
 
@@ -54,7 +54,7 @@ namespace glsld {
             if (it != notification_routes_.end()) {
                 it->second(context);
             } else {
-                GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Unhandled notification: {}", context.method);
+                GLSLD_LOG(err, "Unhandled notification: {}", context.method);
             }
         }
     }

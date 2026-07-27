@@ -273,9 +273,8 @@ namespace glsld {
 
             if (task.is_request) {
                 thread_pool_.Submit([this, context = std::move(context)]() mutable -> void {
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Received request: {}", context.method);
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Method: {} with ID: {}",
-                                    context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
+                    GLSLD_LOG(debug, "Received request: {}", context.method);
+                    GLSLD_LOG(debug, "Method: {} with ID: {}", context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
 
                     try {
                         router_.Dispatch(context, true);
@@ -300,7 +299,7 @@ namespace glsld {
                     }
 
                     EnqueueSubmit(std::move(item));
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Request {} completed, erased cancellation token.",
+                    GLSLD_LOG(debug, "Request {} completed, erased cancellation token.",
                                     context.request_id.value_or(nlohmann::json("null")).dump());
 
                     {
@@ -309,8 +308,8 @@ namespace glsld {
                     }
                 });
             } else {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Received notification: {}", context.method);
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Method: {}", context.method);
+                GLSLD_LOG(debug, "Received notification: {}", context.method);
+                GLSLD_LOG(debug, "Method: {}", context.method);
 
                 try {
                     router_.Dispatch(context, false);
@@ -416,14 +415,14 @@ namespace glsld {
         auto it = cancellation_tokens_.find(key);
         if (it != cancellation_tokens_.end()) {
             it->second->store(true, std::memory_order::relaxed);
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Cancelled request with params: {}.", params.dump());
+            GLSLD_LOG(debug, "Cancelled request with params: {}.", params.dump());
         } else {
-            GLSLD_LOG_ERROR(GLSLD_LOG_ROOT(), "Cancelled target {} not found.", key.dump());
+            GLSLD_LOG(err, "Cancelled target {} not found.", key.dump());
         }
 
 #ifdef _DEBUG
         for (const auto& [id, token] : cancellation_tokens_) {
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Pending cancellation token for request {}. Token status: {}.",
+            GLSLD_LOG(debug, "Pending cancellation token for request {}. Token status: {}.",
                             id.dump(), token->load(std::memory_order::relaxed));
         }
 #endif
@@ -961,10 +960,10 @@ namespace glsld {
             auto it = document_versions_.find(uri);
             if (it == document_versions_.end()) {
                 document_versions_.try_emplace(uri, std::make_shared<std::atomic<int>>(version));
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} version initialized to {}, pending update scheduled.", uri, version);
+                GLSLD_LOG(debug, "Document {} version initialized to {}, pending update scheduled.", uri, version);
             } else {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} version updated from {} to {}, pending update scheduled.",
-                                uri, it->second->load(std::memory_order::relaxed), version);
+                GLSLD_LOG(debug, "Document {} version updated from {} to {}, pending update scheduled.",
+                          uri, it->second->load(std::memory_order::relaxed), version);
                 it->second->store(version, std::memory_order::relaxed);
             }
         }
@@ -1031,7 +1030,7 @@ namespace glsld {
     }
 
     void LspServer::HandleConfigure(Context& context) {
-        GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Configure dump: {}", context.params.dump(4));
+        GLSLD_LOG(debug, "Configure dump: {}", context.params.dump(4));
 
         const auto& settings = context.params["settings"];
         if (!settings.contains("glsld")) {
@@ -1431,9 +1430,9 @@ namespace glsld {
         auto stop_token = stop_source_.get_token();
 
         while (!stop_token.stop_requested()) {
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
+            GLSLD_LOG(debug, "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
             if (context.cancelled()) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Validation for document {} exit beacuse request {} cancelled.", uri, context.request_id->dump());
+                GLSLD_LOG(debug, "Validation for document {} exit beacuse request {} cancelled.", uri, context.request_id->dump());
                 return nullptr;
             }
 
@@ -1449,33 +1448,33 @@ namespace glsld {
             }
 
             auto snapshot = workspace_.GetDocumentSnapshot(uri);
-            GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Expected version of document {} is {}, snapshot version is {}. Request ID: {}.",
+            GLSLD_LOG(debug, "Expected version of document {} is {}, snapshot version is {}. Request ID: {}.",
                             uri, expected_version, snapshot != nullptr ? snapshot->version : -1919810, context.request_id->dump());
 
             if (snapshot != nullptr && snapshot->version >= expected_version) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} is ready with version {}. Request ID: {}.", uri, snapshot->version, context.request_id->dump());
+                GLSLD_LOG(debug, "Document {} is ready with version {}. Request ID: {}.", uri, snapshot->version, context.request_id->dump());
                 return snapshot;
             } else if (expected_version == kDocumentClosedVersion) {
-                GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} is closed. Request ID: {}.", uri, context.request_id->dump());
+                GLSLD_LOG(debug, "Document {} is closed. Request ID: {}.", uri, context.request_id->dump());
                 return nullptr;
             }
 
             std::unique_lock lock(ready_mutex_);
             ready_condition_.wait(lock, stop_token, [this, &context, &uri, expected_version]() -> bool {
                 if (context.cancelled()) {
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Waiting for document {} exit because request {} cancelled while waiting.", uri, context.request_id->dump());
+                    GLSLD_LOG(debug, "Waiting for document {} exit because request {} cancelled while waiting.", uri, context.request_id->dump());
                     return true;
                 }
 
                 auto snapshot = workspace_.GetDocumentSnapshot(uri);
                 if (snapshot != nullptr && snapshot->version >= expected_version) {
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} updated to version {}, expected version was {}. Waking up. Request ID: {}.",
-                                    uri, snapshot->version, expected_version, context.request_id->dump());
+                    GLSLD_LOG(debug, "Document {} updated to version {}, expected version was {}. Waking up. Request ID: {}.",
+                              uri, snapshot->version, expected_version, context.request_id->dump());
                     return true;
                 }
 
                 if (expected_version == kDocumentClosedVersion) {
-                    GLSLD_LOG_DEBUG(GLSLD_LOG_ROOT(), "Document {} is closed while waiting. Request ID: {}.", uri, context.request_id->dump());
+                    GLSLD_LOG(debug, "Document {} is closed while waiting. Request ID: {}.", uri, context.request_id->dump());
                     return true;
                 }
 

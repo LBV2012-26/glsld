@@ -87,8 +87,7 @@ namespace glsld::IndexCache {
     std::optional<DiskIndexSnapshot> Load(const std::filesystem::path& filename, std::string_view expected_cache_key) {
         auto binary = LoadBinary(filename);
         if (!binary.has_value()) {
-            GLSLD_LOG_WARN(GLSLD_LOG_ROOT(), "Failed to load global index cache {}: {}",
-                           filename.generic_string(), binary.error());
+            GLSLD_LOG(warn, "Failed to load global index cache {}: {}", filename.generic_string(), binary.error());
             return std::nullopt;
         }
 
@@ -159,8 +158,7 @@ namespace glsld::IndexCache {
 
             return true;
         } catch (const std::exception& e) {
-            GLSLD_LOG_WARN(GLSLD_LOG_ROOT(), "Failed to save global index cache {}: {}",
-                           filename.generic_string(), e.what());
+            GLSLD_LOG(warn, "Failed to save global index cache {}: {}", filename.generic_string(), e.what());
             return false;
         }
     }

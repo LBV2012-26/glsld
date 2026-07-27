@@ -1,128 +1,25 @@
 #pragma once
 
-#include <cstddef>
 #include <memory>
-#include <string>
-#include <vector>
-
-#include <ankerl/unordered_dense.h>
+#include <string_view>
 #include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
 
 namespace glsld {
-    struct LogSinkConfig {
-        std::string               type;
-        std::string               pattern;
-        std::string               filename;
-        spdlog::level::level_enum level;
-
-        bool operator==(const LogSinkConfig& other) const;
-    };
-
-    struct LoggerConfig {
-        std::string                name;
-        std::string                pattern;
-        std::vector<LogSinkConfig> sinks;
-        spdlog::level::level_enum  level{ spdlog::level::trace };
-
-        bool operator==(const LoggerConfig& other) const;
-    };
-
-    class LoggerManager {
+    class Logger {
     public:
-        void Initialize();
-        std::shared_ptr<spdlog::logger> GetLogger(std::string_view name);
-        std::shared_ptr<spdlog::logger> GetRoot();
-
-        static LoggerManager& GetInstance();
+        static Logger& GetInstance();
 
     private:
-        LoggerManager();
-
-        void OnConfigChange(const ankerl::unordered_dense::set<LoggerConfig>& old_configs,
-                            const ankerl::unordered_dense::set<LoggerConfig>& new_configs);
-
-        void ApplyConfig(const LoggerConfig& config);
+        Logger();
 
         bool initialized_{ false };
     };
 }
 
-namespace std {
-    template <>
-    struct hash<glsld::LogSinkConfig> {
-        size_t operator()(const glsld::LogSinkConfig& config) const;
-    };
-
-    template <>
-    struct hash<glsld::LoggerConfig> {
-        size_t operator()(const glsld::LoggerConfig& config) const;
-    };
-} // namespace std;
-
-namespace YAML {
-    template <>
-    struct convert<spdlog::level::level_enum> {
-        static Node encode(const spdlog::level::level_enum& rhs);
-        static bool decode(const Node& node, spdlog::level::level_enum& rhs);
-    };
-
-    template <>
-    struct convert<glsld::LogSinkConfig> {
-        static Node encode(const glsld::LogSinkConfig& rhs);
-        static bool decode(const Node& node, glsld::LogSinkConfig& rhs);
-    };
-
-    template <>
-    struct convert<glsld::LoggerConfig> {
-        static Node encode(const glsld::LoggerConfig& rhs);
-        static bool decode(const Node& node, glsld::LoggerConfig& rhs);
-    };
-} // namespace YAML
-
-#include "Logger.inl"
-
-#define GLSLD_LOG_NAME(name) ::glsld::LoggerManager::GetInstance().GetLogger(name)
-#define GLSLD_LOG_ROOT()     ::glsld::LoggerManager::GetInstance().GetRoot()
-
-#define GLSLD_LOG_CRITICAL(logger, ...)                                         \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::critical)) { \
-            logger->critical(__VA_ARGS__);                                      \
-        }                                                                       \
-    } while (false)
-
-#define GLSLD_LOG_ERROR(logger, ...)                                            \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::err)) {      \
-            logger->error(__VA_ARGS__);                                         \
-        }                                                                       \
-    } while (false)
-
-#define GLSLD_LOG_WARN(logger, ...)                                             \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::warn)) {     \
-            logger->warn(__VA_ARGS__);                                          \
-        }                                                                       \
-    } while (false)
-
-#define GLSLD_LOG_INFO(logger, ...)                                             \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::info)) {     \
-            logger->info(__VA_ARGS__);                                          \
-        }                                                                       \
-    } while (false)
-
-#define GLSLD_LOG_DEBUG(logger, ...)                                            \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::debug)) {    \
-            logger->debug(__VA_ARGS__);                                         \
-        }                                                                       \
-    } while (false)
-
-#define GLSLD_LOG_TRACE(logger, ...)                                            \
-    do {                                                                        \
-        if (logger != nullptr && logger->should_log(spdlog::level::trace)) {    \
-            logger->trace(__VA_ARGS__);                                         \
-        }                                                                       \
+#define GLSLD_LOG(log_level, ...)                                                \
+    do {                                                                         \
+        auto logger = spdlog::get("glsld");                                      \
+        if (logger != nullptr && logger->should_log(spdlog::level::log_level)) { \
+            logger->log(spdlog::level::log_level, __VA_ARGS__);                  \
+        }                                                                        \
     } while (false)

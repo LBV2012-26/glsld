@@ -18,7 +18,6 @@
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
-#include "Base/Config.hpp"
 #include "Base/Logger.hpp"
 #include "Server/LspServer.hpp"
 #include "Utils/Utils.hpp"
@@ -74,10 +73,9 @@ int main() {
 
     int result = MessageBox(nullptr, L"Run LSP", L"glsld", MB_OKCANCEL);
     if (result == IDOK) {
-        Config::LoadFromFile(utils::GetFilePath("Win64/glsld.yml"));
-        LoggerManager::GetInstance().Initialize();
+        Logger::GetInstance();
 
-        GLSLD_LOG_INFO(GLSLD_LOG_ROOT(), "glsld started.");
+        GLSLD_LOG(info, "glsld started.");
 
         LspServer server;
         server.Run();

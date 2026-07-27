@@ -14,7 +14,7 @@ namespace glsld {
 
         void SendRaw(std::string_view content) {
             std::lock_guard lock(send_mutex);
-            GLSLD_LOG_TRACE(GLSLD_LOG_ROOT(), "Sending response: {}", content);
+            GLSLD_LOG(trace, "Sending response: {}", content);
             std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
             std::fflush(stdout);
         }
