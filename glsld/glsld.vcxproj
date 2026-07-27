@@ -121,9 +121,10 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,9 +146,10 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)\glsld\Externals\mimalloc\include</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -186,9 +188,11 @@
     <ClCompile Include="Sources\Server\JsonResponse.cpp" />
     <ClCompile Include="Sources\Server\Router.cpp" />
     <ClCompile Include="Sources\Server\LspServer.cpp" />
-    <ClCompile Include="Sources\stdafx.cpp">
+    <ClCompile Include="Sources\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.hpp</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.hpp</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
@@ -227,9 +231,9 @@
     <ClInclude Include="Sources\Server\JsonResponse.hpp" />
     <ClInclude Include="Sources\Server\Router.hpp" />
     <ClInclude Include="Sources\Server\LspServer.hpp" />
-    <ClInclude Include="Sources\stdafx.h" />
+    <ClInclude Include="Sources\pch.hpp" />
     <ClInclude Include="Sources\Utils\Utils.hpp" />
-    <ClInclude Include="Sources\xstdafx.h" />
+    <ClInclude Include="Sources\xstdafx.hpp" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
   </ItemGroup>

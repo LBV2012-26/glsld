@@ -3,6 +3,7 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Project Path="glsld.Tests/glsld.Tests.vcxproj" Id="750989ba-3b3f-4432-b384-a7ff82cf2d3d" />
   <Project Path="glsld/glsld.vcxproj" Id="3b09a4cf-6d0f-4055-9e9c-3ee3924770b2" />
   <Project Path="mimalloc/mimalloc.vcxproj" Id="de3ee8f6-d071-4c6a-8528-9d8c9b0a035e" />
 </Solution>

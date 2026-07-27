@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "pch.hpp"
 #include "AstDumper.hpp"
 
 #include <cstddef>

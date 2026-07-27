@@ -1,5 +1,5 @@
 // Ast.cpp
-#include "stdafx.h"
+#include "pch.hpp"
 #include "Ast.hpp"
 
 #include <algorithm>

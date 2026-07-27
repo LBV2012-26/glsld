@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "pch.hpp"
 #include "IndexCache.hpp"
 
 #include <fstream>

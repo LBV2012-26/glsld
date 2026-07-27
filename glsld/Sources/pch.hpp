@@ -1,6 +1,6 @@
 #pragma once
 
-#include "xstdafx.h"
+#include "xstdafx.hpp"
 
 #include <mimalloc.h>
 #include <nlohmann/json.hpp>

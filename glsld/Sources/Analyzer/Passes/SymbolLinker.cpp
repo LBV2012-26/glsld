@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "pch.hpp"
 #include "SymbolLinker.hpp"
 
 #include <utility>
