@@ -8,37 +8,12 @@ import * as cp from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { getActiveGlobalVariant, getFileMacrosData } from './sidebar';
-
-// ============================================================
-// Configuration types
-// ============================================================
-
-interface CompileVariant {
-	/** Short name used in output filenames (e.g. "pbr", "shadowless") */
-	name: string;
-	/** Macro defines for this variant — converted to -D flags */
-	defines: Record<string, string>;
-}
-
-interface CompileGroup {
-	/** Display name */
-	name: string;
-	/**
-	 * glslc command template.
-	 * Placeholders:
-	 *   {}          → file path
-	 *   {variant}   → variant name (empty if no variants)
-	 *   {defines}   → -D MACRO=VALUE flags
-	 *   {dir}       → directory of the source file
-	 *   {name}      → filename without extension
-	 */
-	command: string;
-	/** Glob patterns for files in this group */
-	include: string[];
-	/** Macro variants to generate. If absent/empty, each file compiles once. */
-	variants?: CompileVariant[];
-}
+import {
+	getActiveGlobalVariant,
+	getCompileGroups,
+	getFileMacrosData,
+	getVariantsData,
+} from './sidebar';
 
 // ============================================================
 // Compile job / result
@@ -228,10 +203,12 @@ function executeCompile(glslcPath: string, fullCommand: string, cwd: string): Pr
 
 export async function compileWorkspace(): Promise<void> {
 	const config = vscode.workspace.getConfiguration('glsld');
-	const groups = config.get<CompileGroup[]>('compileGroups', []);
+	const groups = getCompileGroups();
 
 	if (!groups || groups.length === 0) {
-		vscode.window.showWarningMessage('No compile groups configured. Set glsld.compileGroups in settings.');
+		vscode.window.showWarningMessage(
+			'No compile groups configured. Add one in GLSL Shader > Compile Groups.',
+		);
 		return;
 	}
 
@@ -256,7 +233,7 @@ export async function compileWorkspace(): Promise<void> {
 	channel.appendLine(`glslc: ${glslcPath}\n`);
 
 	// Resolve active variant macros (from sidebar)
-	const variants = config.get<Record<string, Record<string, string>>>('shaderVariants', {});
+	const variants = getVariantsData();
 	const globalActive = getActiveGlobalVariant();
 	const activeMacros = globalActive && variants[globalActive]
 		? variants[globalActive]

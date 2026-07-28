@@ -140,7 +140,14 @@ namespace glsld {
         for (const auto& [name, info] : scope->symbols()) {
             ABORT_IF_CANCELLED();
 
-            if (info->location.uri() != uri) {
+            const auto& location = info->location;
+            auto symbol_name = SplitSymbolName(info->name);
+            if (symbol_name.empty() ||
+                location.source_file() == nullptr ||
+                location.uri() != uri ||
+                location.line() == 0 ||
+                location.column() == 0)
+            {
                 continue;
             }
 
@@ -155,7 +162,7 @@ namespace glsld {
                 }
             }
 
-            symbol_node["name"] = SplitSymbolName(info->name);
+            symbol_node["name"] = symbol_name;
             symbol_node["kind"] = symbol_kind;
             symbol_node["selectionRange"] = ConvertToSelectionRange(info->location, info->name);
 
@@ -990,7 +997,7 @@ namespace glsld {
                 symbol_name = symbol->name;
             }
 
-            if (existing_labels.contains(symbol_name)) {
+            if (symbol_name.empty() || existing_labels.contains(symbol_name)) {
                 continue;
             }
 

@@ -232,7 +232,11 @@ namespace glsld {
         // current token is macro name after "define"
         const auto& macro_token = current_token();
 
-        if (macro_token.location.line() != directive_physical_line) {
+        if (macro_token.type != TokenType::kIdentifier ||
+            macro_token.location.filename() != target_file ||
+            macro_token.location.line() != directive_physical_line)
+        {
+            node->end = GetPreviousTokenEnd();
             return node;
         }
 

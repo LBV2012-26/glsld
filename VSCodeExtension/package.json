@@ -102,30 +102,6 @@
 						}
 					}
 				},
-				"glsld.compileGroups": {
-					"type": "array",
-					"default": [],
-					"description": "Shader compilation groups for batch SPIR-V output. Each group defines a glslc command template and a set of glob patterns.",
-					"items": {
-						"type": "object",
-						"properties": {
-							"name": {
-								"type": "string",
-								"description": "Display name for this group."
-							},
-							"command": {
-								"type": "string",
-								"default": "glslc --target-env=vulkan1.3 -o {}.spv {}",
-								"description": "glslc command template. {} is replaced with the file path. Use -fshader-stage= for stage-specific compilation."
-							},
-							"include": {
-								"type": "array",
-								"items": { "type": "string" },
-								"description": "Glob patterns matching files in this group."
-							}
-						}
-					}
-				},
 						"glsld.compileMaxConcurrency": {
 					"type": "number",
 					"default": 0,
@@ -163,6 +139,10 @@
 				{
 					"id": "glsld.shaderConfig",
 					"name": "Shader Config"
+				},
+				{
+					"id": "glsld.compileGroups",
+					"name": "Compile Groups"
 				}
 			]
 		},
@@ -180,6 +160,11 @@
 			{
 				"view": "glsld.shaderConfig",
 				"contents": "No shader config overrides yet.\n[Add Config for Current File](command:glsld.addShaderConfig)\nOverride shader stage, version, target env, or SPIR-V version per-file for includes without #version or #pragma shader_stage.",
+				"when": "workbenchState != empty"
+			},
+			{
+				"view": "glsld.compileGroups",
+				"contents": "No compile groups configured.\n[Add Compile Group](command:glsld.addCompileGroup)\nCompile groups define source globs, the glslc command template, and optional build variants. They are saved in `.glsld/config.json`.",
 				"when": "workbenchState != empty"
 			}
 		],
@@ -260,6 +245,28 @@
 				"category": "glsld"
 			},
 			{
+				"command": "glsld.addCompileGroup",
+				"title": "Add Compile Group",
+				"category": "glsld",
+				"icon": "$(add)"
+			},
+			{
+				"command": "glsld.editCompileGroup",
+				"title": "Edit Compile Group",
+				"category": "glsld"
+			},
+			{
+				"command": "glsld.removeCompileGroup",
+				"title": "Remove Compile Group",
+				"category": "glsld"
+			},
+			{
+				"command": "glsld.refreshCompileGroups",
+				"title": "Refresh Compile Groups",
+				"category": "glsld",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "glsld.compileWorkspace",
 				"title": "Compile All to SPIR-V",
 				"category": "glsld",
@@ -282,6 +289,21 @@
 					"command": "glsld.addShaderConfig",
 					"when": "view == glsld.shaderConfig",
 					"group": "navigation@1"
+				},
+				{
+					"command": "glsld.addCompileGroup",
+					"when": "view == glsld.compileGroups",
+					"group": "navigation@1"
+				},
+				{
+					"command": "glsld.compileWorkspace",
+					"when": "view == glsld.compileGroups",
+					"group": "navigation@2"
+				},
+				{
+					"command": "glsld.refreshCompileGroups",
+					"when": "view == glsld.compileGroups",
+					"group": "navigation@3"
 				},
 				{
 					"command": "glsld.refreshVariants",
@@ -326,6 +348,14 @@
 				{
 					"command": "glsld.removeShaderConfig",
 					"when": "viewItem == fileConfig"
+				},
+				{
+					"command": "glsld.editCompileGroup",
+					"when": "viewItem == compileGroup"
+				},
+				{
+					"command": "glsld.removeCompileGroup",
+					"when": "viewItem == compileGroup"
 				}
 			]
 		},

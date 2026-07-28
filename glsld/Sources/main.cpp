@@ -80,7 +80,7 @@ int main() {
         LspServer server;
         server.Run();
     } else {
-        auto filename = utils::GetFilePath("Tests/Debugger.glsl");
+        auto filename = utils::GetFilePath("Tests/BlackHoleHeavy.glsl.bak");
         std::ifstream shader_file(filename, std::ios::ate | std::ios::binary);
         if (!shader_file.is_open()) {
             std::println(stderr, "Failed to open test GLSL source.");
@@ -104,7 +104,7 @@ int main() {
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
         };
 
-        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Debugger.glsl");
+        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/BlackHoleHeavy.glsl.bak");
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start = std::chrono::high_resolution_clock::now();
@@ -141,10 +141,10 @@ int main() {
         auto bind_end = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        AstDumper dumper(0, nullptr);
-        dumper.Traverse(document.ast.get());
+        // AstDumper dumper(0, nullptr);
+        // dumper.Traverse(document.ast.get());
 
-        document.symbols.Dump();
+        // document.symbols.Dump();
 
         std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),

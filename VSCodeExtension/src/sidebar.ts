@@ -22,12 +22,31 @@ interface FileMacrosMap {
 	[fileUri: string]: { [macroName: string]: MacroEntry };
 }
 
+export interface CompileVariant {
+	/** Short name inserted by the {variant} command placeholder. */
+	name: string;
+	/** Macro defines for this compilation variant. */
+	defines: Record<string, string>;
+}
+
+export interface CompileGroup {
+	/** Display name shown in the Compile Groups view. */
+	name: string;
+	/** glslc command template; see the Compile Groups UI for supported placeholders. */
+	command: string;
+	/** Workspace glob patterns for the source files in this group. */
+	include: string[];
+	/** Optional per-group macro variants. */
+	variants?: CompileVariant[];
+}
+
 interface ConfigFile {
 	variants: Record<string, Record<string, string>>;
 	fileMacros?: FileMacrosMap;
 	shaderConfigs?: Record<string, Record<string, string>>;
 	templates?: { name: string; shaderStage?: string; version?: string; targetEnv?: string; targetSpv?: string }[];
 	activeVariant?: string | null;
+	compileGroups?: CompileGroup[];
 }
 
 // ============================================================
@@ -106,6 +125,36 @@ function putFileMacros(fm: FileMacrosMap): void {
 	const data = getData();
 	data.fileMacros = fm;
 	putData(data);
+}
+
+export function getCompileGroups(): CompileGroup[] {
+	const groups = getData().compileGroups;
+	return Array.isArray(groups) ? groups : [];
+}
+
+export function putCompileGroups(groups: CompileGroup[]): void {
+	const data = getData();
+	data.compileGroups = groups;
+	putData(data);
+}
+
+/**
+ * Move the pre-0.2 setting into the project configuration once.  Keeping this
+ * here makes the migration available even after compileGroups disappears from
+ * package.json's settings schema.
+ */
+function migrateLegacyCompileGroups(): number {
+	const data = getData();
+	if (data.compileGroups !== undefined) { return 0; }
+
+	const legacy = vscode.workspace
+		.getConfiguration('glsld')
+		.get<CompileGroup[]>('compileGroups', []);
+	if (!Array.isArray(legacy) || legacy.length === 0) { return 0; }
+
+	data.compileGroups = legacy;
+	putData(data);
+	return legacy.length;
 }
 
 // ============================================================
@@ -503,6 +552,262 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 }
 
 // ============================================================
+// Compile group provider
+// ============================================================
+
+type CompileGroupNode = CompileGroupEntry | CompileGroupProperty;
+
+interface CompileGroupEntry {
+	kind: 'compileGroup';
+	index: number;
+}
+
+interface CompileGroupProperty {
+	kind: 'compileGroupProperty';
+	groupIndex: number;
+	label: string;
+	value: string;
+}
+
+const DEFAULT_COMPILE_COMMAND = 'glslc --target-env=vulkan1.3 {defines} -o "{}.spv" "{}"';
+
+function splitCompilePatterns(value: string): string[] {
+	return value
+		.split(/[\n,]/)
+		.map(pattern => pattern.trim())
+		.filter(pattern => pattern.length > 0);
+}
+
+function formatCompileVariants(variants: CompileVariant[] | undefined): string {
+	if (!variants || variants.length === 0) { return ''; }
+	return variants
+		.map(variant => {
+			const defines = Object.entries(variant.defines)
+				.map(([name, value]) => `${name}=${value}`)
+				.join(', ');
+			return `${variant.name}: ${defines}`;
+		})
+		.join('; ');
+}
+
+function parseCompileVariants(value: string): CompileVariant[] {
+	if (value.trim().length === 0) { return []; }
+
+	return value.split(';').map(rawVariant => {
+		const variantText = rawVariant.trim();
+		const colon = variantText.indexOf(':');
+		if (colon <= 0) {
+			throw new Error('Each variant must use the form name: MACRO=value, OTHER=value.');
+		}
+
+		const name = variantText.substring(0, colon).trim();
+		if (name.length === 0) {
+			throw new Error('Variant name cannot be empty.');
+		}
+
+		const defines: Record<string, string> = {};
+		const rawDefines = variantText.substring(colon + 1).trim();
+		if (rawDefines.length > 0) {
+			for (const rawDefine of rawDefines.split(',')) {
+				const define = rawDefine.trim();
+				const equals = define.indexOf('=');
+				if (equals <= 0) {
+					throw new Error(`Invalid define "${define}" in variant "${name}".`);
+				}
+				const macro = define.substring(0, equals).trim();
+				if (macro.length === 0) {
+					throw new Error(`Invalid define in variant "${name}".`);
+				}
+				defines[macro] = define.substring(equals + 1).trim();
+			}
+		}
+
+		return { name, defines };
+	});
+}
+
+class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> {
+	private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<CompileGroupNode | undefined | void>();
+	readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
+
+	public refresh(): void { this.onDidChangeTreeDataEmitter.fire(); }
+
+	public getTreeItem(element: CompileGroupNode): vscode.TreeItem {
+		if (element.kind === 'compileGroup') {
+			const group = getCompileGroups()[element.index];
+			const item = new vscode.TreeItem(
+				group?.name ?? '(deleted compile group)',
+				vscode.TreeItemCollapsibleState.Expanded,
+			);
+			item.iconPath = new vscode.ThemeIcon('gear');
+			item.contextValue = 'compileGroup';
+			item.command = { command: 'glsld.editCompileGroup', title: 'Edit Compile Group', arguments: [element] };
+			if (group) {
+				const variantCount = group.variants?.length ?? 0;
+				item.description = `${group.include?.length ?? 0} pattern(s)${variantCount > 0 ? ` · ${variantCount} variant(s)` : ''}`;
+				item.tooltip = [
+					`Command: ${group.command}`,
+					`Include: ${(group.include ?? []).join(', ')}`,
+					variantCount > 0 ? `Variants: ${formatCompileVariants(group.variants)}` : 'Variants: none',
+				].join('\n');
+			}
+			return item;
+		}
+
+		const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+		item.description = element.value || '(none)';
+		item.iconPath = new vscode.ThemeIcon('symbol-property');
+		item.contextValue = 'compileGroupProperty';
+		return item;
+	}
+
+	public getChildren(element?: CompileGroupNode): CompileGroupNode[] {
+		if (!element) {
+			return getCompileGroups().map((_, index) => ({ kind: 'compileGroup' as const, index }));
+		}
+		if (element.kind !== 'compileGroup') { return []; }
+
+		const group = getCompileGroups()[element.index];
+		if (!group) { return []; }
+
+		const children: CompileGroupProperty[] = [{
+			kind: 'compileGroupProperty', groupIndex: element.index,
+			label: 'Command', value: group.command,
+		}];
+		for (const pattern of group.include ?? []) {
+			children.push({
+				kind: 'compileGroupProperty', groupIndex: element.index,
+				label: 'Include', value: pattern,
+			});
+		}
+		if (group.variants && group.variants.length > 0) {
+			children.push({
+				kind: 'compileGroupProperty', groupIndex: element.index,
+				label: 'Variants', value: formatCompileVariants(group.variants),
+			});
+		}
+		return children;
+	}
+
+	public async addGroup(): Promise<void> {
+		const group = await this.inputGroup();
+		if (!group) { return; }
+
+		const groups = [...getCompileGroups(), group];
+		putCompileGroups(groups);
+		this.refresh();
+		vscode.window.showInformationMessage(`Compile group "${group.name}" saved to .glsld/config.json.`);
+	}
+
+	public async editGroup(node?: CompileGroupEntry): Promise<void> {
+		const groups = [...getCompileGroups()];
+		let index = node?.kind === 'compileGroup' ? node.index : undefined;
+		if (index === undefined) {
+			const selected = await vscode.window.showQuickPick(
+				groups.map((group, groupIndex) => ({
+					label: group.name,
+					description: `${group.include?.length ?? 0} pattern(s)`,
+					groupIndex,
+				})),
+				{ placeHolder: 'Select a compile group to edit' },
+			);
+			index = selected?.groupIndex;
+		}
+		if (index === undefined || !groups[index]) { return; }
+
+		const group = await this.inputGroup(groups[index], index);
+		if (!group) { return; }
+		groups[index] = group;
+		putCompileGroups(groups);
+		this.refresh();
+		vscode.window.showInformationMessage(`Compile group "${group.name}" updated.`);
+	}
+
+	public async removeGroup(node?: CompileGroupEntry): Promise<void> {
+		const groups = [...getCompileGroups()];
+		let index = node?.kind === 'compileGroup' ? node.index : undefined;
+		if (index === undefined) {
+			const selected = await vscode.window.showQuickPick(
+				groups.map((group, groupIndex) => ({ label: group.name, groupIndex })),
+				{ placeHolder: 'Select a compile group to remove' },
+			);
+			index = selected?.groupIndex;
+		}
+		if (index === undefined || !groups[index]) { return; }
+
+		const group = groups[index];
+		const choice = await vscode.window.showWarningMessage(
+			`Remove compile group "${group.name}" from .glsld/config.json?`,
+			{ modal: true }, 'Remove',
+		);
+		if (choice !== 'Remove') { return; }
+
+		groups.splice(index, 1);
+		putCompileGroups(groups);
+		this.refresh();
+	}
+
+	private async inputGroup(existing?: CompileGroup, index?: number): Promise<CompileGroup | undefined> {
+		const name = await vscode.window.showInputBox({
+			title: existing ? 'Edit Compile Group' : 'Add Compile Group',
+			prompt: 'Group name',
+			placeHolder: 'e.g. Vulkan shaders',
+			value: existing?.name ?? '',
+			validateInput: value => {
+				const trimmed = value.trim();
+				if (trimmed.length === 0) { return 'Group name cannot be empty.'; }
+				const duplicate = getCompileGroups().some((group, groupIndex) =>
+					groupIndex !== index && group.name === trimmed,
+				);
+				return duplicate ? `A compile group named "${trimmed}" already exists.` : undefined;
+			},
+		});
+		if (name === undefined) { return undefined; }
+
+		const includeText = await vscode.window.showInputBox({
+			title: 'Compile Group Source Files',
+			prompt: 'Glob patterns, separated by commas',
+			placeHolder: '**/*.vert, **/*.frag, **/*.comp',
+			value: (existing?.include ?? []).join(', '),
+			validateInput: value => splitCompilePatterns(value).length > 0
+				? undefined : 'At least one source glob is required.',
+		});
+		if (includeText === undefined) { return undefined; }
+
+		const command = await vscode.window.showInputBox({
+			title: 'Compile Group Command',
+			prompt: 'Command template. Supports {}, {defines}, {variant}, {dir}, and {name}.',
+			value: existing?.command ?? DEFAULT_COMPILE_COMMAND,
+			validateInput: value => value.trim().length > 0 ? undefined : 'Command cannot be empty.',
+		});
+		if (command === undefined) { return undefined; }
+
+		const variantsText = await vscode.window.showInputBox({
+			title: 'Compile Group Variants',
+			prompt: 'Optional: name: MACRO=value, OTHER=value; second: MACRO=value',
+			placeHolder: 'debug: DEBUG=1; release: OPTIMIZED=1',
+			value: formatCompileVariants(existing?.variants),
+			validateInput: value => {
+				try {
+					parseCompileVariants(value);
+					return undefined;
+				} catch (error) {
+					return error instanceof Error ? error.message : 'Invalid variant list.';
+				}
+			},
+		});
+		if (variantsText === undefined) { return undefined; }
+
+		return {
+			name: name.trim(),
+			include: splitCompilePatterns(includeText),
+			command: command.trim(),
+			variants: parseCompileVariants(variantsText),
+		};
+	}
+}
+
+// ============================================================
 // Variant editing (add / edit / delete named variant sets)
 // ============================================================
 
@@ -609,6 +914,7 @@ async function inputMacros(
 
 export function activateSidebar(context: vscode.ExtensionContext, client: LanguageClient): void {
 	gStorageUri = context.globalStorageUri;
+	const migratedCompileGroups = migrateLegacyCompileGroups();
 
 	// Restore last active variant from config
 	const data = getData();
@@ -616,6 +922,13 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 
 	const globalProvider = new GlobalVariantProvider(client);
 	const fileProvider   = new FileMacroProvider(client);
+	const compileProvider = new CompileGroupProvider();
+
+	if (migratedCompileGroups > 0) {
+		vscode.window.showInformationMessage(
+			`Moved ${migratedCompileGroups} compile group(s) to .glsld/config.json.`,
+		);
+	}
 
 	// Use createTreeView for File view — we need checkbox events
 	const fileTreeView = vscode.window.createTreeView('glsld.fileVariant', {
@@ -625,6 +938,7 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 	context.subscriptions.push(
 		// Global: simple TreeDataProvider is enough (no checkboxes)
 		vscode.window.registerTreeDataProvider('glsld.shaderVariant', globalProvider),
+		vscode.window.registerTreeDataProvider('glsld.compileGroups', compileProvider),
 		fileTreeView,
 
 		// --- File view checkbox toggle ---
@@ -678,11 +992,25 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 			removeVariant(name).then(() => globalProvider.refresh());
 		}),
 
+		// --- Compile groups ---
+		vscode.commands.registerCommand('glsld.addCompileGroup', () => compileProvider.addGroup()),
+		vscode.commands.registerCommand('glsld.editCompileGroup', (node?: CompileGroupEntry) =>
+			compileProvider.editGroup(node),
+		),
+		vscode.commands.registerCommand('glsld.removeCompileGroup', (node?: CompileGroupEntry) =>
+			compileProvider.removeGroup(node),
+		),
+		vscode.commands.registerCommand('glsld.refreshCompileGroups', () => {
+			cachedData = null;
+			compileProvider.refresh();
+		}),
+
 		// --- Refresh views ---
 		vscode.commands.registerCommand('glsld.refreshVariants', () => {
 			cachedData = null;
 			globalProvider.refresh();
 			fileProvider.refresh();
+			compileProvider.refresh();
 			onEvent.fire();
 		}),
 
@@ -749,6 +1077,11 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 	/** Returns the currently active global variant name, or null. */
 	export function getActiveGlobalVariant(): string | null {
 		return globalActive;
+	}
+
+	/** Returns the named global macro variants stored in .glsld/config.json. */
+	export function getVariantsData(): Record<string, Record<string, string>> {
+		return getVariants();
 	}
 
 	/** Returns the raw per-file macro map. */

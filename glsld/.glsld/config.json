@@ -120,5 +120,15 @@
 			"targetSpv": "spv1.6"
 		}
 	},
-	"activeVariant": "Debug"
+	"activeVariant": "Debug",
+	"compileGroups": [
+		{
+			"name": "Vulkan Shaders",
+			"include": [
+				"**/*.glsl"
+			],
+			"command": "glslc --target-env=vulkan1.4 {defines} -o \"{}.spv\" \"{}\"",
+			"variants": []
+		}
+	]
 }

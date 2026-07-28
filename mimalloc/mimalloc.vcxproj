@@ -109,7 +109,9 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>$(SolutionDir)glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;MI_DEFAULT_ARENA_EAGER_COMMIT=1;_DEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;
+MI_DEFAULT_ARENA_EAGER_COMMIT=1
+;MI_DEFAULT_ARENA_RESERVE=262144;_DEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,7 +129,9 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>$(SolutionDir)glsld\Externals\mimalloc\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;MI_DEFAULT_ARENA_EAGER_COMMIT=1;NDEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>MI_DEFAULT_ALLOW_LARGE_OS_PAGES=1;
+MI_DEFAULT_ARENA_EAGER_COMMIT=1
+;MI_DEFAULT_ARENA_RESERVE=262144;NDEBUG;_CONSOLE;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
