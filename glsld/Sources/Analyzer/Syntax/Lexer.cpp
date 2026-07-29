@@ -7,7 +7,6 @@
 #include <fstream>
 #include <ios>
 #include <ranges>
-#include <span>
 #include <string>
 #include <stdexcept>
 #include <vector>
@@ -19,7 +18,7 @@ namespace glsld {
     Lexer::Lexer(const SourceFile* source_file,
                  std::string_view source,
                  IncludeLoader& include_loader,
-                 std::span<const std::filesystem::path> include_dirs)
+                 IncludeDirectoryHandle include_dirs)
 
         : source_file_{ source_file }
         , source_{ source }
@@ -29,7 +28,7 @@ namespace glsld {
         BuildLexicalTable();
     }
 
-    std::vector<Token> Lexer::Tokenize(int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer) {
+    std::vector<Token> Lexer::Tokenize(int version_replica, VersionPointer version_pointer) {
         std::vector<Token> tokens;
         tokens.reserve(source_.length() / 5);
 

@@ -29,7 +29,7 @@ namespace glsld {
         Preprocessor(SourceTable& source_table,
                      const SourceFile* source_file,
                      IncludeLoader& include_loader,
-                     std::span<const std::filesystem::path> include_dirs,
+                     IncludeDirectoryHandle include_dirs,
                      std::span<const Token> raw_tokens,
                      Document& document,
                      std::vector<std::string> parent_stack = {});
@@ -81,16 +81,16 @@ namespace glsld {
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
 
-        SourceTable&                           source_table_;
-        const SourceFile*                      source_file_;
-        IncludeLoader&                         include_loader_;
-        std::span<const std::filesystem::path> include_dirs_;
-        std::vector<std::string>               include_stack_;
-        std::stack<ConditionalFrame>           condition_stack_;
-        std::optional<std::size_t>             open_inactive_begin_line_;
-        std::size_t                            token_index_{};
-        std::span<const Token>                 raw_tokens_;
-        Document&                              document_;
+        SourceTable&                 source_table_;
+        const SourceFile*            source_file_;
+        IncludeLoader&               include_loader_;
+        IncludeDirectoryHandle       include_dirs_;
+        std::vector<std::string>     include_stack_;
+        std::stack<ConditionalFrame> condition_stack_;
+        std::optional<std::size_t>   open_inactive_begin_line_;
+        std::size_t                  token_index_{};
+        std::span<const Token>       raw_tokens_;
+        Document&                    document_;
     };
 }
 

@@ -55,7 +55,7 @@ namespace glsld {
         void Run();
 
     private:
-        using VersionPointer         = std::shared_ptr<std::atomic<int>>;
+        using MutableVersionPointer  = std::shared_ptr<std::atomic<int>>;
         using CancellationTokenTable = ankerl::unordered_dense::map<nlohmann::json, CancellationToken>; // [Request ID, Token]
 
         void RegisterHandlers();
@@ -92,6 +92,8 @@ namespace glsld {
         void HandleChangeVariant(Context& context);
         void HandleRemoveVariant(Context& context);
 
+        void ApplyCapabilityConfigs(const nlohmann::json& glsld);
+        void ApplyIncludeConfigs(const nlohmann::json& glsld);
         void ApplyShaderConfigs(const nlohmann::json& glsld);
         void ApplyVariantConfigs(const nlohmann::json& glsld);
         void ApplyIndexConfigs(const nlohmann::json& glsld);
@@ -100,7 +102,7 @@ namespace glsld {
         void RebuildDocuments();
         void UpdateWorker(std::string_view uri);
         void PickupPendingUpdate(std::string_view uri);
-        void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document);
+        void Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer);
 
         void SubmitDiagnositcTask(
             std::string_view uri,
@@ -115,43 +117,44 @@ namespace glsld {
             std::string                           text;
             std::chrono::steady_clock::time_point deadline;
             int                                   version_replica{};
-            bool                                  open_document{ false };
         };
 
-        std::stop_source                    stop_source_;
-        std::atomic<int>                    server_request_id_{};
-        Router                              router_;
-        ThreadPool                          thread_pool_;
-        ThreadPool                          update_pool_;
-        Workspace                           workspace_;
-        StringHeteroHashSet                 document_uris_;
-        DiagnosticEngine                    diagnostic_engine_;
-        std::condition_variable_any         ready_condition_;
-        std::mutex                          ready_mutex_;
+        std::stop_source                           stop_source_;
+        std::atomic<int>                           server_request_id_{};
+        Router                                     router_;
+        ThreadPool                                 thread_pool_;
+        ThreadPool                                 update_pool_;
+        Workspace                                  workspace_;
+        StringHeteroHashSet                        document_uris_;
+        DiagnosticEngine                           diagnostic_engine_;
+        std::condition_variable_any                ready_condition_;
+        std::mutex                                 ready_mutex_;
 
-        std::vector<std::filesystem::path>  workspace_roots_;
+        std::vector<std::filesystem::path>         workspace_roots_;
 
-        StringHeteroHashMap<PendingUpdate>  pending_updates_;
-        std::shared_mutex                   pending_mutex_;
-        StringHeteroHashMap<VersionPointer> document_versions_;   // [Uri, Version]
-        std::shared_mutex                   version_mutex_;
+        StringHeteroHashMap<PendingUpdate>         pending_updates_;
+        std::shared_mutex                          pending_mutex_;
+        StringHeteroHashMap<MutableVersionPointer> document_versions_;   // [Uri, Version]
+        std::shared_mutex                          version_mutex_;
 
-        StringHeteroHashSet                 include_affected_uris_;
-        std::shared_mutex                   affected_mutex_;
+        StringHeteroHashSet                        include_affected_uris_;
+        std::shared_mutex                          affected_mutex_;
 
-        std::mutex                          task_mutex_;
-        std::condition_variable_any         task_condition_;
-        std::queue<LspTask>                 task_queue_;
+        std::mutex                                 task_mutex_;
+        std::condition_variable_any                task_condition_;
+        std::queue<LspTask>                        task_queue_;
 
-        std::mutex                          submit_mutex_;
-        std::condition_variable_any         submit_condition_;
-        std::queue<LspSubmitItem>           submit_queue_;
+        std::mutex                                 submit_mutex_;
+        std::condition_variable_any                submit_condition_;
+        std::queue<LspSubmitItem>                  submit_queue_;
 
-        std::mutex                          update_mutex_;
-        std::condition_variable_any         update_condition_;
-        std::queue<std::function<void()>>   update_queue_;
+        std::mutex                                 update_mutex_;
+        std::condition_variable_any                update_condition_;
+        std::queue<std::function<void()>>          update_queue_;
 
-        CancellationTokenTable              cancellation_tokens_; // [Request ID, Token]
-        std::mutex                          cancellation_mutex_;
+        CancellationTokenTable                     cancellation_tokens_; // [Request ID, Token]
+        std::mutex                                 cancellation_mutex_;
+
+        std::atomic<bool>                          inlay_hints_enabled_{ true };
     };
 }

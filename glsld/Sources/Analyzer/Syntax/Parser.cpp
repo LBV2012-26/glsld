@@ -18,9 +18,9 @@ namespace glsld {
                    const SourceFile* source_file,
                    std::vector<Token> raw_tokens,
                    IncludeLoader& include_loader,
-                   std::span<const std::filesystem::path> include_dirs,
+                   IncludeDirectoryHandle include_dirs,
                    int version_replica,
-                   std::shared_ptr<const std::atomic<int>> version_pointer,
+                   VersionPointer version_pointer,
                    Document& document)
 
         : source_file_{ source_file }
@@ -104,9 +104,9 @@ namespace glsld {
     void Parser::Parse(
         SourceTable& source_table,
         IncludeLoader& include_loader,
-        std::span<const std::filesystem::path> include_dirs,
+        IncludeDirectoryHandle include_dirs,
         int version_replica,
-        std::shared_ptr<const std::atomic<int>> version_pointer,
+        VersionPointer version_pointer,
         Document& document)
     {
         Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);

@@ -39,17 +39,17 @@ namespace glsld {
         SnapshotFuture Include(
             std::string_view includer_uri,
             std::string_view include_expr,
-            std::span<const std::filesystem::path> include_dirs);
+            IncludeDirectoryHandle include_dirs);
 
         SnapshotFuture Include(
             std::string_view includer_uri,
             std::span<const Token> body_tokens,
-            std::span<const std::filesystem::path> include_dirs);
+            IncludeDirectoryHandle include_dirs);
 
         void Prefetch(
             std::string_view includer_uri,
             std::string_view include_expr,
-            std::span<const std::filesystem::path> include_dirs);
+            IncludeDirectoryHandle include_dirs);
 
         void Invalidate(std::string_view filename);
         void Clear();
@@ -63,7 +63,7 @@ namespace glsld {
         SnapshotFuture Include(
             std::string_view includer_uri,
             std::string_view include_expr,
-            std::span<const std::filesystem::path> include_dirs,
+            IncludeDirectoryHandle include_dirs,
             std::optional<IncludeTarget> parsed_target);
 
         std::optional<IncludeTarget> ParseIncludeExpr(std::string_view include_expr) const;
@@ -72,11 +72,11 @@ namespace glsld {
         std::optional<std::filesystem::path> ResolveIncludePath(
             const std::filesystem::path& includer_path,
             const IncludeTarget& target,
-            std::span<const std::filesystem::path> include_dirs) const;
+            IncludeDirectoryHandle include_dirs) const;
 
         Snapshot LoadIncludeFile(
             const std::filesystem::path& normalized_path,
-            std::span<const std::filesystem::path> include_dirs);
+            IncludeDirectoryHandle include_dirs);
 
         SnapshotFuture MakeReadyFuture(Snapshot snapshot) const;
 

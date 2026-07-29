@@ -7,7 +7,7 @@
 namespace glsld {
     class MacroBinder {
     public:
-        MacroBinder(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer);
+        MacroBinder(Document& document, int version_replica, VersionPointer version_pointer);
 
     private:
         void BindMacroInvocations();
@@ -15,8 +15,8 @@ namespace glsld {
         void BindMacroFunctionArguments();
         void BindMacroAfterDirective();
 
-        Document&                               document_;
-        int                                     version_replica_{};
-        std::shared_ptr<const std::atomic<int>> version_pointer_;
+        Document&      document_;
+        int            version_replica_{};
+        VersionPointer version_pointer_;
     };
 }

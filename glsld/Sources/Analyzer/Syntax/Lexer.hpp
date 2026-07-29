@@ -5,10 +5,10 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string_view>
 #include <utility>
 
+#include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
@@ -20,9 +20,9 @@ namespace glsld {
         Lexer(const SourceFile* source_file,
               std::string_view source,
               IncludeLoader& include_loader,
-              std::span<const std::filesystem::path> include_dirs);
+              IncludeDirectoryHandle include_dirs);
 
-        std::vector<Token> Tokenize(int version_replica = 0, std::shared_ptr<const std::atomic<int>> version_pointer = nullptr);
+        std::vector<Token> Tokenize(int version_replica = 0, VersionPointer version_pointer = nullptr);
 
     private:
         friend class Parser;
@@ -41,18 +41,18 @@ namespace glsld {
         void SkipWhitespaceAndComments();
         void Advance(std::size_t count = 1);
 
-        const SourceFile*                      source_file_;
-        std::string_view                       source_;
-        IncludeLoader&                         include_loader_;
-        std::span<const std::filesystem::path> include_dirs_;
-        std::size_t                            position_{};
-        std::size_t                            line_{ 1 };
-        std::size_t                            column_{ 1 };
-        int                                    qualifier_paren_depth_{};
-        bool                                   preprocessor_line_{ false };
-        bool                                   qualifier_after_equal_{ false };
-        std::size_t                            last_token_line_{};
-        std::string                            last_token_text_{};
+        const SourceFile*      source_file_;
+        std::string_view       source_;
+        IncludeLoader&         include_loader_;
+        IncludeDirectoryHandle include_dirs_;
+        std::size_t            position_{};
+        std::size_t            line_{ 1 };
+        std::size_t            column_{ 1 };
+        int                    qualifier_paren_depth_{};
+        bool                   preprocessor_line_{ false };
+        bool                   qualifier_after_equal_{ false };
+        std::size_t            last_token_line_{};
+        std::string            last_token_text_{};
 
         static inline const StringHeteroHashMap<TokenType>* lexical_table_{ nullptr };
     };

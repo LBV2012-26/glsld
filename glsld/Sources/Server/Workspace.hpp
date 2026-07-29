@@ -43,8 +43,6 @@ namespace glsld {
 
     class Workspace {
     public:
-        Workspace();
-
         const SourceFile* InternSource(std::string_view uri);
         const SourceFile* GetSource(std::string_view uri) const;
 
@@ -52,8 +50,7 @@ namespace glsld {
             std::string_view uri,
             std::string_view source,
             int version_replica,
-            std::shared_ptr<const std::atomic<int>> version_pointer,
-            bool open_document = false);
+            VersionPointer version_pointer);
 
         std::shared_ptr<Document> GetDocumentSnapshot(std::string_view uri) const;
         std::vector<std::string> GetAffectedDocuments(std::string_view changed_uri) const;
@@ -83,8 +80,8 @@ namespace glsld {
         void ScheduleDiskIndex(const std::filesystem::path& filename);
         void ScheduleDiskIndexByUri(std::string_view uri);
 
-        void set_include_dirs(std::vector<std::filesystem::path> include_dirs);
-        std::span<const std::filesystem::path> include_dirs() const;
+        void set_include_dirs(IncludeDirectoryHandle include_dirs);
+        IncludeDirectoryHandle include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
         const GlobalIndex& global_index() const;
         const TypeMemberIndex& type_member_index() const;
@@ -94,7 +91,7 @@ namespace glsld {
             const SourceFile* source_file,
             std::string_view source,
             int version_replica,
-            std::shared_ptr<const std::atomic<int>> version_pointer,
+            VersionPointer version_pointer,
             Document& document);
 
         void UnregisterDependencies(std::string_view uri);
@@ -125,9 +122,9 @@ namespace glsld {
         StringHeteroHashMap<ExtraShaderConfig>         shader_configs_; // [Uri, Config]
         SourceTable                                    source_table_;
 
-        ThreadPool                                     loader_pool_;
-        IncludeLoader                                  include_loader_;
-        std::vector<std::filesystem::path>             include_dirs_;
+        ThreadPool                                     loader_pool_{ std::jthread::hardware_concurrency() };
+        IncludeLoader                                  include_loader_{ source_table_, loader_pool_ };
+        IncludeDirectoryHandle                         include_dirs_{ std::make_shared<std::vector<std::filesystem::path>>() };
 
         StringHeteroHashMap<std::vector<std::string>>  forward_dependencies_;
         StringHeteroHashMap<StringHeteroHashSet>       reverse_dependencies_;
@@ -150,7 +147,7 @@ namespace glsld {
         StringHeteroHashSet                            queued_disk_uris_;
         std::queue<DiskIndexTask>                      index_task_queue_;
 
-        ThreadPool                                     background_index_pool_;
+        ThreadPool                                     background_index_pool_{ std::jthread::hardware_concurrency() };
         std::mutex                                     background_index_mutex_;
         std::condition_variable_any                    background_index_condition_;
         std::jthread                                   background_index_thread_;

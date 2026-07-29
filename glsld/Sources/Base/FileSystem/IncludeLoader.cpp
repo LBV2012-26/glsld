@@ -19,7 +19,7 @@ namespace glsld {
     IncludeLoader::SnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::string_view include_expr,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         return Include(includer_uri, include_expr, include_dirs, std::nullopt);
     }
@@ -27,7 +27,7 @@ namespace glsld {
     IncludeLoader::SnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::span<const Token> body_tokens,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         auto target = ParseIncludeFromTokens(body_tokens);
         if (!target.has_value()) {
@@ -42,7 +42,7 @@ namespace glsld {
     void IncludeLoader::Prefetch(
         std::string_view includer_uri,
         std::string_view include_expr,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         std::ignore = Include(includer_uri, include_expr, include_dirs);
     }
@@ -62,7 +62,7 @@ namespace glsld {
     IncludeLoader::SnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::string_view include_expr,
-        std::span<const std::filesystem::path> include_dirs,
+        IncludeDirectoryHandle include_dirs,
         std::optional<IncludeTarget> parsed_target)
     {
         auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
@@ -212,16 +212,16 @@ namespace glsld {
     std::optional<std::filesystem::path> IncludeLoader::ResolveIncludePath(
         const std::filesystem::path& includer_path,
         const IncludeTarget& target,
-        std::span<const std::filesystem::path> include_dirs) const
+        IncludeDirectoryHandle include_dirs) const
     {
         std::vector<std::filesystem::path> candidates;
-        candidates.reserve(include_dirs.size() + 1);
+        candidates.reserve(include_dirs->size() + 1);
 
         if (!target.system_include) {
             candidates.push_back(includer_path.parent_path() / target.relative_path);
         }
 
-        for (const auto& dir : include_dirs) {
+        for (const auto& dir : *include_dirs) {
             candidates.push_back(dir / target.relative_path);
         }
 
@@ -238,7 +238,7 @@ namespace glsld {
 
     IncludeLoader::Snapshot IncludeLoader::LoadIncludeFile(
         const std::filesystem::path& normalized_path,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         auto snapshot = std::make_shared<IncludeFileSnapshot>();
         snapshot->filename = normalized_path.generic_string();

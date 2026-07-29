@@ -261,7 +261,7 @@ namespace glsld {
         }
     }
 
-    TypeResolver::TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
+    TypeResolver::TypeResolver(Document& document, int version_replica, VersionPointer version_pointer)
         : AstVisitor(version_replica, version_pointer)
         , document_{ document }
     {

@@ -6,8 +6,11 @@
 import {
 	commands,
 	Disposable,
+	Position,
 	Range,
+	Selection,
 	TextDocument,
+	TextDocumentChangeEvent,
 	TextEditorDecorationType,
 	Uri,
 	window,
@@ -33,16 +36,21 @@ const scheduledUpdates = new Map<string, NodeJS.Timeout>();
 const runtimeDisposables: Disposable[] = [];
 
 export async function activate(context: any) {
-	const config     = workspace.getConfiguration('glsld');
+	const config = workspace.getConfiguration('glsld');
 	const serverPath = config.get<string>('server.path', 'glsld');
+	const serverEnv = createServerEnvironment(config);
+	const serverOutput = window.createOutputChannel('glsld Language Server');
+	context.subscriptions.push(serverOutput);
+	serverOutput.appendLine(formatMimallocLaunchOptions(serverEnv));
 
 	const serverOptions: ServerOptions = {
-		run:   { command: serverPath, transport: TransportKind.stdio },
-		debug: { command: serverPath, transport: TransportKind.stdio },
+		run: { command: serverPath, transport: TransportKind.stdio, options: { env: serverEnv } },
+		debug: { command: serverPath, transport: TransportKind.stdio, options: { env: serverEnv } },
 	};
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
+		outputChannel: serverOutput,
 		// Register the server for plain text documents
 		documentSelector: [{ scheme: 'file', language: 'glsl' }],
 		synchronize: {
@@ -88,56 +96,36 @@ export async function activate(context: any) {
 	initializeInactiveTokenDimming();
 	activateSidebar(context, client);
 
-	
-// Shader Config view (per-file stage/version overrides)
-	
-const shaderConfigProvider = new ShaderConfigProvider();
-	
-context.subscriptions.push(
-	
-	
-window.registerTreeDataProvider('glsld.shaderConfig', shaderConfigProvider),
-	
-	
-commands.registerCommand('glsld.addShaderConfig', () => shaderConfigProvider.addConfig()),
-	
-	
-commands.registerCommand('glsld.editShaderConfigProp', (node: any) => {
-	
-	
-	
-if (node?.kind === 'configProp') { shaderConfigProvider.editProperty(node); }
-	
-	
-	
-else { shaderConfigProvider.editConfigProps(); }
-	
-	
-}),
-	
-	
-commands.registerCommand('glsld.removeShaderConfig', (node: any) => {
-	
-	
-	
-if (node?.kind === 'fileConfig') { shaderConfigProvider.removeConfig(node); }
-	
-	
-}),
-	
-	
-commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvider.generateConfigs()),
-			commands.registerCommand('glsld.applyShaderConfigTemplate', () => shaderConfigProvider.applyTemplate()),
-	
-);
+	// Shader Config view (per-file stage/version overrides)
+
+	const shaderConfigProvider = new ShaderConfigProvider();
+
+	context.subscriptions.push(
+		window.registerTreeDataProvider('glsld.shaderConfig', shaderConfigProvider),
+
+		commands.registerCommand('glsld.addShaderConfig', () => shaderConfigProvider.addConfig()),
+		commands.registerCommand('glsld.editShaderConfigProp', (node: any) => {
+			if (node?.kind === 'configProp') { shaderConfigProvider.editProperty(node); }
+			else { shaderConfigProvider.editConfigProps(); }
+		}),
 
 
-		// Register compile-to-SPIR-V command
-		context.subscriptions.push(
-			commands.registerCommand('glsld.compileWorkspace', () => {
-				compileWorkspace();
-			})
-		);
+		commands.registerCommand('glsld.removeShaderConfig', (node: any) => {
+			if (node?.kind === 'fileConfig') { shaderConfigProvider.removeConfig(node); }
+		}),
+
+		commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvider.generateConfigs()),
+		commands.registerCommand('glsld.applyShaderConfigTemplate', () => shaderConfigProvider.applyTemplate()),
+
+	);
+
+
+	// Register compile-to-SPIR-V command
+	context.subscriptions.push(
+		commands.registerCommand('glsld.compileWorkspace', () => {
+			compileWorkspace();
+		})
+	);
 
 	// Push configuration to server when settings change
 	context.subscriptions.push(
@@ -161,6 +149,44 @@ commands.registerCommand('glsld.generateShaderConfigs', () => shaderConfigProvid
 
 	await pushConfiguration();
 
+}
+
+function createServerEnvironment(config: ReturnType<typeof workspace.getConfiguration>): NodeJS.ProcessEnv {
+	const environment: NodeJS.ProcessEnv = { ...process.env };
+	if (process.platform !== 'win32') {
+		return environment;
+	}
+
+	const mimallocVerbose = config.get<boolean>('mimalloc.verbose', false);
+	if (mimallocVerbose) {
+		environment.MIMALLOC_VERBOSE = '1';
+	} else {
+		delete environment.MIMALLOC_VERBOSE;
+	}
+
+	const largePagesEnabled = config.get<boolean>('mimalloc.largePages.enabled', false);
+	environment.MIMALLOC_ALLOW_LARGE_OS_PAGES = largePagesEnabled ? '1' : '0';
+	environment.MIMALLOC_ARENA_EAGER_COMMIT = largePagesEnabled ? '1' : '0';
+
+	if (!largePagesEnabled) {
+		delete environment.MIMALLOC_ARENA_RESERVE;
+		return environment;
+	}
+
+	const configuredReserveMiB = config.get<number>('mimalloc.largePages.reserveMiB', 256);
+	const reserveMiB = Number.isFinite(configuredReserveMiB)
+		? Math.min(Math.max(Math.trunc(configuredReserveMiB), 2), 4096)
+		: 256;
+	environment.MIMALLOC_ARENA_RESERVE = String(reserveMiB * 1024 * 1024);
+	return environment;
+}
+
+function formatMimallocLaunchOptions(environment: NodeJS.ProcessEnv): string {
+	const largePages = environment.MIMALLOC_ALLOW_LARGE_OS_PAGES === '1';
+	const reserveBytes = environment.MIMALLOC_ARENA_RESERVE;
+	const reserveMiB = reserveBytes === undefined ? undefined : Number(reserveBytes) / (1024 * 1024);
+	const reserveDescription = Number.isFinite(reserveMiB) ? `${reserveMiB} MiB` : 'mimalloc default';
+	return `[glsld] Launching language server with mimalloc large pages ${largePages ? 'enabled' : 'disabled'}; arena reserve: ${reserveDescription}.`;
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -191,6 +217,7 @@ function initializeInactiveTokenDimming(): void {
 			if (event.document.languageId !== 'glsl') {
 				return;
 			}
+			void autoCloseIncludeAngleBracket(event);
 			scheduleInactiveUpdate(event.document);
 		}),
 		workspace.onDidOpenTextDocument((document) => {
@@ -235,6 +262,46 @@ function initializeInactiveTokenDimming(): void {
 			scheduleInactiveUpdate(editor.document, 0);
 		}
 	}
+}
+
+/**
+ * GLSL uses '<' and '>' extensively for comparisons and shifts, so they must
+ * not be configured as a global auto-closing pair.  Includes are the one
+ * unambiguous context in which typing '<' should produce a matching '>'.
+ */
+async function autoCloseIncludeAngleBracket(event: TextDocumentChangeEvent): Promise<void> {
+	if (event.contentChanges.length !== 1) {
+		return;
+	}
+
+	const change = event.contentChanges[0];
+	if (change.text !== '<' || change.rangeLength !== 0) {
+		return;
+	}
+
+	const editor = window.activeTextEditor;
+	if (!editor || editor.document !== event.document) {
+		return;
+	}
+
+	const closePosition = new Position(change.range.start.line, change.range.start.character + 1);
+	const lineText = event.document.lineAt(closePosition.line).text;
+	const textBeforeCursor = lineText.slice(0, closePosition.character);
+	if (!/^\s*#\s*include\s*<$/.test(textBeforeCursor) || lineText.charAt(closePosition.character) === '>') {
+		return;
+	}
+
+	const wasInserted = await editor.edit(
+		(editBuilder) => editBuilder.insert(closePosition, '>'),
+		{ undoStopBefore: false, undoStopAfter: false }
+	);
+	if (!wasInserted || window.activeTextEditor !== editor || editor.document !== event.document) {
+		return;
+	}
+
+	const caret = new Selection(closePosition, closePosition);
+	editor.selection = caret;
+	await commands.executeCommand('editor.action.triggerSuggest');
 }
 
 function scheduleInactiveUpdate(document: TextDocument, delayMs = 120): void {
@@ -360,6 +427,7 @@ export async function pushConfiguration(): Promise<void> {
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
 	const backgroundIndexRoots = config.get<string[]>('backgroundIndex.roots', []);
+	const systemIncludeDirectories = getSystemIncludeDirectories();
 	const activeVariants = getActiveVariants();
 
 	const shaderConfigs: Record<string, object> = {};
@@ -371,20 +439,54 @@ export async function pushConfiguration(): Promise<void> {
 		}
 	}
 
-		// Strip VSCode config proxies before JSON-RPC serialization
-		const payload = JSON.parse(JSON.stringify({
-			settings: {
-				glsld: {
-					shaderConfigs,
-					activeVariants,
-					diagnosticsEnabled,
-					capabilities: { inlayHints },
-					backgroundIndex: { roots: backgroundIndexRoots }
-				}
+	// Strip VSCode config proxies before JSON-RPC serialization
+	const payload = JSON.parse(JSON.stringify({
+		settings: {
+			glsld: {
+				shaderConfigs,
+				activeVariants,
+				diagnosticsEnabled,
+				capabilities: { inlayHints },
+				backgroundIndex: { roots: backgroundIndexRoots },
+				systemIncludeDirectories
 			}
-		}));
-		console.log('[glsld] pushConfiguration sending: %o', payload);
-		await client.sendNotification('workspace/didChangeConfiguration', payload);
+		}
+	}));
+	console.log('[glsld] pushConfiguration sending: %o', payload);
+	await client.sendNotification('workspace/didChangeConfiguration', payload);
+}
+
+function getSystemIncludeDirectories(): string[] {
+	const directories = new Set<string>();
+	const folders = workspace.workspaceFolders;
+
+	if (!folders || folders.length === 0) {
+		for (const directory of workspace.getConfiguration('glsld').get<string[]>('systemIncludeDirectories', [])) {
+			if (typeof directory === 'string' && directory.trim().length > 0) {
+				directories.add(path.normalize(directory.trim()));
+			}
+		}
+		return [...directories];
+	}
+
+	for (const folder of folders) {
+		const configuredDirectories = workspace
+			.getConfiguration('glsld', folder.uri)
+			.get<string[]>('systemIncludeDirectories', []);
+
+		for (const directory of configuredDirectories) {
+			if (typeof directory !== 'string' || directory.trim().length === 0) {
+				continue;
+			}
+
+			const trimmed = directory.trim();
+			directories.add(path.isAbsolute(trimmed)
+				? path.normalize(trimmed)
+				: path.resolve(folder.uri.fsPath, trimmed));
+		}
+	}
+
+	return [...directories];
 }
 
 /**

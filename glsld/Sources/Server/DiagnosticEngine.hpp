@@ -7,24 +7,25 @@
 #include <mutex>
 #include <optional>
 #include <queue>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "Analyzer/Syntax/Document.hpp"
+#include "Base/FileSystem/Source.hpp"
 #include "Base/Hash.hpp"
 
 namespace glsld {
     struct DiagnosticTask {
-        std::string                             uri;
-        std::string                             source;
-        std::string                             filename; // 给编译器报错用
-        std::span<const std::filesystem::path>  include_dirs;
-        std::optional<std::string>              shader_stage;
-        std::optional<std::string>              target_env;
-        std::optional<std::string>              target_spv;
-        int                                     version_replica;
-        std::shared_ptr<const std::atomic<int>> version_pointer;
+        std::string                uri;
+        std::string                source;
+        std::string                filename; // 给编译器报错用
+        IncludeDirectoryHandle     include_dirs;
+        std::optional<std::string> shader_stage;
+        std::optional<std::string> target_env;
+        std::optional<std::string> target_spv;
+        int                        version_replica;
+        VersionPointer             version_pointer;
     };
 
     enum class DiagnosticSeverity {

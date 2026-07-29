@@ -27,9 +27,9 @@ namespace glsld {
                const SourceFile* source_file,
                std::vector<Token> raw_tokens,
                IncludeLoader& include_loader,
-               std::span<const std::filesystem::path> include_dirs,
+               IncludeDirectoryHandle include_dirs,
                int version_replica,
-               std::shared_ptr<const std::atomic<int>> version_pointer,
+               VersionPointer version_pointer,
                Document& document);
 
     private:
@@ -59,9 +59,9 @@ namespace glsld {
 
         void Parse(SourceTable& source_table,
                    IncludeLoader& include_loader,
-                   std::span<const std::filesystem::path> include_dirs,
+                   IncludeDirectoryHandle include_dirs,
                    int version_replica,
-                   std::shared_ptr<const std::atomic<int>> version_pointer,
+                   VersionPointer version_pointer,
                    Document& document);
 
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
@@ -141,7 +141,7 @@ namespace glsld {
         std::size_t                             token_index_{};
         std::size_t                             anonymous_block_index_{};
         int                                     version_replica_{};
-        std::shared_ptr<const std::atomic<int>> version_pointer_;
+        VersionPointer                          version_pointer_;
         Document&                               document_;
 
         // for re-attach syntax like

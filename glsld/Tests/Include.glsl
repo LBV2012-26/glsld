@@ -1,7 +1,7 @@
 #ifndef INCLUDE_GLSL_
 #define INCLUDE_GLSL_
 
-#include "Debugger.glsl"
+#include <Debugger.glsl>
 
 const int k114514 = SHIT;
 

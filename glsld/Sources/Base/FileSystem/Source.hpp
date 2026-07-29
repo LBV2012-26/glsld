@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <expected>
+#include <filesystem>
 #include <memory>
 #include <shared_mutex>
 #include <string>
@@ -88,6 +89,8 @@ namespace glsld {
     struct LocationHash {
         std::size_t operator()(const SourceLocation& location) const;
     };
+
+    using IncludeDirectoryHandle = std::shared_ptr<std::vector<std::filesystem::path>>;
 }
 
 #include "Source.inl"

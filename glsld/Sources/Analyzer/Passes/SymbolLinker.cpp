@@ -5,7 +5,7 @@
 #include <variant>
 
 namespace glsld {
-    SymbolLinker::SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer)
+    SymbolLinker::SymbolLinker(Document& document, int version_replica, VersionPointer vesion_pointer)
         : AstVisitor(version_replica, vesion_pointer)
         , document_{ document }
     {

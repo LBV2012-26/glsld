@@ -751,6 +751,10 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleInlayHints(Context& context) {
+        if (!inlay_hints_enabled_.load(std::memory_order::relaxed)) {
+            return {};
+        }
+
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         auto        uri        = NormalizeUri(origin_uri);
@@ -921,8 +925,7 @@ namespace glsld {
             pending_updates_[uri] = {
                 .text            = text,
                 .deadline        = deadline,
-                .version_replica = version,
-                .open_document   = true
+                .version_replica = version
             };
 
             document_versions_[uri] = std::make_shared<std::atomic<int>>(version);
@@ -953,8 +956,7 @@ namespace glsld {
             pending_updates_[uri] = {
                 .text            = new_text,
                 .deadline        = deadline,
-                .version_replica = version,
-                .open_document   = false
+                .version_replica = version
             };
 
             auto it = document_versions_.find(uri);
@@ -1039,6 +1041,8 @@ namespace glsld {
 
         const auto& glsld = settings["glsld"];
 
+        ApplyCapabilityConfigs(glsld);
+        ApplyIncludeConfigs(glsld);
         ApplyShaderConfigs(glsld);
         ApplyVariantConfigs(glsld);
         ApplyIndexConfigs(glsld);
@@ -1106,6 +1110,59 @@ namespace glsld {
             workspace_.RemoveVariant(VariantType::kUnique, uri);
             RefreshDocument(uri);
         }
+    }
+
+    void LspServer::ApplyCapabilityConfigs(const nlohmann::json& glsld) {
+        bool enabled = true;
+
+        if (glsld.contains("capabilities") &&
+            glsld["capabilities"].is_object())
+        {
+            enabled = glsld["capabilities"].value("inlayHints", true);
+        }
+
+        if (inlay_hints_enabled_.exchange(enabled, std::memory_order::relaxed) == enabled) {
+            return;
+        }
+
+        LspSubmitItem item{
+            .id            = server_request_id_.fetch_add(1, std::memory_order::release),
+            .notify_method = "workspace/inlayHint/refresh",
+            .kind          = LspSubmitItem::Kind::kServerRequest
+        };
+        EnqueueSubmit(std::move(item));
+    }
+
+    void LspServer::ApplyIncludeConfigs(const nlohmann::json& glsld) {
+        if (!glsld.contains("systemIncludeDirectories") ||
+            !glsld["systemIncludeDirectories"].is_array())
+        {
+            return;
+        }
+
+        IncludeDirectoryHandle include_dirs = std::make_shared<std::vector<std::filesystem::path>>();
+        for (const auto& value : glsld["systemIncludeDirectories"]) {
+            if (!value.is_string()) {
+                continue;
+            }
+
+            auto directory = utils::NormalizePath(
+                std::filesystem::path(value.get<std::string>()));
+
+            std::error_code ec;
+            if (!std::filesystem::is_directory(directory, ec) || ec) {
+                GLSLD_LOG(warn, "Ignoring nonexistent system include directory: {}",
+                          directory.string());
+                continue;
+            }
+
+            if (std::ranges::find(*include_dirs, directory) == include_dirs->end()) {
+                include_dirs->push_back(std::move(directory));
+            }
+        }
+
+        workspace_.set_include_dirs(std::move(include_dirs));
+        RebuildDocuments();
     }
 
     void LspServer::ApplyShaderConfigs(const nlohmann::json& glsld) {
@@ -1220,7 +1277,7 @@ namespace glsld {
             return;
         }
 
-        Update(uri, snapshot->source, version_replica, version_pointer, false);
+        Update(uri, snapshot->source, version_replica, version_pointer);
 
         LspSubmitItem item{
             .id            = server_request_id_.fetch_add(1, std::memory_order::relaxed),
@@ -1232,7 +1289,7 @@ namespace glsld {
     }
 
     void LspServer::RebuildDocuments() {
-        std::vector<StringHeteroHashMap<VersionPointer>::iterator> exists;
+        std::vector<StringHeteroHashMap<MutableVersionPointer>::iterator> exists;
         auto total = 0uz;
 
         std::shared_lock lock(version_mutex_);
@@ -1259,7 +1316,7 @@ namespace glsld {
             update_pool_.Submit([this, counter, total, uri, version_replica, version_pointer]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(uri);
                 if (snapshot != nullptr) {
-                    Update(uri, snapshot->source, version_replica, version_pointer, false);
+                    Update(uri, snapshot->source, version_replica, version_pointer);
                 }
 
                 if (counter->fetch_add(1, std::memory_order::relaxed) + 1 == total) {
@@ -1320,16 +1377,15 @@ namespace glsld {
             text            = std::move(update.text);
             version_pointer = version_it->second;
             version_replica = update.version_replica;
-            open_document   = update.open_document;
 
             pending_updates_.erase(pending_it);
         }
 
-        Update(uri, text, version_replica, version_pointer, open_document);
+        Update(uri, text, version_replica, version_pointer);
     }
 
-    void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer, bool open_document) {
-        workspace_.UpdateDocument(uri, text, version_replica, version_pointer, open_document);
+    void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer) {
+        workspace_.UpdateDocument(uri, text, version_replica, version_pointer);
         ready_condition_.notify_all();
         SubmitDiagnositcTask(uri, text, utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
     }

@@ -68,6 +68,26 @@
 					"default": "glsld",
 					"description": "Path to the glsld language server executable."
 				},
+				"glsld.mimalloc.largePages.enabled": {
+					"type": "boolean",
+					"default": false,
+					"scope": "resource",
+					"description": "Use Windows large pages for glsld's mimalloc arenas. Requires the Lock pages in memory privilege and takes effect after restarting the language server."
+				},
+				"glsld.mimalloc.largePages.reserveMiB": {
+					"type": "number",
+					"default": 256,
+					"minimum": 2,
+					"maximum": 4096,
+					"scope": "resource",
+					"description": "Size, in MiB, of each mimalloc large-page arena reserved by glsld when large pages are enabled. Takes effect after restarting the language server."
+				},
+				"glsld.mimalloc.verbose": {
+					"type": "boolean",
+					"default": false,
+					"scope": "resource",
+					"description": "Write verbose mimalloc startup, arena, and allocation diagnostics to the glsld Language Server output channel. Takes effect after restarting the language server."
+				},
 				"glsld.glslc.path": {
 					"type": "string",
 					"default": "",
@@ -90,6 +110,15 @@
 						"type": "string"
 					},
 					"description": "Workspace-relative or absolute directories included in the background index. No directories are indexed when this list is empty."
+				},
+				"glsld.systemIncludeDirectories": {
+					"type": "array",
+					"default": [],
+					"scope": "resource",
+					"items": {
+						"type": "string"
+					},
+					"description": "Directories searched for #include <...>. Relative paths are resolved against each workspace folder."
 				},
 				"glsld.shaderVariants": {
 					"type": "object",

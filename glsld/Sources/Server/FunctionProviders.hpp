@@ -25,7 +25,7 @@ namespace glsld {
         Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
-        std::span<const std::filesystem::path> include_dirs);
+        IncludeDirectoryHandle include_dirs);
 
     SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
 
@@ -54,7 +54,7 @@ namespace glsld {
         Context& context, 
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
-        std::span<const std::filesystem::path> include_dirs);
+        IncludeDirectoryHandle include_dirs);
 
     nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
 

@@ -9,7 +9,7 @@
 namespace glsld {
     class SymbolLinker final : public AstVisitor {
     public:
-        SymbolLinker(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> vesion_pointer);
+        SymbolLinker(Document& document, int version_replica, VersionPointer vesion_pointer);
 
     private:
         void VisitPreprocessor(PreprocessorNode* node) override;

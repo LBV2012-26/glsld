@@ -245,7 +245,7 @@ namespace glsld {
         Document& target,
         std::optional<std::string> shader_stage,
         std::span<const Token> raw_tokens,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         target.InjectMacro("_GLSLD", MacroDefination{
             .is_function = false,
@@ -444,7 +444,7 @@ namespace glsld {
 
     std::shared_ptr<Document> MetadataManager::EnsureBuiltinDocumentLoaded(
         const std::filesystem::path& path,
-        std::span<const std::filesystem::path> include_dirs,
+        IncludeDirectoryHandle include_dirs,
         const MacroTable* injected_macros)
     {
         auto normalized = utils::NormalizePath(path);
@@ -552,7 +552,7 @@ namespace glsld {
 
     std::shared_ptr<Document> MetadataManager::ParseMetadataDocument(
         const std::filesystem::path& path,
-        std::span<const std::filesystem::path> include_dirs,
+        IncludeDirectoryHandle include_dirs,
         const MacroTable* injected_macros)
     {
         auto normalized = utils::NormalizePath(path);

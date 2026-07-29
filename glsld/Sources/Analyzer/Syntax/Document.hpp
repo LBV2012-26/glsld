@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -78,4 +79,6 @@ namespace glsld {
         const SourceLocation* location{ nullptr };
         std::string           label;
     };
+
+    using VersionPointer = std::shared_ptr<const std::atomic<int>>;
 }

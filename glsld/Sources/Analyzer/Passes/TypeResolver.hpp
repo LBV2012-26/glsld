@@ -26,7 +26,7 @@ namespace glsld {
 
     class TypeResolver final : public AstVisitor {
     public:
-        TypeResolver(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer);
+        TypeResolver(Document& document, int version_replica, VersionPointer version_pointer);
 
         static int RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
@@ -56,6 +56,6 @@ namespace glsld {
         TypeInfo ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
 
         Document& document_;
-        bool is_signature_pass_{ true };
+        bool      is_signature_pass_{ true };
     };
 }

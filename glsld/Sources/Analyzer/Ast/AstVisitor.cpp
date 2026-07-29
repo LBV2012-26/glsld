@@ -2,7 +2,7 @@
 #include "AstVisitor.hpp"
 
 namespace glsld {
-    AstVisitor::AstVisitor(int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
+    AstVisitor::AstVisitor(int version_replica, VersionPointer version_pointer)
         : version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
     {}

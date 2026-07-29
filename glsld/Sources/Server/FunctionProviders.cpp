@@ -407,7 +407,7 @@ namespace glsld {
         std::vector<std::filesystem::path> ResolveIncludeCandidates(
             std::string_view includer_uri,
             std::string_view include_expr,
-            std::span<const std::filesystem::path> include_dirs)
+            IncludeDirectoryHandle include_dirs)
         {
             std::vector<std::filesystem::path> candidates;
 
@@ -425,7 +425,7 @@ namespace glsld {
                 PushPath(local);
             }
 
-            for (const auto& dir : include_dirs) {
+            for (const auto& dir : *include_dirs) {
                 auto filename  = include_expr.substr(1, include_expr.length() - 2);
                 auto candidate = utils::NormalizePath(dir / filename);
 
@@ -440,7 +440,7 @@ namespace glsld {
         Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         if (snapshot == nullptr) {
             return std::nullopt;
@@ -804,7 +804,7 @@ namespace glsld {
 
         std::vector<std::filesystem::path> BuildSearchRoots(
             const IncludeCompletionContext& context,
-            std::span<const std::filesystem::path> include_dirs)
+            IncludeDirectoryHandle include_dirs)
         {
             std::vector<std::filesystem::path> roots;
 
@@ -813,7 +813,7 @@ namespace glsld {
                 PushUniquePath(roots, includer.parent_path());
             }
 
-            for (const auto& dir : include_dirs) {
+            for (const auto& dir : *include_dirs) {
                 PushUniquePath(roots, dir);
             }
 
@@ -841,7 +841,7 @@ namespace glsld {
         Context& context,
         std::shared_ptr<const Document> snapshot,
         const SourceLocation& location,
-        std::span<const std::filesystem::path> include_dirs)
+        IncludeDirectoryHandle include_dirs)
     {
         if (snapshot == nullptr) {
             return {};
@@ -874,6 +874,10 @@ namespace glsld {
         ABORT_IF_CANCELLED();
 
         auto roots = BuildSearchRoots(*include_context, include_dirs);
+        if (roots.empty()) {
+            return {};
+        }
+
         auto [dir_prefix, file_prefix] = SplitPrefix(include_context->prefix);
 
         StringHeteroHashSet unique_labels;

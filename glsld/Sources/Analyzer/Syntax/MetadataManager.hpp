@@ -31,7 +31,7 @@ namespace glsld {
             Document& target,
             std::optional<std::string> shader_stage,
             std::span<const Token> raw_tokens,
-            std::span<const std::filesystem::path> include_dirs);
+            IncludeDirectoryHandle include_dirs);
 
         const StringHeteroHashMap<TokenType>* GetLexicalTable();
         std::optional<std::string_view> GetLexicalSubtype(std::string_view word);
@@ -53,14 +53,14 @@ namespace glsld {
 
         std::shared_ptr<Document> EnsureBuiltinDocumentLoaded(
             const std::filesystem::path& path,
-            std::span<const std::filesystem::path> include_dirs,
+            IncludeDirectoryHandle include_dirs,
             const MacroTable* injected_macros);
 
         void LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path);
 
         std::shared_ptr<Document> ParseMetadataDocument(
             const std::filesystem::path& path,
-            std::span<const std::filesystem::path> include_dirs,
+            IncludeDirectoryHandle include_dirs,
             const MacroTable* injected_macros);
 
         void LoadNoExpandHints();

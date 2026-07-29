@@ -347,7 +347,7 @@ namespace glsld {
         }
 
         command += std::format("-I \"{}\" ", std::filesystem::path(task.filename).parent_path().generic_string());
-        for (const auto& dir : task.include_dirs) {
+        for (const auto& dir : *task.include_dirs) {
             command += std::format("-I \"{}\" ", dir.generic_string());
         }
 

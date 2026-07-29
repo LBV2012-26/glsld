@@ -5,7 +5,7 @@
 #include <utility>
 
 namespace glsld {
-    MacroBinder::MacroBinder(Document& document, int version_replica, std::shared_ptr<const std::atomic<int>> version_pointer)
+    MacroBinder::MacroBinder(Document& document, int version_replica, VersionPointer version_pointer)
         : document_{ document }
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }

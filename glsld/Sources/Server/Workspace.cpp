@@ -20,20 +20,11 @@
 #include "Utils/Utils.hpp"
 
 namespace glsld {
-    Workspace::Workspace()
-        : loader_pool_{ std::jthread::hardware_concurrency() }
-        , include_loader_{ source_table_, loader_pool_ }
-        , background_index_pool_{ std::jthread::hardware_concurrency() }
-    {
-        // TODO: initialize include_dirs from config file
-    }
-
     void Workspace::UpdateDocument(
         std::string_view uri,
         std::string_view source,
         int version_replica,
-        std::shared_ptr<const std::atomic<int>> version_pointer,
-        bool open_document)
+        VersionPointer version_pointer)
     {
         auto document = std::make_shared<Document>();
         document->source  = std::string(source);
@@ -58,11 +49,7 @@ namespace glsld {
 
         {
             std::lock_guard lock(document_mutex_);
-            if (open_document) {
-                documents_.try_emplace(uri, std::move(document));
-            } else {
-                documents_[uri] = std::move(document);
-            }
+            documents_.insert_or_assign(uri, std::move(document));
         }
     }
 
@@ -252,7 +239,7 @@ namespace glsld {
         const SourceFile* source_file,
         std::string_view source,
         int version_replica,
-        std::shared_ptr<const std::atomic<int>> version_pointer,
+        VersionPointer version_pointer,
         Document& document)
     {
         Lexer lexer(source_file, source, include_loader_, include_dirs_);
