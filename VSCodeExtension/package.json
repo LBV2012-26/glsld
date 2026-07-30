@@ -93,6 +93,18 @@
 					"default": "",
 					"description": "Path to glslc executable. Leave empty to auto-detect from VULKAN_SDK environment variable."
 				},
+				"glsld.clangFormat.path": {
+					"type": "string",
+					"default": "clang-format.exe",
+					"scope": "resource",
+					"description": "Path to the clang-format executable."
+				},
+				"glsld.clangFormat.styleFile": {
+					"type": "string",
+					"default": "",
+					"scope": "resource",
+					"description": "Path to a .clang-format file. Leave empty to search parent directories of the formatted document."
+				},
 				"glsld.diagnostics.enabled": {
 					"type": "boolean",
 					"default": true,

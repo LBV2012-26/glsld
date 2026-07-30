@@ -19,15 +19,15 @@
 
 namespace glsld {
     nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope);
-    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, std::shared_ptr<const Document> snapshot);
+    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, Snapshot snapshot);
 
     std::optional<std::string> GotoInclude(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs);
 
-    SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function);
+    SymbolList GetDefinitionSymbols(Context& context, Snapshot snapshot, const SourceLocation& location, bool toggle_function);
 
     struct ReferenceResult {
         std::vector<SourceLocation> locations;
@@ -36,11 +36,11 @@ namespace glsld {
 
     ReferenceResult GetReferences(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         const GlobalIndex& global_index);
 
-    std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot);
+    std::vector<InlayHint> GetInlayHints(Context& context, Snapshot snapshot);
 
     struct SignatureHelpResult {
         SymbolList candidates;
@@ -48,23 +48,23 @@ namespace glsld {
         int active_param_index{};
     };
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, Snapshot snapshot, const SourceLocation& location);
 
     nlohmann::json GetIncludeCompletionItems(
         Context& context, 
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs);
 
-    nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    nlohmann::json GetCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location);
 
     nlohmann::json GetFieldCompletionItems(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         const TypeMemberIndex& type_member_index);
 
-    nlohmann::json GetExtensionCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location);
+    nlohmann::json GetExtensionCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location);
 
     struct FunctionFormatResult {
         std::string return_typename;
@@ -73,11 +73,11 @@ namespace glsld {
         std::vector<std::string> params;
     };
 
-    FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, std::shared_ptr<const Document> snapshot);
+    FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, Snapshot snapshot);
 
     std::string BuildHoverMarkdown(
         const SymbolInfo* symbol,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         std::string_view current_uri);
 }

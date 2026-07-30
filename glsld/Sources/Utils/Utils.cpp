@@ -1,9 +1,11 @@
 #include "pch.hpp"
 #include "Utils.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <format>
 #include <limits>
 #include <system_error>
@@ -284,5 +286,95 @@ namespace glsld::utils {
         }
 
         return -static_cast<std::int64_t>(magnitude);
+    }
+
+    std::string ExecuteCommand(std::string_view command, int timeout_ms) {
+        SECURITY_ATTRIBUTES attributes{
+            .nLength              = sizeof(attributes),
+            .lpSecurityDescriptor = nullptr,
+            .bInheritHandle       = TRUE
+        };
+
+        HANDLE read  = nullptr;
+        HANDLE write = nullptr;
+        if (!CreatePipe(&read, &write, &attributes, 0)) {
+            return {};
+        }
+        SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
+
+        STARTUPINFO startup{
+            .cb         = sizeof(startup),
+            .dwFlags    = STARTF_USESTDHANDLES,
+            .hStdOutput = write,
+            .hStdError  = write
+        };
+
+        if (command.empty() || command.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+            CloseHandle(write);
+            CloseHandle(read);
+            return {};
+        }
+
+        auto size = MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, nullptr, 0);
+        std::wstring wcommand;
+        wcommand.resize_and_overwrite(size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
+            return MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, buffer, static_cast<int>(buffer_size));
+        });
+
+        PROCESS_INFORMATION info{};
+        auto ok = CreateProcess(nullptr, wcommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info);
+
+        CloseHandle(write);
+
+        if (!ok) {
+            CloseHandle(read);
+            return {};
+        }
+
+        std::string output;
+        std::array<char, 4096> buffer{};
+
+        auto DrainPipe = [&]() -> void {
+            while (true) {
+                DWORD available = 0;
+                if (!PeekNamedPipe(read, nullptr, 0, nullptr, &available, nullptr) || available == 0) {
+                    return;
+                }
+
+                DWORD read_bytes = 0;
+                auto read_size = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
+                if (!ReadFile(read, buffer.data(), read_size, &read_bytes, nullptr) || read_bytes == 0) {
+                    return;
+                }
+
+                output.append(buffer.data(), read_bytes);
+            }
+        };
+
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(std::max(timeout_ms, 0));
+
+        while (true) {
+            DrainPipe();
+
+            auto wait = WaitForSingleObject(info.hProcess, 10);
+            if (wait == WAIT_OBJECT_0) {
+                DrainPipe();
+                break;
+            }
+
+            bool timed_out = timeout_ms >= 0 && std::chrono::steady_clock::now() >= deadline;
+            if (wait == WAIT_FAILED || timed_out) {
+                TerminateProcess(info.hProcess, timed_out ? WAIT_TIMEOUT : ERROR_PROCESS_ABORTED);
+                WaitForSingleObject(info.hProcess, INFINITE);
+                DrainPipe();
+                break;
+            }
+        }
+
+        CloseHandle(info.hProcess);
+        CloseHandle(info.hThread);
+        CloseHandle(read);
+
+        return output;
     }
 }

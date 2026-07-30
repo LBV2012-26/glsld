@@ -52,6 +52,8 @@ namespace glsld {
         void SetCallback(Callback callback);
         void Submit(DiagnosticTask task);
 
+        void set_glslc_path(std::filesystem::path filename);
+
     private:
         void Run();
         std::vector<Diagnostic> Compile(const DiagnosticTask& task);

@@ -15,6 +15,8 @@
 #include <tuple>
 #include <utility>
 
+#include "Utils/Utils.hpp"
+
 namespace glsld {
     namespace {
         std::string FindGlslc() {
@@ -55,6 +57,11 @@ namespace glsld {
             queue_.push(std::move(task));
         }
         condition_.notify_one();
+    }
+
+    void DiagnosticEngine::set_glslc_path(std::filesystem::path filename) {
+        std::lock_guard lock(mutex_);
+        glslc_path_ = filename.empty() ? FindGlslc() : filename.generic_string();
     }
 
     void DiagnosticEngine::Run() {
@@ -292,56 +299,22 @@ namespace glsld {
 
             return results;
         }
-
-        std::string ExecuteCommand(std::string_view command) {
-            SECURITY_ATTRIBUTES attributes{ sizeof(attributes), nullptr, TRUE };
-            HANDLE read  = nullptr;
-            HANDLE write = nullptr;
-            CreatePipe(&read, &write, &attributes, 0);
-
-            STARTUPINFO startup{ sizeof(startup) };
-            startup.dwFlags    = STARTF_USESTDHANDLES;
-            startup.hStdOutput = write;
-            startup.hStdError  = write;
-
-            auto size = MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, nullptr, 0);
-            std::wstring wcommand;
-            wcommand.resize_and_overwrite(size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
-                return MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, buffer, static_cast<int>(buffer_size));
-            });
-
-            PROCESS_INFORMATION info{};
-            auto ok = CreateProcess(nullptr, wcommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info);
-
-            CloseHandle(write);
-
-            std::string output;
-            if (ok) {
-                WaitForSingleObject(info.hProcess, 30000);
-                std::array<char, 4096> buffer{};
-                DWORD read_bytes = 0;
-                while (ReadFile(read, buffer.data(), 4095, &read_bytes, nullptr) && read_bytes > 0) {
-                    buffer[read_bytes] = '\0';
-                    output += buffer.data();
-                }
-            }
-
-            CloseHandle(info.hProcess);
-            CloseHandle(info.hThread);
-            CloseHandle(read);
-
-            return output;
-        }
     }
 
     std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
+        std::string glslc_path;
+        {
+            std::lock_guard lock(mutex_);
+            glslc_path = glslc_path_;
+        }
+
         auto extension_name = std::filesystem::path(task.filename).extension().string();
         auto compile_path   = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
 
         std::ofstream(compile_path, std::ios::binary) << task.source;
         std::string target_path = std::format("{}.spv", compile_path);
 
-        auto command = std::format("\"{}\" -o {} ", glslc_path_, target_path);
+        auto command = std::format("\"{}\" -o {} ", glslc_path, target_path);
         if (task.shader_stage.has_value()) {
             command += std::format("-fshader-stage={} -D_GLSLD ", *task.shader_stage);
         }
@@ -358,7 +331,7 @@ namespace glsld {
         if (task.target_spv.has_value())
             command += std::format("--target-spv={} ", *task.target_spv);
 
-        auto output = ExecuteCommand(command);
+        auto output = utils::ExecuteCommand(command);
         std::filesystem::remove(compile_path);
         std::filesystem::remove(target_path);
 

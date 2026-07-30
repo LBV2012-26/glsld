@@ -275,7 +275,7 @@ namespace glsld {
         };
     }
 
-    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, std::shared_ptr<const Document> snapshot) {
+    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, Snapshot snapshot) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -438,7 +438,7 @@ namespace glsld {
 
     std::optional<std::string> GotoInclude(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs)
     {
@@ -494,7 +494,7 @@ namespace glsld {
             return FindFunctionCounterpart(std::get<SymbolList>(candidates), symbol);
         };
 
-        void GetDefinitionSymbolsFromCursor(std::shared_ptr<const Document> snapshot, const Token* cursor_token, bool toggle_function, SymbolList& results) {
+        void GetDefinitionSymbolsFromCursor(Snapshot snapshot, const Token* cursor_token, bool toggle_function, SymbolList& results) {
             auto it = snapshot->bindings.find(cursor_token->location);
             if (it == snapshot->bindings.end() || !std::holds_alternative<const SymbolInfo*>(it->second)) {
                 return;
@@ -531,7 +531,7 @@ namespace glsld {
         }
     }
 
-    SymbolList GetDefinitionSymbols(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location, bool toggle_function) {
+    SymbolList GetDefinitionSymbols(Context& context, Snapshot snapshot, const SourceLocation& location, bool toggle_function) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -579,7 +579,7 @@ namespace glsld {
 
     ReferenceResult GetReferences(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         const GlobalIndex& global_index)
     {
@@ -636,7 +636,7 @@ namespace glsld {
         };
     }
 
-    std::vector<InlayHint> GetInlayHints(Context& context, std::shared_ptr<const Document> snapshot) {
+    std::vector<InlayHint> GetInlayHints(Context& context, Snapshot snapshot) {
         if (snapshot == nullptr || snapshot->ast == nullptr) {
             return {};
         }
@@ -671,7 +671,7 @@ namespace glsld {
         }
     }
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, Snapshot snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return std::nullopt;
         }
@@ -839,7 +839,7 @@ namespace glsld {
 
     nlohmann::json GetIncludeCompletionItems(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs)
     {
@@ -975,7 +975,7 @@ namespace glsld {
         };
     }
 
-    nlohmann::json GetCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    nlohmann::json GetCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -1032,7 +1032,7 @@ namespace glsld {
 
     nlohmann::json GetFieldCompletionItems(
         Context& context,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         const TypeMemberIndex& type_member_index)
     {
@@ -1096,7 +1096,7 @@ namespace glsld {
         return items;
     }
 
-    nlohmann::json GetExtensionCompletionItems(Context& context, std::shared_ptr<const Document> snapshot, const SourceLocation& location) {
+    nlohmann::json GetExtensionCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location) {
         if (snapshot == nullptr) {
             return {};
         }
@@ -1582,7 +1582,7 @@ namespace glsld {
         }
     }
 
-    FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, std::shared_ptr<const Document> snapshot) {
+    FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, Snapshot snapshot) {
         if (symbol == nullptr) {
             return {};
         }
@@ -1970,7 +1970,7 @@ namespace glsld {
 
     std::string BuildHoverMarkdown(
         const SymbolInfo* symbol,
-        std::shared_ptr<const Document> snapshot,
+        Snapshot snapshot,
         const SourceLocation& location,
         std::string_view current_uri)
     {

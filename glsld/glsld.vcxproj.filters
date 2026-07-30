@@ -33,6 +33,7 @@
     <ClCompile Include="Sources\Server\DiagnosticEngine.cpp" />
     <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
     <ClCompile Include="Sources\Server\Index\IndexCache.cpp" />
+    <ClCompile Include="Sources\Server\Formatter.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -69,6 +70,7 @@
     <ClInclude Include="Sources\Server\DiagnosticEngine.hpp" />
     <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
     <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
+    <ClInclude Include="Sources\Server\Formatter.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\ThreadPool.inl" />

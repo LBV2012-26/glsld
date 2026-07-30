@@ -20,6 +20,7 @@
 #include "Base/ThreadPool.hpp"
 #include "Server/Context.hpp"
 #include "Server/DiagnosticEngine.hpp"
+#include "Server/Formatter.hpp"
 #include "Server/Router.hpp"
 #include "Server/Workspace.hpp"
 
@@ -80,6 +81,7 @@ namespace glsld {
         nlohmann::json HandleInlayHints(Context& context);
         nlohmann::json HandleSignatureHelp(Context& context);
         nlohmann::json HandleCompletion(Context& context);
+        nlohmann::json HandleFormatting(Context& context);
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);
@@ -93,6 +95,8 @@ namespace glsld {
         void HandleRemoveVariant(Context& context);
 
         void ApplyCapabilityConfigs(const nlohmann::json& glsld);
+        void ApplyDiagnosticConfigs(const nlohmann::json& glsld);
+        void ApplyFormatterConfigs(const nlohmann::json& glsld);
         void ApplyIncludeConfigs(const nlohmann::json& glsld);
         void ApplyShaderConfigs(const nlohmann::json& glsld);
         void ApplyVariantConfigs(const nlohmann::json& glsld);
@@ -111,7 +115,7 @@ namespace glsld {
             int version_replica,
             VersionPointer version_pointer);
 
-        std::shared_ptr<const Document> ValidateAndGetDocument(const Context& context, std::string_view uri);
+        Snapshot ValidateAndGetDocument(const Context& context, std::string_view uri);
 
         struct PendingUpdate {
             std::string                           text;
@@ -127,6 +131,7 @@ namespace glsld {
         Workspace                                  workspace_;
         StringHeteroHashSet                        document_uris_;
         DiagnosticEngine                           diagnostic_engine_;
+        Formatter                                  formatter_;
         std::condition_variable_any                ready_condition_;
         std::mutex                                 ready_mutex_;
 

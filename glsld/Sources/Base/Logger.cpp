@@ -1,8 +1,7 @@
 #include "pch.hpp"
 #include "Logger.hpp"
 
-#include <spdlog/sinks/basic_file_sink.h>
-#include "Utils/Utils.hpp"
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace glsld {
     Logger::Logger() {
@@ -10,12 +9,16 @@ namespace glsld {
             return;
         }
 
-        auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
-            utils::GetFilePath("Win64/glsld.log"), true);
+        auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
+        sink->set_color(spdlog::level::trace, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 
         auto logger = std::make_shared<spdlog::logger>("glsld", sink);
-        logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
+        logger->set_pattern("[%T][%^%l%$] %n: %v");
+#ifdef _DEBUG
         logger->set_level(spdlog::level::trace);
+#else
+        logger->set_level(spdlog::level::warn);
+#endif
         spdlog::register_logger(logger);
 
         initialized_ = true;

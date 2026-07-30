@@ -169,6 +169,10 @@ namespace glsld {
             return HandleCompletion(context);
         });
 
+        router_.RegisterRequest("textDocument/formatting", [this](Context& context) -> nlohmann::json {
+            return HandleFormatting(context);
+        });
+
         router_.RegisterNotification("textDocument/didOpen", [this](Context& context) -> void {
             HandleDidOpen(context);
         });
@@ -453,7 +457,8 @@ namespace glsld {
             } }
         };
 
-        capabilities["documentSymbolProvider"] = true;
+        capabilities["documentSymbolProvider"]     = true;
+        capabilities["documentFormattingProvider"] = true;
 
         static const std::vector<std::string> kTokenTypes{
             "namespace",    // 0
@@ -909,6 +914,47 @@ namespace glsld {
         return GetCompletionItems(context, snapshot, target);
     }
 
+    nlohmann::json LspServer::HandleFormatting(Context& context) {
+        ABORT_IF_CANCELLED();
+        const auto& origin_uri = context.params["textDocument"]["uri"];
+        auto        uri        = NormalizeUri(origin_uri);
+        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+
+        if (!snapshot) {
+            throw std::runtime_error("Document closed or not found.");
+        }
+
+        auto formatted = formatter_.Format(snapshot->source, utils::UriToPath(uri));
+        ABORT_IF_CANCELLED();
+
+        if (!formatted) {
+            throw std::runtime_error(formatted.error());
+        }
+
+        if (*formatted == snapshot->source) {
+            return nlohmann::json::array();
+        }
+
+        auto line = std::ranges::count(snapshot->source, '\n');
+        auto last_newline = snapshot->source.rfind('\n');
+
+        auto character = last_newline == std::string::npos
+                       ? snapshot->source.size()
+                       : snapshot->source.size() - last_newline - 1;
+
+        nlohmann::json range = {
+            { "start", { {"line", 0 },    { "character", 0 } } },
+            { "end",   { {"line", line }, { "character", character } } }
+        };
+
+        return nlohmann::json::array({
+            {
+                { "range", range },
+                { "newText", std::move(*formatted) }
+            }
+        });
+    }
+
     // Notification Handlers
     // ---------------------
     void LspServer::HandleDidOpen(Context& context) {
@@ -1042,6 +1088,8 @@ namespace glsld {
         const auto& glsld = settings["glsld"];
 
         ApplyCapabilityConfigs(glsld);
+        ApplyDiagnosticConfigs(glsld);
+        ApplyFormatterConfigs(glsld);
         ApplyIncludeConfigs(glsld);
         ApplyShaderConfigs(glsld);
         ApplyVariantConfigs(glsld);
@@ -1131,6 +1179,33 @@ namespace glsld {
             .kind          = LspSubmitItem::Kind::kServerRequest
         };
         EnqueueSubmit(std::move(item));
+    }
+
+    void LspServer::ApplyDiagnosticConfigs(const nlohmann::json& glsld) {
+        if (!glsld.contains("glslcPath") || !glsld["glslcPath"].is_string()) {
+            return;
+        }
+
+        diagnostic_engine_.set_glslc_path(std::filesystem::path(glsld["glslcPath"].get<std::string>()));
+    }
+
+    void LspServer::ApplyFormatterConfigs(const nlohmann::json& glsld) {
+        FormatterConfig config;
+
+        if (glsld.contains("clangFormatExecutable") &&
+            glsld["clangFormatExecutable"].is_string())
+        {
+            config.executable = std::filesystem::path(glsld["clangFormatExecutable"].get<std::string>());
+        }
+
+        if (glsld.contains("clangFormatStyleFile") &&
+            glsld["clangFormatStyleFile"].is_string() &&
+            !glsld["clangFormatStyleFile"].get_ref<const std::string&>().empty())
+        {
+            config.style_file = std::filesystem::path(glsld["clangFormatStyleFile"].get_ref<const std::string&>());
+        }
+
+        formatter_.set_config(std::move(config));
     }
 
     void LspServer::ApplyIncludeConfigs(const nlohmann::json& glsld) {
@@ -1469,7 +1544,7 @@ namespace glsld {
         diagnostic_engine_.Submit(std::move(task));
     }
 
-    std::shared_ptr<const Document> LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) {
+    Snapshot LspServer::ValidateAndGetDocument(const Context& context, std::string_view uri) {
         bool need_update = false;
         {
             std::unique_lock lock(affected_mutex_);

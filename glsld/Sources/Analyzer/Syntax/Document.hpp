@@ -75,6 +75,8 @@ namespace glsld {
         std::vector<std::unique_ptr<PreprocessorNode>> injected_nodes_;
     };
 
+    using Snapshot = std::shared_ptr<const Document>;
+
     struct InlayHint {
         const SourceLocation* location{ nullptr };
         std::string           label;

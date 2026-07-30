@@ -6,6 +6,7 @@
 import {
 	commands,
 	Disposable,
+	FileType,
 	Position,
 	Range,
 	Selection,
@@ -18,9 +19,11 @@ import {
 } from 'vscode';
 
 import {
+	DocumentFormattingRequest,
 	LanguageClient,
 	LanguageClientOptions,
 	ServerOptions,
+	TextEdit as ProtocolTextEdit,
 	TransportKind
 } from 'vscode-languageclient/node';
 
@@ -58,6 +61,19 @@ export async function activate(context: any) {
 			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
 		},
 		middleware: {
+			provideDocumentFormattingEdits: async (document, options, token) => {
+				const config = workspace.getConfiguration('glsld', document.uri);
+				const executable = config.get<string>('clangFormat.path', 'clang-format.exe').trim() || 'clang-format.exe';
+				const styleFile = await resolveClangFormatStyleFile(document);
+				if (token.isCancellationRequested) { return undefined; }
+				const params = { textDocument: { uri: document.uri.toString() }, options: { tabSize: options.tabSize, insertSpaces: options.insertSpaces, clangFormatExecutable: executable, clangFormatStyleFile: styleFile ?? '' } };
+				try {
+					const edits = await client.sendRequest<ProtocolTextEdit[] | null>(DocumentFormattingRequest.method, params, token);
+					return token.isCancellationRequested ? undefined : client.protocol2CodeConverter.asTextEdits(edits, token);
+				} catch (error) {
+					return client.handleFailedRequest(DocumentFormattingRequest.type, token, error, null);
+				}
+			},
 			provideDocumentSemanticTokens: async (document, token, next) => {
 				const result = await next(document, token);
 				if (document.languageId === 'glsl' && result) {
@@ -264,6 +280,26 @@ function initializeInactiveTokenDimming(): void {
 	}
 }
 
+async function resolveClangFormatStyleFile(document: TextDocument): Promise<string | undefined> {
+	const configured = workspace.getConfiguration('glsld', document.uri).get<string>('clangFormat.styleFile', '').trim();
+	if (configured) {
+		const workspaceFolder = workspace.getWorkspaceFolder(document.uri);
+		return path.isAbsolute(configured) ? path.normalize(configured) : path.resolve(workspaceFolder?.uri.fsPath ?? path.dirname(document.uri.fsPath), configured);
+	}
+
+	let directory = path.dirname(document.uri.fsPath);
+	while (true) {
+		const candidate = Uri.file(path.join(directory, '.clang-format'));
+		try {
+			const stat = await workspace.fs.stat(candidate);
+			if ((stat.type & FileType.File) !== 0) { return candidate.fsPath; }
+		} catch {}
+		const parent = path.dirname(directory);
+		if (parent === directory) { return undefined; }
+		directory = parent;
+	}
+}
+
 /**
  * GLSL uses '<' and '>' extensively for comparisons and shifts, so they must
  * not be configured as a global auto-closing pair.  Includes are the one
@@ -425,6 +461,9 @@ export async function pushConfiguration(): Promise<void> {
 	const config = workspace.getConfiguration('glsld');
 	const shaderExtensions = getShaderConfigs(); // from .glsld/config.json
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
+	const glslcPath = config.get<string>('glslc.path', '');
+	const clangFormatExecutable = config.get<string>('clangFormat.path', 'clang-format.exe');
+	const clangFormatStyleFile = config.get<string>('clangFormat.styleFile', '');
 	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
 	const backgroundIndexRoots = config.get<string[]>('backgroundIndex.roots', []);
 	const systemIncludeDirectories = getSystemIncludeDirectories();
@@ -446,6 +485,9 @@ export async function pushConfiguration(): Promise<void> {
 				shaderConfigs,
 				activeVariants,
 				diagnosticsEnabled,
+				glslcPath,
+				clangFormatExecutable,
+				clangFormatStyleFile,
 				capabilities: { inlayHints },
 				backgroundIndex: { roots: backgroundIndexRoots },
 				systemIncludeDirectories

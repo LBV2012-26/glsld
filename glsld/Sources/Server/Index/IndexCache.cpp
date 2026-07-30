@@ -139,6 +139,7 @@ namespace glsld::IndexCache {
             stream.close();
 
             if (!stream) {
+                std::filesystem::remove(temporary, ec);
                 return false;
             }
 
