@@ -42,7 +42,7 @@ interface CompileResult {
 
 function findGlslc(): string {
 	const config = vscode.workspace.getConfiguration('glsld');
-	const userPath = config.get<string>('glslc.path', '');
+	const userPath = config.get<string>('glslc.path', '').trim();
 	if (userPath) {
 		return userPath;
 	}

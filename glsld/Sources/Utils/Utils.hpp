@@ -35,7 +35,11 @@ namespace glsld::utils {
     std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& pred);
 
     // External process execution
-    std::string ExecuteCommand(std::string_view command, int timeout_ms = 10'000);
+    std::string ExecuteCommand(
+        std::string_view command,
+        std::string_view working_dir = {},
+        std::string_view input = {},
+        int timeout_ms = 10'000);
 }
 
 #include "Utils.inl"

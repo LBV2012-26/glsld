@@ -1,12 +1,12 @@
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <filesystem>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <optional>
 #include <queue>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -52,17 +52,17 @@ namespace glsld {
         void SetCallback(Callback callback);
         void Submit(DiagnosticTask task);
 
-        void set_glslc_path(std::filesystem::path filename);
+        void set_glslc_path(const std::filesystem::path& filename);
 
     private:
         void Run();
         std::vector<Diagnostic> Compile(const DiagnosticTask& task);
 
-        Callback                   callback_;
-        std::string                glslc_path_;
-        std::mutex                 mutex_;
-        std::condition_variable    condition_;
-        std::queue<DiagnosticTask> queue_;
-        std::atomic<bool>          running_{ true };
+        Callback                    callback_;
+        std::string                 glslc_path_;
+        std::shared_mutex           mutex_;
+        std::condition_variable_any condition_;
+        std::queue<DiagnosticTask>  queue_;
+        std::stop_source            stop_source_;
     };
 }

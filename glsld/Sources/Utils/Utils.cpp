@@ -288,30 +288,40 @@ namespace glsld::utils {
         return -static_cast<std::int64_t>(magnitude);
     }
 
-    std::string ExecuteCommand(std::string_view command, int timeout_ms) {
+    std::string ExecuteCommand(std::string_view command, std::string_view working_dir, std::string_view input, int timeout_ms) {
         SECURITY_ATTRIBUTES attributes{
             .nLength              = sizeof(attributes),
             .lpSecurityDescriptor = nullptr,
             .bInheritHandle       = TRUE
         };
 
-        HANDLE read  = nullptr;
-        HANDLE write = nullptr;
-        if (!CreatePipe(&read, &write, &attributes, 0)) {
+        HANDLE stdout_read  = nullptr;
+        HANDLE stdout_write = nullptr;
+        if (!CreatePipe(&stdout_read, &stdout_write, &attributes, 0)) {
             return {};
         }
-        SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
+        SetHandleInformation(stdout_read, HANDLE_FLAG_INHERIT, 0);
 
-        STARTUPINFO startup{
-            .cb         = sizeof(startup),
-            .dwFlags    = STARTF_USESTDHANDLES,
-            .hStdOutput = write,
-            .hStdError  = write
-        };
+        HANDLE stdin_read  = nullptr;
+        HANDLE stdin_write = nullptr;
+        if (!input.empty()) {
+            if (!CreatePipe(&stdin_read, &stdin_write, &attributes, 0)) {
+                CloseHandle(stdout_read);
+                CloseHandle(stdout_write);
+                return {};
+            }
+            SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0);
+        }
 
         if (command.empty() || command.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
-            CloseHandle(write);
-            CloseHandle(read);
+            if (stdin_read != nullptr)
+                CloseHandle(stdin_read);
+            if (stdin_write != nullptr)
+                CloseHandle(stdin_write);
+            if (stdout_read != nullptr)
+                CloseHandle(stdout_read);
+            if (stdout_write != nullptr)
+                CloseHandle(stdout_write);
             return {};
         }
 
@@ -321,14 +331,53 @@ namespace glsld::utils {
             return MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, buffer, static_cast<int>(buffer_size));
         });
 
-        PROCESS_INFORMATION info{};
-        auto ok = CreateProcess(nullptr, wcommand.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info);
+        std::wstring wworking_dir;
+        if (!working_dir.empty()) {
+            size = MultiByteToWideChar(CP_UTF8, 0, working_dir.data(), -1, nullptr, 0);
+            wworking_dir.resize_and_overwrite(size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
+                return MultiByteToWideChar(CP_UTF8, 0, working_dir.data(), -1, buffer, static_cast<int>(buffer_size));
+            });
+        }
 
-        CloseHandle(write);
+        STARTUPINFO startup{
+            .cb         = sizeof(startup),
+            .dwFlags    = STARTF_USESTDHANDLES,
+            .hStdInput  = stdin_read,
+            .hStdOutput = stdout_write,
+            .hStdError  = stdout_write
+        };
+
+        PROCESS_INFORMATION info{};
+        auto ok = CreateProcess(
+            nullptr,
+            wcommand.data(),
+            nullptr,
+            nullptr,
+            TRUE,
+            CREATE_NO_WINDOW,
+            nullptr,
+            working_dir.empty() ? nullptr : wworking_dir.data(),
+            &startup,
+            &info
+        );
+
+        if (stdin_read != nullptr)
+            CloseHandle(stdin_read);
+        if (stdout_write != nullptr)
+            CloseHandle(stdout_write);
 
         if (!ok) {
-            CloseHandle(read);
+            if (stdin_write != nullptr)
+                CloseHandle(stdin_write);
+            if (stdout_read != nullptr)
+                CloseHandle(stdout_read);
             return {};
+        }
+
+        if (!input.empty() && stdin_write != nullptr) {
+            DWORD written_bytes = 0;
+            WriteFile(stdin_write, input.data(), static_cast<DWORD>(input.size()), &written_bytes, nullptr);
+            CloseHandle(stdin_write);
         }
 
         std::string output;
@@ -337,13 +386,13 @@ namespace glsld::utils {
         auto DrainPipe = [&]() -> void {
             while (true) {
                 DWORD available = 0;
-                if (!PeekNamedPipe(read, nullptr, 0, nullptr, &available, nullptr) || available == 0) {
+                if (!PeekNamedPipe(stdout_read, nullptr, 0, nullptr, &available, nullptr) || available == 0) {
                     return;
                 }
 
                 DWORD read_bytes = 0;
                 auto read_size = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
-                if (!ReadFile(read, buffer.data(), read_size, &read_bytes, nullptr) || read_bytes == 0) {
+                if (!ReadFile(stdout_read, buffer.data(), read_size, &read_bytes, nullptr) || read_bytes == 0) {
                     return;
                 }
 
@@ -373,7 +422,7 @@ namespace glsld::utils {
 
         CloseHandle(info.hProcess);
         CloseHandle(info.hThread);
-        CloseHandle(read);
+        CloseHandle(stdout_read);
 
         return output;
     }

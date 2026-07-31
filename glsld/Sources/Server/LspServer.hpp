@@ -82,6 +82,8 @@ namespace glsld {
         nlohmann::json HandleSignatureHelp(Context& context);
         nlohmann::json HandleCompletion(Context& context);
         nlohmann::json HandleFormatting(Context& context);
+        nlohmann::json HandleRangeFormatting(Context& context);
+        nlohmann::json HandleOnTypeFormatting(Context& context);
 
         void HandleDidOpen(Context& context);
         void HandleDidChange(Context& context);

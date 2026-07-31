@@ -1,32 +1,26 @@
 #pragma once
 
 #include <chrono>
-#include <expected>
 #include <filesystem>
-#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 
 namespace glsld {
-    struct FormatterConfig {
-        std::filesystem::path executable{ "clang-format.exe" };
-        std::filesystem::path style_file{ ".clang-format" };
-        std::chrono::milliseconds timeout{ 10'000 };
-    };
-
     class Formatter {
     public:
-        Formatter() = default;
-        Formatter(FormatterConfig config);
+        std::string Format(std::string_view source, const std::filesystem::path& filename) const;
 
-        std::expected<std::string, std::string> Format(
+        std::string FormatRange(
             std::string_view source,
-            const std::filesystem::path& filename) const;
+            const std::filesystem::path& filename,
+            std::size_t start_line,
+            std::size_t end_line) const;
 
-        void set_config(FormatterConfig config);
+        void set_clang_format_path(const std::filesystem::path& filename);
 
     private:
-        mutable std::mutex mutex_;
-        FormatterConfig    config_;
+        mutable std::shared_mutex mutex_;
+        std::string               clang_format_path_{ "clang-format.exe" };
     };
 }

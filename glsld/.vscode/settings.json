@@ -1,12 +1,13 @@
 {
-	"glsld.backgroundIndex.roots": [
-		"Tests"
-	],
 	"glsld.systemIncludeDirectories": [
 		"Tests",
 		"C:/VulkanSDK/Include"
 	],
 	"glsld.mimalloc.largePages.enabled": true,
 	"glsld.mimalloc.largePages.reserveMiB": 256,
-	"glsld.mimalloc.verbose": true
+	"glsld.mimalloc.verbose": true,
+	"glsld.capabilities.inlayHints": true,
+	"glsld.backgroundIndex.roots": [
+		"Tests"
+	]
 }

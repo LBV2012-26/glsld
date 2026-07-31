@@ -9,6 +9,7 @@
 #include <format>
 #include <fstream>
 #include <ios>
+#include <mutex>
 #include <ranges>
 #include <system_error>
 #include <thread>
@@ -43,7 +44,7 @@ namespace glsld {
     }
 
     DiagnosticEngine::~DiagnosticEngine() {
-        running_.store(false, std::memory_order::relaxed);
+        stop_source_.request_stop();
         condition_.notify_all();
     }
 
@@ -59,21 +60,23 @@ namespace glsld {
         condition_.notify_one();
     }
 
-    void DiagnosticEngine::set_glslc_path(std::filesystem::path filename) {
+    void DiagnosticEngine::set_glslc_path(const std::filesystem::path& filename) {
         std::lock_guard lock(mutex_);
         glslc_path_ = filename.empty() ? FindGlslc() : filename.generic_string();
     }
 
     void DiagnosticEngine::Run() {
-        while (running_.load(std::memory_order::relaxed)) {
+        auto stop_token = stop_source_.get_token();
+
+        while (!stop_token.stop_requested()) {
             DiagnosticTask task;
             {
                 std::unique_lock lock(mutex_);
-                condition_.wait(lock, [this]() -> bool {
-                    return !queue_.empty() || !running_.load(std::memory_order::relaxed);
+                condition_.wait(lock, stop_token, [this]() -> bool {
+                    return !queue_.empty();
                 });
 
-                if (!running_.load(std::memory_order::relaxed)) {
+                if (stop_token.stop_requested()) {
                     return;
                 }
 
@@ -304,7 +307,7 @@ namespace glsld {
     std::vector<Diagnostic> DiagnosticEngine::Compile(const DiagnosticTask& task) {
         std::string glslc_path;
         {
-            std::lock_guard lock(mutex_);
+            std::shared_lock lock(mutex_);
             glslc_path = glslc_path_;
         }
 

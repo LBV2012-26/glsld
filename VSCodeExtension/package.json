@@ -1,6 +1,6 @@
 {
 	"name": "glsld",
-	"displayName": "GLSL Language Server",
+	"displayName": "glsld",
 	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
 	"author": "glsld",
 	"publisher": "glsld",
@@ -61,18 +61,18 @@
 			}
 		],
 		"configuration": {
-			"title": "GLSL Language Server",
+			"title": "glsld",
 			"properties": {
 				"glsld.server.path": {
 					"type": "string",
 					"default": "glsld",
-					"description": "Path to the glsld language server executable."
+					"description": "Path to the glsld executable. Leave empty to resolve glsld from PATH."
 				},
 				"glsld.mimalloc.largePages.enabled": {
 					"type": "boolean",
 					"default": false,
 					"scope": "resource",
-					"description": "Use Windows large pages for glsld's mimalloc arenas. Requires the Lock pages in memory privilege and takes effect after restarting the language server."
+					"description": "Request Windows large pages for glsld's mimalloc arenas. Requires the Lock pages in memory user right (SeLockMemoryPrivilege). Large-page allocation is best-effort and may still fail because of memory availability or other system limits. Takes effect after restarting glsld."
 				},
 				"glsld.mimalloc.largePages.reserveMiB": {
 					"type": "number",
@@ -80,30 +80,24 @@
 					"minimum": 2,
 					"maximum": 4096,
 					"scope": "resource",
-					"description": "Size, in MiB, of each mimalloc large-page arena reserved by glsld when large pages are enabled. Takes effect after restarting the language server."
+					"description": "Requested size, in MiB, of each mimalloc large-page arena. This does not guarantee that the reservation will use large pages or succeed. Takes effect after restarting glsld."
 				},
 				"glsld.mimalloc.verbose": {
 					"type": "boolean",
 					"default": false,
 					"scope": "resource",
-					"description": "Write verbose mimalloc startup, arena, and allocation diagnostics to the glsld Language Server output channel. Takes effect after restarting the language server."
+					"description": "Write verbose mimalloc startup, arena, and allocation diagnostics to the glsld output channel. Use this to verify whether large-page allocation succeeded. Takes effect after restarting glsld."
 				},
 				"glsld.glslc.path": {
 					"type": "string",
 					"default": "",
-					"description": "Path to glslc executable. Leave empty to auto-detect from VULKAN_SDK environment variable."
+					"description": "Path to the glslc executable. Leave empty to use %VULKAN_SDK%\\Bin\\glslc.exe when available, then resolve glslc.exe from PATH."
 				},
 				"glsld.clangFormat.path": {
 					"type": "string",
 					"default": "clang-format.exe",
 					"scope": "resource",
-					"description": "Path to the clang-format executable."
-				},
-				"glsld.clangFormat.styleFile": {
-					"type": "string",
-					"default": "",
-					"scope": "resource",
-					"description": "Path to a .clang-format file. Leave empty to search parent directories of the formatted document."
+					"description": "Path to the clang-format executable. Leave empty to resolve clang-format.exe from PATH."
 				},
 				"glsld.diagnostics.enabled": {
 					"type": "boolean",
@@ -162,7 +156,7 @@
 			"activitybar": [
 				{
 					"id": "glsld-sidebar",
-					"title": "GLSL Shader",
+					"title": "glsld",
 					"icon": "resources/icons/sidebar_icon.svg"
 				}
 			]

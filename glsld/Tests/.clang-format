@@ -1,0 +1,6 @@
+---
+# 指定语言
+Language: Cpp
+
+# 基于哪个主流风格进行拓展 (可选: LLVM, Google, Chromium, Mozilla, WebKit)
+BasedOnStyle: Google
