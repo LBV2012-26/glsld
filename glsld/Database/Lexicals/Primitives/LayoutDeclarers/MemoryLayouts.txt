@@ -1,4 +1,4 @@
-﻿scalar
+scalar
 shared
 std140
 std430
