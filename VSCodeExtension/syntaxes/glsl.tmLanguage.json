@@ -9,6 +9,14 @@
 		"tesc",
 		"tese",
 		"comp",
+		"mesh",
+		"task",
+		"rgen",
+		"rahit",
+		"rchit",
+		"rmiss",
+		"rint",
+		"rcall",
 		"vsh",
 		"fsh",
 		"gsh",
@@ -18,60 +26,356 @@
 	],
 	"patterns": [
 		{
-			"include": "#comments"
-		},
-		{
-			"include": "#preprocessors"
-		},
-		{
-			"include": "#strings_and_numbers"
-		},
-		{
-			"include": "#builtin_variables"
-		},
-		{
-			"include": "#builtin_functions"
-		},
-		{
-			"include": "#types"
-		},
-		{
-			"include": "#keywords"
-		},
-		{
-			"include": "#user_functions"
-		},
-		{
-			"include": "#operators"
-		},
-		{
-			"include": "#punctuation"
+			"include": "#root_context"
 		}
 	],
 	"repository": {
 		"comments": {
 			"patterns": [
 				{
-					"name": "comment.line.double-slash.glsl",
-					"match": "//.*"
+					"name": "comment.line.documentation.glsl",
+					"begin": "///|//!",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.glsl"
+						}
+					},
+					"end": "$",
+					"patterns": [
+						{
+							"include": "#documentation_tags"
+						}
+					]
 				},
 				{
 					"name": "comment.block.documentation.glsl",
-					"begin": "/\\*\\*",
-					"end": "\\*/"
+					"begin": "/\\*\\*|/\\*!",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.begin.glsl"
+						}
+					},
+					"end": "\\*/",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.end.glsl"
+						}
+					},
+					"patterns": [
+						{
+							"include": "#documentation_tags"
+						}
+					]
 				},
 				{
 					"name": "comment.block.glsl",
 					"begin": "/\\*",
-					"end": "\\*/"
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.begin.glsl"
+						}
+					},
+					"end": "\\*/",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.end.glsl"
+						}
+					}
+				},
+				{
+					"name": "comment.line.double-slash.glsl",
+					"begin": "//",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.glsl"
+						}
+					},
+					"end": "$",
+					"patterns": [
+						{
+							"name": "keyword.other.comment-note.glsl",
+							"match": "\\b(?:TODO|FIXME|HACK|NOTE|BUG|XXX)\\b"
+						}
+					]
+				}
+			]
+		},
+		"documentation_tags": {
+			"patterns": [
+				{
+					"match": "((?:@|\\\\)param)\\s+(?:\\[(?:in|out|inout)\\]\\s*)?([A-Za-z_][A-Za-z0-9_]*)",
+					"captures": {
+						"1": {
+							"name": "storage.type.class.documentation.glsl"
+						},
+						"2": {
+							"name": "variable.parameter.documentation.glsl"
+						}
+					}
+				},
+				{
+					"name": "storage.type.class.documentation.glsl",
+					"match": "(?:@|\\\\)(?:brief|param|return|returns|retval|note|warning|see|since|deprecated|todo|bug|author|version|file|struct|fn|ref|code|endcode)\\b"
+				},
+				{
+					"name": "keyword.other.comment-note.glsl",
+					"match": "\\b(?:TODO|FIXME|HACK|NOTE|BUG|XXX)\\b"
 				}
 			]
 		},
 		"preprocessors": {
 			"patterns": [
 				{
-					"name": "keyword.control.preprocessor.glsl",
-					"match": "^\\s*#\\s*(core|define|defined|error|elif|endif|extension|ifdef|ifndef|include|line|pragma|shader_stage|undef|version)\\b"
+					"name": "meta.preprocessor.include.glsl",
+					"begin": "^(\\s*)(#)\\s*(include)\\b",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.include.glsl"
+						}
+					},
+					"end": "$",
+					"patterns": [
+						{
+							"name": "string.quoted.other.lt-gt.include.glsl",
+							"begin": "<",
+							"beginCaptures": {
+								"0": {
+									"name": "punctuation.definition.string.begin.glsl"
+								}
+							},
+							"end": ">|(?=$)",
+							"endCaptures": {
+								"0": {
+									"name": "punctuation.definition.string.end.glsl"
+								}
+							}
+						},
+						{
+							"name": "string.quoted.double.include.glsl",
+							"begin": "\"",
+							"beginCaptures": {
+								"0": {
+									"name": "punctuation.definition.string.begin.glsl"
+								}
+							},
+							"end": "\"|(?=$)",
+							"endCaptures": {
+								"0": {
+									"name": "punctuation.definition.string.end.glsl"
+								}
+							}
+						},
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.extension.glsl",
+					"begin": "^(\\s*)(#)\\s*(extension)\\b",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.extension.glsl"
+						}
+					},
+					"end": "$",
+					"patterns": [
+						{
+							"name": "support.constant.extension-behavior.glsl",
+							"match": "\\b(?:require|enable|warn|disable)\\b"
+						},
+						{
+							"name": "punctuation.separator.key-value.glsl",
+							"match": ":"
+						},
+						{
+							"name": "entity.name.tag.extension.glsl",
+							"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+						},
+						{
+							"include": "#comments"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.version.glsl",
+					"begin": "^(\\s*)(#)\\s*(version)\\b",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.version.glsl"
+						}
+					},
+					"end": "$",
+					"patterns": [
+						{
+							"name": "support.constant.language-profile.glsl",
+							"match": "\\b(?:core|compatibility|es)\\b"
+						},
+						{
+							"include": "#strings_and_numbers"
+						},
+						{
+							"include": "#comments"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.macro.function.glsl",
+					"begin": "^(\\s*)(#)\\s*(define)\\s+([A-Za-z_][A-Za-z0-9_]*)(?=\\()",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.define.glsl"
+						},
+						"4": {
+							"name": "entity.name.function.preprocessor.glsl"
+						}
+					},
+					"end": "(?<!\\\\)$",
+					"patterns": [
+						{
+							"include": "#macro_parameters"
+						},
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.macro.glsl",
+					"begin": "^(\\s*)(#)\\s*(define)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.define.glsl"
+						},
+						"4": {
+							"name": "entity.name.constant.preprocessor.glsl"
+						}
+					},
+					"end": "(?<!\\\\)$",
+					"patterns": [
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.conditional.glsl",
+					"begin": "^(\\s*)(#)\\s*(if|ifdef|ifndef|elif)\\b",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.conditional.glsl"
+						}
+					},
+					"end": "(?<!\\\\)$",
+					"patterns": [
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.glsl",
+					"begin": "^(\\s*)(#)\\s*(core|else|endif|error|line|pragma|shader_stage|undef)\\b",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.glsl"
+						}
+					},
+					"end": "(?<!\\\\)$",
+					"patterns": [
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				},
+				{
+					"name": "meta.preprocessor.glsl",
+					"begin": "^(\\s*)(#)\\s*([A-Za-z_][A-Za-z0-9_]*)",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.directive.glsl"
+						},
+						"3": {
+							"name": "keyword.control.directive.glsl"
+						}
+					},
+					"end": "(?<!\\\\)$",
+					"patterns": [
+						{
+							"include": "#preprocessor_context"
+						}
+					]
+				}
+			]
+		},
+		"macro_parameters": {
+			"name": "meta.preprocessor.macro.parameters.glsl",
+			"begin": "\\G(\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.parameters.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.parameters.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"name": "variable.parameter.preprocessor.glsl",
+					"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+				},
+				{
+					"name": "punctuation.separator.comma.glsl",
+					"match": ","
+				}
+			]
+		},
+		"preprocessor_context": {
+			"patterns": [
+				{
+					"name": "keyword.operator.logical.defined.glsl",
+					"match": "\\bdefined\\b"
+				},
+				{
+					"name": "constant.character.escape.line-continuation.glsl",
+					"match": "\\\\(?=\\r?$)"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"name": "variable.other.preprocessor.glsl",
+					"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
 				}
 			]
 		},
@@ -80,104 +384,233 @@
 				{
 					"name": "string.quoted.double.glsl",
 					"begin": "\"",
-					"end": "\"",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.string.begin.glsl"
+						}
+					},
+					"end": "\"|(?=$)",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.string.end.glsl"
+						}
+					},
 					"patterns": [
 						{
+							"name": "constant.other.placeholder.glsl",
+							"match": "%(?:[-+ #0]*[0-9]*(?:\\.[0-9]+)?[diuoxXfFeEgGaAcsp%])"
+						},
+						{
 							"name": "constant.character.escape.glsl",
+							"match": "\\\\(?:[abfnrtv?\"'\\\\]|[0-7]{1,3}|x[0-9A-Fa-f]+|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})"
+						},
+						{
+							"name": "invalid.illegal.unknown-escape.glsl",
 							"match": "\\\\."
 						}
 					]
 				},
 				{
-					"name": "constant.numeric.float.glsl",
-					"match": "\\b[0-9]*\\.([0-9]+)?([eE][+-]?[0-9]+)?[fFdD]?\\b"
+					"name": "constant.numeric.float.hexadecimal.glsl",
+					"match": "(?<![A-Za-z0-9_])0[xX](?:[0-9A-Fa-f]+(?:\\.[0-9A-Fa-f]*)?|\\.[0-9A-Fa-f]+)[pP][+-]?[0-9]+(?:[fF]|[lL][fF]|[hH][fF])?(?![A-Za-z0-9_])"
 				},
 				{
-					"name": "constant.numeric.integer.glsl",
-					"match": "\\b(0[xX][0-9a-fA-F]+|[0-9]+)[uUlL]?\\b"
+					"name": "constant.numeric.float.decimal.glsl",
+					"match": "(?<![A-Za-z0-9_])(?:(?:[0-9]+\\.[0-9]*|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|[0-9]+[eE][+-]?[0-9]+)(?:[fF]|[lL][fF]|[hH][fF])?(?![A-Za-z0-9_])"
+				},
+				{
+					"name": "constant.numeric.integer.binary.glsl",
+					"match": "(?<![A-Za-z0-9_])0[bB][01]+(?:[uU](?:[lL]{1,2})?|[lL]{1,2}[uU]?)?(?![A-Za-z0-9_])"
+				},
+				{
+					"name": "constant.numeric.integer.hexadecimal.glsl",
+					"match": "(?<![A-Za-z0-9_])0[xX][0-9A-Fa-f]+(?:[uU](?:[lL]{1,2})?|[lL]{1,2}[uU]?)?(?![A-Za-z0-9_])"
+				},
+				{
+					"name": "constant.numeric.integer.octal.glsl",
+					"match": "(?<![A-Za-z0-9_])0[0-7]+(?:[uU](?:[lL]{1,2})?|[lL]{1,2}[uU]?)?(?![A-Za-z0-9_])"
+				},
+				{
+					"name": "constant.numeric.integer.decimal.glsl",
+					"match": "(?<![A-Za-z0-9_])[0-9]+(?:[uU](?:[lL]{1,2})?|[lL]{1,2}[uU]?)?(?![A-Za-z0-9_])"
 				}
 			]
 		},
-		"keywords": {
+		"attributes": {
+			"name": "meta.attribute.glsl",
+			"begin": "\\[\\[",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.attribute.begin.glsl"
+				}
+			},
+			"end": "\\]\\]",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.definition.attribute.end.glsl"
+				}
+			},
 			"patterns": [
 				{
-					"comment": "Control flow keywords from glslKeywords.txt",
-					"name": "keyword.control.glsl",
-					"match": "\\b(break|continue|do|for|while|switch|case|default|if|else|discard|return)\\b"
+					"name": "entity.other.attribute-name.glsl",
+					"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
 				},
 				{
-					"comment": "Storage and type modifiers from glslPrimitives.txt",
-					"name": "storage.modifier.glsl",
-					"match": "\\b(attribute|const|uniform|varying|buffer|shared|coherent|volatile|restrict|readonly|writeonly|in|out|inout|struct|subroutine|invariant|precise|patch|sample|common|partition|active|asm|class|union|enum|typedef|template|this|resource|inline|noinline|public|static|extern|external|interface|long|short|half|fixed|superp|input|output|filter|sizeof|cast|namespace|using|nonprivate)\\b"
+					"include": "#strings_and_numbers"
 				},
 				{
-					"comment": "Precision modifiers from glslPrimitives.txt",
-					"name": "storage.modifier.precision.glsl",
-					"match": "\\b(lowp|mediump|highp|precision)\\b"
-				},
-				{
-					"comment": "Interpolation modifiers from glslPrimitives.txt",
-					"name": "storage.modifier.interpolation.glsl",
-					"match": "\\b(centroid|flat|smooth|noperspective)\\b"
-				},
-				{
-					"comment": "Layout qualifiers from glslPrimitives.txt",
-					"name": "storage.modifier.layout.glsl",
-					"match": "\\b(layout|quads|equal_spacing|fractional_even_spacing|fractional_odd_spacing|cw|ccw|points|offset|buffer_reference|scalar|std140|std430|row_major|column_major|packed|descriptor_heap|constant_id|local_size_x|local_size_y|local_size_z|local_size_x_id|local_size_y_id|local_size_z_id|local_size_variable|input_attachment_index|push_constant|set|binding|location|early_fragment_tests|post_depth_coverage|shadercallcoherent|devicecoherent|queuefamilycoherent|workgroupcoherent|subgroupcoherent)\\b"
-				},
-				{
-					"comment": "Boolean constants from glslPrimitives.txt",
-					"name": "constant.language.boolean.glsl",
-					"match": "\\b(true|false)\\b"
+					"include": "#punctuation"
 				}
 			]
 		},
-		"types": {
+		"layout_qualifiers": {
+			"name": "meta.layout-qualifier.glsl",
+			"begin": "\\b(layout)\\s*(\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "storage.modifier.layout.glsl"
+				},
+				"2": {
+					"name": "punctuation.section.parens.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.parens.end.glsl"
+				}
+			},
 			"patterns": [
 				{
-					"comment": "Primitive and basic types from glslPrimitives.txt and glslTypes.txt",
-					"name": "storage.type.glsl",
-					"match": "\\b(void|bool|int|uint|float|double|atomic_uint|float16_t|float32_t|float64_t|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|vec[2-4]|ivec[2-4]|uvec[2-4]|dvec[2-4]|bvec[2-4]|f16vec[2-4]|f32vec[2-4]|f64vec[2-4]|i8vec[2-4]|i16vec[2-4]|i32vec[2-4]|i64vec[2-4]|u8vec[2-4]|u16vec[2-4]|u32vec[2-4]|u64vec[2-4]|hvec[2-4]|fvec[2-4]|mat[2-4]|mat[2-4]x[2-4]|dmat[2-4]|dmat[2-4]x[2-4]|f16mat[2-4]|f16mat[2-4]x[2-4]|f32mat[2-4]|f32mat[2-4]x[2-4]|f64mat[2-4]|f64mat[2-4]x[2-4]|sampler|sampler(1D|2D|3D|Cube|1DShadow|2DShadow|CubeShadow|1DArray|2DArray|1DArrayShadow|2DArrayShadow|2DRect|2DRectShadow|Buffer|2DMS|2DMSArray|CubeArray|CubeArrayShadow)|isampler(1D|2D|3D|Cube|1DArray|2DArray|2DRect|Buffer|2DMS|2DMSArray|CubeArray)|usampler(1D|2D|3D|Cube|1DArray|2DArray|2DRect|Buffer|2DMS|2DMSArray|CubeArray)|image(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|iimage(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|uimage(1D|2D|3D|Cube|1DArray|2DArray|CubeArray|2DRect|Buffer|2DMS|2DMSArray)|subpassInput|subpassInputMS|isubpassInput|isubpassInputMS|usubpassInput|usubpassInputMS|accelerationStructureNV|accelerationStructureEXT|rayQueryEXT|texture(1D|2D|3D|Cube|1DProj|2DProj|3DProj|1DLod|2DLod|3DLod|CubeLod|1DProjLod|2DProjLod|3DProjLod)|sampler3DRect|shadow(1D|2D|1DProj|2DProj|1DLod|2DLod|1DProjLod|2DProjLod)|rayPayloadNV|rayPayloadInNV|hitAttributeNV|callableDataNV|callableDataInNV|rayPayloadEXT|rayPayloadInEXT|hitAttributeEXT|callableDataEXT|callableDataInEXT|shaderRecordEXT|rgba32f|rgba16f|r32f|r16f|rg32f|rg16f|rgba32i|rgba16i|rgba8i|r32i|r16i|r8i|rg32i|rg16i|rg8i|rgba32ui|rgba16ui|rgba8ui|r32ui|r16ui|r8ui|rg32ui|rg16ui|rg8ui|rgba8|r8|rg8)\\b"
+					"include": "#comments"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"name": "support.constant.layout-qualifier.glsl",
+					"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+				},
+				{
+					"name": "keyword.operator.assignment.glsl",
+					"match": "="
+				},
+				{
+					"name": "punctuation.separator.comma.glsl",
+					"match": ","
 				}
 			]
 		},
-		"builtin_functions": {
-			"comment": "Built-in functions from glslFunctions.txt",
-			"name": "support.function.builtin.glsl",
-			"match": "\\b(radians|degrees|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|asinh|acosh|atanh|pow|exp|log|exp2|log2|sqrt|inversesqrt|abs|sign|floor|trunc|round|roundEven|ceil|fract|mod|modf|min|max|clamp|mix|step|smoothstep|isnan|isinf|floatBitsToInt|floatBitsToUint|intBitsToFloat|uintBitsToFloat|fma|frexp|ldexp|packUnorm2x16|packSnorm2x16|packUnorm4x8|packSnorm4x8|unpackUnorm2x16|unpackSnorm2x16|unpackUnorm4x8|unpackSnorm4x8|packDouble2x32|unpackDouble2x32|packHalf2x16|unpackHalf2x16|length|distance|dot|cross|normalize|ftransform|faceforward|reflect|refract|matrixCompMult|outerProduct|transpose|determinant|inverse|lessThan|lessThanEqual|greaterThan|greaterThanEqual|equal|notEqual|any|all|not|uaddCarry|usubBorrow|umulExtended|imulExtended|bitfieldExtract|bitfieldInsert|bitfieldReverse|bitCount|findLSB|findMSB|textureSize|textureQueryLod|textureQueryLevels|textureSamples|texture|textureProj|textureLod|textureOffset|texelFetch|texelFetchOffset|textureProjOffset|textureLodOffset|textureProjLod|textureProjLodOffset|textureGrad|textureGradOffset|textureProjGrad|textureProjGradOffset|textureGather|textureGatherOffset|textureGatherOffsets|texture1DProj|texture1DLod|texture1DProjLod|texture2DProj|texture2DLod|texture2DProjLod|texture3DProj|texture3DLod|texture3DProjLod|textureCubeLod|shadow1DProj|shadow2DProj|shadow1DLod|shadow2DLod|shadow1DProjLod|shadow2DProjLod|atomicCounterIncrement|atomicCounterDecrement|atomicCounter|atomicAdd|atomicMin|atomicMax|atomicAnd|atomicOr|atomicXor|atomicExchange|atomicCompSwap|atomicLoad|atomicStore|imageSize|imageSamples|imageLoad|imageStore|imageAtomicAdd|imageAtomicMin|imageAtomicMax|imageAtomicAnd|imageAtomicOr|imageAtomicXor|imageAtomicExchange|imageAtomicCompSwap|imageAtomicLoad|imageAtomicStore|dFdx|dFdy|dFdxFine|dFdyFine|dFdxCoarse|dFdyCoarse|fwidth|fwidthFine|fwidthCoarse|interpolateAtCentroid|interpolateAtSample|interpolateAtOffset|noise[1-4]|EmitStreamVertex|EndStreamPrimitive|EmitVertex|EndPrimitive|barrier|controlBarrier|memoryBarrier|memoryBarrierAtomicCounter|memoryBarrierBuffer|memoryBarrierShared|memoryBarrierImage|groupMemoryBarrier|subpassLoad|ballotARB|readInvocationARB|readFirstInvocationARB|atomicCounterAddARB|atomicCounterSubtractARB|atomicCounterMinARB|atomicCounterMaxARB|atomicCounterAndARB|atomicCounterOrARB|atomicCounterXorARB|atomicCounterExchangeARB|atomicCounterCompSwapARB|anyInvocationARB|allInvocationsARB|allInvocationsEqualARB|traceNV|reportIntersectionNV|ignoreIntersectionNV|terminateRayNV|executeCallableNV|traceRayEXT|reportIntersectionEXT|ignoreIntersectionEXT|terminateRayEXT|executeCallableEXT|rayQueryInitializeEXT|rayQueryProceedEXT|rayQueryTerminateEXT|rayQueryGenerateIntersectionEXT|rayQueryConfirmIntersectionEXT|rayQueryGetIntersectionTypeEXT|rayQueryGetRayTMinEXT|rayQueryGetRayFlagsEXT|rayQueryGetWorldRayOriginEXT|rayQueryGetWorldRayDirectionEXT|rayQueryGetIntersectionTEXT|rayQueryGetIntersectionInstanceCustomIndexEXT|rayQueryGetIntersectionInstanceIdEXT|rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT|rayQueryGetIntersectionGeometryIndexEXT|rayQueryGetIntersectionPrimitiveIndexEXT|rayQueryGetIntersectionBarycentricsEXT|rayQueryGetIntersectionFrontFaceEXT|rayQueryGetIntersectionCandidateAABBOpaqueEXT|rayQueryGetIntersectionObjectRayDirectionEXT|rayQueryGetIntersectionObjectRayOriginEXT|rayQueryGetIntersectionObjectToWorldEXT|rayQueryGetIntersectionWorldToObjectEXT|subgroupBarrier|subgroupMemoryBarrier|subgroupMemoryBarrierBuffer|subgroupMemoryBarrierShared|subgroupMemoryBarrierImage|subgroupElect|subgroupAll|subgroupAny|subgroupAllEqual|subgroupBroadcast|subgroupBroadcastFirst|subgroupBallot|subgroupInverseBallot|subgroupBallotBitExtract|subgroupBallotBitCount|subgroupBallotInclusiveBitCount|subgroupBallotExclusiveBitCount|subgroupBallotFindLSB|subgroupBallotFindMSB|subgroupShuffle|subgroupShuffleXor|subgroupShuffleUp|subgroupShuffleDown|subgroupAdd|subgroupMul|subgroupMin|subgroupMax|subgroupAnd|subgroupOr|subgroupXor|subgroupInclusiveAdd|subgroupInclusiveMul|subgroupInclusiveMin|subgroupInclusiveMax|subgroupInclusiveAnd|subgroupInclusiveOr|subgroupInclusiveXor|subgroupExclusiveAdd|subgroupExclusiveMul|subgroupExclusiveMin|subgroupExclusiveMax|subgroupExclusiveAnd|subgroupExclusiveOr|subgroupExclusiveXor|subgroupClusteredAdd|subgroupClusteredMul|subgroupClusteredMin|subgroupClusteredMax|subgroupClusteredAnd|subgroupClusteredOr|subgroupClusteredXor|subgroupQuadBroadcast|subgroupQuadSwapHorizontal|subgroupQuadSwapVertical|subgroupQuadSwapDiagonal)\\b"
-		},
-		"builtin_variables": {
-			"comment": "Built-in variables from glslVariables.txt",
-			"name": "variable.language.glsl",
-			"match": "\\b(gl_NumWorkGroups|gl_WorkGroupSize|gl_WorkGroupID|gl_LocalInvocationID|gl_GlobalInvocationID|gl_LocalInvocationIndex|gl_LocalGroupSizeARB|gl_VertexID|gl_VertexIndex|gl_InstanceID|gl_InstanceIndex|gl_PerVertex|gl_Position|gl_PointSize|gl_ClipDistance|gl_CullDistance|gl_in|gl_out|gl_PrimitiveIDIn|gl_InvocationID|gl_PrimitiveID|gl_Layer|gl_ViewportIndex|gl_PatchVerticesIn|gl_TessLevelOuter|gl_TessLevelInner|gl_TessCoord|gl_MaxPatchVertices|gl_FragColor|gl_FragCoord|gl_FrontFacing|gl_PointCoord|gl_SampleID|gl_SamplePosition|gl_SampleMaskIn|gl_HelperInvocation|gl_FragDepth|gl_SampleMask|gl_DrawIDARB|gl_BaseVertexARB|gl_BaseInstanceARB|gl_SubGroupSizeARB|gl_SubGroupInvocationARB|gl_SubGroupEqMaskARB|gl_SubGroupGeMaskARB|gl_SubGroupGtMaskARB|gl_SubGroupLeMaskARB|gl_SubGroupLtMaskARB|gl_LaunchIDNV|gl_LaunchSizeNV|gl_InstanceCustomIndexNV|gl_WorldRayOriginNV|gl_WorldRayDirectionNV|gl_ObjectRayOriginNV|gl_ObjectRayDirectionNV|gl_RayTminNV|gl_RayTmaxNV|gl_IncomingRayFlagsNV|gl_HitTNV|gl_HitKindNV|gl_ObjectToWorldNV|gl_WorldToObjectNV|gl_RayFlagsNoneNV|gl_RayFlagsOpaqueNV|gl_RayFlagsNoOpaqueNV|gl_RayFlagsTerminateOnFirstHitNV|gl_RayFlagsSkipClosestHitShaderNV|gl_RayFlagsCullBackFacingTrianglesNV|gl_RayFlagsCullFrontFacingTrianglesNV|gl_RayFlagsCullOpaqueNV|gl_RayFlagsCullNoOpaqueNV|gl_RayFlagsNoneEXT|gl_RayFlagsOpaqueEXT|gl_RayFlagsNoOpaqueEXT|gl_RayFlagsTerminateOnFirstHitEXT|gl_RayFlagsSkipClosestHitShaderEXT|gl_RayFlagsCullBackFacingTrianglesEXT|gl_RayFlagsCullFrontFacingTrianglesEXT|gl_RayFlagsCullOpaqueEXT|gl_RayFlagsCullNoOpaqueEXT|gl_RayQueryCommittedIntersectionEXT|gl_RayQueryCandidateIntersectionEXT|gl_RayQueryCommittedIntersectionNoneEXT|gl_RayQueryCommittedIntersectionTriangleEXT|gl_RayQueryCommittedIntersectionGeneratedEXT|gl_RayQueryCandidateIntersectionTriangleEXT|gl_RayQueryCandidateIntersectionAABBEXT|gl_LaunchIDEXT|gl_LaunchSizeEXT|gl_InstanceCustomIndexEXT|gl_GeometryIndexEXT|gl_WorldRayOriginEXT|gl_WorldRayDirectionEXT|gl_ObjectRayOriginEXT|gl_ObjectRayDirectionEXT|gl_RayTminEXT|gl_RayTmaxEXT|gl_IncomingRayFlagsEXT|gl_HitTEXT|gl_HitKindEXT|gl_ObjectToWorldEXT|gl_WorldToObjectEXT|gl_WorldToObject3x4EXT|gl_ObjectToWorld3x4EXT|gl_HitKindFrontFacingTriangleEXT|gl_HitKindBackFacingTriangleEXT|gl_NumSubgroups|gl_SubgroupID|gl_SubgroupSize|gl_SubgroupInvocationID|gl_SubgroupEqMask|gl_SubgroupGeMask|gl_SubgroupGtMask|gl_SubgroupLeMask|gl_SubgroupLtMask|gl_WarpIDNV|gl_SMIDNV|gl_ScopeDevice|gl_ScopeWorkgroup|gl_ScopeSubgroup|gl_ScopeInvocation|gl_ScopeQueueFamily|gl_SemanticsRelaxed|gl_SemanticsAcquire|gl_SemanticsRelease|gl_SemanticsAcquireRelease|gl_SemanticsMakeAvailable|gl_SemanticsMakeVisible|gl_SemanticsVolatile|gl_StorageSemanticsNone|gl_StorageSemanticsBuffer|gl_StorageSemanticsShared|gl_StorageSemanticsImage|gl_StorageSemanticsOutput)\\b"
-		},
-		"user_functions": {
+		"structures": {
 			"patterns": [
 				{
-					"comment": "User-defined function definitions",
-					"begin": "(?<=([a-zA-Z0-9_]+\\s+))([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
-					"beginCaptures": {
+					"name": "meta.struct.glsl",
+					"match": "\\b(struct)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+					"captures": {
+						"1": {
+							"name": "storage.type.struct.glsl"
+						},
 						"2": {
-							"name": "entity.name.function.glsl"
+							"name": "entity.name.type.struct.glsl"
 						}
-					},
-					"end": "(?=\\{|;)",
+					}
+				},
+				{
+					"name": "meta.interface-block.glsl",
+					"match": "\\b(uniform|buffer|in|out)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\{|;)",
+					"captures": {
+						"1": {
+							"name": "storage.modifier.glsl"
+						},
+						"2": {
+							"name": "entity.name.type.interface-block.glsl"
+						}
+					}
+				}
+			]
+		},
+		"constants": {
+			"patterns": [
+				{
+					"name": "constant.language.boolean.glsl",
+					"match": "\\b(?:true|false)\\b"
+				},
+				{
+					"name": "constant.language.null.glsl",
+					"match": "\\bnull\\b"
+				}
+			]
+		},
+		"declarations": {
+			"name": "meta.declaration.glsl",
+			"match": "\\b((?!(?:return|case|discard|else|break|continue)\\b)[A-Za-z_][A-Za-z0-9_]*)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\[|=|,|;|\\))",
+			"captures": {
+				"1": {
 					"patterns": [
 						{
-							"include": "$self"
+							"include": "#metadata_types"
+						},
+						{
+							"name": "entity.name.type.glsl",
+							"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
 						}
 					]
 				},
+				"2": {
+					"name": "variable.other.glsl"
+				}
+			}
+		},
+		"user_functions": {
+			"name": "meta.function-call.glsl",
+			"begin": "\\b([A-Za-z_][A-Za-z0-9_]*)(\\s*)(\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "entity.name.function.call.glsl"
+				},
+				"3": {
+					"name": "punctuation.section.arguments.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.arguments.end.glsl"
+				}
+			},
+			"patterns": [
 				{
-					"comment": "User-defined function calls",
-					"match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
-					"name": "entity.name.function.glsl"
+					"include": "#expression_context"
 				}
 			]
 		},
+		"members": {
+			"patterns": [
+				{
+					"match": "(?<=\\.)(\\s*)([xyzwrgbastpq]{1,4})\\b",
+					"captures": {
+						"2": {
+							"name": "variable.other.member.swizzle.glsl"
+						}
+					}
+				},
+				{
+					"match": "(?<=\\.)(\\s*)([A-Za-z_][A-Za-z0-9_]*)\\b",
+					"captures": {
+						"2": {
+							"name": "variable.other.member.glsl"
+						}
+					}
+				}
+			]
+		},
+		"identifiers": {
+			"name": "variable.other.glsl",
+			"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+		},
 		"operators": {
 			"name": "keyword.operator.glsl",
-			"match": "->|\\+\\+|--|<<|>>|<=|>=|==|!=|&&|\\|\\||\\^\\^|\\*=|/=|%=|\\+=|-=|<<=|>>=|&=|\\^=|\\|=|!|~|%|\\^|&|\\*|/|-|\\+|\\?|:|\\.|<|>"
+			"match": "->|\\+\\+|--|<<=|>>=|<<|>>|<=|>=|==|!=|&&|\\|\\||\\^\\^|\\*=|/=|%=|\\+=|-=|&=|\\^=|\\|=|=|!|~|%|\\^|&|\\||\\*|/|-|\\+|\\?|:|\\.|<|>"
 		},
 		"punctuation": {
 			"patterns": [
@@ -212,6 +645,412 @@
 				{
 					"name": "punctuation.section.brackets.end.glsl",
 					"match": "\\]"
+				}
+			]
+		},
+		"metadata_types": {
+			"comment": "Generated from Builtins/Types.txt, Primitives/Types.txt. Do not edit this rule manually.",
+			"patterns": [
+				{
+					"name": "entity.name.type.glsl",
+					"match": "\\b(?:__Function|accelerationStructureNV|atomic_uint|attachmentEXT|bf16mat2|bf16mat2x2|bf16mat2x3|bf16mat2x4|bf16mat3|bf16mat3x2|bf16mat3x3|bf16mat3x4|bf16mat4|bf16mat4x2|bf16mat4x3|bf16mat4x4|bf16vec2|bf16vec3|bf16vec4|bfloat16_t|bool|bvec2|bvec3|bvec4|coopmat|coopvecNV|dmat2|dmat2x2|dmat2x3|dmat2x4|dmat3|dmat3x2|dmat3x3|dmat3x4|dmat4|dmat4x2|dmat4x3|dmat4x4|double|dvec2|dvec3|dvec4|f16mat2|f16mat2x2|f16mat2x3|f16mat2x4|f16mat3|f16mat3x2|f16mat3x3|f16mat3x4|f16mat4|f16mat4x2|f16mat4x3|f16mat4x4|f16vec2|f16vec3|f16vec4|f32mat2|f32mat2x2|f32mat2x3|f32mat2x4|f32mat3|f32mat3x2|f32mat3x3|f32mat3x4|f32mat4|f32mat4x2|f32mat4x3|f32mat4x4|f32vec2|f32vec3|f32vec4|f64mat2|f64mat2x2|f64mat2x3|f64mat2x4|f64mat3|f64mat3x2|f64mat3x3|f64mat3x4|f64mat4|f64mat4x2|f64mat4x3|f64mat4x4|f64vec2|f64vec3|f64vec4|fcoopmatNV|fe4m3mat2|fe4m3mat2x2|fe4m3mat2x3|fe4m3mat2x4|fe4m3mat3|fe4m3mat3x2|fe4m3mat3x3|fe4m3mat3x4|fe4m3mat4|fe4m3mat4x2|fe4m3mat4x3|fe4m3mat4x4|fe4m3vec2|fe4m3vec3|fe4m3vec4|fe5m2mat2|fe5m2mat2x2|fe5m2mat2x3|fe5m2mat2x4|fe5m2mat3|fe5m2mat3x2|fe5m2mat3x3|fe5m2mat3x4|fe5m2mat4|fe5m2mat4x2|fe5m2mat4x3|fe5m2mat4x4|fe5m2vec2|fe5m2vec3|fe5m2vec4|fixed|float|float16_t|float32_t|float64_t|floate4m3_t|floate5m2_t|fvec2|fvec3|fvec4|half|hitObjectEXT|hitObjectNV|hvec2|hvec3|hvec4|i16mat2|i16mat2x2|i16mat2x3|i16mat2x4|i16mat3|i16mat3x2|i16mat3x3|i16mat3x4|i16mat4|i16mat4x2|i16mat4x3|i16mat4x4|i16vec2|i16vec3|i16vec4|i32mat2|i32mat2x2|i32mat2x3|i32mat2x4|i32mat3|i32mat3x2|i32mat3x3|i32mat3x4|i32mat4|i32mat4x2|i32mat4x3|i32mat4x4|i32vec2|i32vec3|i32vec4|i64image1D|i64image1DArray|i64image2D|i64image2DArray|i64image2DMS|i64image2DMSArray|i64image2DRect|i64image3D|i64imageBuffer|i64imageCube|i64imageCubeArray|i64mat2|i64mat2x2|i64mat2x3|i64mat2x4|i64mat3|i64mat3x2|i64mat3x3|i64mat3x4|i64mat4|i64mat4x2|i64mat4x3|i64mat4x4|i64vec2|i64vec3|i64vec4|i8vec2|i8vec3)\\b"
+				},
+				{
+					"name": "entity.name.type.glsl",
+					"match": "\\b(?:i8vec4|iattachmentEXT|icoopmatNV|iimage1D|iimage1DArray|iimage2D|iimage2DArray|iimage2DMS|iimage2DMSArray|iimage2DRect|iimage3D|iimageBuffer|iimageCube|iimageCubeArray|image1D|image1DArray|image2D|image2DArray|image2DMS|image2DMSArray|image2DRect|image3D|imageBuffer|imageCube|imageCubeArray|imat2|imat2x2|imat2x3|imat2x4|imat3|imat3x2|imat3x3|imat3x4|imat4|imat4x2|imat4x3|imat4x4|int|int16_t|int32_t|int64_t|int8_t|isampler1D|isampler1DArray|isampler2D|isampler2DArray|isampler2DMS|isampler2DMSArray|isampler2DRect|isampler3D|isamplerBuffer|isamplerCube|isamplerCubeArray|isubpassInput|isubpassInputMS|itexture1D|itexture1DArray|itexture1DLod|itexture1DProj|itexture2D|itexture2DArray|itexture2DLod|itexture2DMS|itexture2DMSArray|itexture2DProj|itexture2DRect|itexture3D|itexture3DLod|itexture3DProj|itextureBuffer|itextureCube|itextureCubeArray|itextureCubeLod|itextureRect|itextureRectProj|ivec2|ivec3|ivec4|long|mat2|mat2x2|mat2x3|mat2x4|mat3|mat3x2|mat3x3|mat3x4|mat4|mat4x2|mat4x3|mat4x4|sampler|sampler1D|sampler1DArray|sampler1DArrayShadow|sampler1DShadow|sampler2D|sampler2DArray|sampler2DArrayShadow|sampler2DMS|sampler2DMSArray|sampler2DRect|sampler2DRectShadow|sampler2DShadow|sampler3D|sampler3DRect|samplerBuffer|samplerCube|samplerCubeArray|samplerCubeArrayShadow|samplerCubeShadow|shadow1D|shadow1DLod|shadow1DProj|shadow1DProjLod|shadow2D|shadow2DLod|shadow2DProj|shadow2DProjLod|short|string|subpassInput|subpassInputMS|superp|tensorARM|tensorLayoutNV|tensorViewNV|texture1D|texture1DArray|texture1DArrayLod|texture1DArrayShadow|texture1DArrayShadowLod|texture1DLod|texture1DProj|texture1DProjLod|texture1DProjShadow|texture1DShadow|texture1DShadowLod|texture2D|texture2DArray|texture2DArrayLod|texture2DArrayShadow|texture2DLod|texture2DMS|texture2DMSArray|texture2DProj|texture2DProjLod|texture2DProjShadow|texture2DRect|texture2DShadow|texture2DShadowLod|texture3D|texture3DLod|texture3DProj|texture3DProjLod|textureBuffer|textureCube|textureCubeArray|textureCubeArrayLod|textureCubeArrayShadow|textureCubeLod|textureCubeShadow|textureRect|textureRectProj|textureRectProjLod|textureRectProjShadow|textureRectShadow|u16mat2|u16mat2x2|u16mat2x3|u16mat2x4|u16mat3|u16mat3x2|u16mat3x3|u16mat3x4|u16mat4|u16mat4x2|u16mat4x3|u16mat4x4|u16vec2|u16vec3|u16vec4|u32mat2|u32mat2x2|u32mat2x3|u32mat2x4|u32mat3|u32mat3x2|u32mat3x3|u32mat3x4|u32mat4|u32mat4x2)\\b"
+				},
+				{
+					"name": "entity.name.type.glsl",
+					"match": "\\b(?:u32mat4x3|u32mat4x4|u32vec2|u32vec3|u32vec4|u64image1D|u64image1DArray|u64image2D|u64image2DArray|u64image2DMS|u64image2DMSArray|u64image2DRect|u64image3D|u64imageBuffer|u64imageCube|u64imageCubeArray|u64mat2|u64mat2x2|u64mat2x3|u64mat2x4|u64mat3|u64mat3x2|u64mat3x3|u64mat3x4|u64mat4|u64mat4x2|u64mat4x3|u64mat4x4|u64vec2|u64vec3|u64vec4|u8vec2|u8vec3|u8vec4|uattachmentEXT|ucoopmatNV|uimage1D|uimage1DArray|uimage2D|uimage2DArray|uimage2DMS|uimage2DMSArray|uimage2DRect|uimage3D|uimageBuffer|uimageCube|uimageCubeArray|uint|uint16_t|uint32_t|uint64_t|uint8_t|umat2|umat2x2|umat2x3|umat2x4|umat3|umat3x2|umat3x3|umat3x4|umat4|umat4x2|umat4x3|umat4x4|unsigned|usampler1D|usampler1DArray|usampler2D|usampler2DArray|usampler2DMS|usampler2DMSArray|usampler2DRect|usampler3D|usamplerBuffer|usamplerCube|usamplerCubeArray|usubpassInput|usubpassInputMS|utexture1D|utexture1DArray|utexture1DLod|utexture1DProj|utexture2D|utexture2DArray|utexture2DLod|utexture2DMS|utexture2DMSArray|utexture2DProj|utexture2DRect|utexture3D|utexture3DLod|utexture3DProj|utextureBuffer|utextureCube|utextureCubeArray|utextureCubeLod|utextureRect|utextureRectProj|uvec2|uvec3|uvec4|vec2|vec3|vec4|vector|void)\\b"
+				}
+			]
+		},
+		"metadata_keywords": {
+			"comment": "Generated from Keywords/Meta.txt. Do not edit this rule manually.",
+			"patterns": [
+				{
+					"name": "keyword.control.glsl",
+					"match": "\\b(?:break|case|continue|default|demote|discard|do|else|for|goto|if|return|switch|terminateInvocation|while)\\b"
+				}
+			]
+		},
+		"metadata_qualifiers": {
+			"comment": "Generated from Primitives/Qualifiers.txt. Do not edit this rule manually.",
+			"patterns": [
+				{
+					"name": "storage.modifier.glsl",
+					"match": "\\b(?:asm|attribute|buffer|callableDataInNV|callableDataNV|cast|centroid|class|coherent|common|const|devicecoherent|enum|extern|external|flat|highp|hitAttributeNV|in|inline|inout|interface|invariant|layout|lowp|mediump|namespace|noinline|noncoherent|nontemporal|nonuniformEXT|noperspective|out|patch|perprimitiveEXT|perprimitiveNV|pervertexEXT|perviewNV|precise|precision|public|queuefamilycoherent|rayPayloadInNV|rayPayloadNV|readonly|resource|resourceheap|sample|samplerheap|shadercallcoherent|shared|sizeof|smooth|static|struct|subgroupcoherent|subgroupuniformEXT|subroutine|template|this|typedef|uniform|union|using|varying|volatile|workgroupcoherent|writeonly)\\b"
+				}
+			]
+		},
+		"metadata_function_definitions": {
+			"comment": "Generated as a root-only range. Function bodies use statement_context and cannot recursively match another function definition.",
+			"name": "meta.function.definition.glsl",
+			"begin": "^(\\s*)((?:[A-Za-z_][A-Za-z0-9_]*\\s+)*)([A-Za-z_][A-Za-z0-9_]*)(\\s+)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+			"beginCaptures": {
+				"2": {
+					"patterns": [
+						{
+							"include": "#metadata_qualifiers"
+						}
+					]
+				},
+				"3": {
+					"patterns": [
+						{
+							"include": "#metadata_types"
+						},
+						{
+							"name": "entity.name.type.return.glsl",
+							"match": "[A-Za-z_][A-Za-z0-9_]*"
+						}
+					]
+				},
+				"5": {
+					"name": "entity.name.function.definition.glsl"
+				}
+			},
+			"end": "(?<=\\})|(?<=;)|(?=^\\s*(?:(?:[A-Za-z_][A-Za-z0-9_]*)\\s+)+(?:[A-Za-z_][A-Za-z0-9_]*)\\s*\\()",
+			"patterns": [
+				{
+					"include": "#function_parameters"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#preprocessors"
+				},
+				{
+					"include": "#attributes"
+				},
+				{
+					"include": "#compound_statement"
+				},
+				{
+					"include": "#punctuation"
+				}
+			]
+		},
+		"root_context": {
+			"patterns": [
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#preprocessors"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"include": "#attributes"
+				},
+				{
+					"include": "#layout_qualifiers"
+				},
+				{
+					"include": "#metadata_function_definitions"
+				},
+				{
+					"include": "#structures"
+				},
+				{
+					"include": "#compound_statement"
+				},
+				{
+					"include": "#statement_tokens"
+				}
+			]
+		},
+		"statement_context": {
+			"patterns": [
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#preprocessors"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"include": "#attributes"
+				},
+				{
+					"include": "#layout_qualifiers"
+				},
+				{
+					"include": "#structures"
+				},
+				{
+					"include": "#compound_statement"
+				},
+				{
+					"include": "#statement_tokens"
+				}
+			]
+		},
+		"statement_tokens": {
+			"patterns": [
+				{
+					"include": "#metadata_keywords"
+				},
+				{
+					"include": "#metadata_qualifiers"
+				},
+				{
+					"include": "#declarations"
+				},
+				{
+					"include": "#metadata_types"
+				},
+				{
+					"include": "#constants"
+				},
+				{
+					"include": "#member_functions"
+				},
+				{
+					"include": "#members"
+				},
+				{
+					"include": "#user_functions"
+				},
+				{
+					"include": "#parentheses"
+				},
+				{
+					"include": "#brackets"
+				},
+				{
+					"include": "#identifiers"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"include": "#punctuation"
+				}
+			]
+		},
+		"expression_context": {
+			"patterns": [
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#preprocessors"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"include": "#metadata_keywords"
+				},
+				{
+					"include": "#metadata_qualifiers"
+				},
+				{
+					"include": "#metadata_types"
+				},
+				{
+					"include": "#constants"
+				},
+				{
+					"include": "#member_functions"
+				},
+				{
+					"include": "#members"
+				},
+				{
+					"include": "#user_functions"
+				},
+				{
+					"include": "#parentheses"
+				},
+				{
+					"include": "#brackets"
+				},
+				{
+					"include": "#identifiers"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"include": "#punctuation"
+				}
+			]
+		},
+		"compound_statement": {
+			"name": "meta.block.glsl",
+			"begin": "\\{",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.section.braces.begin.glsl"
+				}
+			},
+			"end": "\\}",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.braces.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#statement_context"
+				}
+			]
+		},
+		"parentheses": {
+			"name": "meta.group.glsl",
+			"begin": "\\(",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.section.parens.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.parens.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#statement_context"
+				}
+			]
+		},
+		"brackets": {
+			"name": "meta.brackets.glsl",
+			"begin": "\\[",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.section.brackets.begin.glsl"
+				}
+			},
+			"end": "\\]",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.brackets.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#expression_context"
+				}
+			]
+		},
+		"function_parameters": {
+			"name": "meta.function.definition.parameters.glsl",
+			"begin": "\\G\\s*(\\()",
+			"beginCaptures": {
+				"1": {
+					"name": "punctuation.section.parameters.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.parameters.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#parameter_declarations"
+				},
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#preprocessors"
+				},
+				{
+					"include": "#strings_and_numbers"
+				},
+				{
+					"include": "#metadata_qualifiers"
+				},
+				{
+					"include": "#metadata_types"
+				},
+				{
+					"include": "#brackets"
+				},
+				{
+					"include": "#operators"
+				},
+				{
+					"include": "#punctuation"
+				}
+			]
+		},
+		"parameter_declarations": {
+			"patterns": [
+				{
+					"name": "meta.parameter.glsl",
+					"match": "(?:(?<=\\()|(?<=,))\\s*((?:[A-Za-z_][A-Za-z0-9_]*\\s+)+)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*(?:\\[|,|\\)))",
+					"captures": {
+						"1": {
+							"patterns": [
+								{
+									"include": "#metadata_qualifiers"
+								},
+								{
+									"include": "#metadata_types"
+								},
+								{
+									"name": "entity.name.type.parameter.glsl",
+									"match": "[A-Za-z_][A-Za-z0-9_]*"
+								}
+							]
+						},
+						"2": {
+							"name": "variable.parameter.glsl"
+						}
+					}
+				},
+				{
+					"name": "meta.parameter.unnamed.glsl",
+					"match": "(?:(?<=\\()|(?<=,))\\s*([A-Za-z_][A-Za-z0-9_]*)(?=\\s*(?:\\[|,|\\)))",
+					"captures": {
+						"1": {
+							"patterns": [
+								{
+									"include": "#metadata_types"
+								},
+								{
+									"name": "entity.name.type.parameter.glsl",
+									"match": "[A-Za-z_][A-Za-z0-9_]*"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		"member_functions": {
+			"name": "meta.function-call.member.glsl",
+			"begin": "(?<=\\.)(\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*)(\\()",
+			"beginCaptures": {
+				"2": {
+					"name": "entity.name.function.member.glsl"
+				},
+				"4": {
+					"name": "punctuation.section.arguments.begin.glsl"
+				}
+			},
+			"end": "\\)",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.section.arguments.end.glsl"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#expression_context"
 				}
 			]
 		}

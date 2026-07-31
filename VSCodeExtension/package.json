@@ -16,8 +16,9 @@
 	"main": "./out/extension",
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -w -p ./"
+		"generate:grammar": "node ./scripts/generate-tm-language.mjs",
+		"compile": "npm run generate:grammar && tsc -p ./",
+		"watch": "npm run generate:grammar && tsc -w -p ./"
 	},
 	"dependencies": {
 		"glob": "^11.0.0",
