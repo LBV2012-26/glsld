@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -129,7 +129,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EntryPointSymbol>Main</EntryPointSymbol>
       <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -154,7 +153,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EntryPointSymbol>Main</EntryPointSymbol>
       <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -197,6 +195,7 @@
     <ClCompile Include="Sources\Utils\Utils.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
+    <ClCompile Include="Sources\Base\Unicode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Server\Formatter.hpp" />
@@ -234,6 +233,7 @@
     <ClInclude Include="Sources\xstdafx.hpp" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
+    <ClInclude Include="Sources\Base\Unicode.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Analyzer\Ast\Ast.inl" />

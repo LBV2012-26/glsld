@@ -14,12 +14,22 @@
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Unicode.hpp"
 #include "Server/Index/GlobalIndex.hpp"
 #include "Server/Context.hpp"
 
 namespace glsld {
-    nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope);
-    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, Snapshot snapshot);
+    nlohmann::json ConvertScopeToDocumentSymbols(
+        Context& context,
+        std::string_view uri,
+        const Scope* const scope,
+        const PositionMapper& mapper);
+
+    std::vector<std::uint32_t> GetSemanticData(
+        Context& context,
+        const SourceFile* source_file,
+        Snapshot snapshot,
+        const PositionMapper& mapper);
 
     std::optional<std::string> GotoInclude(
         Context& context,
@@ -54,7 +64,8 @@ namespace glsld {
         Context& context, 
         Snapshot snapshot,
         const SourceLocation& location,
-        IncludeDirectoryHandle include_dirs);
+        IncludeDirectoryHandle include_dirs,
+        PositionMapper& mapper);
 
     nlohmann::json GetCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location);
 

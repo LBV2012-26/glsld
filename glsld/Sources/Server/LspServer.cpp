@@ -7,6 +7,7 @@
 #include <exception>
 #include <format>
 #include <iostream>
+#include <ranges>
 #include <stdexcept>
 #include <string_view>
 #include <thread>
@@ -15,6 +16,7 @@
 
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Logger.hpp"
+#include "Base/Unicode.hpp"
 #include "Server/FunctionProviders.hpp"
 #include "Server/JsonResponse.hpp"
 #include "Utils/Utils.hpp"
@@ -23,17 +25,24 @@ namespace glsld {
     namespace {
         static constexpr int kDocumentClosedVersion = -114514;
 
-        SourceLocation ConvertToParserPosition(const SourceFile* source_file, const auto& position) {
+        SourceLocation ConvertToParserPosition(
+            const SourceFile* source_file,
+            const PositionMapper& mapper,
+            const auto& position)
+        {
             std::size_t line      = position["line"];
             std::size_t character = position["character"];
 
-            return SourceLocation(source_file, line + 1, character + 1);
+            return SourceLocation(source_file, line + 1, mapper.ToByteColumn(line, character));
         }
 
-        nlohmann::json ConvertToLspPosition(const SourceLocation& location) {
+        nlohmann::json ConvertToLspPosition(
+            const SourceLocation& location,
+            const PositionMapper& mapper)
+        {
             return {
                 { "line",      location.line()   - 1 },
-                { "character", location.column() - 1 }
+                { "character", mapper.ToUtf16Character(location.line(), location.column()) }
             };
         }
 
@@ -51,6 +60,10 @@ namespace glsld {
         RegisterHandlers();
 
         diagnostic_engine_.SetCallback([this](std::string_view uri, int version, std::vector<Diagnostic> diagnostic) -> void {
+            if (!diagnostics_enabled_.load(std::memory_order::relaxed)) {
+                return;
+            }
+
             int current = [&]() -> int {
                 std::shared_lock lock(pending_mutex_);
                 auto it = document_versions_.find(uri);
@@ -71,6 +84,10 @@ namespace glsld {
                     { "severity", std::to_underlying(diagnostic.severity) },
                     { "message",  diagnostic.message }
                 });
+            }
+
+            if (!diagnostics_enabled_.load(std::memory_order::relaxed)) {
+                return;
             }
 
             EnqueueSubmit(LspSubmitItem{
@@ -569,7 +586,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        return ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope());
+        PositionMapper mapper(snapshot->source);
+        return ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
@@ -583,8 +601,9 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
+        PositionMapper mapper(snapshot->source);
         const auto* source_file = workspace_.GetSource(uri);
-        auto data = GetSemanticData(context, source_file, snapshot);
+        auto data = GetSemanticData(context, source_file, snapshot, mapper);
 
         return { { "data", data } };
     }
@@ -600,7 +619,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
         if (auto include = GotoInclude(context, snapshot, target, workspace_.include_dirs())) {
@@ -660,7 +680,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
         auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
@@ -669,7 +690,7 @@ namespace glsld {
         }
 
         nlohmann::json response = nlohmann::json::array();
-        auto name_length = symbol != nullptr ? static_cast<int>(symbol->name.size()) : 1;
+        auto name_length = symbol != nullptr ? static_cast<int>(symbol->name.length()) : 1;
 
         for (const auto& location : locations) {
             response.push_back({
@@ -695,7 +716,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target   = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target   = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
         auto new_name = context.params["newName"].get<std::string>();
 
         ABORT_IF_CANCELLED();
@@ -719,7 +741,7 @@ namespace glsld {
             edits.push_back({
                 { "range", {
                     { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
-                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol_name.size()) } } }
+                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol_name.length()) } } }
                 } },
                 { "newText", new_name }
             });
@@ -739,7 +761,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
         auto symbols = GetDefinitionSymbols(context, snapshot, target, false);
@@ -783,6 +806,7 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
+        PositionMapper mapper(snapshot->source);
         auto hints = GetInlayHints(context, snapshot);
 
         nlohmann::json response = nlohmann::json::array();
@@ -791,7 +815,7 @@ namespace glsld {
 
             nlohmann::json result;
 
-            result["position"]     = ConvertToLspPosition(*hint.location);
+            result["position"]     = ConvertToLspPosition(*hint.location, mapper);
             result["label"]        = std::move(hint.label);
             result["kind"]         = 2;
             result["paddingRight"] = true;
@@ -849,7 +873,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
         auto signature_help = GetSignatureHelp(context, snapshot, target);
@@ -900,7 +925,8 @@ namespace glsld {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), position);
+        PositionMapper mapper(snapshot->source);
+        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         if (context.params["context"]["triggerCharacter"] == ".") {
             return GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
@@ -910,10 +936,10 @@ namespace glsld {
             context.params["context"]["triggerCharacter"] == "<"  ||
             context.params["context"]["triggerCharacter"] == "/")
         {
-            return GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs());
+            return GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
         }
 
-        if (auto include_items = GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs());
+        if (auto include_items = GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
             !include_items.empty())
         {
             return include_items;
@@ -941,7 +967,7 @@ namespace glsld {
         auto formatted = formatter_.Format(snapshot->source, utils::UriToPath(uri));
         ABORT_IF_CANCELLED();
 
-        if (formatted == snapshot->source) {
+        if (formatted.empty() || formatted == snapshot->source) {
             return nlohmann::json::array();
         }
 
@@ -983,7 +1009,7 @@ namespace glsld {
         auto formatted = formatter_.FormatRange(snapshot->source, utils::UriToPath(uri), start_line, end_line);
         ABORT_IF_CANCELLED();
 
-        if (formatted == snapshot->source) {
+        if (formatted.empty() || formatted == snapshot->source) {
             return nlohmann::json::array();
         }
 
@@ -1022,7 +1048,7 @@ namespace glsld {
         auto formatted = formatter_.FormatRange(snapshot->source, utils::UriToPath(uri), typed_line, typed_line);
         ABORT_IF_CANCELLED();
 
-        if (formatted == snapshot->source) {
+        if (formatted.empty() || formatted == snapshot->source) {
             return nlohmann::json::array();
         }
 
@@ -1252,15 +1278,15 @@ namespace glsld {
     }
 
     void LspServer::ApplyCapabilityConfigs(const nlohmann::json& glsld) {
-        bool enabled = true;
+        bool inlay_hints_enabled = true;
 
         if (glsld.contains("capabilities") &&
             glsld["capabilities"].is_object())
         {
-            enabled = glsld["capabilities"].value("inlayHints", true);
+            inlay_hints_enabled = glsld["capabilities"].value("inlayHints", true);
         }
 
-        if (inlay_hints_enabled_.exchange(enabled, std::memory_order::relaxed) == enabled) {
+        if (inlay_hints_enabled_.exchange(inlay_hints_enabled, std::memory_order::relaxed) == inlay_hints_enabled) {
             return;
         }
 
@@ -1273,11 +1299,34 @@ namespace glsld {
     }
 
     void LspServer::ApplyDiagnosticConfigs(const nlohmann::json& glsld) {
-        if (!glsld.contains("glslcPath") || !glsld["glslcPath"].is_string()) {
+        bool diagnostics_enabled = glsld.value("diagnosticsEnabled", true);
+        bool diagnostics_changed = diagnostics_enabled_.exchange(diagnostics_enabled, std::memory_order::relaxed) != diagnostics_enabled;
+
+        if (glsld.contains("glslcPath") && glsld["glslcPath"].is_string()) {
+            diagnostic_engine_.set_glslc_path(std::filesystem::path(glsld["glslcPath"].get<std::string>()));
+        }
+
+        if (!diagnostics_changed) {
             return;
         }
 
-        diagnostic_engine_.set_glslc_path(std::filesystem::path(glsld["glslcPath"].get<std::string>()));
+        if (diagnostics_enabled) {
+            RebuildDocuments();
+            return;
+        }
+
+        auto uris = [&]() -> std::vector<std::string> {
+            std::shared_lock lock(version_mutex_);
+            return document_versions_ | std::views::keys | std::ranges::to<std::vector<std::string>>();
+        }();
+
+        for (const auto& uri : uris) {
+            EnqueueSubmit(LspSubmitItem{
+                .payload       = { { "uri", uri }, { "diagnostics", nlohmann::json::array() } },
+                .notify_method = "textDocument/publishDiagnostics",
+                .kind          = LspSubmitItem::Kind::kNotification
+            });
+        }
     }
 
     void LspServer::ApplyFormatterConfigs(const nlohmann::json& glsld) {
@@ -1594,7 +1643,7 @@ namespace glsld {
         int version_replica,
         VersionPointer version_pointer)
     {
-        if (filename.contains("Database/Meta/Builtin") || filename.contains("Database/Meta/Extensions")) {
+        if (!diagnostics_enabled_.load(std::memory_order::relaxed) || filename.contains("Database/Meta/Builtin") || filename.contains("Database/Meta/Extensions")) {
             return;
         }
 

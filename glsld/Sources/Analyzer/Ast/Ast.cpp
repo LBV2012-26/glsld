@@ -546,7 +546,7 @@ namespace glsld {
     }
 
     bool TypeSpecifier::has_keyword(std::string_view name) const {
-        return std::ranges::any_of(specifiers, [name](auto& token) -> bool {
+        return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
             return token.text == name;
         });
     }

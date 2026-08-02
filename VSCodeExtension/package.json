@@ -1,14 +1,15 @@
 {
 	"name": "glsld",
-	"displayName": "glsld",
+    "displayName": "glsld",
+    "icon": "resources/icons/main.png",
 	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
-	"author": "glsld",
-	"publisher": "glsld",
-	"version": "0.1.0",
-	"license": "MIT",
+	"author": "LBV 2012-26",
+	"publisher": "LBV2012-26",
+	"version": "0.114.514",
+	"license": "GPL-3.0-only",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/glsld/glsld"
+		"url": "https://github.com/LBV2012-26/glsld"
 	},
 	"engines": {
 		"vscode": "^1.100.0"
@@ -25,15 +26,19 @@
 		"vscode-languageclient": "^9.0.1"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.100.0",
 		"@types/node": "^22",
+		"@types/vscode": "^1.100.0",
+		"@vscode/vsce": "^3.9.2",
 		"typescript": "^5.3.0"
 	},
 	"contributes": {
 		"languages": [
 			{
 				"id": "glsl",
-				"aliases": ["OpenGL Shading Language", "GLSL"],
+				"aliases": [
+					"OpenGL Shading Language",
+					"GLSL"
+				],
 				"extensions": [
 					".glsl",
 					".vert",
@@ -66,8 +71,8 @@
 			"properties": {
 				"glsld.server.path": {
 					"type": "string",
-					"default": "glsld",
-					"description": "Path to the glsld executable. Leave empty to resolve glsld from PATH."
+					"default": "bin/Win64/glsld.exe",
+					"description": "Path to the glsld executable. Relative paths are resolved from the extension directory."
 				},
 				"glsld.mimalloc.largePages.enabled": {
 					"type": "boolean",
@@ -91,7 +96,7 @@
 				},
 				"glsld.glslc.path": {
 					"type": "string",
-					"default": "",
+                    "default": "bin/Win64/glsld.exe",
 					"description": "Path to the glslc executable. Leave empty to use %VULKAN_SDK%\\Bin\\glslc.exe when available, then resolve glslc.exe from PATH."
 				},
 				"glsld.clangFormat.path": {
@@ -138,7 +143,7 @@
 						}
 					}
 				},
-						"glsld.compileMaxConcurrency": {
+				"glsld.compileMaxConcurrency": {
 					"type": "number",
 					"default": 0,
 					"description": "Maximum concurrent glslc processes. 0 = auto (CPU core count)."
@@ -399,7 +404,9 @@
 			{
 				"language": "glsl",
 				"scopes": {
-					"primitive": ["storage.type"]
+					"primitive": [
+						"storage.type"
+					]
 				}
 			}
 		]

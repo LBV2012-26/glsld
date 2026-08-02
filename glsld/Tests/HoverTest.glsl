@@ -93,7 +93,7 @@ void Func(const in float input_arg, out float output_arg, inout float param) {
 }
 
 coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> ReturnCoopMat16() {
-    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix;
+    coopmat<float16_t, /*这是一段注释*/gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix;
     return matrix;
 }
 
@@ -109,13 +109,18 @@ void main() {
     int mdarray[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE] = {};
     int array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(mdarray);
 
+    float out_param;
+    float inout_param;
+    Func(1.0, out_param, inout_param);
+
     vec3 light = normalize(lights[0].position - InPosition), ambient = vec3(gl_FragCoord.xyz);
 
     const int max_iter = 10;
     #define MIN_ITER max_iter
     
     [[unroll, max_iterations(max_iter), min_iterations(MIN_ITER)]]
-    for (int i = 0; i != max_iter; ++i);
+    for (int i = 0; i != max_iter; ++i) {
+    }
 
     LightData mddata[max_iter][5];
     vec3 data = mddata[ReturnArray(mdarray)[0]][3].position + input_data.frag_pos;

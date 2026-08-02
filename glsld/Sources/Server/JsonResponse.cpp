@@ -18,6 +18,10 @@ namespace glsld {
             std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
             std::fflush(stdout);
         }
+
+        std::string SerializeJson(const nlohmann::json& value) {
+            return value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+        }
     }
 
     void SendServerRequest(const nlohmann::json& id, std::string_view method, const nlohmann::json& params) {
@@ -31,7 +35,7 @@ namespace glsld {
             request["params"] = params;
         }
 
-        SendRaw(request.dump());
+        SendRaw(SerializeJson(request));
     }
 
     void SendResponse(const nlohmann::json& id, const nlohmann::json& result) {
@@ -41,7 +45,7 @@ namespace glsld {
             { "result", result }
         };
 
-        SendRaw(response.dump());
+        SendRaw(SerializeJson(response));
     }
 
     void SendError(const nlohmann::json& id, int code, std::string_view message) {
@@ -54,7 +58,7 @@ namespace glsld {
             } }
         };
 
-        SendRaw(response.dump());
+        SendRaw(SerializeJson(response));
     }
 
     void SendNotification(std::string_view method, const nlohmann::json& params) {
@@ -64,6 +68,6 @@ namespace glsld {
             { "params", params }
         };
 
-        SendRaw(response.dump());
+        SendRaw(SerializeJson(response));
     }
 }

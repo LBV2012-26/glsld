@@ -32,7 +32,8 @@ const runtimeDisposables: Disposable[] = [];
 
 export async function activate(context: any) {
 	const config = workspace.getConfiguration('glsld');
-	const serverPath = config.get<string>('server.path', 'glsld').trim() || 'glsld';
+	const configuredServerPath = config.get<string>('server.path', 'bin/Win64/glsld.exe').trim();
+	const serverPath = path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
 	const serverEnv = createServerEnvironment(config);
 	const serverOutput = window.createOutputChannel('glsld');
 	context.subscriptions.push(serverOutput);

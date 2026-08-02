@@ -163,5 +163,6 @@ namespace glsld {
         std::mutex                                 cancellation_mutex_;
 
         std::atomic<bool>                          inlay_hints_enabled_{ true };
+        std::atomic<bool>                          diagnostics_enabled_{ true };
     };
 }

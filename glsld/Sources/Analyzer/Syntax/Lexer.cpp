@@ -1,7 +1,6 @@
 #include "pch.hpp"
 #include "Lexer.hpp"
 
-#include <cctype>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -12,6 +11,7 @@
 #include <vector>
 
 #include "Analyzer/Syntax/MetadataManager.hpp"
+#include "Base/Unicode.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -95,10 +95,10 @@ namespace glsld {
         unsigned char current_char = static_cast<unsigned char>(source_[position_]);
 
         auto IsIdentifierAlnum = [](unsigned char ch) -> bool {
-            return std::isalnum(ch) || ch == '.' || ch == '_';
+            return IsAsciiAlnum(ch) || ch == '.' || ch == '_';
         };
 
-        if (std::isdigit(current_char) || (current_char == '.' && std::isdigit(Peek()))) {
+        if (IsAsciiDigit(current_char) || (current_char == '.' && IsAsciiDigit(Peek()))) {
             auto begin = position_;
             Advance();
             while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
@@ -133,11 +133,11 @@ namespace glsld {
         }
 
         auto IsIdentifierStart = [](unsigned char ch) -> bool {
-            return std::isalpha(ch) || ch == '_';
+            return IsAsciiAlpha(ch) || ch == '_';
         };
 
         auto IsIdentifierChar = [](unsigned char ch) -> bool {
-            return std::isalnum(ch) || ch == '_';
+            return IsAsciiAlnum(ch) || ch == '_';
         };
 
         if (IsIdentifierStart(current_char)) {
@@ -215,9 +215,14 @@ namespace glsld {
             };
         }
 
-        Advance();
+        auto begin = position_;
+        auto point = DecodeUtf8(source_.substr(position_));
+        Advance(point.byte_count);
+
         return {
-            .text     = std::string(source_.substr(position_ - 1, 1)),
+            .text     = point.valid
+                      ? std::string(source_.substr(begin, point.byte_count))
+                      : std::string("\xEF\xBF\xBD"),
             .location = location,
             .type     = TokenType::kUnknown
         };
@@ -417,7 +422,7 @@ namespace glsld {
     void Lexer::SkipWhitespaceAndComments() {
         while (position_ < source_.length()) {
             unsigned char ch = static_cast<unsigned char>(source_[position_]);
-            if (std::isspace(ch) || ch == '\0') {
+            if (IsAsciiSpace(ch) || ch == '\0') {
                 Advance();
                 continue;
             }
@@ -448,7 +453,7 @@ namespace glsld {
     }
 
     void Lexer::Advance(std::size_t count) {
-        for (std::size_t i = 0; i != count; ++i) {
+        for (auto i = 0uz; i != count; ++i) {
             if (position_ >= source_.length()) {
                 return;
             }

@@ -9,5 +9,7 @@
 	"glsld.capabilities.inlayHints": true,
 	"glsld.backgroundIndex.roots": [
 		"Tests"
-	]
+	],
+	"glsld.diagnostics.enabled": true,
+	"glsld.glslc.path": ""
 }

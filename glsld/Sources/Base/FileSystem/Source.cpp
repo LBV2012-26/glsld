@@ -10,6 +10,7 @@
 #include <system_error>
 #include <utility>
 
+#include "Base/Unicode.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -60,7 +61,7 @@ namespace glsld {
             return size;
         });
 
-        return source;
+        return SanitizeUtf8(source);
     }
 
     SourceFile::SourceFile(std::string_view filename, std::string_view uri, SourceKind kind)

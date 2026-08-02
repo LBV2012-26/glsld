@@ -103,24 +103,29 @@ namespace glsld {
         }
     }
 
-    nlohmann::json ConvertScopeToDocumentSymbols(Context& context, std::string_view uri, const Scope* const scope) {
+    nlohmann::json ConvertScopeToDocumentSymbols(
+        Context& context,
+        std::string_view uri,
+        const Scope* const scope,
+        const PositionMapper& mapper)
+    {
         nlohmann::json symbols = nlohmann::json::array();
 
         if (scope == nullptr) {
             return symbols;
         }
 
-        auto ConvertToLspRange = [](const auto& begin, const auto& end) -> nlohmann::json {
+        auto ConvertToLspRange = [&mapper](const auto& begin, const auto& end) -> nlohmann::json {
             return {
-                { "start", { { "line", begin.line() - 1 }, {"character", begin.column() - 1 } } },
-                { "end",   { { "line", end.line()   - 1 }, {"character", end.column()   - 1 } } }
+                { "start", { { "line", begin.line() - 1 }, { "character", mapper.ToUtf16Character(begin.line(), begin.column()) } } },
+                { "end",   { { "line", end.line()   - 1 }, { "character", mapper.ToUtf16Character(end.line(),   end.column()) } } }
             };
         };
 
-        auto ConvertToSelectionRange = [](const auto& location, std::string_view name) -> nlohmann::json {
+        auto ConvertToSelectionRange = [&mapper](const auto& location, std::string_view name) -> nlohmann::json {
             return {
-                { "start", { { "line", location.line() - 1 }, { "character", location.column()                 - 1 } } },
-                { "end",   { { "line", location.line() - 1 }, { "character", location.column() + name.length() - 1 } } }
+                { "start", { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column()) } } },
+                { "end",   { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column() + name.length()) } } }
             };
         };
 
@@ -186,7 +191,7 @@ namespace glsld {
             if (child_scope != nullptr) {
                 symbol_node["range"] = ConvertToLspRange(info->location, child_scope->interval().second);
                 if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
-                    auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope);
+                    auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope, mapper);
                     if (!children.empty()) {
                         symbol_node["children"] = children;
                     }
@@ -215,7 +220,7 @@ namespace glsld {
                  child_scope->kind() == ScopeKind::kBlockTransparent) &&
                 !handled_scopes.contains(child_scope.get()))
             {
-                auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get());
+                auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get(), mapper);
                 for (const auto& child : transparent_children) {
                     symbols.push_back(child);
                 }
@@ -275,7 +280,12 @@ namespace glsld {
         };
     }
 
-    std::vector<std::uint32_t> GetSemanticData(Context& context, const SourceFile* source_file, Snapshot snapshot) {
+    std::vector<std::uint32_t> GetSemanticData(
+        Context& context,
+        const SourceFile* source_file,
+        Snapshot snapshot,
+        const PositionMapper& mapper)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -289,9 +299,9 @@ namespace glsld {
                 return;
             }
 
-            std::size_t line       = token.location.line()   - 1;
-            std::size_t character  = token.location.column() - 1;
-            std::size_t length     = token.text.length();
+            std::size_t line       = token.location.line() - 1;
+            std::size_t character  = mapper.ToUtf16Character(token.location.line(), token.location.column());
+            std::size_t length     = Utf16Length(token.text);
             std::size_t delta_line = line - last_line;
             std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
 
@@ -841,7 +851,8 @@ namespace glsld {
         Context& context,
         Snapshot snapshot,
         const SourceLocation& location,
-        IncludeDirectoryHandle include_dirs)
+        IncludeDirectoryHandle include_dirs,
+        PositionMapper& mapper)
     {
         if (snapshot == nullptr) {
             return {};
@@ -921,8 +932,14 @@ namespace glsld {
                 item["sortText"] = kind == 19 ? "0" : "1";
                 item["textEdit"] = {
                     { "range", {
-                        { "start", { { "line", include_context->line - 1 }, { "character", include_context->replace_start_column - 1 } } },
-                        { "end",   { { "line", include_context->line - 1 }, { "character", include_context->replace_end_column   - 1 } } }
+                        { "start", {
+                            { "line", include_context->line - 1 },
+                            { "character", mapper.ToUtf16Character(include_context->line, include_context->replace_start_column) }
+                        } },
+                        { "end", {
+                            { "line", include_context->line - 1 },
+                            { "character", mapper.ToUtf16Character(include_context->line, include_context->replace_end_column) }
+                        } }
                     } },
                     { "newText", relative_path }
                 };

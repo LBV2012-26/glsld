@@ -239,13 +239,15 @@ function installContexts(grammar) {
 	};
 }
 
-const typeSources = ['Builtins/Types.txt', 'Primitives/Types.txt'];
+const builtinTypeSources = ['Builtins/Types.txt'];
+const primitiveTypeSources = ['Primitives/Types.txt'];
 const keywordSources = ['Keywords/Meta.txt'];
 const qualifierSources = ['Primitives/Qualifiers.txt'];
 const grammarSource = await readFile(grammarPath, 'utf8');
 const grammar = JSON.parse(grammarSource);
 
-const types = await readWords(typeSources);
+const builtinTypes = await readWords(builtinTypeSources);
+const primitiveTypes = await readWords(primitiveTypeSources);
 const keywords = await readWords(keywordSources);
 const qualifiers = await readWords(qualifierSources);
 
@@ -253,7 +255,13 @@ for (const legacyRule of ['builtin_functions', 'builtin_variables', 'extended_ty
 	delete grammar.repository[legacyRule];
 }
 
-grammar.repository.metadata_types = buildRule('entity.name.type.glsl', types, typeSources);
+grammar.repository.metadata_types = {
+	comment: 'Generated from primitive and built-in Metadata type lists. Do not edit this rule manually.',
+	patterns: [
+		...buildRule('storage.type.glsl', primitiveTypes, primitiveTypeSources).patterns,
+		...buildRule('entity.name.type.glsl', builtinTypes, builtinTypeSources).patterns
+	]
+};
 grammar.repository.metadata_keywords = buildRule('keyword.control.glsl', keywords, keywordSources);
 grammar.repository.metadata_qualifiers = buildRule('storage.modifier.glsl', qualifiers, qualifierSources);
 grammar.repository.metadata_function_definitions = buildFunctionDefinitionRule();

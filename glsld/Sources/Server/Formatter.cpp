@@ -20,7 +20,13 @@ namespace glsld {
             "\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp",
             clang_format_path);
 
-        return utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+
+        if (formatted.empty()) { // clang-format.exe not found
+            return {};
+        }
+
+        return formatted;
     }
 
     std::string Formatter::FormatRange(
@@ -40,7 +46,13 @@ namespace glsld {
             "--lines={}:{}",
             clang_format_path, start_line, end_line);
 
-        return utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+
+        if (formatted.empty()) { // clang-format.exe not found
+            return {};
+        }
+
+        return formatted;
     }
 
     void Formatter::set_clang_format_path(const std::filesystem::path& filename) {

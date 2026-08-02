@@ -66,6 +66,11 @@ namespace glsld {
                 if (param->declared_symbol != nullptr && !param->declared_symbol->name.empty()) {
                     const auto& type_info = param->declared_symbol->type_info;
                     std::string label = param->declared_symbol->name;
+
+                    if (param->type_spec.has_keyword("out") || param->type_spec.has_keyword("inout")) {
+                        label.insert(label.begin(), '&');
+                    }
+
                     if (!type_info.array_sizes.empty()) {
                         for (auto array_size : type_info.array_sizes) {
                             if (array_size.has_value()) {
