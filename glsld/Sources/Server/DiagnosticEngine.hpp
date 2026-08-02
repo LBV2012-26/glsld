@@ -9,6 +9,7 @@
 #include <stop_token>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "Analyzer/Syntax/Document.hpp"
@@ -51,6 +52,7 @@ namespace glsld {
 
         void SetCallback(Callback callback);
         void Submit(DiagnosticTask task);
+        void Stop();
 
         void set_glslc_path(const std::filesystem::path& filename);
 
@@ -64,5 +66,6 @@ namespace glsld {
         std::condition_variable_any condition_;
         std::queue<DiagnosticTask>  queue_;
         std::stop_source            stop_source_;
+        std::jthread                thread_;
     };
 }

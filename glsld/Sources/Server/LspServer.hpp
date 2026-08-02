@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <stop_token>
 #include <string>
+#include <thread>
 
 #include <ankerl/unordered_dense.h>
 #include <nlohmann/json.hpp>
@@ -52,6 +53,12 @@ namespace glsld {
     class LspServer {
     public:
         LspServer();
+        LspServer(const LspServer&) = delete;
+        LspServer(LspServer&&)      = delete;
+        ~LspServer();
+
+        LspServer& operator=(const LspServer&) = delete;
+        LspServer& operator=(LspServer&&)      = delete;
 
         void Run();
 
@@ -128,12 +135,8 @@ namespace glsld {
         std::stop_source                           stop_source_;
         std::atomic<int>                           server_request_id_{};
         Router                                     router_;
-        ThreadPool                                 thread_pool_;
-        ThreadPool                                 update_pool_;
         Workspace                                  workspace_;
         StringHeteroHashSet                        document_uris_;
-        DiagnosticEngine                           diagnostic_engine_;
-        Formatter                                  formatter_;
         std::condition_variable_any                ready_condition_;
         std::mutex                                 ready_mutex_;
 
@@ -164,5 +167,15 @@ namespace glsld {
 
         std::atomic<bool>                          inlay_hints_enabled_{ true };
         std::atomic<bool>                          diagnostics_enabled_{ true };
+
+        DiagnosticEngine                           diagnostic_engine_;
+        Formatter                                  formatter_;
+
+        ThreadPool                                 thread_pool_{ std::jthread::hardware_concurrency() };
+        ThreadPool                                 update_pool_{ std::jthread::hardware_concurrency() };
+
+        std::jthread                               submit_thread_;
+        std::jthread                               update_thread_;
+        std::jthread                               worker_thread_;
     };
 }

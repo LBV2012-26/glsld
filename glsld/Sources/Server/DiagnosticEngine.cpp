@@ -12,7 +12,6 @@
 #include <mutex>
 #include <ranges>
 #include <system_error>
-#include <thread>
 #include <tuple>
 #include <utility>
 
@@ -39,13 +38,11 @@ namespace glsld {
     DiagnosticEngine::DiagnosticEngine()
         : glslc_path_{ FindGlslc() }
     {
-        std::jthread thread([this]() -> void { Run(); });
-        thread.detach();
+        thread_ = std::jthread([this]() -> void { Run(); });
     }
 
     DiagnosticEngine::~DiagnosticEngine() {
-        stop_source_.request_stop();
-        condition_.notify_all();
+        Stop();
     }
 
     void DiagnosticEngine::SetCallback(Callback callback) {
@@ -58,6 +55,15 @@ namespace glsld {
             queue_.push(std::move(task));
         }
         condition_.notify_one();
+    }
+
+    void DiagnosticEngine::Stop() {
+        stop_source_.request_stop();
+        condition_.notify_all();
+
+        if (thread_.joinable()) {
+            thread_.join();
+        }
     }
 
     void DiagnosticEngine::set_glslc_path(const std::filesystem::path& filename) {

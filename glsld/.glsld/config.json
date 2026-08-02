@@ -5,7 +5,7 @@
 		}
 	},
 	"fileMacros": {
-		"file:///z%3A/Source/glsld/glsld/Tests/TestSyntax.glsl": {
+		"file:///z%3A/Source/glsld/glsld/Tests/ExtensionTest.glsl": {
 			"THIS_MACRO": {
 				"value": "1",
 				"enabled": true
@@ -113,7 +113,19 @@
 		}
 	],
 	"shaderConfigs": {
-		"Tests/TestSyntax.glsl": {
+		"Tests/ExtensionTest.glsl": {
+			"shaderStage": "rgen",
+			"version": "460",
+			"targetEnv": "vulkan1.4",
+			"targetSpv": "spv1.6"
+		},
+		"Tests/IndexTest/Include.glsl": {
+			"shaderStage": "comp",
+			"version": "460",
+			"targetEnv": "vulkan1.4",
+			"targetSpv": "spv1.6"
+		},
+		"Tests/Include.glsl": {
 			"shaderStage": "rgen",
 			"version": "460",
 			"targetEnv": "vulkan1.4",

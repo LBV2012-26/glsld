@@ -1,4 +1,6 @@
 #version 460 core
+#pragma shader_stage(compute)
+
 #extension GL_EXT_shader_explicit_arithmetic_types_int8    : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int16   : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int32   : require
@@ -6,6 +8,8 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float16 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : require
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : require
+#extension GL_KHR_cooperative_matrix                       : require
+#extension GL_KHR_memory_scope_semantics                   : require
 
 void TestOverloadFunction(int16_t int16arg, int32_t int32arg, int64_t int64arg, float32_t float32arg) {}
 void TestOverloadFunction(uint16_t uint16arg, uint32_t uint32arg, uint64_t uint64arg, float16_t float16arg) {}
@@ -121,9 +125,10 @@ mat4x2 GetMat4x2() { return mat4x2(1.0f); }
 mat3x4 GetMat3x4() { return mat3x4(1.0f); }
 mat4x3 GetMat4x3() { return mat4x3(1.0f); }
 
+#define MySpirvTypeX spirv_type(set = "GLSL.std.450", capabilities = [1145], extensions = ["SPV_KHR_ray_tracing"], id = 4514) // same as T1
 #define MySpirvType0 spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], set = "GLSL.std.450", id = 5341)
 #define MySpirvType1 spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [1145], set = "GLSL.std.450", id = 4514)
-#define MySpirvType2 spirv_type(set = "GLSL.std.450", capabilities = [1145], extensions = ["SPV_KHR_ray_tracing"], id = 4514)
+#define MySpirvType2 spirv_type(id = 32, spirv_id 64, 2)
 #define MySpirvType3 spirv_type(id = 32, spirv_id 64)
 #define MySpirvType4 spirv_type(id = 32, spirv_id 32)
 #define MySpirvType5 spirv_type(id = 21, 64, 1)
@@ -133,6 +138,7 @@ mat4x3 GetMat4x3() { return mat4x3(1.0f); }
 
 void TestOverloadFunction(MySpirvType0 param0);
 void TestOverloadFunction(MySpirvType1 param1);
+void TestOverloadFunction(MySpirvType2 param2);
 void TestOverloadFunction(MySpirvType3 param3);
 void TestOverloadFunction(MySpirvType4 param4);
 void TestOverloadFunction(MySpirvType5 param5);
@@ -1022,6 +1028,7 @@ void main() {
     TestOverloadFunction(MyStruct.data.middle[1].inner.intArray2D_2x3[2][1] * MyStruct.data.dvec2_field.zz);
     TestOverloadFunction(MyStruct.data.middle[0].inner.vec3_field * MyStruct.data.middle[1].inner.float_field);
 
+    MySpirvTypeX typex;
     MySpirvType0 type0;
     MySpirvType1 type1;
     MySpirvType2 type2;
@@ -1032,6 +1039,7 @@ void main() {
     MySpirvType7 type7;
     MySpirvType8 type8;
 
+    TestOverloadFunction(typex);
     TestOverloadFunction(type0);
     TestOverloadFunction(type1);
     TestOverloadFunction(type2);

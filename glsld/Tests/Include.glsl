@@ -1,9 +1,7 @@
 #ifndef INCLUDE_GLSL_
 #define INCLUDE_GLSL_
 
-#include <Debugger.glsl>
-
-const int k114514 = SHIT;
+const int kIncludeValue = 42;
 
 #define DECLARE_STRUCT_ARRAY(type, size) \
 struct type##Buffer {                    \

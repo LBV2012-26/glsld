@@ -2257,7 +2257,9 @@ namespace glsld {
         case SymbolKind::kStruct: {
             title = std::format("**struct** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
-            details = std::format("struct {};", symbol->name);
+
+            BuildDefinedDeclare(symbol, "struct");
+
             break;
         }
 

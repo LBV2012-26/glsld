@@ -102,7 +102,7 @@ int main() {
     std::ignore = _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
-    return Benchmark();
+    // return Benchmark();
 
     glsld::Logger::GetInstance();
     GLSLD_LOG(info, "glsld started.");

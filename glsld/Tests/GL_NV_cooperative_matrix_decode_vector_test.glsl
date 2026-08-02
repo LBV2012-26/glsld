@@ -1,8 +1,9 @@
 #version 460 core
 #pragma shader_stage(compute)
 
+#extension GL_EXT_buffer_reference2 : require
 #extension GL_EXT_long_vector : require
-#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_shader_explicit_arithmetic_types : require
 #extension GL_KHR_cooperative_matrix : require
 #extension GL_KHR_memory_scope_semantics : require
 #extension GL_NV_cooperative_matrix_decode_vector : require
@@ -52,11 +53,11 @@ vector<float16_t, 8> VectorDecoder(
 void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix;
     
-    tensorLayoutNV<2> tensor_layout = createTensorLayoutNV(2, gl_CooperativeMatrixClampModeConstantNV);
+    tensorLayoutNV<2, 1> tensor_layout = createTensorLayoutNV(2, gl_CooperativeMatrixClampModeConstantNV);
     tensor_layout = setTensorLayoutBlockSizeNV(tensor_layout, 1, 32);
 
-    WeightBuffer _Buf = WeightBuffer(device_address.address);
+    WeightBuffer weight_buffer = WeightBuffer(device_address.address);
 
-    coopMatLoadTensorNV(matrix, _Buf.packed_weights, 0u,
-        tensor_layout, ScalarDecoder, VectorDecoder);
+    coopMatLoadTensorNV(matrix, weight_buffer.packed_weights, 0u, tensor_layout,
+                        ScalarDecoder, VectorDecoder);
 }

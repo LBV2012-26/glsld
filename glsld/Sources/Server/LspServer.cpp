@@ -11,7 +11,6 @@
 #include <ranges>
 #include <stdexcept>
 #include <string_view>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -54,14 +53,13 @@ namespace glsld {
         }
     }
 
-    LspServer::LspServer()
-        : thread_pool_{ std::jthread::hardware_concurrency() }
-        , update_pool_{ std::jthread::hardware_concurrency() }
-    {
+    LspServer::LspServer() {
         RegisterHandlers();
 
         diagnostic_engine_.SetCallback([this](std::string_view uri, int version, std::vector<Diagnostic> diagnostic) -> void {
-            if (!diagnostics_enabled_.load(std::memory_order::relaxed)) {
+            if (stop_source_.stop_requested() ||
+                !diagnostics_enabled_.load(std::memory_order::relaxed))
+            {
                 return;
             }
 
@@ -109,14 +107,15 @@ namespace glsld {
         });
     }
 
-    void LspServer::Run() {
-        std::jthread worker_thread([this]() -> void { WorkerLoop(); });
-        std::jthread submit_thread([this]() -> void { SubmitLoop(); });
-        std::jthread update_thread([this]() -> void { UpdateLoop(); });
+    LspServer::~LspServer() {
+        stop_source_.request_stop();
+        diagnostic_engine_.Stop();
+    }
 
-        worker_thread.detach();
-        submit_thread.detach();
-        update_thread.detach();
+    void LspServer::Run() {
+        worker_thread_ = std::jthread([this]() -> void { WorkerLoop(); });
+        submit_thread_ = std::jthread([this]() -> void { SubmitLoop(); });
+        update_thread_ = std::jthread([this]() -> void { UpdateLoop(); });
 
         auto stop_token = stop_source_.get_token();
 
@@ -150,6 +149,8 @@ namespace glsld {
 
             EnqueueTask(std::move(task));
         }
+
+        stop_source_.request_stop();
     }
 
     void LspServer::RegisterHandlers() {
@@ -340,7 +341,7 @@ namespace glsld {
 
                     EnqueueSubmit(std::move(item));
                     GLSLD_LOG(debug, "Request {} completed, erased cancellation token.",
-                                    context.request_id.value_or(nlohmann::json("null")).dump());
+                              context.request_id.value_or(nlohmann::json("null")).dump());
 
                     {
                         std::lock_guard lock(cancellation_mutex_);
@@ -463,7 +464,7 @@ namespace glsld {
 #ifdef _DEBUG
         for (const auto& [id, token] : cancellation_tokens_) {
             GLSLD_LOG(debug, "Pending cancellation token for request {}. Token status: {}.",
-                            id.dump(), token->load(std::memory_order::relaxed));
+                      id.dump(), token->load(std::memory_order::relaxed));
         }
 #endif
     }
