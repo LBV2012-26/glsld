@@ -2,6 +2,7 @@
 #include "LspServer.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <algorithm>
 #include <charconv>
 #include <exception>
@@ -30,8 +31,8 @@ namespace glsld {
             const PositionMapper& mapper,
             const auto& position)
         {
-            std::size_t line      = position["line"];
-            std::size_t character = position["character"];
+            std::uint32_t line      = position["line"];
+            std::uint32_t character = position["character"];
 
             return SourceLocation(source_file, line + 1, mapper.ToByteColumn(line, character));
         }
@@ -41,7 +42,7 @@ namespace glsld {
             const PositionMapper& mapper)
         {
             return {
-                { "line",      location.line()   - 1 },
+                { "line",      location.line() - 1 },
                 { "character", mapper.ToUtf16Character(location.line(), location.column()) }
             };
         }
@@ -74,15 +75,25 @@ namespace glsld {
                 return;  // 过时，丢弃
             }
 
+            auto snapshot = workspace_.GetDocumentSnapshot(uri);
+            if (snapshot == nullptr) {
+                return;  // 文档已关闭，丢弃
+            }
+
+            PositionMapper mapper(snapshot->source);
+
             nlohmann::json info = nlohmann::json::array();
-            for (const auto& diagnostic : diagnostic) {
+            for (const auto& item : diagnostic) {
+                auto start_char = mapper.ToUtf16Character(item.line     + 1, item.character     + 1);
+                auto end_char   = mapper.ToUtf16Character(item.end_line + 1, item.end_character + 1);
+
                 info.push_back({
                     { "range", {
-                        { "start", { { "line", diagnostic.line }, { "character", diagnostic.character } } },
-                        { "end",   { { "line", diagnostic.end_line }, { "character", diagnostic.end_character } } }
+                        { "start", { { "line", item.line },     { "character", start_char } } },
+                        { "end",   { { "line", item.end_line }, { "character", end_char } } }
                     } },
-                    { "severity", std::to_underlying(diagnostic.severity) },
-                    { "message",  diagnostic.message }
+                    { "severity", std::to_underlying(item.severity) },
+                    { "message", item.message }
                 });
             }
 
@@ -566,12 +577,64 @@ namespace glsld {
             { "capabilities", capabilities },
             { "serverInfo", {
                 { "name", "glsld" },
-                { "version", "0.1.0" }
+                { "version", "0.114.514" }
             } }
         };
     }
 
+    namespace {
+        class PositionMapperCache {
+        public:
+            explicit PositionMapperCache(const Workspace& workspace)
+                : workspace_{ workspace }
+            {}
+
+            std::uint32_t ToUtf16Character(const SourceLocation& location, std::uint32_t one_based_byte_column) {
+                auto*  mapper = GetCache(location.uri());
+                return mapper != nullptr
+                     ? mapper->ToUtf16Character(location.line(), one_based_byte_column)
+                     : one_based_byte_column - 1;
+            }
+
+        private:
+            struct Entry {
+                Snapshot                        snapshot;
+                std::shared_ptr<std::string>    source;
+                std::unique_ptr<PositionMapper> mapper;
+            };
+
+            const PositionMapper* GetCache(std::string_view uri) {
+                auto it = entries_.find(uri);
+                if (it != entries_.end()) {
+                    return it->second.mapper.get();
+                }
+
+                Entry entry;
+                entry.snapshot = workspace_.GetDocumentSnapshot(uri);
+
+                if (entry.snapshot != nullptr) {
+                    entry.mapper = std::make_unique<PositionMapper>(entry.snapshot->source);
+                } else {
+                    auto source = LoadSource(utils::UriToPath(uri));
+                    if (!source.has_value()) {
+                        return nullptr;
+                    }
+
+                    entry.source = std::make_shared<std::string>(std::move(*source));
+                    entry.mapper = std::make_unique<PositionMapper>(*entry.source);
+                }
+
+                auto [inserted, _] = entries_.try_emplace(std::string(uri), std::move(entry));
+                return inserted->second.mapper.get();
+            }
+
+            const Workspace&           workspace_;
+            StringHeteroHashMap<Entry> entries_;
+        };
+    }
+
     nlohmann::json LspServer::HandleShutdown(Context& context) {
+        (void)context;
         return {};
     }
 
@@ -643,25 +706,25 @@ namespace glsld {
 
         auto response_array = nlohmann::json::array();
 
+        PositionMapperCache mappers(workspace_);
+
         for (const auto& symbol : symbols) {
             ABORT_IF_CANCELLED();
-            auto start_line  = symbol->location.line()   - 1;
-            auto start_char  = symbol->location.column() - 1;
-
+            auto start_line  = symbol->location.line() - 1;
             auto symbol_name = symbol->name;
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
                 symbol_name = utils::UnmangleFunctionName(symbol_name);
             }
 
-            auto name_length = symbol_name.length();
+            auto start_char = mappers.ToUtf16Character(symbol->location, symbol->location.column());
+            auto end_char   = mappers.ToUtf16Character(symbol->location, symbol->location.column() + static_cast<std::uint32_t>(symbol_name.length()));
 
             nlohmann::json result;
-
             result["uri"]                         = symbol->location.uri();
             result["range"]["start"]["line"]      = start_line;
             result["range"]["start"]["character"] = start_char;
             result["range"]["end"]["line"]        = start_line;
-            result["range"]["end"]["character"]   = start_char + name_length;
+            result["range"]["end"]["character"]   = end_char;
 
             response_array.push_back(std::move(result));
         }
@@ -689,15 +752,23 @@ namespace glsld {
             return {};
         }
 
-        nlohmann::json response = nlohmann::json::array();
-        auto name_length = symbol != nullptr ? static_cast<int>(symbol->name.length()) : 1;
+        PositionMapperCache mappers(workspace_);
 
+        auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
+                         ? utils::UnmangleFunctionName(symbol->name)
+                         : std::string_view(symbol->name);
+        auto name_length = static_cast<std::uint32_t>(symbol_name.length());
+
+        nlohmann::json response = nlohmann::json::array();
         for (const auto& location : locations) {
+            auto start_char = mappers.ToUtf16Character(location, location.column());
+            auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
+
             response.push_back({
                 { "uri", location.uri() },
                 { "range", {
-                    { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
-                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + name_length } } }
+                    { "start", { { "line", location.line() - 1 }, { "character", start_char } } },
+                    { "end",   { { "line", location.line() - 1 }, { "character", end_char } } }
                 } }
             });
         }
@@ -726,22 +797,27 @@ namespace glsld {
             return {};
         }
 
-        nlohmann::json changes = nlohmann::json::object();
+        PositionMapperCache mappers(workspace_);
 
+        auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
+                         ? utils::UnmangleFunctionName(symbol->name)
+                         : std::string_view(symbol->name);
+        auto name_length = static_cast<std::uint32_t>(symbol_name.length());
+
+        nlohmann::json changes = nlohmann::json::object();
         for (const auto& location : locations) {
             if (location.source_file()->kind() == SourceKind::kMetadata) {
                 continue;
             }
 
-            const auto& symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
-                                    ? utils::UnmangleFunctionName(symbol->name)
-                                    : symbol->name;
+            auto start_char = mappers.ToUtf16Character(location, location.column());
+            auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
+            auto& edits     = changes[location.uri()];
 
-            auto& edits = changes[location.uri()];
             edits.push_back({
                 { "range", {
-                    { "start", {{ "line", location.line() - 1 }, { "character", location.column() - 1 } } },
-                    { "end",   {{ "line", location.line() - 1 }, { "character", location.column() - 1 + static_cast<int>(symbol_name.length()) } } }
+                    { "start", { { "line", location.line() - 1 }, { "character", start_char } } },
+                    { "end",   { { "line", location.line() - 1 }, { "character", end_char } } }
                 } },
                 { "newText", new_name }
             });
@@ -812,6 +888,10 @@ namespace glsld {
         nlohmann::json response = nlohmann::json::array();
         for (auto& hint : hints) {
             ABORT_IF_CANCELLED();
+
+            if (hint.location == nullptr || hint.location->uri() != uri) {
+                continue;
+            }
 
             nlohmann::json result;
 
@@ -954,6 +1034,25 @@ namespace glsld {
         return GetCompletionItems(context, snapshot, target);
     }
 
+    namespace {
+        nlohmann::json BuildWholeDocumentRange(std::string_view source) {
+            auto line         = std::ranges::count(source, '\n');
+            auto last_newline = source.rfind('\n');
+            auto last_line    = last_newline == std::string_view::npos
+                              ? source
+                              : source.substr(last_newline + 1);
+
+            if (!last_line.empty() && last_line.back() == '\r') {
+                last_line.remove_suffix(1);
+            }
+
+            return {
+                { "start", { { "line", 0 },    { "character", 0 } } },
+                { "end",   { { "line", line }, { "character", Utf16Length(last_line) } } }
+            };
+        }
+    }
+
     nlohmann::json LspServer::HandleFormatting(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
@@ -971,17 +1070,7 @@ namespace glsld {
             return nlohmann::json::array();
         }
 
-        auto line = std::ranges::count(snapshot->source, '\n');
-        auto last_newline = snapshot->source.rfind('\n');
-
-        auto character = last_newline == std::string::npos
-                       ? snapshot->source.size()
-                       : snapshot->source.size() - last_newline - 1;
-
-        nlohmann::json range = {
-            { "start", { {"line", 0 },    { "character", 0 } } },
-            { "end",   { {"line", line }, { "character", character } } }
-        };
+        auto range = BuildWholeDocumentRange(snapshot->source);
 
         return nlohmann::json::array({
             {
@@ -1013,17 +1102,7 @@ namespace glsld {
             return nlohmann::json::array();
         }
 
-        auto line = std::ranges::count(snapshot->source, '\n');
-        auto last_newline = snapshot->source.rfind('\n');
-
-        auto character = last_newline == std::string::npos
-                       ? snapshot->source.size()
-                       : snapshot->source.size() - last_newline - 1;
-
-        nlohmann::json response_range = {
-            { "start", { {"line", 0 },    { "character", 0 } } },
-            { "end",   { {"line", line }, { "character", character } } }
-        };
+        auto response_range = BuildWholeDocumentRange(snapshot->source);
 
         return nlohmann::json::array({
             {
@@ -1052,17 +1131,7 @@ namespace glsld {
             return nlohmann::json::array();
         }
 
-        auto line = std::ranges::count(snapshot->source, '\n');
-        auto last_newline = snapshot->source.rfind('\n');
-
-        auto character = last_newline == std::string::npos
-                       ? snapshot->source.size()
-                       : snapshot->source.size() - last_newline - 1;
-
-        nlohmann::json response_range = {
-            { "start", { {"line", 0 },    { "character", 0 } } },
-            { "end",   { {"line", line }, { "character", character } } }
-        };
+        auto response_range = BuildWholeDocumentRange(snapshot->source);
 
         return nlohmann::json::array({
             {
@@ -1187,10 +1256,12 @@ namespace glsld {
     }
 
     void LspServer::HandleInitialized(Context& context) {
+        (void)context;
         workspace_.StopBackgroundIndex();
     }
 
     void LspServer::HandleExit(Context& context) {
+        (void)context;
         stop_source_.request_stop();
     }
 
@@ -1247,9 +1318,7 @@ namespace glsld {
     }
 
     void LspServer::HandleChangeVariant(Context& context) {
-        const auto& macros = context.params["macros"];
-        const auto& scope  = context.params.value("scope", "global");
-
+        const auto& scope = context.params.value("scope", "global");
         auto variant = ParseVariant(context.params);
 
         if (scope == "global") {
@@ -1421,7 +1490,7 @@ namespace glsld {
                 continue;
             }
 
-            const auto scope = value.value("scope", "file");
+            auto scope = value.value("scope", "file");
             if (scope == "global") {
                 shared = ParseVariant(value);
                 continue;
@@ -1559,7 +1628,6 @@ namespace glsld {
         std::string    text;
         VersionPointer version_pointer;
         int            version_replica = 0;
-        bool           open_document   = false;
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
 
@@ -1643,7 +1711,10 @@ namespace glsld {
         int version_replica,
         VersionPointer version_pointer)
     {
-        if (!diagnostics_enabled_.load(std::memory_order::relaxed) || filename.contains("Database/Meta/Builtin") || filename.contains("Database/Meta/Extensions")) {
+        if (!diagnostics_enabled_.load(std::memory_order::relaxed) ||
+            filename.contains("Database/Meta/Builtin") ||
+            filename.contains("Database/Meta/Extensions"))
+        {
             return;
         }
 

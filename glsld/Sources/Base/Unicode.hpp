@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -43,11 +44,11 @@ namespace glsld {
     public:
         explicit PositionMapper(std::string_view source);
 
-        std::size_t ToByteColumn(std::size_t zero_based_line, std::size_t utf16_character) const;
-        std::size_t ToUtf16Character(std::size_t one_based_line, std::size_t one_based_byte_column) const;
+        std::uint32_t ToByteColumn(std::uint32_t zero_based_line, std::uint32_t utf16_character) const;
+        std::uint32_t ToUtf16Character(std::uint32_t one_based_line, std::uint32_t one_based_byte_column) const;
 
     private:
-        std::string_view GetLine(std::size_t zero_based_line) const;
+        std::string_view GetLine(std::uint32_t zero_based_line) const;
 
         std::string_view         source_;
         std::vector<std::size_t> line_starts_;

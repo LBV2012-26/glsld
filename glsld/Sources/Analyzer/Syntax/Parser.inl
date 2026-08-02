@@ -32,7 +32,7 @@ namespace glsld {
         return SourceLocation(
             token.location.source_file(),
             token.location.line(),
-            token.location.column() + token.text.length()
+            token.location.column() + static_cast<std::uint32_t>(token.text.length())
         );
     }
 
@@ -41,7 +41,7 @@ namespace glsld {
         return SourceLocation(
             token.location.source_file(),
             token.location.line(),
-            token.location.column() + token.text.length()
+            token.location.column() + static_cast<std::uint32_t>(token.text.length())
         );
     }
 

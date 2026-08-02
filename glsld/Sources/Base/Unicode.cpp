@@ -172,18 +172,18 @@ namespace glsld {
         }
     }
 
-    std::size_t PositionMapper::ToByteColumn(std::size_t zero_based_line, std::size_t utf16_character) const {
+    std::uint32_t PositionMapper::ToByteColumn(std::uint32_t zero_based_line, std::uint32_t utf16_character) const {
         auto line = GetLine(zero_based_line);
-        return Utf16OffsetToByteOffset(line, utf16_character) + 1;
+        return static_cast<std::uint32_t>(Utf16OffsetToByteOffset(line, utf16_character) + 1);
     }
 
-    std::size_t PositionMapper::ToUtf16Character(std::size_t one_based_line, std::size_t one_based_byte_column) const {
+    std::uint32_t PositionMapper::ToUtf16Character(std::uint32_t one_based_line, std::uint32_t one_based_byte_column) const {
         auto line = GetLine(one_based_line - 1);
-        auto byte_offset = std::min(one_based_byte_column - 1, line.length());
-        return Utf16Length(line.substr(0, byte_offset));
+        auto byte_offset = std::min(one_based_byte_column - 1, static_cast<std::uint32_t>(line.length()));
+        return static_cast<std::uint32_t>(Utf16Length(line.substr(0, byte_offset)));
     }
 
-    std::string_view PositionMapper::GetLine(std::size_t zero_based_line) const {
+    std::string_view PositionMapper::GetLine(std::uint32_t zero_based_line) const {
         if (zero_based_line >= line_starts_.size()) {
             return {};
         }

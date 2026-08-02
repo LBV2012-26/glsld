@@ -1,8 +1,6 @@
 #include "pch.hpp"
 #include "TypeResolver.hpp"
 
-#include <cctype>
-#include <cstddef>
 #include <algorithm>
 #include <charconv>
 #include <format>
@@ -1197,8 +1195,8 @@ namespace glsld {
         if (text == "float64_t")
             return { BaseFamily::kFloat, 64, 1, 1 };
 
-        std::size_t vec_pos = text.find("vec");
-        std::size_t mat_pos = text.find("mat");
+        auto vec_pos   = text.find("vec");
+        auto mat_pos   = text.find("mat");
         bool is_matrix = (mat_pos != std::string_view::npos);
 
         std::string_view prefix;
@@ -1238,7 +1236,7 @@ namespace glsld {
                 return { BaseFamily::kUnknown };
             }
 
-            std::size_t num_start = (prefix[0] == 'f' || prefix[0] == 'i' || prefix[0] == 'u') ? 1 : 0;
+            auto num_start = (prefix[0] == 'f' || prefix[0] == 'i' || prefix[0] == 'u') ? 1 : 0;
             int bits = 0;
             std::from_chars(prefix.data() + num_start, prefix.data() + prefix.size(), bits);
 

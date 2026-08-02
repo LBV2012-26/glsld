@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <atomic>
 #include <filesystem>
 #include <memory>
@@ -46,12 +47,12 @@ namespace glsld {
         IncludeLoader&         include_loader_;
         IncludeDirectoryHandle include_dirs_;
         std::size_t            position_{};
-        std::size_t            line_{ 1 };
-        std::size_t            column_{ 1 };
+        std::uint32_t          line_{ 1 };
+        std::uint32_t          column_{ 1 };
         int                    qualifier_paren_depth_{};
         bool                   preprocessor_line_{ false };
         bool                   qualifier_after_equal_{ false };
-        std::size_t            last_token_line_{};
+        std::uint32_t          last_token_line_{};
         std::string            last_token_text_{};
 
         static inline const StringHeteroHashMap<TokenType>* lexical_table_{ nullptr };

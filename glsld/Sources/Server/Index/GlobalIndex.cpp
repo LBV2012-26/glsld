@@ -125,12 +125,12 @@ namespace glsld {
             contributions.push_back(std::move(contribution));
         };
 
-        for (const auto& [location, symbol] : document.bindings) {
-            if (const auto* single = std::get_if<const SymbolInfo*>(&symbol)) {
+        for (const auto& [location, symbols] : document.bindings) {
+            if (const auto* single = std::get_if<const SymbolInfo*>(&symbols)) {
                 AddSymbol(location, *single);
-            } else if (const auto* list = std::get_if<SymbolList>(&symbol)) {
-                for (const auto* single : *list) {
-                    AddSymbol(location, single);
+            } else if (const auto* list = std::get_if<SymbolList>(&symbols)) {
+                for (const auto* symbol : *list) {
+                    AddSymbol(location, symbol);
                 }
             }
         }
@@ -144,7 +144,7 @@ namespace glsld {
         });
 
         std::ranges::sort(contributions, [](const auto& lhs, const auto& rhs) -> bool {
-            const auto def_compare = lhs.definition <=> rhs.definition;
+            auto def_compare = lhs.definition <=> rhs.definition;
 
             if (!std::is_eq(def_compare)) {
                 return std::is_lt(def_compare);

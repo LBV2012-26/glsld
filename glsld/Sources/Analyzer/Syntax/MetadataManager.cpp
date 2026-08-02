@@ -126,7 +126,6 @@ namespace glsld {
                     j + 1 < raw_tokens.size() &&
                     raw_tokens[j + 1].type == TokenType::kNumberLiteral)
                 {
-                    int version = 0;
                     std::from_chars(
                         raw_tokens[j + 1].text.data(),
                         raw_tokens[j + 1].text.data() + raw_tokens[j + 1].text.size(),

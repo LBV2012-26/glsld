@@ -34,6 +34,7 @@
     <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
     <ClCompile Include="Sources\Server\Index\IndexCache.cpp" />
     <ClCompile Include="Sources\Server\Formatter.cpp" />
+    <ClCompile Include="Sources\Base\Unicode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
@@ -71,6 +72,7 @@
     <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
     <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
     <ClInclude Include="Sources\Server\Formatter.hpp" />
+    <ClInclude Include="Sources\Base\Unicode.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\ThreadPool.inl" />

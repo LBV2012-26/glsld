@@ -1,5 +1,4 @@
 #include "Source.hpp"
-
 #include <compare>
 
 namespace glsld {
@@ -43,11 +42,11 @@ namespace glsld {
         return source_->uri();
     }
 
-    inline std::size_t SourceLocation::line() const {
+    inline std::uint32_t SourceLocation::line() const {
         return line_;
     }
 
-    inline std::size_t SourceLocation::column() const {
+    inline std::uint32_t SourceLocation::column() const {
         return column_;
     }
 

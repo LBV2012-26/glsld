@@ -9,9 +9,9 @@
 
 namespace glsld {
     struct StoredLocation {
-        std::string uri;
-        std::size_t line{};
-        std::size_t column{};
+        std::string   uri;
+        std::uint32_t line{};
+        std::uint32_t column{};
     };
 
     struct StoredContribution {

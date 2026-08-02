@@ -59,15 +59,12 @@ namespace glsld {
 
         void Parse(SourceTable& source_table,
                    IncludeLoader& include_loader,
-                   IncludeDirectoryHandle include_dirs,
-                   int version_replica,
-                   VersionPointer version_pointer,
-                   Document& document);
+                   IncludeDirectoryHandle include_dirs);
 
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
         std::unique_ptr<StatementNode> ParseStatement();
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
-        std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::string_view target_file, std::size_t directive_physical_line);
+        std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::string_view target_file, std::uint32_t directive_physical_line);
         std::vector<std::unique_ptr<StatementNode>> ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol);
         std::unique_ptr<CompoundStatementNode> ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
@@ -117,7 +114,7 @@ namespace glsld {
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
-        std::vector<Token> CaptureDirectiveTokens(std::string_view target_file, std::size_t directive_physical_line);
+        std::vector<Token> CaptureDirectiveTokens(std::string_view target_file, std::uint32_t directive_physical_line);
         SourceLocation GetCurrentTokenEnd() const;
         SourceLocation GetPreviousTokenEnd() const;
 

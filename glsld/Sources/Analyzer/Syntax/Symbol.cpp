@@ -186,10 +186,13 @@ namespace glsld {
                     continue;
                 }
 
+#pragma warning(push)
+#pragma warning(disable : 4456)
                 const auto* symbol = child->FindSymbolInCurrentScope(name);
                 if (symbol != nullptr && (symbol->kind == SymbolKind::kStruct || symbol->kind == SymbolKind::kInterface)) {
                     return symbol;
                 }
+#pragma warning(pop)
             }
         }
 
@@ -278,7 +281,7 @@ namespace glsld {
         auto* inserted_symbol = it->second.get();
 
         if (!base_name.empty()) {
-            block_base_names_.try_emplace(std::move(base_name), inserted_symbol);
+            block_base_names_.try_emplace(base_name, inserted_symbol);
         }
 
         if (inserted_symbol->kind == SymbolKind::kStruct || inserted_symbol->kind == SymbolKind::kInterface) {

@@ -139,7 +139,7 @@ namespace glsld {
         sources_.erase(filename);
     }
 
-    SourceLocation::SourceLocation(const SourceFile* source, std::size_t line, std::size_t column)
+    SourceLocation::SourceLocation(const SourceFile* source, std::uint32_t line, std::uint32_t column)
         : line_{ line }
         , column_{ column }
         , source_{ source }

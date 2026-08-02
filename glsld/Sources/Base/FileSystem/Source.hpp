@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <filesystem>
 #include <memory>
@@ -66,7 +67,7 @@ namespace glsld {
     class SourceLocation {
     public:
         SourceLocation() = default;
-        SourceLocation(const SourceFile* source, std::size_t line, std::size_t column);
+        SourceLocation(const SourceFile* source, std::uint32_t line, std::uint32_t column);
 
         bool operator==(const SourceLocation& other) const;
         auto operator<=>(const SourceLocation& other) const;
@@ -74,16 +75,16 @@ namespace glsld {
         const SourceFile* source_file() const;
         std::string_view filename() const;
         std::string_view uri() const;
-        std::size_t line() const;
-        std::size_t column() const;
+        std::uint32_t line() const;
+        std::uint32_t column() const;
 
     private:
         friend struct LocationHash;
 
         const SourceFile* source_{ nullptr };
-        std::size_t       line_{};
-        std::size_t       column_{};
         std::size_t       cached_hash_{};
+        std::uint32_t     line_{};
+        std::uint32_t     column_{};
     };
 
     struct LocationHash {

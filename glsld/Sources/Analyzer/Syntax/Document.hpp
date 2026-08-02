@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
 #include <atomic>
 #include <memory>
 #include <string>
@@ -31,8 +31,8 @@ namespace glsld {
     using MacroTable        = StringHeteroHashMap<MacroDefination>;
 
     struct InactiveRegion {
-        std::size_t begin_line{};
-        std::size_t end_line{};
+        std::uint32_t begin_line{};
+        std::uint32_t end_line{};
     };
 
     using InactiveRegionMap = ankerl::unordered_dense::map<const SourceFile*, std::vector<InactiveRegion>, SourceFileHash>;

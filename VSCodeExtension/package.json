@@ -96,7 +96,7 @@
 				},
 				"glsld.glslc.path": {
 					"type": "string",
-                    "default": "bin/Win64/glsld.exe",
+					"default": "",
 					"description": "Path to the glslc executable. Leave empty to use %VULKAN_SDK%\\Bin\\glslc.exe when available, then resolve glslc.exe from PATH."
 				},
 				"glsld.clangFormat.path": {

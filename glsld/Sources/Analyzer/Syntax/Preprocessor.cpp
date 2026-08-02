@@ -584,7 +584,7 @@ namespace glsld {
         }
 
         std::vector<std::vector<Token>> arguments;
-        if (!ParseFunctionMacroInvocationFromStream(defination, arguments)) {
+        if (!ParseFunctionMacroInvocationFromStream(arguments)) {
             active_macros.erase(macro_token.text);
             return false;
         }
@@ -741,13 +741,9 @@ namespace glsld {
         return rescanned;
     }
 
-    bool Preprocessor::ParseFunctionMacroInvocationFromStream(
-        const MacroDefination& defination,
-        std::vector<std::vector<Token>>& arguments)
-    {
-        const auto name_index        = token_index_;
-        const auto open_paren_index  = token_index_ + 1;
-        auto       close_paren_index = 0uz;
+    bool Preprocessor::ParseFunctionMacroInvocationFromStream(std::vector<std::vector<Token>>& arguments) {
+        auto open_paren_index  = token_index_ + 1;
+        auto close_paren_index = 0uz;
 
         if (!ParseFunctionMacroInvocationInSequence(raw_tokens_, open_paren_index, close_paren_index, arguments)) {
             return false;
@@ -896,7 +892,7 @@ namespace glsld {
 
         const auto& directive_token = current_token();
         const auto& directive_text  = directive_token.text;
-        const auto  directive_line  = directive_token.location.line();
+        auto        directive_line  = directive_token.location.line();
         ConsumeToken();
 
         auto ProcessLineSplicing = [this](auto& body) -> void {
@@ -907,7 +903,7 @@ namespace glsld {
                         .location = SourceLocation(
                             source_file_,
                             body[i].location.line(),
-                            body[i].location.column() + body[i].text.length() + 1
+                            body[i].location.column() + static_cast<std::uint32_t>(body[i].text.length()) + 1
                         ),
                         .type     = TokenType::kBackslash
                     });
@@ -1030,7 +1026,7 @@ namespace glsld {
     bool Preprocessor::HandleConditionalDirective(
         std::string_view directive,
         std::span<const Token> body_tokens,
-        std::size_t sharp_line)
+        std::uint32_t sharp_line)
     {
         if (directive == "if") {
             bool parent_active = IsCurrentBranchActive();
@@ -1210,7 +1206,7 @@ namespace glsld {
         return final_tokens;
     }
 
-    void Preprocessor::AppendInactiveRegion(std::size_t begin_line, std::size_t end_line) {
+    void Preprocessor::AppendInactiveRegion(std::uint32_t begin_line, std::uint32_t end_line) {
         if (begin_line == 0 || end_line == 0 || begin_line > end_line) {
             return;
         }
@@ -1231,7 +1227,7 @@ namespace glsld {
         });
     }
 
-    void Preprocessor::UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line) {
+    void Preprocessor::UpdateInactiveRegions(bool was_active, bool now_active, std::uint32_t directive_line) {
         if (was_active == now_active) {
             return;
         }
@@ -1251,7 +1247,7 @@ namespace glsld {
         }
     }
 
-    void Preprocessor::FinalizeInactiveRegions(std::size_t eof_line) {
+    void Preprocessor::FinalizeInactiveRegions(std::uint32_t eof_line) {
         if (!open_inactive_begin_line_.has_value()) {
             return;
         }

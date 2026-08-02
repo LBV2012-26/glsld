@@ -95,7 +95,7 @@ namespace glsld {
         return AddSymbol(std::move(symbol));
     }
 
-    inline Scope* const DocumentSymbols::root_scope() const {
+    inline Scope* DocumentSymbols::root_scope() const {
         return root_scope_.get();
     }
 

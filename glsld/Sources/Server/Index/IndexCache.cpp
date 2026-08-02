@@ -22,8 +22,8 @@ namespace glsld::IndexCache {
         StoredLocation DeserializeLocation(const nlohmann::json& json) {
             return {
                 .uri    = json.at("uri").get<std::string>(),
-                .line   = json.at("line").get<std::uint64_t>(),
-                .column = json.at("column").get<std::uint64_t>()
+                .line   = json.at("line").get<std::uint32_t>(),
+                .column = json.at("column").get<std::uint32_t>()
             };
         }
 

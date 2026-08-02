@@ -17,11 +17,11 @@
 
 namespace glsld {
     struct ConditionalFrame {
-        bool        parent_active{ true };
-        bool        branch_taken{ false };
-        bool        current_active{ true };
-        bool        in_else{ false };
-        std::size_t if_line{};
+        bool          parent_active{ true };
+        bool          branch_taken{ false };
+        bool          current_active{ true };
+        bool          in_else{ false };
+        std::uint32_t if_line{};
     };
 
     class Preprocessor {
@@ -52,9 +52,7 @@ namespace glsld {
             StringHeteroHashSet& active_macros,
             const SourceLocation& call_site);
 
-        bool ParseFunctionMacroInvocationFromStream(
-            const MacroDefination& defination,
-            std::vector<std::vector<Token>>& arguments);
+        bool ParseFunctionMacroInvocationFromStream(std::vector<std::vector<Token>>& arguments);
 
         bool ParseFunctionMacroInvocationInSequence(
             std::span<const Token> input,
@@ -68,12 +66,12 @@ namespace glsld {
         bool IsCurrentBranchActive() const;
         void HandleDirectiveAtSharp(std::vector<Token>& output);
         void ParseDefineFromBody(std::span<const Token> body_tokens);
-        bool HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::size_t sharp_line);
+        bool HandleConditionalDirective(std::string_view directive, std::span<const Token> body_tokens, std::uint32_t sharp_line);
         bool EvaluateIfCondition(std::span<const Token> expr_tokens);
         std::vector<Token> ExpandIfExpression(std::span<const Token> input, StringHeteroHashSet& active_macros);
-        void AppendInactiveRegion(std::size_t begin_line, std::size_t end_line);
-        void UpdateInactiveRegions(bool was_active, bool now_active, std::size_t directive_line);
-        void FinalizeInactiveRegions(std::size_t eof_line);
+        void AppendInactiveRegion(std::uint32_t begin_line, std::uint32_t end_line);
+        void UpdateInactiveRegions(bool was_active, bool now_active, std::uint32_t directive_line);
+        void FinalizeInactiveRegions(std::uint32_t eof_line);
         std::vector<Token> ExpandIncludeDirective(std::span<const Token> body_tokens);
 
         const Token& current_token() const;
@@ -87,7 +85,7 @@ namespace glsld {
         IncludeDirectoryHandle       include_dirs_;
         std::vector<std::string>     include_stack_;
         std::stack<ConditionalFrame> condition_stack_;
-        std::optional<std::size_t>   open_inactive_begin_line_;
+        std::optional<std::uint32_t> open_inactive_begin_line_;
         std::size_t                  token_index_{};
         std::span<const Token>       raw_tokens_;
         Document&                    document_;

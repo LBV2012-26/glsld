@@ -61,14 +61,21 @@ namespace glsld {
 
     void AstNode::operator delete(void* ptr, std::size_t size) noexcept {
         // Do nothing, memory will be freed when arena is reset or destroyed
+        (void)ptr;
+        (void)size;
     }
 
     void AstNode::operator delete(void* ptr, std::align_val_t alignment) noexcept {
         // Do nothing, memory will be freed when arena is reset or destroyed
+        (void)ptr;
+        (void)alignment;
     }
 
     void AstNode::operator delete(void* ptr, std::size_t size, std::align_val_t alignment) noexcept {
         // Do nothing, memory will be freed when arena is reset or destroyed
+        (void)ptr;
+        (void)size;
+        (void)alignment;
     }
 
     QualifierArgumentNode::QualifierArgumentNode(const QualifierArgumentNode& other)

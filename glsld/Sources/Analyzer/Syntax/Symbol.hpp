@@ -187,7 +187,7 @@ namespace glsld {
         void AttachBuiltinSymbols(const DocumentSymbols* builtin);
         void AddFunctionBaseName(std::string_view base_name, const SymbolInfo* symbol);
 
-        Scope* const root_scope() const;
+        Scope* root_scope() const;
 
     private:
         const Scope* FindScopeRecursive(const Scope* current, const SourceLocation& location) const;

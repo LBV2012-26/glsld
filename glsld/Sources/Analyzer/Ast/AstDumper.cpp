@@ -1,7 +1,6 @@
 #include "pch.hpp"
 #include "AstDumper.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <iterator>
@@ -516,10 +515,10 @@ namespace glsld {
 
         const auto& typename_token = node->evaluated_type.typename_token;
         std::string type;
-        if (node->evaluated_type.typename_token.type == TokenType::kUnknown) {
+        if (typename_token.type == TokenType::kUnknown) {
             type = magic_enum::enum_name(node->original_token.type);
         } else {
-            type = node->evaluated_type.typename_token.text;
+            type = typename_token.text;
             for (auto array_size : node->evaluated_type.array_sizes) {
                 if (array_size.has_value()) {
                     std::format_to(std::back_inserter(type), "[{}]", *array_size);
@@ -535,7 +534,7 @@ namespace glsld {
     void AstDumper::VisitRawExpression(RawExpressionNode* node) {
         PrintIndent();
         std::string snippet;
-        for (std::size_t i = 0; i != node->tokens.size(); ++i) {
+        for (auto i = 0uz; i != node->tokens.size(); ++i) {
             snippet += std::string(node->tokens[i].text);
         }
 

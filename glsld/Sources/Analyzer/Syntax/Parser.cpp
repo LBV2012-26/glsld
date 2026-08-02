@@ -29,7 +29,7 @@ namespace glsld {
         , version_pointer_{ version_pointer }
         , document_{ document }
     {
-        Parse(source_table, include_loader, include_dirs, version_replica, version_pointer, document);
+        Parse(source_table, include_loader, include_dirs);
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
@@ -104,10 +104,7 @@ namespace glsld {
     void Parser::Parse(
         SourceTable& source_table,
         IncludeLoader& include_loader,
-        IncludeDirectoryHandle include_dirs,
-        int version_replica,
-        VersionPointer version_pointer,
-        Document& document)
+        IncludeDirectoryHandle include_dirs)
     {
         Preprocessor processor(source_table, source_file_, include_loader, include_dirs, raw_tokens_, document_);
         expanded_tokens_ = processor.Process();
@@ -227,7 +224,7 @@ namespace glsld {
     std::unique_ptr<PreprocessorNode> Parser::ParseDefine(
         std::unique_ptr<PreprocessorNode> node,
         std::string_view target_file,
-        std::size_t directive_physical_line)
+        std::uint32_t directive_physical_line)
     {
         // current token is macro name after "define"
         const auto& macro_token = current_token();
@@ -805,7 +802,7 @@ namespace glsld {
             std::vector<std::span<const Token>> parts;
             auto begin = 0uz;
             for (auto i = 0uz; i != slice.size(); ++i) {
-                const auto type = slice[i].type;
+                auto type = slice[i].type;
                 ProcessBracketLevel(paren_level, bracket_level, brace_level, type);
 
                 if (paren_level == 0 && bracket_level == 0 && brace_level == 0 && type == delimiter) {
@@ -827,7 +824,7 @@ namespace glsld {
             int brace_level   = 0;
 
             for (auto i = 0uz; i != slice.size(); ++i) {
-                const auto type = slice[i].type;
+                auto type = slice[i].type;
                 ProcessBracketLevel(paren_level, bracket_level, brace_level, type);
 
                 if (paren_level == 0 && bracket_level == 0 && brace_level == 0 && type == target) {
@@ -864,7 +861,7 @@ namespace glsld {
             return SourceLocation(
                 token.location.source_file(),
                 token.location.line(),
-                token.location.column() + token.text.length()
+                token.location.column() + static_cast<std::uint32_t>(token.text.length())
             );
         };
 
@@ -1923,7 +1920,7 @@ namespace glsld {
         return nullptr;
     }
 
-    std::vector<Token> Parser::CaptureDirectiveTokens(std::string_view target_file, std::size_t directive_physical_line) {
+    std::vector<Token> Parser::CaptureDirectiveTokens(std::string_view target_file, std::uint32_t directive_physical_line) {
         std::vector<Token> collected;
         if (current_token().type == TokenType::kEndOfFile) {
             return collected;
@@ -2076,8 +2073,8 @@ namespace glsld {
         std::string mangled_name(base_name);
         mangled_name += "(";
 
-        const std::size_t typename_size = param_typenames.size();
-        for (std::size_t i = 0; i != typename_size; ++i) {
+        auto typename_size = param_typenames.size();
+        for (auto i = 0uz; i != typename_size; ++i) {
             mangled_name += param_typenames[i];
             mangled_name += i == typename_size - 1 ? ")" : ", ";
         }

@@ -141,12 +141,12 @@ namespace glsld {
         };
 
         if (IsIdentifierStart(current_char)) {
-            std::size_t begin = position_;
+            auto begin = position_;
             Advance();
             while (position_ < source_.length() && IsIdentifierChar(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
             }
-            std::string_view word = source_.substr(begin, position_ - begin);
+            auto word = source_.substr(begin, position_ - begin);
 
             auto it = lexical_table_->find(word);
             if (it != lexical_table_->end()) {
@@ -195,7 +195,7 @@ namespace glsld {
         }
 
         if (current_char == '"') {
-            std::size_t begin = position_;
+            auto begin = position_;
             Advance(); // consume opening quote
             while (position_ < source_.length() && source_[position_] != '"') {
                 if (source_[position_] == '\\') { // handle escaped quotes
@@ -395,7 +395,7 @@ namespace glsld {
         if (position_ + offset >= source_.length()) {
             return '\0';
         }
-        return source_[position_ + offset];
+        return static_cast<unsigned char>(source_[position_ + offset]);
     }
 
     Token Lexer::Capture(TokenType type, std::size_t length) {

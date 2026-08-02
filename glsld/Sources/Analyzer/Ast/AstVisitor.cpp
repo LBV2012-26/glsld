@@ -374,9 +374,17 @@ namespace glsld {
         }
     }
 
-    void AstVisitor::VisitBreakStatement(BreakStatementNode* node) {}
-    void AstVisitor::VisitContinueStatement(ContinueStatementNode* node) {}
-    void AstVisitor::VisitDiscardStatement(DiscardStatementNode* node) {}
+    void AstVisitor::VisitBreakStatement(BreakStatementNode* node) {
+        (void)node; // No additional traversal needed for break statements
+    }
+
+    void AstVisitor::VisitContinueStatement(ContinueStatementNode* node) {
+        (void)node; // No additional traversal needed for continue statements
+    }
+
+    void AstVisitor::VisitDiscardStatement(DiscardStatementNode* node) {
+        (void)node; // No additional traversal needed for discard statements
+    }
 
     void AstVisitor::VisitExpressionStatement(ExpressionStatementNode* node) {
         if (node->expr != nullptr) {
@@ -384,7 +392,9 @@ namespace glsld {
         }
     }
 
-    void AstVisitor::VisitNullStatement(NullStatementNode* node) {}
+    void AstVisitor::VisitNullStatement(NullStatementNode* node) {
+        (void)node; // No additional traversal needed for null statements
+    }
 
     void AstVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
         for (auto& element : node->elements) {
@@ -442,8 +452,13 @@ namespace glsld {
         }
     }
 
-    void AstVisitor::VisitVariableExpression(VariableExpressionNode* node) {}
-    void AstVisitor::VisitRawExpression(RawExpressionNode* node) {}
+    void AstVisitor::VisitVariableExpression(VariableExpressionNode* node) {
+        (void)node; // No additional traversal needed for variable expressions
+    }
+
+    void AstVisitor::VisitRawExpression(RawExpressionNode* node) {
+        (void)node; // No additional traversal needed for raw expressions
+    }
 
     void AstVisitor::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         if (node->object != nullptr) {

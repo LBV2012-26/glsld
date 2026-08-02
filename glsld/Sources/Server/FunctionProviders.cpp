@@ -34,8 +34,8 @@ namespace glsld {
                 return false;
             }
 
-            std::size_t start_column = token.location.column();
-            std::size_t end_column   = start_column + token.text.length();
+            auto start_column = token.location.column();
+            auto end_column   = start_column + static_cast<std::uint32_t>(token.text.length());
 
             // [start_column, end_column]
             return position.column() >= start_column && position.column() <= end_column;
@@ -125,7 +125,7 @@ namespace glsld {
         auto ConvertToSelectionRange = [&mapper](const auto& location, std::string_view name) -> nlohmann::json {
             return {
                 { "start", { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column()) } } },
-                { "end",   { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column() + name.length()) } } }
+                { "end",   { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column() + static_cast<std::uint32_t>(name.length())) } } }
             };
         };
 
@@ -315,7 +315,7 @@ namespace glsld {
             last_char = static_cast<std::uint32_t>(character);
         };
 
-        auto IsInactive = [&snapshot, source_file](std::size_t line) -> bool {
+        auto IsInactive = [&snapshot, source_file](std::uint32_t line) -> bool {
             if (snapshot->inactive_regions.empty()) {
                 return false;
             }
@@ -325,7 +325,7 @@ namespace glsld {
             }
 
             const auto& regions = snapshot->inactive_regions.at(source_file);
-            auto it = std::ranges::upper_bound(regions, line, std::ranges::less{}, [](InactiveRegion region) -> std::size_t {
+            auto it = std::ranges::upper_bound(regions, line, std::ranges::less{}, [](InactiveRegion region) -> std::uint32_t {
                 return region.begin_line;
             });
 
@@ -638,6 +638,7 @@ namespace glsld {
         //     }
         // }
 
+        ABORT_IF_CANCELLED();
         auto locations = global_index.GetReferences(symbol->location);
 
         return {
@@ -762,9 +763,9 @@ namespace glsld {
         struct IncludeCompletionContext {
             std::string      prefix;
             std::string_view uri;
-            std::size_t      line{};
-            std::size_t      replace_start_column{};
-            std::size_t      replace_end_column{};
+            std::uint32_t    line{};
+            std::uint32_t    replace_start_column{};
+            std::uint32_t    replace_end_column{};
             bool             valid{};
             bool             system_include{};
         };
@@ -791,7 +792,7 @@ namespace glsld {
 
                 auto literal_start = token.location.column(); // " or <
                 auto content_start = literal_start + 1;
-                auto content_end   = literal_start + token.text.length() - 1;
+                auto content_end   = literal_start + static_cast<std::uint32_t>(token.text.length()) - 1;
 
                 auto clamped       = std::clamp(location.column(), content_start, content_end);
                 auto prefix_length = clamped > content_start ? (clamped - content_start) : 0;
@@ -1126,6 +1127,7 @@ namespace glsld {
         int start = std::max(static_cast<int>(*index - 2), 0);
         bool is_extension = false;
         for (int i = static_cast<int>(*index); i >= start; --i) {
+            ABORT_IF_CANCELLED();
             if (snapshot->raw_tokens[i].type == TokenType::kSharp) {
                 if (i + 1 < static_cast<int>(snapshot->raw_tokens.size()) &&
                     snapshot->raw_tokens[i + 1].text == "extension")
@@ -1146,6 +1148,8 @@ namespace glsld {
         nlohmann::json items = nlohmann::json::array();
 
         for (const auto& entry : std::filesystem::recursive_directory_iterator(root, ec)) {
+            ABORT_IF_CANCELLED();
+
             if (ec || !entry.is_regular_file()) {
                 continue;
             }
@@ -1452,10 +1456,13 @@ namespace glsld {
             }
 
             for (const auto& builtin : snapshot->builtins) {
+#pragma warning(push)
+#pragma warning(disable : 4456)
                 auto it = builtin->macro_traces.find(location);
                 if (it != builtin->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
                     return it->second.text;
                 }
+#pragma warning(pop)
             }
 
             return {};

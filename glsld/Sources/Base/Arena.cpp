@@ -80,7 +80,7 @@ namespace glsld {
     }
 
     bool Arena::EnableLockMemoryPrivilege() noexcept {
-        HANDLE token = nullptr;
+        // HANDLE token = nullptr;
         bool success = false;
 
         // if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
