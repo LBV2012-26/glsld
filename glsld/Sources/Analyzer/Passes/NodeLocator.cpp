@@ -17,13 +17,6 @@ namespace glsld {
             best_match_ = node;
             AstVisitor::Traverse(node);
         }
-
-        if (node->begin.line() > target_.line() ||
-            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
-        {
-            // No need to continue traversing siblings, as they will be after the target position.
-            return;
-        }
     }
 
     ContextLocator::ContextLocator(const Document& document, const SourceLocation& target)
@@ -40,12 +33,6 @@ namespace glsld {
         if (IsPositionInNode(node) && IsPositionDeeper(node)) {
             AstVisitor::Traverse(node);
         }
-
-        if (best_match_ != nullptr || node->begin.line() > target_.line() || // 这里 best_match_ != nullptr 是为了在找到一个包含目标位置的节点后，停止继续遍历其他兄弟节点，因为它们不可能包含目标位置了。
-            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
-        {
-            return;
-        }
     }
 
     void ContextLocator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
@@ -60,20 +47,15 @@ namespace glsld {
     }
 
     void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {
-        if (node == nullptr) {
+        if (node == nullptr || node->callee == nullptr) {
             return;
         }
 
-        if (target_ > node->callee->end && target_ <= node->end) {
+        bool valid_callee = node->callee->kind() == AstNodeKind::kVariableExpression;
+        if (valid_callee && target_ > node->callee->end && target_ <= node->end) {
             best_match_ = node;
         }
 
         AstVisitor::VisitCallExpression(node);
-
-        if (best_match_ != nullptr || node->begin.line() > target_.line() ||
-            (node->begin.line() == target_.line() && node->begin.column() > target_.column()))
-        {
-            return;
-        }
     }
 }

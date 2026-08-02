@@ -689,10 +689,11 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         SignatureLocator locator(*snapshot, location);
-        locator.Traverse(snapshot->ast.get());
         const auto* node = locator.result();
 
-        if (node == nullptr) {
+        if (node == nullptr || node->callee == nullptr ||
+            node->callee->kind() != AstNodeKind::kVariableExpression)
+        {
             return std::nullopt;
         }
 
