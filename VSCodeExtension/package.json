@@ -6,7 +6,7 @@
 	"author": "LBV 2012-26",
 	"publisher": "LBV2012-26",
 	"version": "0.114.514",
-	"license": "GPL-3.0-only",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/LBV2012-26/glsld.git"
