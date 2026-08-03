@@ -6,7 +6,7 @@ This repository contains two separately licensed components. The license that ap
 
 The glsld language server, including its native source code and server resources outside `VSCodeExtension`, is licensed under the **GNU General Public License version 3 only** (`GPL-3.0-only`).
 
-The complete license text is available in [LICENSE-GPL-3.0.txt](LICENSE-GPLv3.0.txt).
+The complete license text is available in [LICENSE-GPLv3.0.txt](LICENSE-GPLv3.0.txt).
 
 ## Visual Studio Code extension
 
