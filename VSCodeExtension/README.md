@@ -21,37 +21,37 @@ The Windows extension package is intended to include the glsld server. A custom 
 
 glsld completes GLSL keywords, types, variables, functions, structure members, and other symbols available at the cursor.
 
-![Code completion](resources/effects/thumbnails/CodeCompletion.png)
+![Code completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CodeCompletion.png)
 
 ### Extended completion
 
 Extended completion supplies context-aware candidates beyond direct symbol-name matching, helping complete common GLSL constructs and declarations.
 
-![Extended completion](resources/effects/thumbnails/ExtensionCompletion.png)
+![Extended completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/ExtensionCompletion.png)
 
 ### Include completion
 
 Include paths are completed relative to the current file and the configured include directories.
 
-![Include completion](resources/effects/thumbnails/IncludeCompletion.png)
+![Include completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/IncludeCompletion.png)
 
 ### Overload resolve
 
 When a function has multiple signatures, glsld presents its overloads so that the appropriate parameter list and return type can be selected.
 
-![Overload resolve](resources/effects/thumbnails/FunctionOverloads.png)
+![Overload resolve](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionOverloads.png)
 
 ### Signature help
 
 Signature help shows the active overload and highlights the parameter currently being entered.
 
-![Signature help](resources/effects/thumbnails/SignatureHelp.png)
+![Signature help](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SignatureHelp.png)
 
 ## Diagnostics
 
 Syntax and semantic errors are reported while editing. Diagnostics can be enabled or disabled with `glsld.diagnostics.enabled`.
 
-![Diagnostics](resources/effects/thumbnails/Diagnostics.png)
+![Diagnostics](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Diagnostics.png)
 
 ## Go to definition
 
@@ -59,17 +59,17 @@ Jump from a symbol use to its declaration or definition, including symbols decla
 
 | Symbol use | Definition target |
 | --- | --- |
-| ![Go to definition from a symbol use](resources/effects/thumbnails/Goto1.png) | ![Go to definition target](resources/effects/thumbnails/Goto2.png) |
+| ![Go to definition from a symbol use](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Goto1.png) | ![Go to definition target](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Goto2.png) |
 
 ## Find references
 
 Find symbol references across the workspace. Background indexing allows references in files that have not been opened in the editor to participate in the result.
 
-![Find references](resources/effects/thumbnails/Reference.png)
+![Find references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Reference.png)
 
 References are tracked across include boundaries as well as within the current file.
 
-![Cross-file references](resources/effects/thumbnails/CrossReference.png)
+![Cross-file references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CrossReference.png)
 
 ## Hover
 
@@ -77,13 +77,13 @@ Hovering over a symbol displays its declaration and relevant type information.
 
 | Symbol information | Function information |
 | --- | --- |
-| ![Hover information for a symbol](resources/effects/thumbnails/Hover1.png) | ![Hover information for a function](resources/effects/thumbnails/Hover2.png) |
+| ![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover1.png) | ![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover2.png) |
 
 ## Inlay hints
 
 glsld can display inline hints that make shader code easier to read. They can be toggled with `glsld.capabilities.inlayHints`.
 
-![Inlay hints](resources/effects/thumbnails/InlayHints.png)
+![Inlay hints](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/InlayHints.png)
 
 ## Document symbols
 
@@ -95,13 +95,13 @@ Macro variants can be configured for the whole workspace or for an individual sh
 
 | Variant configuration | Variant applied to source code |
 | --- | --- |
-| ![Macro variant configuration](resources/effects/thumbnails/MacroVariant1.png) | ![Macro variant result](resources/effects/thumbnails/MacroVariant2.png) |
+| ![Macro variant configuration](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant1.png) | ![Macro variant result](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant2.png) |
 
 ## Compile groups
 
 Compile groups collect shaders using configurable source patterns, command templates, output paths, macro variants, and concurrency settings. They can be compiled directly from the glsld sidebar.
 
-![Compile groups](resources/effects/thumbnails/CompileGroups.png)
+![Compile groups](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CompileGroups.png)
 
 ## Configuration
 

@@ -9,7 +9,11 @@
 	"license": "GPL-3.0-only",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/LBV2012-26/glsld"
+		"url": "https://github.com/LBV2012-26/glsld.git"
+	},
+	"homepage": "https://github.com/LBV2012-26/glsld#readme",
+	"bugs": {
+		"url": "https://github.com/LBV2012-26/glsld/issues"
 	},
 	"engines": {
 		"vscode": "^1.100.0"
