@@ -375,3 +375,5 @@ glsld/Win64
 glsld/reference.slang
 /glsld/Tools
 /glsld/Tests/Debugger.glsl
+.glsld/
+VSCodeExtension/bin/
