@@ -112,6 +112,12 @@ void main() {
     int source_array[25 + MAX_RETURN_ARRAY_SIZE][MAX_RETURN_ARRAY_SIZE] = {};
     int returned_array[MAX_RETURN_ARRAY_SIZE] = ReturnArray(source_array);
 
+    float kernel[3][3] = {
+        {1, 2, 3},
+        {4, 5, 6},
+        {7, 8, 9}
+    };
+
     float output_value;
     float accumulated_value = 1.0;
     ApplyParameters(1.0, output_value, accumulated_value);

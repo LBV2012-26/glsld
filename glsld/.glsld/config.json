@@ -8,7 +8,7 @@
 		"file:///z%3A/Source/glsld/glsld/Tests/ExtensionTest.glsl": {
 			"THIS_MACRO": {
 				"value": "1",
-				"enabled": true
+				"enabled": false
 			}
 		}
 	},
@@ -137,7 +137,7 @@
 		{
 			"name": "Vulkan Shaders",
 			"include": [
-				"**/*.glsl"
+				"**/Tests/*.glsl"
 			],
 			"command": "glslc --target-env=vulkan1.4 {defines} -o \"{}.spv\" \"{}\"",
 			"variants": []

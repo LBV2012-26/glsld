@@ -21,61 +21,87 @@ The Windows extension package is intended to include the glsld server. A custom 
 
 glsld completes GLSL keywords, types, variables, functions, structure members, and other symbols available at the cursor.
 
-<!-- Add code-completion image here. -->
+![Code completion](resources/effects/thumbnails/CodeCompletion.png)
 
 ### Extended completion
 
 Extended completion supplies context-aware candidates beyond direct symbol-name matching, helping complete common GLSL constructs and declarations.
 
-<!-- Add extended-completion image here. -->
+![Extended completion](resources/effects/thumbnails/ExtensionCompletion.png)
 
-### Function overloads
+### Include completion
+
+Include paths are completed relative to the current file and the configured include directories.
+
+![Include completion](resources/effects/thumbnails/IncludeCompletion.png)
+
+### Overload resolve
 
 When a function has multiple signatures, glsld presents its overloads so that the appropriate parameter list and return type can be selected.
 
-<!-- Add function-overloads image here. -->
+![Overload resolve](resources/effects/thumbnails/FunctionOverloads.png)
+
+### Signature help
+
+Signature help shows the active overload and highlights the parameter currently being entered.
+
+![Signature help](resources/effects/thumbnails/SignatureHelp.png)
 
 ## Diagnostics
 
-Syntax and semantic errors are reported while editing. Diagnostics can be enabled or disabled with `glsld.diagnosticsEnabled`.
+Syntax and semantic errors are reported while editing. Diagnostics can be enabled or disabled with `glsld.diagnostics.enabled`.
 
-<!-- Add diagnostics image here. -->
+![Diagnostics](resources/effects/thumbnails/Diagnostics.png)
 
 ## Go to definition
 
 Jump from a symbol use to its declaration or definition, including symbols declared in included files.
 
-<!-- Add go-to-definition image here. -->
+| Symbol use | Definition target |
+| --- | --- |
+| ![Go to definition from a symbol use](resources/effects/thumbnails/Goto1.png) | ![Go to definition target](resources/effects/thumbnails/Goto2.png) |
 
 ## Find references
 
 Find symbol references across the workspace. Background indexing allows references in files that have not been opened in the editor to participate in the result.
 
-<!-- Add find-references image here. -->
+![Find references](resources/effects/thumbnails/Reference.png)
+
+References are tracked across include boundaries as well as within the current file.
+
+![Cross-file references](resources/effects/thumbnails/CrossReference.png)
 
 ## Hover
 
 Hovering over a symbol displays its declaration and relevant type information.
 
-<!-- Add hover image here. -->
+| Symbol information | Function information |
+| --- | --- |
+| ![Hover information for a symbol](resources/effects/thumbnails/Hover1.png) | ![Hover information for a function](resources/effects/thumbnails/Hover2.png) |
 
 ## Inlay hints
 
 glsld can display inline hints that make shader code easier to read. They can be toggled with `glsld.capabilities.inlayHints`.
 
-<!-- Add inlay-hints image here. -->
+![Inlay hints](resources/effects/thumbnails/InlayHints.png)
 
 ## Document symbols
 
 The document outline exposes declarations in the current shader and supports quick navigation through the file.
 
-<!-- Add document-symbols image here. -->
-
 ## Preprocessor variants
 
 Macro variants can be configured for the whole workspace or for an individual shader. The extension sends the active variant state to the server and refreshes affected documents when it changes.
 
-<!-- Add preprocessor-variants image here. -->
+| Variant configuration | Variant applied to source code |
+| --- | --- |
+| ![Macro variant configuration](resources/effects/thumbnails/MacroVariant1.png) | ![Macro variant result](resources/effects/thumbnails/MacroVariant2.png) |
+
+## Compile groups
+
+Compile groups collect shaders using configurable source patterns, command templates, output paths, macro variants, and concurrency settings. They can be compiled directly from the glsld sidebar.
+
+![Compile groups](resources/effects/thumbnails/CompileGroups.png)
 
 ## Configuration
 
@@ -85,8 +111,8 @@ User-controlled settings belong in `.vscode/settings.json`:
 {
     "glsld.backgroundIndex.roots": ["Shaders", "Include"],
     "glsld.capabilities.inlayHints": true,
-    "glsld.diagnosticsEnabled": true,
-    "glsld.server.path": ""
+    "glsld.diagnostics.enabled": true,
+    "glsld.server.path": "bin/Win64/glsld.exe"
 }
 ```
 
@@ -111,4 +137,4 @@ npx @vscode/vsce package --target win32-x64
 
 ## License
 
-glsld is licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`).
+glsld is licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`), and the extension is licensed under the MIT License.
