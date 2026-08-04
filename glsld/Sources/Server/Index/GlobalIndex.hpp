@@ -34,7 +34,9 @@ namespace glsld {
 
     private:
         void ApplyContributions(std::string_view uri, std::vector<Contribution> contributions);
-        void WithdrawOldContributionLocked(std::span<const Contribution> contributions);
+        void ApplyContributionLocked(const Contribution& contribution);
+        void WithdrawContributionsLocked(std::span<const Contribution> contributions);
+        void WithdrawContributionLocked(const Contribution& contribution);
 
         using RefCountMap = ankerl::unordered_dense::map<SourceLocation, std::size_t, LocationHash>;
         ankerl::unordered_dense::map<SourceLocation, RefCountMap, LocationHash> references_; // [Definition, [Reference, RefCount]]

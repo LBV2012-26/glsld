@@ -21,6 +21,20 @@ namespace glsld {
             return IsIndexableLocation(contribution.definition)
                 && IsIndexableLocation(contribution.reference);
         }
+
+        bool ContributionLess(const Contribution& lhs, const Contribution& rhs) {
+            auto definition_order = lhs.definition <=> rhs.definition;
+
+            if (!std::is_eq(definition_order)) {
+                return std::is_lt(definition_order);
+            }
+
+            return std::is_lt(lhs.reference <=> rhs.reference);
+        }
+
+        bool ContributionEqual(const Contribution& lhs, const Contribution& rhs) {
+            return lhs.definition == rhs.definition && lhs.reference == rhs.reference;
+        }
     }
 
     void GlobalIndex::IndexDocument(std::string_view uri, const Document& document) {
@@ -40,7 +54,7 @@ namespace glsld {
             return;
         }
 
-        WithdrawOldContributionLocked(document_it->second);
+        WithdrawContributionsLocked(document_it->second);
         document_contributions_.erase(document_it);
     }
 
@@ -143,15 +157,7 @@ namespace glsld {
             return !IsIndexableContribution(contribution);
         });
 
-        std::ranges::sort(contributions, [](const auto& lhs, const auto& rhs) -> bool {
-            auto def_compare = lhs.definition <=> rhs.definition;
-
-            if (!std::is_eq(def_compare)) {
-                return std::is_lt(def_compare);
-            }
-
-            return std::is_lt(lhs.reference <=> rhs.reference);
-        });
+        std::ranges::sort(contributions, ContributionLess);
 
         auto [first, last] = std::ranges::unique(contributions, [](const auto& lhs, const auto& rhs) -> bool {
             return lhs.definition == rhs.definition && lhs.reference == rhs.reference;
@@ -162,39 +168,85 @@ namespace glsld {
         std::lock_guard lock(mutex_);
 
         auto old_document_it = document_contributions_.find(uri);
-        if (old_document_it != document_contributions_.end()) {
-            WithdrawOldContributionLocked(old_document_it->second);
+        if (old_document_it == document_contributions_.end()) {
+            for (const auto& Contribution : contributions) {
+                ApplyContributionLocked(Contribution);
+            }
+
+            document_contributions_.insert_or_assign(uri, std::move(contributions));
+            return;
         }
 
-        for (const auto& [definition, reference] : contributions) {
-            ++references_[definition][reference];
+        auto old_it  = old_document_it->second.begin();
+        auto old_end = old_document_it->second.end();
+        auto new_it  = contributions.begin();
+        auto new_end = contributions.end();
+        auto changed = false;
+
+        while (old_it != old_end && new_it != new_end) {
+            if (ContributionEqual(*old_it, *new_it)) {
+                ++old_it;
+                ++new_it;
+            } else if (ContributionLess(*old_it, *new_it)) {
+                WithdrawContributionLocked(*old_it);
+                changed = true;
+                ++old_it;
+            } else {
+                ApplyContributionLocked(*new_it);
+                changed = true;
+                ++new_it;
+            }
+        }
+
+        while (old_it != old_end) {
+            WithdrawContributionLocked(*old_it);
+            changed = true;
+            ++old_it;
+        }
+
+        while (new_it != new_end) {
+            ApplyContributionLocked(*new_it);
+            changed = true;
+            ++new_it;
+        }
+
+        if (!changed) {
+            return;
         }
 
         document_contributions_.insert_or_assign(uri, std::move(contributions));
     }
 
-    void GlobalIndex::WithdrawOldContributionLocked(std::span<const Contribution> contributions) {
-        for (const auto& [definition, reference] : contributions) {
-            auto definition_it = references_.find(definition);
-            if (definition_it == references_.end()) {
-                continue;
-            }
+    void GlobalIndex::ApplyContributionLocked(const Contribution& contribution) {
+        ++references_[contribution.definition][contribution.reference];
+    }
 
-            auto& ref_counts = definition_it->second;
-            auto reference_it = ref_counts.find(reference);
-            if (reference_it == ref_counts.end()) {
-                continue;
-            }
+    void GlobalIndex::WithdrawContributionsLocked(std::span<const Contribution> contributions) {
+        for (const auto& contribution : contributions) {
+            WithdrawContributionLocked(contribution);
+        }
+    }
 
-            if (reference_it->second <= 1) {
-                ref_counts.erase(reference_it);
-            } else {
-                --reference_it->second;
-            }
+    void GlobalIndex::WithdrawContributionLocked(const Contribution& contribution) {
+        auto definition_it = references_.find(contribution.definition);
+        if (definition_it == references_.end()) {
+            return;
+        }
 
-            if (ref_counts.empty()) {
-                references_.erase(definition_it);
-            }
+        auto& ref_counts = definition_it->second;
+        auto reference_it = ref_counts.find(contribution.reference);
+        if (reference_it == ref_counts.end()) {
+            return;
+        }
+
+        if (reference_it->second <= 1) {
+            ref_counts.erase(reference_it);
+        } else {
+            --reference_it->second;
+        }
+
+        if (ref_counts.empty()) {
+            references_.erase(definition_it);
         }
     }
 
@@ -221,10 +273,10 @@ namespace glsld {
 
                     CollectStructMembers(symbol->internal_scope, members);
                 }
+            }
 
-                for (const auto& child : scope->children()) {
-                    self(child.get());
-                }
+            for (const auto& child : scope->children()) {
+                self(child.get());
             }
         };
 
