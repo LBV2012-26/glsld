@@ -17,7 +17,7 @@ namespace glsld {
 #ifdef _DEBUG
         logger->set_level(spdlog::level::trace);
 #else
-        logger->set_level(spdlog::level::warn);
+        logger->set_level(spdlog::level::info);
 #endif
         spdlog::register_logger(logger);
 
