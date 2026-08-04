@@ -3,6 +3,9 @@
 > [!WARNING]
 > glsld is in early development. It is currently Windows only, and Linux builds are on the way. Features, configuration, and protocol details may change between releases.
 
+> [!NOTE]
+> This extension is an independent project and is not affiliated with another Visual Studio Code extension that also uses the name `glsld` (https://github.com/daiyousei-qz/glsld). I was the one who discovered the name collision only while preparing this extension for publication on the Visual Studio Code Marketplace.
+
 glsld is a language server and Visual Studio Code extension for GLSL. It provides language-aware editing features for shader projects, including preprocessing, semantic analysis, cross-file navigation, and background indexing.
 
 ## Setup

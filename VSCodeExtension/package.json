@@ -1,11 +1,11 @@
 {
 	"name": "glsld",
-    "displayName": "glsld",
+    "displayName": "glsld - GLSL Language Server",
     "icon": "resources/icons/main.png",
 	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
 	"author": "LBV 2012-26",
 	"publisher": "LBV2012-26",
-	"version": "0.8.5",
+	"version": "0.8.7",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -18,6 +18,18 @@
 	"engines": {
 		"vscode": "^1.100.0"
 	},
+	"categories": [
+		"Programming Languages",
+		"Formatters",
+		"Linters"
+	],
+	"keywords": [
+		"glsl",
+		"shader",
+		"opengl",
+		"vulkan",
+		"spirv"
+	],
 	"main": "./out/extension",
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
