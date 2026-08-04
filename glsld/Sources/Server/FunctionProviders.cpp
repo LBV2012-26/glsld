@@ -1120,22 +1120,39 @@ namespace glsld {
             return {};
         }
 
-        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
-        if (!index.has_value()) {
+        auto cursor = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
+        if (cursor == snapshot->raw_tokens.begin()) {
             return {};
         }
 
-        int start = std::max(static_cast<int>(*index - 2), 0);
+        auto cursor_index = static_cast<std::size_t>(std::distance(snapshot->raw_tokens.begin(), std::prev(cursor)));
+        if (snapshot->raw_tokens[cursor_index].type == TokenType::kEndOfFile) {
+            if (cursor_index == 0) {
+                return {};
+            }
+
+            --cursor_index;
+        }
+
+        if (snapshot->raw_tokens[cursor_index].location.line() != location.line()) {
+            return {};
+        }
+
+        auto start = cursor_index > 2 ? cursor_index - 2 : 0;
         bool is_extension = false;
-        for (int i = static_cast<int>(*index); i >= start; --i) {
+        for (auto i = cursor_index;; --i) {
             ABORT_IF_CANCELLED();
             if (snapshot->raw_tokens[i].type == TokenType::kSharp) {
-                if (i + 1 < static_cast<int>(snapshot->raw_tokens.size()) &&
+                if (i + 1 < snapshot->raw_tokens.size() &&
                     snapshot->raw_tokens[i + 1].text == "extension")
                 {
                     is_extension = true;
                 }
 
+                break;
+            }
+
+            if (i == start) {
                 break;
             }
         }
