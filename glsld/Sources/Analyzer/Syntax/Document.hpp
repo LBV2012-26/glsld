@@ -18,7 +18,7 @@
 namespace glsld {
     using BindingMap = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
 
-    struct MacroDefination {
+    struct MacroDefinition {
         bool               is_function{};
         Token              original_token;
         std::vector<Token> replacement_list;
@@ -28,7 +28,7 @@ namespace glsld {
     using MacroTraceMap     = ankerl::unordered_dense::map<SourceLocation, Token, LocationHash>;
     using MacroArgsTraceMap = MacroTraceMap;
     using MacroExpansionMap = ankerl::unordered_dense::map<SourceLocation, std::vector<Token>, LocationHash>;
-    using MacroTable        = StringHeteroHashMap<MacroDefination>;
+    using MacroTable        = StringHeteroHashMap<MacroDefinition>;
 
     struct InactiveRegion {
         std::uint32_t begin_line{};
@@ -66,12 +66,12 @@ namespace glsld {
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&& other) noexcept;
 
-        void InjectMacro(std::string_view name, MacroDefination defination);
+        void InjectMacro(std::string_view name, MacroDefinition definition);
         void InjectMacro(std::string_view name);
         void FinalizeInjectedMacros(const SourceFile* source_file);
 
     private:
-        std::vector<MacroDefination>                   pending_macros_;
+        std::vector<MacroDefinition>                   pending_macros_;
         std::vector<std::unique_ptr<PreprocessorNode>> injected_nodes_;
     };
 

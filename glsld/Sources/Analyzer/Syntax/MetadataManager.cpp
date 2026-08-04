@@ -76,7 +76,7 @@ namespace glsld {
             MacroCollectResult result;
 
             auto InjectMacro = [&injected_macros = result.injected_macros](std::string_view name) -> void {
-                injected_macros.try_emplace(name, MacroDefination{
+                injected_macros.try_emplace(name, MacroDefinition{
                     .is_function = false,
                     .original_token = Token{
                         .text = std::string(name),
@@ -246,7 +246,7 @@ namespace glsld {
         std::span<const Token> raw_tokens,
         IncludeDirectoryHandle include_dirs)
     {
-        target.InjectMacro("_GLSLD", MacroDefination{
+        target.InjectMacro("_GLSLD", MacroDefinition{
             .is_function = false,
             .original_token = Token{
                 .text = "_GLSLD",
@@ -297,7 +297,7 @@ namespace glsld {
 
         auto [required_files, injected_macros, version] = CollectRequiredMetadataFiles(raw_tokens);
 
-        target.InjectMacro("__VERSION__", MacroDefination{
+        target.InjectMacro("__VERSION__", MacroDefinition{
             .is_function = false,
             .original_token = Token{
                 .text = "__VERSION__",
@@ -320,7 +320,7 @@ namespace glsld {
             }
 
             if (!has_stage) {
-                target.InjectMacro(macro_it->second, MacroDefination{
+                target.InjectMacro(macro_it->second, MacroDefinition{
                     .is_function = false,
                     .original_token = Token{
                         .text = macro_it->second,
@@ -343,8 +343,8 @@ namespace glsld {
             }
         }
 
-        for (const auto& [name, defination] : injected_macros) {
-            target.InjectMacro(name, defination);
+        for (const auto& [name, definition] : injected_macros) {
+            target.InjectMacro(name, definition);
         }
 
         for (const auto& path : required_files) {
@@ -353,8 +353,8 @@ namespace glsld {
                 continue;
             }
 
-            for (const auto& [name, defination] : source->macro_table) {
-                target.InjectMacro(name, defination);
+            for (const auto& [name, definition] : source->macro_table) {
+                target.InjectMacro(name, definition);
             }
 
             auto* target_root = target.symbols.root_scope();

@@ -37,7 +37,7 @@ namespace glsld {
         std::vector<Token> Process();
 
     private:
-        MacroDefination CollectMacroReplacement(std::size_t current_physical_line);
+        MacroDefinition CollectMacroReplacement(std::size_t current_physical_line);
         std::vector<Token> CaptureDirectiveBodyTokens(std::size_t directive_physical_line);
         bool ExpandMacro(StringHeteroHashSet& active_macros, std::vector<Token>& output);
 
@@ -47,7 +47,7 @@ namespace glsld {
             const SourceLocation& call_site);
 
         std::vector<Token> SubstituteFunctionMacro(
-            const MacroDefination& defination,
+            const MacroDefinition& definition,
             const std::vector<std::vector<Token>>& arguments,
             StringHeteroHashSet& active_macros,
             const SourceLocation& call_site);

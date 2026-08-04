@@ -523,8 +523,8 @@ namespace glsld {
                     return;
                 }
 
-                bool clicked_on_defination = (cursor_token->location == linked_symbol->location);
-                if (clicked_on_defination) {
+                bool clicked_on_definition = (cursor_token->location == linked_symbol->location);
+                if (clicked_on_definition) {
                     const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
                     results.push_back(toggled != nullptr ? toggled : linked_symbol);
                 } else {

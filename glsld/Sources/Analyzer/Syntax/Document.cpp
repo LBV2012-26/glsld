@@ -44,13 +44,13 @@ namespace glsld {
         return *this;
     }
 
-    void Document::InjectMacro(std::string_view name, MacroDefination defination) {
-        macro_table.insert_or_assign(name, defination);
-        pending_macros_.push_back(std::move(defination));
+    void Document::InjectMacro(std::string_view name, MacroDefinition definition) {
+        macro_table.insert_or_assign(name, definition);
+        pending_macros_.push_back(std::move(definition));
     }
 
     void Document::InjectMacro(std::string_view name) {
-        InjectMacro(name, MacroDefination{
+        InjectMacro(name, MacroDefinition{
             .is_function = false,
             .original_token = Token{
                 .text = std::string(name),

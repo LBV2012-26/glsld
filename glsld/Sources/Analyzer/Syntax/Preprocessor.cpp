@@ -14,7 +14,7 @@ namespace glsld {
     namespace {
         class ConditionEvaluator {
         public:
-            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashMap<MacroDefination>& macros)
+            ConditionEvaluator(std::span<const Token> tokens, const StringHeteroHashMap<MacroDefinition>& macros)
                 : tokens_{ tokens }
                 , macros_{ macros }
             {}
@@ -430,7 +430,7 @@ namespace glsld {
             }
 
             std::span<const Token>                      tokens_;
-            const StringHeteroHashMap<MacroDefination>& macros_;
+            const StringHeteroHashMap<MacroDefinition>& macros_;
             std::size_t                                 token_index_{};
             int                                         suppress_depth_{};
         };
@@ -489,23 +489,23 @@ namespace glsld {
         return expanded;
     }
 
-    MacroDefination Preprocessor::CollectMacroReplacement(std::size_t current_physical_line) {
+    MacroDefinition Preprocessor::CollectMacroReplacement(std::size_t current_physical_line) {
         // current token is macro name
         const auto& name_token  = current_token();
         const auto& next_token = PeekToken(1);
 
-        MacroDefination defination;
-        defination.original_token = name_token;
+        MacroDefinition definition;
+        definition.original_token = name_token;
         ConsumeToken();
 
         if (next_token.type == TokenType::kOpenParen &&
             name_token.location.column() + name_token.text.length() == next_token.location.column())
         {
-            defination.is_function = true;
+            definition.is_function = true;
             ConsumeToken();
         }
 
-        if (defination.is_function) {
+        if (definition.is_function) {
             do {
                 if (current_token().type == TokenType::kCloseParen) {
                     break;
@@ -513,15 +513,15 @@ namespace glsld {
 
                 MatchAndConsume(TokenType::kComma);
                 const auto& param_token = current_token();
-                defination.params.push_back(param_token);
+                definition.params.push_back(param_token);
                 ConsumeToken();
             } while (current_token().type == TokenType::kComma);
 
             MatchAndConsume(TokenType::kCloseParen);
         }
 
-        defination.replacement_list = CaptureDirectiveBodyTokens(current_physical_line);
-        return defination;
+        definition.replacement_list = CaptureDirectiveBodyTokens(current_physical_line);
+        return definition;
     }
 
     std::vector<Token> Preprocessor::CaptureDirectiveBodyTokens(std::size_t directive_physical_line) {
@@ -567,11 +567,11 @@ namespace glsld {
         document_.macro_traces.try_emplace(macro_token.location, it->second.original_token);
 
         active_macros.insert(macro_token.text);
-        const auto& defination = it->second;
+        const auto& definition = it->second;
 
-        if (!defination.is_function) {
+        if (!definition.is_function) {
             ConsumeToken(); // consume macro name token
-            auto replaced = ExpandTokenSequence(defination.replacement_list, active_macros, macro_token.location);
+            auto replaced = ExpandTokenSequence(definition.replacement_list, active_macros, macro_token.location);
             document_.macro_expansions.try_emplace(macro_token.location, replaced);
             output.append_range(replaced | std::views::as_rvalue);
             active_macros.erase(macro_token.text);
@@ -589,7 +589,7 @@ namespace glsld {
             return false;
         }
 
-        auto replaced = SubstituteFunctionMacro(defination, arguments, active_macros, macro_token.location);
+        auto replaced = SubstituteFunctionMacro(definition, arguments, active_macros, macro_token.location);
         document_.macro_expansions.try_emplace(macro_token.location, replaced);
         output.append_range(replaced | std::views::as_rvalue);
         active_macros.erase(macro_token.text);
@@ -630,12 +630,12 @@ namespace glsld {
                 continue;
             }
 
-            const auto& defination = it->second;
+            const auto& definition = it->second;
             const auto& macro_name = token.text;
             active_macros.insert(macro_name);
 
-            if (!defination.is_function) {
-                auto nested = ExpandTokenSequence(defination.replacement_list, active_macros, call_site);
+            if (!definition.is_function) {
+                auto nested = ExpandTokenSequence(definition.replacement_list, active_macros, call_site);
                 AppendRangeAtCallSite(nested);
                 active_macros.erase(macro_name);
                 continue;
@@ -655,7 +655,7 @@ namespace glsld {
                 continue;
             }
 
-            auto replaced = SubstituteFunctionMacro(defination, arguments, active_macros, call_site);
+            auto replaced = SubstituteFunctionMacro(definition, arguments, active_macros, call_site);
             AppendRangeAtCallSite(replaced);
             i = close_paren_index;
             active_macros.erase(macro_name);
@@ -665,18 +665,18 @@ namespace glsld {
     }
 
     std::vector<Token> Preprocessor::SubstituteFunctionMacro(
-        const MacroDefination& defination,
+        const MacroDefinition& definition,
         const std::vector<std::vector<Token>>& arguments,
         StringHeteroHashSet& active_macros,
         const SourceLocation& call_site)
     {
         StringHeteroHashMap<std::size_t> param_index;
-        for (auto i = 0uz; i != defination.params.size(); ++i) {
-            param_index.try_emplace(defination.params[i].text, i);
+        for (auto i = 0uz; i != definition.params.size(); ++i) {
+            param_index.try_emplace(definition.params[i].text, i);
         }
 
         auto arguments_active_macros = active_macros;
-        arguments_active_macros.erase(defination.original_token.text);
+        arguments_active_macros.erase(definition.original_token.text);
 
         std::vector<std::vector<Token>> expanded_args(arguments.size());
         for (auto i = 0uz; i != arguments.size(); ++i) {
@@ -694,7 +694,7 @@ namespace glsld {
         };
 
         auto IsAdjacentToTokenPaste = [&](std::size_t replace_index) -> bool {
-            const auto& replacement_list = defination.replacement_list;
+            const auto& replacement_list = definition.replacement_list;
             if (replace_index > 0 && replacement_list[replace_index - 1].type == TokenType::kSharpSharp) {
                 return true;
             }
@@ -709,8 +709,8 @@ namespace glsld {
         };
 
         std::vector<Token> replaced;
-        for (auto i = 0uz; i != defination.replacement_list.size(); ++i) {
-            const auto& token = defination.replacement_list[i];
+        for (auto i = 0uz; i != definition.replacement_list.size(); ++i) {
+            const auto& token = definition.replacement_list[i];
             if (token.type == TokenType::kIdentifier) {
                 auto it = param_index.find(token.text);
                 if (it != param_index.end()) {
@@ -966,10 +966,10 @@ namespace glsld {
     }
 
     void Preprocessor::ParseDefineFromBody(std::span<const Token> body_tokens) {
-        MacroDefination defination;
+        MacroDefinition definition;
         auto index = 0uz;
 
-        defination.original_token = body_tokens[index++];
+        definition.original_token = body_tokens[index++];
 
         auto IsAdjacent = [](const Token& lhs, const Token& rhs) -> bool {
             return lhs.location.line()  == rhs.location.line() &&
@@ -978,8 +978,8 @@ namespace glsld {
 
         if (index < body_tokens.size() &&
             body_tokens[index].type == TokenType::kOpenParen &&
-            IsAdjacent(defination.original_token, body_tokens[index])) {
-            defination.is_function = true;
+            IsAdjacent(definition.original_token, body_tokens[index])) {
+            definition.is_function = true;
             ++index; // consume '('
 
             bool paren_closed = false;
@@ -998,29 +998,29 @@ namespace glsld {
                 }
 
                 if (token.type == TokenType::kIdentifier) {
-                    defination.params.push_back(token);
+                    definition.params.push_back(token);
                     ++index;
                     continue;
                 }
 
-                defination.is_function = false;
-                defination.params.clear();
+                definition.is_function = false;
+                definition.params.clear();
                 index = 1; // 替换从 macro name 后开始
                 break;
             }
 
-            if (defination.is_function && !paren_closed) {
-                defination.is_function = false;
-                defination.params.clear();
+            if (definition.is_function && !paren_closed) {
+                definition.is_function = false;
+                definition.params.clear();
                 index = 1;
             }
         }
 
         if (index < body_tokens.size()) {
-            defination.replacement_list.assign_range(body_tokens | std::views::drop(index));
+            definition.replacement_list.assign_range(body_tokens | std::views::drop(index));
         }
 
-        document_.macro_table.insert_or_assign(defination.original_token.text, std::move(defination));
+        document_.macro_table.insert_or_assign(definition.original_token.text, std::move(definition));
     }
 
     bool Preprocessor::HandleConditionalDirective(

@@ -1343,7 +1343,7 @@ namespace glsld {
 
             if (value.contains("macros") && value["macros"].is_object()) {
                 for (const auto& [name, replacement] : value["macros"].items()) {
-                    variant.macros[name] = MacroDefination{
+                    variant.macros[name] = MacroDefinition{
                         .is_function = false,
                         .original_token = Token{
                             .text = name,
