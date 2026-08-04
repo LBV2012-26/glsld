@@ -19,23 +19,11 @@ namespace glsld {
             return true;
         }
 
-        if (best_match_->begin > node->begin) {
-            return false;
-        } else if (best_match_->begin < node->begin) {
-            return true;
-        } else {
-            // best_match_->begin == node->begin
-            if (best_match_->end < node->end) {
-                return false;
-            } else if (best_match_->end > node->end) {
-                return true;
-            } else {
-                // best_match_->end == node->end
-                return true;
-            }
+        if (best_match_->begin != node->begin) {
+            return node->begin > best_match_->begin;
         }
 
-        return true;
+        return node->end <= best_match_->end;
     }
 
     template <typename NodeType>
