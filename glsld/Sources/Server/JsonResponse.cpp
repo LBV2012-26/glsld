@@ -6,15 +6,12 @@
 #include <print>
 #include <string_view>
 
-#include "Base/Logger.hpp"
-
 namespace glsld {
     namespace {
         std::mutex send_mutex;
 
         void SendRaw(std::string_view content) {
             std::lock_guard lock(send_mutex);
-            GLSLD_LOG(trace, "Sending response: {}", content);
             std::print("Content-Length: {}\r\n\r\n{}", content.length(), content);
             std::fflush(stdout);
         }

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <exception>
 #include <format>
 #include <iostream>
@@ -315,7 +316,8 @@ namespace glsld {
             if (task.is_request) {
                 thread_pool_.Submit([this, context = std::move(context)]() mutable -> void {
                     GLSLD_LOG(debug, "Received request: {}", context.method);
-                    GLSLD_LOG(debug, "Method: {} with ID: {}", context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
+                    GLSLD_LOG(debug, "Method: {} with ID: {}",
+                              context.method, context.request_id.has_value() ? context.request_id->dump() : "null");
 
                     try {
                         router_.Dispatch(context, true);
@@ -458,7 +460,7 @@ namespace glsld {
             it->second->store(true, std::memory_order::relaxed);
             GLSLD_LOG(debug, "Cancelled request with params: {}.", params.dump());
         } else {
-            GLSLD_LOG(err, "Cancelled target {} not found.", key.dump());
+            GLSLD_LOG(debug, "Cancelled target {} not found.", key.dump());
         }
 
 #ifdef _DEBUG
@@ -651,7 +653,15 @@ namespace glsld {
         }
 
         PositionMapper mapper(snapshot->source);
-        return ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
+
+        auto start  = std::chrono::high_resolution_clock::now();
+        auto result = ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
+        auto end    = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "DocumentSymbol for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+
+        return result;
     }
 
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
@@ -667,7 +677,13 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         PositionMapper mapper(snapshot->source);
         const auto* source_file = workspace_.GetSource(uri);
-        auto data = GetSemanticData(context, source_file, snapshot, mapper);
+
+        auto start = std::chrono::high_resolution_clock::now();
+        auto data  = GetSemanticData(context, source_file, snapshot, mapper);
+        auto end   = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "SemanticTokens for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         return { { "data", data } };
     }
@@ -700,10 +716,17 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
+
+        auto start   = std::chrono::high_resolution_clock::now();
         auto symbols = GetDefinitionSymbols(context, snapshot, target, true);
+        auto end     = std::chrono::high_resolution_clock::now();
+
         if (symbols.empty()) {
             return {};
         }
+
+        GLSLD_LOG(info, "Definition for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         auto response_array = nlohmann::json::array();
 
@@ -748,10 +771,17 @@ namespace glsld {
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
+
+        auto start               = std::chrono::high_resolution_clock::now();
         auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
+        auto end                 = std::chrono::high_resolution_clock::now();
+
         if (symbol == nullptr) {
             return {};
         }
+
+        GLSLD_LOG(info, "References for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         PositionMapperCache mappers(workspace_);
 
@@ -884,7 +914,13 @@ namespace glsld {
         }
 
         PositionMapper mapper(snapshot->source);
+
+        auto start = std::chrono::high_resolution_clock::now();
         auto hints = GetInlayHints(context, snapshot);
+        auto end   = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "InlayHints for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
         for (auto& hint : hints) {
@@ -958,10 +994,17 @@ namespace glsld {
         auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
+
+        auto start          = std::chrono::high_resolution_clock::now();
         auto signature_help = GetSignatureHelp(context, snapshot, target);
+        auto end            = std::chrono::high_resolution_clock::now();
+
         if (!signature_help.has_value()) {
             return {};
         }
+
+        GLSLD_LOG(info, "SignatureHelp for {} took {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
         for (const auto* symbol : signature_help->candidates) {
@@ -1658,7 +1701,13 @@ namespace glsld {
     }
 
     void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer) {
+        auto start = std::chrono::high_resolution_clock::now();
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer);
+        auto end = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "Workspace::UpdateDocument for {} updated to version {} in {} ms",
+                  uri, version_replica, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+
         ready_condition_.notify_all();
         SubmitDiagnositcTask(uri, text, utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
     }

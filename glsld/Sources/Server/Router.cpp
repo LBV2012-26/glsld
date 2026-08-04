@@ -54,7 +54,7 @@ namespace glsld {
             if (it != notification_routes_.end()) {
                 it->second(context);
             } else {
-                GLSLD_LOG(err, "Unhandled notification: {}", context.method);
+                GLSLD_LOG(warn, "Unhandled notification: {}", context.method);
             }
         }
     }

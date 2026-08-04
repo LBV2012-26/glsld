@@ -31,7 +31,14 @@ namespace glsld {
         document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
+
+        auto process_start = std::chrono::high_resolution_clock::now();;
         ProcessSource(source_file, source, version_replica, version_pointer, *document);
+        auto process_end = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "Processed document {} in {} ms (replica: {}, current: {})",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(process_end - process_start).count(),
+                  version_replica, version_pointer != nullptr ? version_pointer->load() : 0);
 
         if (document->ast == nullptr) {
             return;
@@ -39,6 +46,7 @@ namespace glsld {
 
         UpdateDependencies(uri, document);
 
+        auto index_update_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(index_mutex_);
 
@@ -46,11 +54,20 @@ namespace glsld {
             type_member_index_.RemoveDocument(uri);
             type_member_index_.IndexDocument(uri, document->symbols);
         }
+        auto index_update_end = std::chrono::high_resolution_clock::now();
 
+        GLSLD_LOG(info, "Indexed document (with lock) {} in {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(index_update_end - index_update_start).count());
+
+        auto reconcile_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(document_mutex_);
             documents_.insert_or_assign(uri, std::move(document));
         }
+        auto reconcile_end = std::chrono::high_resolution_clock::now();
+
+        GLSLD_LOG(info, "Reconciled document (with lock) {} in {} ms",
+                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(reconcile_end - reconcile_start).count());
     }
 
     std::shared_ptr<Document> Workspace::GetDocumentSnapshot(std::string_view uri) const {
