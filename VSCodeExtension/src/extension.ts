@@ -32,8 +32,8 @@ const runtimeDisposables: Disposable[] = [];
 
 export async function activate(context: any) {
 	const config = workspace.getConfiguration('glsld');
-	const configuredServerPath = config.get<string>('server.path', 'bin/Win64/glsld.exe').trim();
-	const serverPath = path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
+	const configuredServerPath = config.get<string>('server.path', '').trim();
+	const serverPath = configuredServerPath.length === 0 ? context.asAbsolutePath('bin/Win64/glsld.exe') : path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
 	const serverEnv = createServerEnvironment(config);
 	const serverOutput = window.createOutputChannel('glsld');
 	context.subscriptions.push(serverOutput);
@@ -424,7 +424,7 @@ export async function pushConfiguration(): Promise<void> {
 	const glslcPath = config.get<string>('glslc.path', '').trim();
 	const clangFormatPath = config.get<string>('clangFormat.path', 'clang-format.exe').trim() || 'clang-format.exe';
 	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
-	const backgroundIndexRoots = config.get<string[]>('backgroundIndex.roots', []);
+	const backgroundIndexRoots = getBackgroundIndexRoots(config.get<string[]>('backgroundIndex.roots', []));
 	const systemIncludeDirectories = getSystemIncludeDirectories();
 	const activeVariants = getActiveVariants();
 
@@ -454,6 +454,42 @@ export async function pushConfiguration(): Promise<void> {
 	}));
 	console.log('[glsld] pushConfiguration sending: %o', payload);
 	await client.sendNotification('workspace/didChangeConfiguration', payload);
+}
+
+function getBackgroundIndexRoots(configuredRoots: string[]): string[] {
+	const roots = new Set<string>();
+	const folders = workspace.workspaceFolders ?? [];
+	const workspaceFolderVariable = '${workspaceFolder}';
+
+	for (const configuredRoot of configuredRoots) {
+		if (typeof configuredRoot !== 'string') {
+			continue;
+		}
+
+		const root = configuredRoot.trim();
+		if (root.length === 0) {
+			continue;
+		}
+
+		if (path.isAbsolute(root)) {
+			roots.add(path.normalize(root));
+			continue;
+		}
+
+		if (root === workspaceFolderVariable || root.startsWith(`${workspaceFolderVariable}/`) || root.startsWith(`${workspaceFolderVariable}\\`)) {
+			const relativePath = root.slice(workspaceFolderVariable.length).replace(/^[/\\]+/, '');
+			for (const folder of folders) {
+				roots.add(path.resolve(folder.uri.fsPath, relativePath));
+			}
+			continue;
+		}
+
+		if (folders.length > 0) {
+			roots.add(path.resolve(folders[0].uri.fsPath, root));
+		}
+	}
+
+	return [...roots];
 }
 
 function getSystemIncludeDirectories(): string[] {

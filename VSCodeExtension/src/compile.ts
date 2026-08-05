@@ -9,10 +9,9 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import {
-	getActiveGlobalVariant,
+	getActiveGlobalMacros,
 	getCompileGroups,
 	getFileMacrosData,
-	getVariantsData,
 } from './sidebar';
 
 // ============================================================
@@ -233,11 +232,7 @@ export async function compileWorkspace(): Promise<void> {
 	channel.appendLine(`glslc: ${glslcPath}\n`);
 
 	// Resolve active variant macros (from sidebar)
-	const variants = getVariantsData();
-	const globalActive = getActiveGlobalVariant();
-	const activeMacros = globalActive && variants[globalActive]
-		? variants[globalActive]
-		: {};
+	const activeMacros = getActiveGlobalMacros();
 
 	// Resolve per-file macros (from sidebar)
 	const fileMacros = getFileMacrosData();
@@ -371,4 +366,4 @@ export async function compileWorkspace(): Promise<void> {
 	}
 }
 
-// (macro state is read from sidebar.ts exports — see getActiveGlobalVariant / getFileMacrosData)
+// (macro state is read from sidebar.ts exports — see getActiveGlobalMacros / getFileMacrosData)

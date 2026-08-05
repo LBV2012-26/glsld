@@ -17,6 +17,8 @@ interface MacroEntry {
 	enabled: boolean;
 }
 
+type MacrosMap = Record<string, MacroEntry>;
+
 /** Per-file macro overrides: fileUri → { macroName → MacroEntry } */
 interface FileMacrosMap {
 	[fileUri: string]: { [macroName: string]: MacroEntry };
@@ -41,7 +43,8 @@ export interface CompileGroup {
 }
 
 interface ConfigFile {
-	variants: Record<string, Record<string, string>>;
+	globalMacros?: MacrosMap;
+	variants?: Record<string, Record<string, string>>;
 	fileMacros?: FileMacrosMap;
 	shaderConfigs?: Record<string, Record<string, string>>;
 	templates?: { name: string; shaderStage?: string; version?: string; targetEnv?: string; targetSpv?: string }[];
@@ -107,13 +110,35 @@ function putData(d: ConfigFile): void {
 	saveFile(d);
 }
 
-function getVariants(): Record<string, Record<string, string>> {
-	return getData().variants;
+function getGlobalMacros(): MacrosMap {
+	return getData().globalMacros ?? {};
 }
 
-function putVariants(v: Record<string, Record<string, string>>): void {
+function putGlobalMacros(macros: MacrosMap): void {
 	const data = getData();
-	data.variants = v;
+	data.globalMacros = macros;
+	putData(data);
+}
+
+function migrateLegacyGlobalVariant(): void {
+	const data = getData();
+	if (data.globalMacros !== undefined) { return; }
+
+	data.globalMacros = {};
+	for (const [variantName, macros] of Object.entries(data.variants ?? {})) {
+		for (const [name, value] of Object.entries(macros)) {
+			if (!data.globalMacros[name]) { data.globalMacros[name] = { value, enabled: variantName === data.activeVariant }; }
+		}
+	}
+
+	const selected = data.activeVariant ? data.variants?.[data.activeVariant] : undefined;
+	if (selected) {
+		for (const [name, value] of Object.entries(selected)) {
+			data.globalMacros[name] = { value, enabled: true };
+		}
+	}
+	delete data.variants;
+	delete data.activeVariant;
 	putData(data);
 }
 
@@ -157,37 +182,21 @@ function migrateLegacyCompileGroups(): number {
 	return legacy.length;
 }
 
-// ============================================================
-// VariantTreeItem — carries variant name through context menus
-// ============================================================
-
-class VariantTreeItem extends vscode.TreeItem {
-	variantName: string | null;
-
-	constructor(
-		label: string,
-		variantName: string | null,
-		collapsibleState: vscode.TreeItemCollapsibleState,
-	) {
-		super(label, collapsibleState);
-		this.variantName = variantName;
-	}
-}
 	function getShaderConfigs(): Record<string, Record<string, string>> { return getData().shaderConfigs ?? {}; }
 	function putShaderConfigs(sc: Record<string, Record<string, string>>): void { const data = getData(); data.shaderConfigs = sc; putData(data); }
 	function getTemplates() { return getData().templates ?? []; }
 	function putTemplates(t: ConfigFile['templates']): void { const data = getData(); data.templates = t; putData(data); }
 
-function resolveVariantName(arg: unknown): string | null | undefined {
-	if (arg === null) { return null; }
-	if (typeof arg === 'string') { return arg; }
-	if (arg instanceof VariantTreeItem) { return arg.variantName; }
-	return undefined;
-}
+// ============================================================
+// Macro tree nodes
+// ============================================================
 
-// ============================================================
-// File-macro tree nodes (discriminated union)
-// ============================================================
+interface GlobalMacroNode {
+	kind: 'globalMacro';
+	macroName: string;
+	macroValue: string;
+	enabled: boolean;
+}
 
 type FileMacroNode = FileNode | MacroNode;
 
@@ -208,8 +217,6 @@ interface MacroNode {
 // Shared state
 // ============================================================
 
-let globalActive: string | null = null;
-let lastClickedVariant: string | null = null;
 const onEvent = new vscode.EventEmitter<void>();
 
 /** Find any open GLSL document (not just visible editor). */
@@ -221,11 +228,16 @@ function anyGlslDocument(): vscode.TextDocument | undefined {
 // Send macros to LSP server
 // ============================================================
 
-function sendGlobalVariant(client: LanguageClient, name: string | null): void {
+function sendGlobalMacros(client: LanguageClient): void {
 	const doc = anyGlslDocument();
-	if (!doc) { return; } // no GLSL file open yet — will retry on didOpen
+	if (!doc) { return; }
 
-	if (name === null) {
+	const macros: Record<string, string> = {};
+	for (const [name, entry] of Object.entries(getGlobalMacros())) {
+		if (entry.enabled) { macros[name] = entry.value; }
+	}
+
+	if (Object.keys(macros).length === 0) {
 		client.sendNotification('glsld/removeVariant', {
 			textDocument: { uri: doc.uri.toString() },
 			scope: 'global',
@@ -233,16 +245,9 @@ function sendGlobalVariant(client: LanguageClient, name: string | null): void {
 		return;
 	}
 
-	const variants = getVariants();
-	const macros = variants[name];
-	if (!macros) {
-		vscode.window.showErrorMessage(`Variant "${name}" has no macros defined.`);
-		return;
-	}
-
 	client.sendNotification('glsld/selectVariant', {
 		textDocument: { uri: doc.uri.toString() },
-		variant: name, macros, scope: 'global',
+		variant: '__global__', macros, scope: 'global',
 	});
 }
 
@@ -275,72 +280,87 @@ function sendFileMacros(client: LanguageClient, fileUri: vscode.Uri): void {
 	}
 }
 
+async function inputMacro(existingName = '', existingValue = '1'): Promise<{ name: string; value: string } | undefined> {
+	const name = await vscode.window.showInputBox({ prompt: 'Macro name', placeHolder: 'MACRO_NAME', value: existingName });
+	if (!name) { return undefined; }
+
+	const value = await vscode.window.showInputBox({ prompt: `Value for ${name}`, placeHolder: '1', value: existingValue });
+	if (value === undefined) { return undefined; }
+	return { name, value };
+}
+
 // ============================================================
-// Global Variant provider  (radio-button style, same as before)
+// Global macro provider
 // ============================================================
 
-class GlobalVariantProvider implements vscode.TreeDataProvider<VariantTreeItem> {
-	private _onDidChangeTreeData = new vscode.EventEmitter<VariantTreeItem | undefined | void>();
+class GlobalMacroProvider implements vscode.TreeDataProvider<GlobalMacroNode> {
+	private _onDidChangeTreeData = new vscode.EventEmitter<GlobalMacroNode | undefined | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 	private _client: LanguageClient;
 
 	constructor(client: LanguageClient) { this._client = client; }
 
 	public refresh(): void { this._onDidChangeTreeData.fire(); }
-	public getTreeItem(element: VariantTreeItem): VariantTreeItem { return element; }
-
-	public getChildren(): VariantTreeItem[] {
-		const variants = getVariants();
-		const names    = Object.keys(variants);
-		const items: VariantTreeItem[] = [];
-
-		// Default — no global macros
-		{
-			const isActive = (globalActive === null);
-			const item = new VariantTreeItem(
-				'Default', null, vscode.TreeItemCollapsibleState.None,
-			);
-			item.iconPath = new vscode.ThemeIcon(
-				isActive ? 'pass-filled' : 'circle-large-outline',
-			);
-			item.command = { command: 'glsld.selectVariant', title: '', arguments: [null] };
-			item.description = 'No macros injected';
-			item.contextValue = 'variant';
-			items.push(item);
-		}
-
-		for (const name of names) {
-			const isActive = (name === globalActive);
-			const item = new VariantTreeItem(
-				name, name, vscode.TreeItemCollapsibleState.None,
-			);
-			item.iconPath = new vscode.ThemeIcon(
-				isActive ? 'pass-filled' : 'circle-large-outline',
-			);
-			item.command = { command: 'glsld.selectVariant', title: '', arguments: [name] };
-			item.tooltip = this.buildTooltip(name, variants[name]);
-			item.contextValue = 'variant';
-			items.push(item);
-		}
-
-		return items;
+	public getTreeItem(element: GlobalMacroNode): vscode.TreeItem {
+		const label = element.macroValue ? `${element.macroName}=${element.macroValue}` : element.macroName;
+		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+		item.checkboxState = element.enabled ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
+		item.tooltip = `#define ${element.macroName} ${element.macroValue}`;
+		item.contextValue = 'globalMacro';
+		return item;
 	}
 
-	private buildTooltip(name: string, macros: Record<string, string> | undefined): string {
-		if (!macros || Object.keys(macros).length === 0) { return name; }
-		const lines = Object.entries(macros).map(([k, v]) => `#define ${k} ${v}`);
-		return `${name}\n${lines.join('\n')}`;
+	public getChildren(): GlobalMacroNode[] {
+		return Object.entries(getGlobalMacros()).map(([name, entry]) => ({ kind: 'globalMacro', macroName: name, macroValue: entry.value, enabled: entry.enabled }));
 	}
 
-	public async select(name: string | null): Promise<void> {
-		globalActive = name;
-		// Persist active variant so it survives restart
-		const data = getData();
-		data.activeVariant = name;
-		putData(data);
+	public async addMacro(): Promise<void> {
+		const input = await inputMacro();
+		if (!input) { return; }
+
+		const macros = getGlobalMacros();
+		macros[input.name] = { value: input.value, enabled: true };
+		putGlobalMacros(macros);
 		this.refresh();
 		onEvent.fire();
-		sendGlobalVariant(this._client, name);
+		sendGlobalMacros(this._client);
+	}
+
+	public async editMacro(node: GlobalMacroNode): Promise<void> {
+		const input = await inputMacro(node.macroName, node.macroValue);
+		if (!input) { return; }
+
+		const macros = getGlobalMacros();
+		if (input.name !== node.macroName) { delete macros[node.macroName]; }
+		macros[input.name] = { value: input.value, enabled: node.enabled };
+		putGlobalMacros(macros);
+		this.refresh();
+		onEvent.fire();
+		sendGlobalMacros(this._client);
+	}
+
+	public async deleteMacro(node: GlobalMacroNode): Promise<void> {
+		const choice = await vscode.window.showWarningMessage(`Delete macro "${node.macroName}"?`, { modal: true }, 'Delete');
+		if (choice !== 'Delete') { return; }
+
+		const macros = getGlobalMacros();
+		delete macros[node.macroName];
+		putGlobalMacros(macros);
+		this.refresh();
+		onEvent.fire();
+		sendGlobalMacros(this._client);
+	}
+
+	public toggleMacro(node: GlobalMacroNode, checked: boolean): void {
+		const macros = getGlobalMacros();
+		const macro = macros[node.macroName];
+		if (!macro) { return; }
+
+		macro.enabled = checked;
+		putGlobalMacros(macros);
+		this.refresh();
+		onEvent.fire();
+		sendGlobalMacros(this._client);
 	}
 }
 
@@ -433,23 +453,13 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 
 	/** Add a macro to a file */
 	public async addMacro(fileUri: vscode.Uri): Promise<void> {
-		const name = await vscode.window.showInputBox({
-			prompt: 'Macro name',
-			placeHolder: 'MACRO_NAME',
-		});
-		if (!name) { return; }
-
-		const value = await vscode.window.showInputBox({
-			prompt: `Value for ${name}`,
-			placeHolder: '1',
-			value: '1',
-		});
-		if (value === undefined) { return; }
+		const input = await inputMacro();
+		if (!input) { return; }
 
 		const fm = getFileMacros();
 		const uriStr = fileUri.toString();
 		if (!fm[uriStr]) { fm[uriStr] = {}; }
-		fm[uriStr][name] = { value, enabled: true };
+		fm[uriStr][input.name] = { value: input.value, enabled: true };
 		putFileMacros(fm);
 
 		this.refresh();
@@ -458,19 +468,8 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 
 	/** Edit a macro */
 	public async editMacro(node: MacroNode): Promise<void> {
-		const name = await vscode.window.showInputBox({
-			prompt: 'Macro name',
-			value: node.macroName,
-			placeHolder: 'MACRO_NAME',
-		});
-		if (!name) { return; }
-
-		const value = await vscode.window.showInputBox({
-			prompt: `Value for ${name}`,
-			value: node.macroValue,
-			placeHolder: '1',
-		});
-		if (value === undefined) { return; }
+		const input = await inputMacro(node.macroName, node.macroValue);
+		if (!input) { return; }
 
 		const fm = getFileMacros();
 		const uriStr = node.fileUri.toString();
@@ -478,10 +477,10 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 		if (!entry) { return; }
 
 		// If name changed, delete old key
-		if (name !== node.macroName) {
+		if (input.name !== node.macroName) {
 			delete entry[node.macroName];
 		}
-		entry[name] = { value, enabled: node.enabled };
+		entry[input.name] = { value: input.value, enabled: node.enabled };
 		putFileMacros(fm);
 
 		this.refresh();
@@ -808,119 +807,15 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 }
 
 // ============================================================
-// Variant editing (add / edit / delete named variant sets)
-// ============================================================
-
-function pickVariantName(title: string): Thenable<string | undefined> {
-	const variants = getVariants();
-	const names    = Object.keys(variants);
-	if (names.length === 0) {
-		vscode.window.showInformationMessage('No variants configured. Click + to add one.');
-		return Promise.resolve(undefined);
-	}
-	if (names.length === 1) { return Promise.resolve(names[0]); }
-	return vscode.window.showQuickPick(names, { placeHolder: title });
-}
-
-async function addVariant(): Promise<void> {
-	const name = await vscode.window.showInputBox({
-		prompt: 'Variant name', placeHolder: 'e.g. Debug, Release, Vulkan14',
-	});
-	if (!name) { return; }
-
-	const existing = getVariants();
-	if (existing[name]) {
-		const overwrite = await vscode.window.showWarningMessage(
-			`Variant "${name}" already exists. Overwrite?`, { modal: true }, 'Overwrite',
-		);
-		if (overwrite !== 'Overwrite') { return; }
-	}
-
-	const macros = await inputMacros(name);
-	if (!macros) { return; }
-
-	existing[name] = macros;
-	putVariants(existing);
-	onEvent.fire();
-	vscode.window.showInformationMessage(`Variant "${name}" saved.`);
-}
-
-async function editVariant(name?: string | null): Promise<void> {
-	const target = name ?? await pickVariantName('Select variant to edit');
-	if (!target) { return; }
-
-	const all = getVariants();
-	const ex = all[target];
-	if (!ex) {
-		vscode.window.showErrorMessage(`Variant "${target}" not found.`);
-		return;
-	}
-
-	const macros = await inputMacros(target, ex);
-	if (!macros) { return; }
-
-	all[target] = macros;
-	putVariants(all);
-	onEvent.fire();
-	vscode.window.showInformationMessage(`Variant "${target}" updated.`);
-}
-
-async function removeVariant(name?: string | null): Promise<void> {
-	const target = name ?? await pickVariantName('Select variant to delete');
-	if (!target) { return; }
-
-	const choice = await vscode.window.showWarningMessage(
-		`Delete variant "${target}"?`, { modal: true }, 'Delete',
-	);
-	if (choice !== 'Delete') { return; }
-
-	const all = getVariants();
-	delete all[target];
-	putVariants(all);
-	if (globalActive === target) { globalActive = null; }
-	onEvent.fire();
-}
-
-async function inputMacros(
-	name: string, existing?: Record<string, string>,
-): Promise<Record<string, string> | undefined> {
-	const initialLines = existing
-		? Object.entries(existing).map(([k, v]) => `${k}=${v}`)
-		: ['MACRO_NAME=1'];
-
-	const raw = await vscode.window.showInputBox({
-		prompt: `Macros for "${name}" — one per line, NAME=replacement`,
-		placeHolder: 'MACRO_NAME=replacement',
-		value: initialLines.join('\n'),
-	});
-	if (raw === undefined) { return undefined; }
-
-	const macros: Record<string, string> = {};
-	for (const line of raw.split('\n')) {
-		const trimmed = line.trim();
-		if (trimmed.length === 0) { continue; }
-		const eq = trimmed.indexOf('=');
-		if (eq <= 0) { continue; }
-		const key = trimmed.substring(0, eq).trim();
-		const value = trimmed.substring(eq + 1).trim();
-		if (key.length > 0) { macros[key] = value; }
-	}
-	return macros;
-}
-
-// ============================================================
 // Registration
 // ============================================================
 
 export function activateSidebar(context: vscode.ExtensionContext, client: LanguageClient): void {
 	gStorageUri = context.globalStorageUri;
+	migrateLegacyGlobalVariant();
 	const migratedCompileGroups = migrateLegacyCompileGroups();
 
-	// Restore last active variant from config
-	const data = getData();
-	globalActive = data.activeVariant ?? null;
-
-	const globalProvider = new GlobalVariantProvider(client);
+	const globalProvider = new GlobalMacroProvider(client);
 	const fileProvider   = new FileMacroProvider(client);
 	const compileProvider = new CompileGroupProvider();
 
@@ -930,16 +825,23 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		);
 	}
 
-	// Use createTreeView for File view — we need checkbox events
+	const globalTreeView = vscode.window.createTreeView('glsld.shaderVariant', {
+		treeDataProvider: globalProvider,
+	});
 	const fileTreeView = vscode.window.createTreeView('glsld.fileVariant', {
 		treeDataProvider: fileProvider,
 	});
 
 	context.subscriptions.push(
-		// Global: simple TreeDataProvider is enough (no checkboxes)
-		vscode.window.registerTreeDataProvider('glsld.shaderVariant', globalProvider),
 		vscode.window.registerTreeDataProvider('glsld.compileGroups', compileProvider),
+		globalTreeView,
 		fileTreeView,
+
+		globalTreeView.onDidChangeCheckboxState((e: vscode.TreeCheckboxChangeEvent<GlobalMacroNode>) => {
+			for (const [node, state] of e.items) {
+				globalProvider.toggleMacro(node, state === vscode.TreeItemCheckboxState.Checked);
+			}
+		}),
 
 		// --- File view checkbox toggle ---
 		fileTreeView.onDidChangeCheckboxState((e: vscode.TreeCheckboxChangeEvent<FileMacroNode>) => {
@@ -951,45 +853,27 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 			}
 		}),
 
-		// --- Select global variant ---
-		vscode.commands.registerCommand('glsld.selectVariant', (arg: unknown) => {
-			const name = resolveVariantName(arg);
-			if (name !== undefined) {
-				lastClickedVariant = name;
-			}
-			globalProvider.select(name ?? null);
-		}),
-
 		// --- Select file variant (no longer used in new model; kept for compat) ---
 		vscode.commands.registerCommand('glsld.selectFileVariant', (_arg: unknown) => {
 			// Now handled by checkbox toggles in the File view
 			vscode.window.showInformationMessage(
-				'Use the File Variant view to toggle per-file macros.',
+				'Use the File Macros view to toggle per-file macros.',
 			);
 		}),
 
 		// --- Clear file override (no longer applicable; kept for compat) ---
 		vscode.commands.registerCommand('glsld.clearFileVariant', () => {
 			vscode.window.showInformationMessage(
-				'Use the File Variant view to manage per-file macros.',
+				'Use the File Macros view to manage per-file macros.',
 			);
 		}),
 
-		// --- Add variant (named macro set) ---
-		vscode.commands.registerCommand('glsld.addVariant', () => {
-			addVariant().then(() => globalProvider.refresh());
+		vscode.commands.registerCommand('glsld.addVariant', () => globalProvider.addMacro()),
+		vscode.commands.registerCommand('glsld.editVariant', (node: GlobalMacroNode) => {
+			if (node?.kind === 'globalMacro') { globalProvider.editMacro(node); }
 		}),
-
-		// --- Edit variant ---
-		vscode.commands.registerCommand('glsld.editVariant', (arg: unknown) => {
-			const name = resolveVariantName(arg) ?? lastClickedVariant;
-			editVariant(name).then(() => globalProvider.refresh());
-		}),
-
-		// --- Delete variant ---
-		vscode.commands.registerCommand('glsld.removeVariantCmd', (arg: unknown) => {
-			const name = resolveVariantName(arg) ?? lastClickedVariant;
-			removeVariant(name).then(() => globalProvider.refresh());
+		vscode.commands.registerCommand('glsld.removeVariantCmd', (node: GlobalMacroNode) => {
+			if (node?.kind === 'globalMacro') { globalProvider.deleteMacro(node); }
 		}),
 
 		// --- Compile groups ---
@@ -1074,14 +958,12 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 	// Public accessors  (used by compile.ts etc.)
 	// ============================================================
 
-	/** Returns the currently active global variant name, or null. */
-	export function getActiveGlobalVariant(): string | null {
-		return globalActive;
-	}
-
-	/** Returns the named global macro variants stored in .glsld/config.json. */
-	export function getVariantsData(): Record<string, Record<string, string>> {
-		return getVariants();
+	export function getActiveGlobalMacros(): Record<string, string> {
+		const enabled: Record<string, string> = {};
+		for (const [name, entry] of Object.entries(getGlobalMacros())) {
+			if (entry.enabled) { enabled[name] = entry.value; }
+		}
+		return enabled;
 	}
 
 	/** Returns the raw per-file macro map. */
@@ -1090,12 +972,9 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 	}
 
 	export function getActiveVariants() {
-		const variants = getVariants();
 		const activeVariants: Array<{ textDocument?: { uri: string }; variant: string; macros: Record<string, string>; scope: 'global' | 'file' }> = [];
-
-		if (globalActive !== null) {
-			activeVariants.push({ variant: globalActive, macros: variants[globalActive] ?? {}, scope: 'global' });
-		}
+		const globalMacros = getActiveGlobalMacros();
+		if (Object.keys(globalMacros).length !== 0) { activeVariants.push({ variant: '__global__', macros: globalMacros, scope: 'global' }); }
 
 		for (const [uri, macros] of Object.entries(getFileMacros())) {
 			const enabled: Record<string, string> = {};
@@ -1116,7 +995,7 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 	export { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates };
 	export type { FileMacrosMap };
 
-	/** Push active variant + per-file macros to server on startup / file open. */
+	/** Push enabled global and per-file macros to server on startup / file open. */
 	export function pushMacroState(client: LanguageClient, fileUri?: vscode.Uri): void {
 		// Determine which documents to push for
 		const targets = fileUri
@@ -1127,17 +1006,7 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 
 		if (targets.length === 0) { return; }
 
-		// Global variant — use first available document URI as reference
-		if (globalActive !== null) {
-			const variants = getVariants();
-			const macros = variants[globalActive];
-			if (macros) {
-				client.sendNotification('glsld/selectVariant', {
-					textDocument: { uri: targets[0].toString() },
-					variant: globalActive, macros, scope: 'global',
-				});
-			}
-		}
+		sendGlobalMacros(client);
 
 		// Per-file macros
 		for (const uri of targets) {
