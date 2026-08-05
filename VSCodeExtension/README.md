@@ -1,54 +1,56 @@
 # glsld
 
+glsld is a language server and Visual Studio Code extension for GLSL. It provides preprocessing-aware completion, semantic analysis, navigation, diagnostics, formatting, background indexing, and SPIR-V compilation support for shader projects.
+
 > [!WARNING]
-> glsld is in early development. It is currently Windows only, and Linux builds are on the way. Features, configuration, and protocol details may change between releases.
+> glsld is still in early development. Only Windows packages are currently available, and features, configuration, and protocol details may change between releases.
 
 > [!NOTE]
-> This extension is an independent project and is not affiliated with another Visual Studio Code extension that also uses the name `glsld` (https://github.com/daiyousei-qz/glsld). I was the one who discovered the name collision only while preparing this extension for publication on the Visual Studio Code Marketplace.
+> This extension is an independent project and is not affiliated with the other Visual Studio Code extension named `glsld` at https://github.com/daiyousei-qz/glsld. The name collision was discovered while preparing this extension for publication.
 
-glsld is a language server and Visual Studio Code extension for GLSL. It provides language-aware editing features for shader projects, including preprocessing, semantic analysis, cross-file navigation, and background indexing.
-
-## Setup
+## Getting started
 
 Install the extension, open a folder containing GLSL source files, and configure the directories that should be indexed:
 
 ```json
 {
-    "glsld.backgroundIndex.roots": ["Shaders"]
+    "glsld.backgroundIndex.roots": ["${workspaceFolder}"]
 }
 ```
 
-The Windows extension package is intended to include the glsld server. A custom server executable can also be selected with `glsld.server.path`.
+Use `${workspaceFolder}/Shaders` to index a subdirectory instead. If the list is empty or absent, background indexing is disabled. The index cache is stored at `${workspaceFolder}/.glsld/BlobIndex.idx`.
 
-## Code completion
+The Windows extension package includes the language server at `bin/Win64/glsld.exe`. Leave `glsld.server.path` empty to use the bundled executable, or provide a custom executable path.
+
+## Completion
 
 glsld completes GLSL keywords, types, variables, functions, structure members, and other symbols available at the cursor.
 
-![Code completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CodeCompletion.png)
+![Code completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CodeCompletion.gif)
 
-### Extended completion
+### Extension completion
 
-Extended completion supplies context-aware candidates beyond direct symbol-name matching, helping complete common GLSL constructs and declarations.
+Extension names and behaviors are completed inside `#extension` directives.
 
-![Extended completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/ExtensionCompletion.png)
+![Extension completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/ExtensionCompletion.gif)
 
 ### Include completion
 
-Include paths are completed relative to the current file and the configured include directories.
+Include paths are completed relative to the current file, workspace, and configured system include directories.
 
-![Include completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/IncludeCompletion.png)
+![Include completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/IncludeCompletion.gif)
 
-### Overload resolve
+### Function overloads
 
-When a function has multiple signatures, glsld presents its overloads so that the appropriate parameter list and return type can be selected.
+When a function has multiple signatures, glsld presents the available overloads with their parameter and return types.
 
-![Overload resolve](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionOverloads.png)
+![Function overloads](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionOverloads.png)
 
 ### Signature help
 
-Signature help shows the active overload and highlights the parameter currently being entered.
+Signature help follows the active call, selects the matching overload, and highlights the parameter currently being entered.
 
-![Signature help](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SignatureHelp.png)
+![Signature help](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SignatureHelp.gif)
 
 ## Diagnostics
 
@@ -56,53 +58,61 @@ Syntax and semantic errors are reported while editing. Diagnostics can be enable
 
 ![Diagnostics](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Diagnostics.png)
 
-## Go to definition
+## Navigation
+
+### Go to definition
 
 Jump from a symbol use to its declaration or definition, including symbols declared in included files.
 
-| Symbol use | Definition target |
-| --- | --- |
-| ![Go to definition from a symbol use](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Goto1.png) | ![Go to definition target](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Goto2.png) |
+![Go to definition](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/GotoDefinition.gif)
 
-## Find references
+### Go to include
 
-Find symbol references across the workspace. Background indexing allows references in files that have not been opened in the editor to participate in the result.
+Open an included shader directly from its `#include` directive.
+
+![Go to include](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/GotoInclude.gif)
+
+### Find references
+
+Find symbol references across the workspace. Background indexing includes references from files that have not been opened in the editor.
 
 ![Find references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Reference.png)
 
-References are tracked across include boundaries as well as within the current file.
+References are also tracked across include boundaries.
 
 ![Cross-file references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CrossReference.png)
 
-## Hover
+## Hover information
 
 Hovering over a symbol displays its declaration and relevant type information.
 
-| Symbol information | Function information |
-| --- | --- |
-| ![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover1.png) | ![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover2.png) |
+### Variables and types
+
+![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover1.png)
+
+### Functions
+
+![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover2.png)
 
 ## Inlay hints
 
-glsld can display inline hints that make shader code easier to read. They can be toggled with `glsld.capabilities.inlayHints`.
+Inlay hints expose parameter names and other information that makes shader code easier to read. They can be toggled with `glsld.capabilities.inlayHints`.
 
 ![Inlay hints](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/InlayHints.png)
 
 ## Document symbols
 
-The document outline exposes declarations in the current shader and supports quick navigation through the file.
+The document outline lists declarations in the current shader and supports quick navigation through large files.
 
-## Preprocessor variants
+## Preprocessor macros
 
-Macro variants can be configured for the whole workspace or for an individual shader. The extension sends the active variant state to the server and refreshes affected documents when it changes.
+Global and per-file macros are managed from the glsld sidebar. Each macro has an independent checkbox, and enabled per-file macros are applied on top of enabled global macros. Changes are sent to the language server immediately so affected documents can be reprocessed.
 
-| Variant configuration | Variant applied to source code |
-| --- | --- |
-| ![Macro variant configuration](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant1.png) | ![Macro variant result](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant2.png) |
+![Preprocessor macro configuration](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant.gif)
 
-## Compile groups
+## SPIR-V compilation
 
-Compile groups collect shaders using configurable source patterns, command templates, output paths, macro variants, and concurrency settings. They can be compiled directly from the glsld sidebar.
+Compile groups collect shaders using source patterns, command templates, output paths, macro variants, and concurrency settings. Groups can be compiled directly from the glsld sidebar, and their configuration is stored in `.glsld/config.json`.
 
 ![Compile groups](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CompileGroups.png)
 
@@ -112,16 +122,15 @@ User-controlled settings belong in `.vscode/settings.json`:
 
 ```json
 {
-    "glsld.backgroundIndex.roots": ["Shaders", "Include"],
+    "glsld.backgroundIndex.roots": ["${workspaceFolder}/Shaders", "${workspaceFolder}/Include"],
     "glsld.capabilities.inlayHints": true,
-    "glsld.diagnostics.enabled": true,
-    "glsld.server.path": "bin/Win64/glsld.exe"
+    "glsld.diagnostics.enabled": true
 }
 ```
 
-The `.glsld/config.json` file stores shader and variant state generated by the extension. It is not intended to replace ordinary VS Code settings.
+Index paths may use `${workspaceFolder}` explicitly. System include directories, the language server executable, `glslc`, `clang-format`, mimalloc options, diagnostics, and language capabilities can also be configured through the Visual Studio Code Settings editor.
 
-If `glsld.backgroundIndex.roots` is empty or absent, glsld does not scan any directory for background indexing.
+The extension-generated `.glsld/config.json` stores shader overrides, macro state, and compile groups. It is separate from ordinary Visual Studio Code settings and should normally be managed through the glsld sidebar.
 
 ## Building the extension
 
@@ -140,4 +149,4 @@ npx @vscode/vsce package --target win32-x64
 
 ## License
 
-glsld is licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`), and the extension is licensed under the MIT License.
+glsld is licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`). The Visual Studio Code extension is licensed under the MIT License.

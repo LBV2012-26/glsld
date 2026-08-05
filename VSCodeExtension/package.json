@@ -1,11 +1,11 @@
 {
 	"name": "glsld",
-    "displayName": "glsld - GLSL Language Server",
-    "icon": "resources/icons/main.png",
+	"displayName": "glsld - GLSL Language Server",
+	"icon": "resources/icons/main.png",
 	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
 	"author": "LBV 2012-26",
 	"publisher": "LBV2012-26",
-	"version": "0.8.7",
+	"version": "0.8.9",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -87,8 +87,8 @@
 			"properties": {
 				"glsld.server.path": {
 					"type": "string",
-					"default": "bin/Win64/glsld.exe",
-					"description": "Path to the glsld executable. Relative paths are resolved from the extension directory."
+					"default": "",
+					"description": "Path to the glsld executable. Leave empty to use bin/Win64/glsld.exe bundled with the extension. Relative custom paths are resolved from the extension directory."
 				},
 				"glsld.mimalloc.largePages.enabled": {
 					"type": "boolean",
@@ -137,7 +137,7 @@
 					"items": {
 						"type": "string"
 					},
-					"description": "Workspace-relative or absolute directories included in the background index. No directories are indexed when this list is empty."
+					"description": "Directories included in the background index. Use ${workspaceFolder} for the workspace root, for example ${workspaceFolder}/Shaders. Absolute paths are also supported. No directories are indexed when this list is empty."
 				},
 				"glsld.systemIncludeDirectories": {
 					"type": "array",
@@ -147,17 +147,6 @@
 						"type": "string"
 					},
 					"description": "Directories searched for #include <...>. Relative paths are resolved against each workspace folder."
-				},
-				"glsld.shaderVariants": {
-					"type": "object",
-					"default": {},
-					"description": "Shader macro variants. Also editable via the sidebar UI.",
-					"patternProperties": {
-						".*": {
-							"type": "object",
-							"description": "Macro definitions for this variant."
-						}
-					}
 				},
 				"glsld.compileMaxConcurrency": {
 					"type": "number",
@@ -187,11 +176,11 @@
 			"glsld-sidebar": [
 				{
 					"id": "glsld.shaderVariant",
-					"name": "Global Variant"
+					"name": "Global Macros"
 				},
 				{
 					"id": "glsld.fileVariant",
-					"name": "File Variant"
+					"name": "File Macros"
 				},
 				{
 					"id": "glsld.shaderConfig",
@@ -206,12 +195,12 @@
 		"viewsWelcome": [
 			{
 				"view": "glsld.shaderVariant",
-				"contents": "No shader variants configured.\n[Add Variant](command:glsld.addVariant)\nVariants let you define macro sets and switch between them for different build configurations.",
+				"contents": "No global macros configured.\n[Add Global Macro](command:glsld.addVariant)\nGlobal macros apply to every shader and can be enabled independently.",
 				"when": "workbenchState != empty"
 			},
 			{
 				"view": "glsld.fileVariant",
-				"contents": "No per-file macros yet.\n[Add Macro to Current File](command:glsld.addFileMacro)\nPer-file macros stack on top of the global variant.",
+				"contents": "No per-file macros yet.\n[Add Macro to Current File](command:glsld.addFileMacro)\nPer-file macros stack on top of enabled global macros.",
 				"when": "workbenchState != empty"
 			},
 			{
@@ -227,29 +216,24 @@
 		],
 		"commands": [
 			{
-				"command": "glsld.selectVariant",
-				"title": "Select Shader Variant",
-				"category": "glsld"
-			},
-			{
 				"command": "glsld.addVariant",
-				"title": "Add Variant",
+				"title": "Add Global Macro",
 				"category": "glsld",
 				"icon": "$(add)"
 			},
 			{
 				"command": "glsld.editVariant",
-				"title": "Edit Variant",
+				"title": "Edit Global Macro",
 				"category": "glsld"
 			},
 			{
 				"command": "glsld.removeVariantCmd",
-				"title": "Delete Variant",
+				"title": "Delete Global Macro",
 				"category": "glsld"
 			},
 			{
 				"command": "glsld.refreshVariants",
-				"title": "Refresh Variants",
+				"title": "Refresh Macros",
 				"category": "glsld",
 				"icon": "$(refresh)"
 			},
@@ -371,11 +355,11 @@
 			"view/item/context": [
 				{
 					"command": "glsld.editVariant",
-					"when": "viewItem == variant"
+					"when": "viewItem == globalMacro"
 				},
 				{
 					"command": "glsld.removeVariantCmd",
-					"when": "viewItem == variant"
+					"when": "viewItem == globalMacro"
 				},
 				{
 					"command": "glsld.editFileMacro",
