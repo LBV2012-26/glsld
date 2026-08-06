@@ -15,20 +15,21 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Unicode.hpp"
+#include "Server/ExternalEngine/Formatter.hpp"
 #include "Server/Index/GlobalIndex.hpp"
 #include "Server/Context.hpp"
 
 namespace glsld {
-    nlohmann::json ConvertScopeToDocumentSymbols(
+    nlohmann::json GetDocumentSymbols(
         Context& context,
+        Snapshot snapshot,
         std::string_view uri,
-        const Scope* const scope,
         const PositionMapper& mapper);
 
     std::vector<std::uint32_t> GetSemanticData(
         Context& context,
-        const SourceFile* source_file,
         Snapshot snapshot,
+        const SourceFile* source_file,
         const PositionMapper& mapper);
 
     std::optional<std::string> GotoInclude(
@@ -37,7 +38,11 @@ namespace glsld {
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs);
 
-    SymbolList GetDefinitionSymbols(Context& context, Snapshot snapshot, const SourceLocation& location, bool toggle_function);
+    SymbolList GetDefinitionSymbols(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location,
+        bool toggle_function);
 
     struct ReferenceResult {
         std::vector<SourceLocation> locations;
@@ -58,7 +63,10 @@ namespace glsld {
         int active_param_index{};
     };
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, Snapshot snapshot, const SourceLocation& location);
+    std::optional<SignatureHelpResult> GetSignatureHelp(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location);
 
     nlohmann::json GetIncludeCompletionItems(
         Context& context, 
@@ -67,7 +75,10 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs,
         PositionMapper& mapper);
 
-    nlohmann::json GetCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location);
+    nlohmann::json GetCompletionItems(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location);
 
     nlohmann::json GetFieldCompletionItems(
         Context& context,
@@ -75,7 +86,10 @@ namespace glsld {
         const SourceLocation& location,
         const TypeMemberIndex& type_member_index);
 
-    nlohmann::json GetExtensionCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location);
+    nlohmann::json GetExtensionCompletionItems(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location);
 
     struct FunctionFormatResult {
         std::string return_typename;
@@ -90,5 +104,6 @@ namespace glsld {
         const SymbolInfo* symbol,
         Snapshot snapshot,
         const SourceLocation& location,
-        std::string_view current_uri);
+        std::string_view current_uri,
+        const Formatter& formatter);
 }

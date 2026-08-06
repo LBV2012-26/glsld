@@ -101,133 +101,170 @@ namespace glsld {
 
             paths.push_back(path);
         }
-    }
 
-    nlohmann::json ConvertScopeToDocumentSymbols(
-        Context& context,
-        std::string_view uri,
-        const Scope* const scope,
-        const PositionMapper& mapper)
-    {
-        nlohmann::json symbols = nlohmann::json::array();
+        nlohmann::json ConvertScopeToDocumentSymbols(
+            Context& context,
+            std::string_view uri,
+            const Scope* const scope,
+            const PositionMapper& mapper)
+        {
+            nlohmann::json symbols = nlohmann::json::array();
 
-        if (scope == nullptr) {
+            if (scope == nullptr) {
+                return symbols;
+            }
+
+            auto ConvertToLspRange = [&mapper](const auto& begin, const auto& end) -> nlohmann::json {
+                return {
+                    { "start", { { "line", begin.line() - 1 }, { "character", mapper.ToUtf16Character(begin.line(), begin.column()) } } },
+                    { "end",   { { "line", end.line()   - 1 }, { "character", mapper.ToUtf16Character(end.line(),   end.column()) } } }
+                };
+            };
+
+            auto ConvertToSelectionRange = [&mapper](const auto& location, std::string_view name) -> nlohmann::json {
+                return {
+                    { "start", { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column()) } } },
+                    { "end",   { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column() + static_cast<std::uint32_t>(name.length())) } } }
+                };
+            };
+
+            // split __Decl_ or __Impl_ on function
+            auto SplitSymbolName = [](std::string_view mangled_name) -> std::string_view {
+                if (mangled_name.starts_with("__Decl_")) {
+                    return mangled_name.substr(7);
+                } else if (mangled_name.starts_with("__Impl_")) {
+                    return mangled_name.substr(7);
+                } else {
+                    return mangled_name; // common token
+                }
+            };
+
+            ankerl::unordered_dense::set<const Scope*> handled_scopes;
+
+            for (const auto& [name, info] : scope->symbols()) {
+                ABORT_IF_CANCELLED();
+
+                const auto& location = info->location;
+                auto symbol_name = SplitSymbolName(info->name);
+                if (symbol_name.empty() ||
+                    location.source_file() == nullptr ||
+                    location.uri() != uri ||
+                    location.line() == 0 ||
+                    location.column() == 0)
+                {
+                    continue;
+                }
+
+                nlohmann::json symbol_node;
+
+                int symbol_kind = ConvertSymbolKind(info->kind);
+                if (symbol_kind == 13) {
+                    if (info->located_scope != nullptr &&
+                        (info->located_scope->kind() == ScopeKind::kBlock || info->located_scope->kind() == ScopeKind::kBlockTransparent))
+                    {
+                        symbol_kind = 8;
+                    }
+                }
+
+                symbol_node["name"] = symbol_name;
+                symbol_node["kind"] = symbol_kind;
+                symbol_node["selectionRange"] = ConvertToSelectionRange(info->location, info->name);
+
+                const Scope* child_scope = nullptr;
+                if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
+                    for (const auto& child : scope->children()) {
+                        ABORT_IF_CANCELLED();
+
+                        if (child->host_symbol() == info.get()) {
+                            child_scope = child.get();
+                            handled_scopes.insert(child_scope);
+                            break;
+                        }
+                    }
+
+                    if (info->kind == SymbolKind::kFunctionDecl) {
+                        symbol_node["detail"] = "(decl)";
+                    }
+                }
+
+                if (child_scope != nullptr) {
+                    symbol_node["range"] = ConvertToLspRange(info->location, child_scope->interval().second);
+                    if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
+                        auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope, mapper);
+                        if (!children.empty()) {
+                            symbol_node["children"] = children;
+                        }
+                    }
+                } else {
+                    symbol_node["range"] = symbol_node["selectionRange"];
+                }
+
+                auto& selection_range = symbol_node["selectionRange"];
+                auto& range           = symbol_node["range"];
+                if (range["end"]["line"]      <  selection_range["end"]["line"] ||
+                   (range["end"]["line"]      == selection_range["end"]["line"] &&
+                    range["end"]["character"] <  selection_range["end"]["character"]))
+                {
+                    range["end"] = selection_range["end"];
+                }
+
+                symbols.push_back(symbol_node);
+            }
+
+            // Transparent scope
+            for (const auto& child_scope : scope->children()) {
+                ABORT_IF_CANCELLED();
+
+                if ((child_scope->kind() == ScopeKind::kGlobalTransparent ||
+                     child_scope->kind() == ScopeKind::kBlockTransparent) &&
+                    !handled_scopes.contains(child_scope.get()))
+                {
+                    auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get(), mapper);
+                    for (const auto& child : transparent_children) {
+                        symbols.push_back(child);
+                    }
+                }
+            }
+
             return symbols;
         }
+    }
 
-        auto ConvertToLspRange = [&mapper](const auto& begin, const auto& end) -> nlohmann::json {
-            return {
-                { "start", { { "line", begin.line() - 1 }, { "character", mapper.ToUtf16Character(begin.line(), begin.column()) } } },
-                { "end",   { { "line", end.line()   - 1 }, { "character", mapper.ToUtf16Character(end.line(),   end.column()) } } }
-            };
-        };
+    nlohmann::json GetDocumentSymbols(
+        Context& context,
+        Snapshot snapshot,
+        std::string_view uri,
+        const PositionMapper& mapper)
+    {
+        auto result = ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
 
-        auto ConvertToSelectionRange = [&mapper](const auto& location, std::string_view name) -> nlohmann::json {
-            return {
-                { "start", { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column()) } } },
-                { "end",   { { "line", location.line() - 1 }, { "character", mapper.ToUtf16Character(location.line(), location.column() + static_cast<std::uint32_t>(name.length())) } } }
-            };
-        };
-
-        // split __Decl_ or __Impl_ on function
-        auto SplitSymbolName = [](std::string_view mangled_name) -> std::string_view {
-            if (mangled_name.starts_with("__Decl_")) {
-                return mangled_name.substr(7);
-            } else if (mangled_name.starts_with("__Impl_")) {
-                return mangled_name.substr(7);
-            } else {
-                return mangled_name; // common token
-            }
-        };
-
-        ankerl::unordered_dense::set<const Scope*> handled_scopes;
-
-        for (const auto& [name, info] : scope->symbols()) {
-            ABORT_IF_CANCELLED();
-
-            const auto& location = info->location;
-            auto symbol_name = SplitSymbolName(info->name);
-            if (symbol_name.empty() ||
-                location.source_file() == nullptr ||
-                location.uri() != uri ||
-                location.line() == 0 ||
-                location.column() == 0)
+        for (const auto& macro : snapshot->symbols.macro_symbols()) {
+            auto* symbol = macro.get();
+            if (symbol->location.source_file() == nullptr ||
+                symbol->location.uri() != uri ||
+                symbol->location.line() == 0)
             {
                 continue;
             }
 
-            nlohmann::json symbol_node;
+            auto* node = static_cast<const PreprocessorNode*>(symbol->node);
+            nlohmann::json macro_symbol{
+                { "name", symbol->name },
+                { "kind", ConvertSymbolKind(SymbolKind::kMacro) },
+                { "selectionRange", {
+                    { "start", { { "line", symbol->location.line() - 1 }, { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column()) } } },
+                    { "end",   { { "line", symbol->location.line() - 1 }, { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column() + static_cast<std::uint32_t>(symbol->name.length())) } } }
+                } },
+                { "range", {
+                    { "start", { { "line", node->begin.line() - 1 }, { "character", mapper.ToUtf16Character(node->begin.line(), node->begin.column()) } } },
+                    { "end",   { { "line", node->end.line()   - 1 }, { "character", mapper.ToUtf16Character(node->end.line(),   node->end.column()) } } }
+                } }
+            };
 
-            int symbol_kind = ConvertSymbolKind(info->kind);
-            if (symbol_kind == 13) {
-                if (info->located_scope != nullptr &&
-                    (info->located_scope->kind() == ScopeKind::kBlock || info->located_scope->kind() == ScopeKind::kBlockTransparent))
-                {
-                    symbol_kind = 8;
-                }
-            }
-
-            symbol_node["name"] = symbol_name;
-            symbol_node["kind"] = symbol_kind;
-            symbol_node["selectionRange"] = ConvertToSelectionRange(info->location, info->name);
-
-            const Scope* child_scope = nullptr;
-            if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
-                for (const auto& child : scope->children()) {
-                    ABORT_IF_CANCELLED();
-
-                    if (child->host_symbol() == info.get()) {
-                        child_scope = child.get();
-                        handled_scopes.insert(child_scope);
-                        break;
-                    }
-                }
-
-                if (info->kind == SymbolKind::kFunctionDecl) {
-                    symbol_node["detail"] = "(decl)";
-                }
-            }
-
-            if (child_scope != nullptr) {
-                symbol_node["range"] = ConvertToLspRange(info->location, child_scope->interval().second);
-                if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
-                    auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope, mapper);
-                    if (!children.empty()) {
-                        symbol_node["children"] = children;
-                    }
-                }
-            } else {
-                symbol_node["range"] = symbol_node["selectionRange"];
-            }
-
-            auto& selection_range = symbol_node["selectionRange"];
-            auto& range           = symbol_node["range"];
-            if (range["end"]["line"]      <  selection_range["end"]["line"] ||
-               (range["end"]["line"]      == selection_range["end"]["line"] &&
-                range["end"]["character"] <  selection_range["end"]["character"]))
-            {
-                range["end"] = selection_range["end"];
-            }
-
-            symbols.push_back(symbol_node);
+            result.push_back(std::move(macro_symbol));
         }
 
-        // Transparent scope
-        for (const auto& child_scope : scope->children()) {
-            ABORT_IF_CANCELLED();
-
-            if ((child_scope->kind() == ScopeKind::kGlobalTransparent ||
-                 child_scope->kind() == ScopeKind::kBlockTransparent) &&
-                !handled_scopes.contains(child_scope.get()))
-            {
-                auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get(), mapper);
-                for (const auto& child : transparent_children) {
-                    symbols.push_back(child);
-                }
-            }
-        }
-
-        return symbols;
+        return result;
     }
 
     namespace {
@@ -282,8 +319,8 @@ namespace glsld {
 
     std::vector<std::uint32_t> GetSemanticData(
         Context& context,
-        const SourceFile* source_file,
         Snapshot snapshot,
+        const SourceFile* source_file,
         const PositionMapper& mapper)
     {
         if (snapshot == nullptr) {
@@ -541,7 +578,12 @@ namespace glsld {
         }
     }
 
-    SymbolList GetDefinitionSymbols(Context& context, Snapshot snapshot, const SourceLocation& location, bool toggle_function) {
+    SymbolList GetDefinitionSymbols(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location,
+        bool toggle_function)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -682,7 +724,11 @@ namespace glsld {
         }
     }
 
-    std::optional<SignatureHelpResult> GetSignatureHelp(Context& context, Snapshot snapshot, const SourceLocation& location) {
+    std::optional<SignatureHelpResult> GetSignatureHelp(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location)
+    {
         if (snapshot == nullptr) {
             return std::nullopt;
         }
@@ -992,9 +1038,55 @@ namespace glsld {
                 return 10; // Enum
             return 1; // Text
         };
+
+        StringHeteroHashMap<const SymbolInfo*> GetActiveMacrosAt(const Document* snapshot, const SourceLocation& location) {
+            if (snapshot->ast == nullptr) {
+                return {};
+            }
+
+            StringHeteroHashMap<const SymbolInfo*> active_macros;
+            const auto& references = snapshot->ast->preprocessor_references;
+
+            for (const auto* node : references) {
+                if (node != nullptr && node->directive == "define" &&
+                    node->symbol != nullptr && node->begin.line() == 0)
+                {
+                    active_macros.insert_or_assign(node->symbol->name, node->symbol);
+                }
+            }
+
+            for (const auto* node : references) {
+                if (node == nullptr || node->begin.line() == 0) {
+                    continue;
+                }
+
+                if (node->begin.source_file() == location.source_file() && location <= node->end) {
+                    break;
+                }
+
+                if (node->directive == "define") {
+                    if (node->symbol != nullptr) {
+                        active_macros.insert_or_assign(node->symbol->name, node->symbol);
+                    }
+                    continue;
+                }
+
+                if (node->directive == "undef" && !node->tokens.empty() &&
+                    node->tokens.front().type == TokenType::kIdentifier)
+                {
+                    active_macros.erase(node->tokens.front().text);
+                }
+            }
+
+            return active_macros;
+        }
     }
 
-    nlohmann::json GetCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location) {
+    nlohmann::json GetCompletionItems(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -1003,6 +1095,12 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         std::vector<const SymbolInfo*> visible_symbols;
+
+        auto active_macros = GetActiveMacrosAt(snapshot.get(), location);
+        for (const auto& [_, symbol] : active_macros) {
+            visible_symbols.push_back(symbol);
+        }
+
         located_scope->GetVisibleSymbols(visible_symbols);
 
         nlohmann::json items = nlohmann::json::array();
@@ -1115,7 +1213,11 @@ namespace glsld {
         return items;
     }
 
-    nlohmann::json GetExtensionCompletionItems(Context& context, Snapshot snapshot, const SourceLocation& location) {
+    nlohmann::json GetExtensionCompletionItems(
+        Context& context,
+        Snapshot snapshot,
+        const SourceLocation& location)
+    {
         if (snapshot == nullptr) {
             return {};
         }
@@ -1899,90 +2001,29 @@ namespace glsld {
             return result;
         }
 
-        std::string RenderMacroExpansion(std::span<const Token> tokens) {
-            std::string result;
-            int indent = 0;
-            bool line_start = true;
-
-            auto EmitIndent = [&]() -> void {
-                for (int i = 0; i != indent * 4; ++i) {
-                    result += " ";
-                }
-
-                line_start = false;
-            };
-
-            auto EmitNewline = [&]() -> void {
-                result += '\n';
-                line_start = true;
-            };
-
+        std::string RenderMacroExpansion(std::span<const Token> tokens, const Formatter& formatter, const std::filesystem::path& filename) {
+            std::string snippet;
             const Token* previous = nullptr;
-            for (auto i = 0uz; i != tokens.size(); ++i) {
-                const auto& token = tokens[i];
 
-                if (token.type == TokenType::kOpenBrace) {
-                    if (previous != nullptr) {
-                        result += " ";
-                    }
-
-                    result += "{";
-                    ++indent;
-
-                    if (i + 1 < tokens.size() && tokens[i + 1].type != TokenType::kCloseBrace) {
-                        EmitNewline();
-                    }
-
-                    previous = nullptr;
+            for (const auto& token : tokens) {
+                if (token.type == TokenType::kBackslash) {
                     continue;
                 }
 
-                if (token.type == TokenType::kCloseBrace) {
-                    if (indent > 0)
-                        --indent;
-                    if (!line_start)
-                        EmitNewline();
-
-                    EmitIndent();
-                    result += "}";
-
-                    bool new_decl = false;
-                    if (i + 1 < tokens.size()) {
-                        const auto& next = tokens[i + 1];
-                        new_decl = next.type == TokenType::kPrimitive || next.type == TokenType::kBuiltInType ||
-                            (next.type == TokenType::kKeyword && next.text != "else" && next.text != "while");
-
-                        if (new_decl) {
-                            EmitNewline();
-                        }
-                    }
-
-                    previous = new_decl ? nullptr : &token;
-                    continue;
+                if (previous != nullptr && NeedSpace(*previous, token)) {
+                    snippet += ' ';
                 }
 
-                if (token.type == TokenType::kSemicolon) {
-                    result += ";";
-                    EmitNewline();
-                    previous = nullptr;
-                    continue;
-                }
-
-                if (line_start) {
-                    EmitIndent();
-                }
-
-                bool need_space = previous != nullptr && NeedSpace(*previous, token);
-                if (need_space && !line_start) {
-                    result += " ";
-                }
-
-                result += token.text;
+                snippet += token.text;
                 previous = &token;
-                line_start = false;
             }
 
-            return result;
+            if (snippet.empty()) {
+                return {};
+            }
+
+            auto formatted = formatter.FormatSnippet(snippet, filename);
+            return formatted.empty() ? snippet : formatted;
         }
 
         const ExpressionNode* FollowConstantChain(const ExpressionNode* expr) {
@@ -2014,7 +2055,8 @@ namespace glsld {
         const SymbolInfo* symbol,
         Snapshot snapshot,
         const SourceLocation& location,
-        std::string_view current_uri)
+        std::string_view current_uri,
+        const Formatter& formatter)
     {
         if (symbol == nullptr) {
             return {};
@@ -2181,14 +2223,16 @@ namespace glsld {
 
             if (cursor_index.has_value()) {
                 const auto& cursor_token = snapshot->raw_tokens.at(*cursor_index);
+                auto filename = utils::UriToPath(current_uri);
+
                 auto it = snapshot->macro_expansions.find(cursor_token.location);
                 if (it != snapshot->macro_expansions.end()) {
-                    auto expanded = RenderMacroExpansion(it->second);
+                    auto expanded = RenderMacroExpansion(it->second, formatter, filename);
                     if (!expanded.empty()) {
                         details = "\n\n// Expands to\n" + expanded + "\n```\n";
                     }
                 } else if (location == symbol->location) {
-                    auto body = RenderMacroExpansion(node->tokens);
+                    auto body = RenderMacroExpansion(node->tokens, formatter, filename);
                     if (!body.empty()) {
                         details = "\n\n// Expands to\n" + body + "\n```\n";
                     }
@@ -2207,7 +2251,7 @@ namespace glsld {
             std::string scope_prefix = "**field**";
             if (symbol->kind == SymbolKind::kParameter) {
                 scope_prefix = "**parameter**";
-            } else if (symbol->located_scope->kind() == ScopeKind::kMacroTemporary) {
+            } else if (symbol->located_scope->kind() == ScopeKind::kMacroBody) {
                 scope_prefix = "";
             } else if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
                 scope_prefix = "**global variable**";

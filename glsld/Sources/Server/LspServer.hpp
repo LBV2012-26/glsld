@@ -19,9 +19,9 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
+#include "Server/ExternalEngine/DiagnosticEngine.hpp"
+#include "Server/ExternalEngine/Formatter.hpp"
 #include "Server/Context.hpp"
-#include "Server/DiagnosticEngine.hpp"
-#include "Server/Formatter.hpp"
 #include "Server/Router.hpp"
 #include "Server/Workspace.hpp"
 

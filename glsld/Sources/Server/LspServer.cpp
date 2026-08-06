@@ -655,7 +655,7 @@ namespace glsld {
         PositionMapper mapper(snapshot->source);
 
         auto start  = std::chrono::high_resolution_clock::now();
-        auto result = ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
+        auto result = GetDocumentSymbols(context, snapshot, uri, mapper);
         auto end    = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "DocumentSymbol for {} took {} ms",
@@ -679,7 +679,7 @@ namespace glsld {
         const auto* source_file = workspace_.GetSource(uri);
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto data  = GetSemanticData(context, source_file, snapshot, mapper);
+        auto data  = GetSemanticData(context, snapshot, source_file, mapper);
         auto end   = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "SemanticTokens for {} took {} ms",
@@ -881,7 +881,7 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         if (symbols.size() == 1) {
-            markdown = BuildHoverMarkdown(symbols.front(), snapshot, target, uri);
+            markdown = BuildHoverMarkdown(symbols.front(), snapshot, target, uri, formatter_);
         } else {
             markdown = std::format("Ambiguous call (+{} candidates)\n\n---\n```glsl\n", symbols.size());
             for (const auto* symbol : symbols) {
