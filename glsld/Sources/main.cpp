@@ -26,7 +26,7 @@ namespace {
     int Benchmark() {
         using namespace glsld;
 
-        auto filename = utils::GetFilePath("Tests/BlackHoleHeavy.glsl.bak");
+        auto filename = utils::GetFilePath("Tests/Benchmark/BlackHoleHeavy.glsl.bak");
         auto shader_source = *LoadSource(filename);
 
         ThreadPool thread_pool;
@@ -40,7 +40,7 @@ namespace {
 
         auto include_dirs = std::make_shared<std::vector<std::filesystem::path>>(std::move(includes));
 
-        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/BlackHoleHeavy.glsl.bak");
+        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Benchmark/BlackHoleHeavy.glsl.bak");
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start    = std::chrono::high_resolution_clock::now();
@@ -105,7 +105,6 @@ int main() {
     // return Benchmark();
 
     glsld::Logger::GetInstance();
-    GLSLD_LOG(info, "glsld started.");
     glsld::LspServer server;
     server.Run();
 
