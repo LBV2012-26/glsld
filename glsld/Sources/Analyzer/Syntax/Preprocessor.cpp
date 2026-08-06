@@ -780,7 +780,15 @@ namespace glsld {
 
         auto PushArgument = [&](const Token& token) -> void {
             arguments.back().push_back(token);
-            document_.macro_args_traces.try_emplace(token.location, token);
+
+            MacroArgumentTrace trace{ token };
+
+            auto macro_it = document_.macro_table.find(token.text);
+            if (macro_it != document_.macro_table.end()) {
+                trace.definition = macro_it->second.original_token;
+            }
+
+            document_.macro_args_traces.try_emplace(token.location, std::move(trace));
         };
 
         for (; index < input.size(); ++index) {

@@ -121,7 +121,7 @@ namespace glsld {
     enum class ScopeKind {
         kBlock,
         kCommon,
-        kMacroTemporary,
+        kMacroBody,
         kGlobalTransparent,
         kBlockTransparent
     };
@@ -179,8 +179,11 @@ namespace glsld {
     public:
         DocumentSymbols();
 
+        SymbolInfo* AddMacroSymbol(const AstNode* node, std::string_view name, const SourceLocation& location);
+
         const Scope* FindScopeAt(const SourceLocation& location) const;
         const SymbolInfo* FindSymbolAt(std::string_view name, const SourceLocation& location) const;
+        const SymbolInfo* FindMacroSymbol(const Token& definition) const;
         SymbolReference FindFunctionsByOriginalName(std::string_view base_name) const;
         void Dump() const;
 
@@ -188,14 +191,17 @@ namespace glsld {
         void AddFunctionBaseName(std::string_view base_name, const SymbolInfo* symbol);
 
         Scope* root_scope() const;
+        const auto& macro_symbols() const;
 
     private:
         const Scope* FindScopeRecursive(const Scope* current, const SourceLocation& location) const;
         void PrintScopes(const Scope* scope, int indent_level) const;
 
-        std::unique_ptr<Scope>               root_scope_;
-        std::vector<const DocumentSymbols*>  builtin_symbols_;
-        StringHeteroHashMap<SymbolReference> function_name_map_;
+        std::unique_ptr<Scope>                              root_scope_;
+        std::vector<const DocumentSymbols*>                 builtin_symbols_;
+        StringHeteroHashMap<SymbolReference>                function_name_map_;
+        std::vector<std::unique_ptr<SymbolInfo>>            macro_symbols_;
+        StringHeteroHashMap<std::vector<const SymbolInfo*>> macro_symbols_by_name_;
     };
 }
 

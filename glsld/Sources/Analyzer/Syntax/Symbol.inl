@@ -99,6 +99,10 @@ namespace glsld {
         return root_scope_.get();
     }
 
+    inline const auto& DocumentSymbols::macro_symbols() const {
+        return macro_symbols_;
+    }
+
     inline void DocumentSymbols::AttachBuiltinSymbols(const DocumentSymbols* builtin) {
         builtin_symbols_.push_back(builtin);
     }

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -26,9 +27,15 @@ namespace glsld {
     };
 
     using MacroTraceMap     = ankerl::unordered_dense::map<SourceLocation, Token, LocationHash>;
-    using MacroArgsTraceMap = MacroTraceMap;
     using MacroExpansionMap = ankerl::unordered_dense::map<SourceLocation, std::vector<Token>, LocationHash>;
     using MacroTable        = StringHeteroHashMap<MacroDefinition>;
+
+    struct MacroArgumentTrace {
+        Token                token;
+        std::optional<Token> definition;
+    };
+
+    using MacroArgsTraceMap = ankerl::unordered_dense::map<SourceLocation, MacroArgumentTrace, LocationHash>;
 
     struct InactiveRegion {
         std::uint32_t begin_line{};
@@ -66,12 +73,13 @@ namespace glsld {
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&& other) noexcept;
 
+        void PrepareInjectedMacros(const SourceFile* source_file);
         void InjectMacro(std::string_view name, MacroDefinition definition);
         void InjectMacro(std::string_view name);
         void FinalizeInjectedMacros(const SourceFile* source_file);
 
     private:
-        std::vector<MacroDefinition>                   pending_macros_;
+        StringHeteroHashMap<MacroDefinition>           pending_macros_;
         std::vector<std::unique_ptr<PreprocessorNode>> injected_nodes_;
     };
 

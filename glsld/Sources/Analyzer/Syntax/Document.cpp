@@ -44,9 +44,23 @@ namespace glsld {
         return *this;
     }
 
+    void Document::PrepareInjectedMacros(const SourceFile* source_file) {
+        SourceLocation location(source_file, 0, 0);
+
+        for (auto& [name, definition] : pending_macros_) {
+            definition.original_token.location = location;
+
+            auto it = macro_table.find(name);
+            if (it != macro_table.end()) {
+                it->second.original_token.location = location;
+            }
+        }
+    }
+
     void Document::InjectMacro(std::string_view name, MacroDefinition definition) {
+        definition.original_token.text = name;
         macro_table.insert_or_assign(name, definition);
-        pending_macros_.push_back(std::move(definition));
+        pending_macros_.insert_or_assign(name, std::move(definition));
     }
 
     void Document::InjectMacro(std::string_view name) {
@@ -65,24 +79,16 @@ namespace glsld {
 
     void Document::FinalizeInjectedMacros(const SourceFile* source_file) {
         auto* root = symbols.root_scope();
+        SourceLocation location(source_file, 0, 0);
 
-        for (const auto& pending : pending_macros_) {
-            const auto& macro_name = pending.original_token.text;
-            if (root->FindSymbolInCurrentScope(macro_name) != nullptr) {
-                continue;
-            }
-
-            auto location = SourceLocation(source_file, 0, 0);
-
+        for (const auto& [name, definition] : pending_macros_) {
             auto node = std::make_unique<PreprocessorNode>(root);
+
             node->directive = "define";
             node->begin     = location;
             node->end       = location;
-            node->tokens    = pending.replacement_list;
-
-            auto* symbol = root->AddSymbol(node.get(), macro_name, location, SymbolKind::kMacro);
-            symbol->node = node.get();
-            node->symbol = symbol;
+            node->tokens    = definition.replacement_list;
+            node->symbol    = symbols.AddMacroSymbol(node.get(), name, location);
 
             ast->preprocessor_references.push_back(node.get());
             injected_nodes_.push_back(std::move(node));

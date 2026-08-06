@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <format>
 #include <print>
+#include <ranges>
+
 #include <magic_enum/magic_enum_all.hpp>
 
 #include "Base/Hash.hpp"
@@ -263,8 +265,8 @@ namespace glsld {
         if (unique_symbol->kind == SymbolKind::kInterface && unique_symbol->node != nullptr) {
             std::string_view storage;
 
-            const auto* declare = static_cast<const InterfaceDeclarationNode*>(unique_symbol->node);
-            for (const auto& specifier : declare->type_spec.specifiers) {
+            const auto* declaration = static_cast<const InterfaceDeclarationNode*>(unique_symbol->node);
+            for (const auto& specifier : declaration->type_spec.specifiers) {
                 if (specifier.text == "in" || specifier.text == "out") {
                     storage = specifier.text;
                     break;
@@ -323,6 +325,21 @@ namespace glsld {
         : root_scope_{ std::make_unique<Scope>(nullptr) }
     {}
 
+    SymbolInfo* DocumentSymbols::AddMacroSymbol(const AstNode * node, std::string_view name, const SourceLocation & location) {
+        auto symbol = std::make_unique<SymbolInfo>(SymbolInfo{
+            .name          = std::string(name),
+            .location      = location,
+            .kind          = SymbolKind::kMacro,
+            .located_scope = root_scope_.get(),
+            .node          = node
+        });
+
+        auto* result = symbol.get();
+        macro_symbols_.push_back(std::move(symbol));
+        macro_symbols_by_name_[result->name].push_back(result);
+        return result;
+    }
+
     const Scope* DocumentSymbols::FindScopeAt(const SourceLocation& location) const {
         return FindScopeRecursive(root_scope_.get(), location);
     }
@@ -331,6 +348,21 @@ namespace glsld {
         const auto* scope = FindScopeAt(location);
         if (scope != nullptr) {
             return scope->FindSymbol(name);
+        }
+
+        return nullptr;
+    }
+
+    const SymbolInfo* DocumentSymbols::FindMacroSymbol(const Token& definition) const {
+        auto it = macro_symbols_by_name_.find(definition.text);
+        if (it == macro_symbols_by_name_.end()) {
+            return nullptr;
+        }
+
+        for (const auto* symbol : it->second | std::views::reverse) {
+            if (symbol->location == definition.location) {
+                return symbol;
+            }
         }
 
         return nullptr;

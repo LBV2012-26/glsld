@@ -11,9 +11,8 @@ namespace glsld {
 
     private:
         void BindMacroInvocations();
-        void BindMacroBodyIdentifiers();
         void BindMacroFunctionArguments();
-        void BindMacroAfterDirective();
+        void BindPreprocessorIdentifiers();
 
         Document&      document_;
         int            version_replica_{};

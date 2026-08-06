@@ -29,6 +29,7 @@ namespace glsld {
         , version_pointer_{ version_pointer }
         , document_{ document }
     {
+        document_.PrepareInjectedMacros(source_file_);
         Parse(source_table, include_loader, include_dirs);
     }
 
@@ -237,7 +238,7 @@ namespace glsld {
             return node;
         }
 
-        node->symbol = document_.symbols.root_scope()->AddSymbol(node.get(), macro_token.text, macro_token.location, SymbolKind::kMacro);
+        node->symbol = document_.symbols.AddMacroSymbol(node.get(), macro_token.text, macro_token.location);
         ConsumeToken();
 
         auto IsAdjacent = [](const Token& first, const Token& second) -> bool {
@@ -268,7 +269,10 @@ namespace glsld {
         return node;
     }
 
-    std::vector<std::unique_ptr<StatementNode>> Parser::ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol) {
+    std::vector<std::unique_ptr<StatementNode>> Parser::ParseMacroBody(
+        std::span<const Token> body_tokens,
+        const SymbolInfo* host_symbol)
+    {
         std::vector<std::unique_ptr<StatementNode>> statements;
         if (body_tokens.empty()) {
             return statements;
@@ -288,7 +292,7 @@ namespace glsld {
         expanded_tokens_ = std::move(local_tokens);
         token_index_     = 0;
 
-        EnterScope(body_tokens.front().location, host_symbol, ScopeKind::kMacroTemporary);
+        EnterScope(body_tokens.front().location, host_symbol, ScopeKind::kMacroBody);
 
         while (current_token().type != TokenType::kEndOfFile) {
             const auto& token = current_token();

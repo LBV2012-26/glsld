@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "MacroBinder.hpp"
 
+#include <algorithm>
 #include <string_view>
 #include <utility>
 
@@ -11,138 +12,161 @@ namespace glsld {
         , version_pointer_{ version_pointer }
     {
         BindMacroInvocations();
-        BindMacroBodyIdentifiers();
         BindMacroFunctionArguments();
-        BindMacroAfterDirective();
+        BindPreprocessorIdentifiers();
     }
 
     void MacroBinder::BindMacroInvocations() {
         for (auto& token : document_.raw_tokens) {
-            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
                 return;
             }
 
             auto trace_it = document_.macro_traces.find(token.location);
-            if (trace_it != document_.macro_traces.end()) {
-                if (const auto* macro_symbol = document_.symbols.root_scope()->FindSymbol(trace_it->second.text)) {
-                    document_.bindings.insert_or_assign(token.location, macro_symbol);
-                    token.type = TokenType::kIdentifier;
-                }
-            }
-        }
-    }
-
-    void MacroBinder::BindMacroBodyIdentifiers() {
-        const auto& references = document_.ast->preprocessor_references;
-        for (const auto* node : references) {
-            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
-                return;
-            }
-
-            if (node->directive != "define") {
+            if (trace_it == document_.macro_traces.end()) {
                 continue;
             }
 
-            for (const auto& token : node->tokens) {
-                if (node->symbol == nullptr) {
-                    break;
-                }
-
-                const auto* scope = document_.symbols.FindScopeAt(node->symbol->location);
-                if (scope == nullptr) {
-                    continue;
-                }
-
-                const auto* symbol = scope->FindSymbol(token.text);
-                if (symbol != nullptr) {
-                    document_.bindings.try_emplace(token.location, symbol);
-                } else {
-                    auto symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
-                    if (!std::holds_alternative<std::monostate>(symbol_list)) {
-                        document_.bindings.try_emplace(token.location, std::move(symbol_list));
-                    }
-                }
+            auto* macro_symbol = document_.symbols.FindMacroSymbol(trace_it->second);
+            if (macro_symbol == nullptr) {
+                continue;
             }
+
+            document_.bindings.insert_or_assign(token.location, macro_symbol);
+            token.type = TokenType::kIdentifier;
         }
     }
 
     void MacroBinder::BindMacroFunctionArguments() {
-        for (const auto& [location, token] : document_.macro_args_traces) {
-            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+        for (const auto& [location, trace] : document_.macro_args_traces) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
                 return;
             }
 
-            const auto* scope = document_.symbols.FindScopeAt(location);
+            if (trace.definition.has_value()) {
+                auto* macro_symbol = document_.symbols.FindMacroSymbol(*trace.definition);
+                if (macro_symbol != nullptr) {
+                    document_.bindings.try_emplace(location, macro_symbol);
+                }
+                continue;
+            }
+
+            auto* scope = document_.symbols.FindScopeAt(location);
             if (scope == nullptr) {
                 continue;
             }
 
-            const auto* symbol = scope->FindSymbol(token.text);
+            auto* symbol = scope->FindSymbol(trace.token.text);
             if (symbol != nullptr) {
                 document_.bindings.try_emplace(location, symbol);
-            } else {
-                auto symbol_list = document_.symbols.FindFunctionsByOriginalName(token.text);
-                if (!std::holds_alternative<std::monostate>(symbol_list)) {
-                    document_.bindings.try_emplace(location, std::move(symbol_list));
-                }
+                continue;
+            }
+
+            auto functions = document_.symbols.FindFunctionsByOriginalName(trace.token.text);
+            if (!std::holds_alternative<std::monostate>(functions)) {
+                document_.bindings.try_emplace(location, std::move(functions));
             }
         }
     }
 
-    void MacroBinder::BindMacroAfterDirective() {
+    void MacroBinder::BindPreprocessorIdentifiers() {
         if (document_.ast == nullptr) {
             return;
         }
 
-        const auto* root_scope = document_.symbols.root_scope();
-        auto TryBindMacroIdentifier = [root_scope, this](const Token& token) -> void {
+        StringHeteroHashMap<const SymbolInfo*> active_macros;
+        const auto& references = document_.ast->preprocessor_references;
+
+        for (const auto* node : references) {
+            if (node != nullptr && node->directive == "define" &&
+                node->symbol != nullptr && node->begin.line() == 0)
+            {
+                active_macros.insert_or_assign(node->symbol->name, node->symbol);
+            }
+        }
+
+        auto BindActiveMacro = [this, &active_macros](const Token& token) -> bool {
             if (token.type != TokenType::kIdentifier) {
-                return;
+                return false;
             }
 
-            const auto* symbol = root_scope->FindSymbol(token.text);
-            if (symbol == nullptr || symbol->kind != SymbolKind::kMacro) {
-                return;
+            auto it = active_macros.find(token.text);
+            if (it == active_macros.end()) {
+                return false;
             }
 
-            document_.bindings.try_emplace(token.location, symbol);
+            document_.bindings.try_emplace(token.location, it->second);
+            return true;
         };
 
-        const auto& references = document_.ast->preprocessor_references;
-        for (const auto* node : references) {
-            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load()) {
+        auto BindRegularSymbol = [this](const Token& token, const Scope* scope) -> void {
+            if (token.type != TokenType::kIdentifier || scope == nullptr) {
                 return;
             }
 
-            if (node == nullptr) {
+            auto* symbol = scope->FindSymbol(token.text);
+            if (symbol != nullptr) {
+                document_.bindings.try_emplace(token.location, symbol);
+                return;
+            }
+
+            auto functions = document_.symbols.FindFunctionsByOriginalName(token.text);
+            if (!std::holds_alternative<std::monostate>(functions)) {
+                document_.bindings.try_emplace(token.location, std::move(functions));
+            }
+        };
+
+        for (const auto* node : references) {
+            if (version_pointer_ != nullptr && version_replica_ != version_pointer_->load(std::memory_order::relaxed)) {
+                return;
+            }
+
+            if (node == nullptr || node->begin.line() == 0) {
                 continue;
             }
 
-            if (node->directive != "include" && node->directive != "if" && node->directive != "elif" &&
-                node->directive != "ifdef"   && node->directive != "ifndef")
+            if (node->directive == "define") {
+                if (node->symbol == nullptr) {
+                    continue;
+                }
+
+                active_macros.insert_or_assign(node->symbol->name, node->symbol);
+                auto* scope = document_.symbols.FindScopeAt(node->symbol->location);
+
+                for (const auto& token : node->tokens) {
+                    if (std::ranges::contains(node->params, token.text)) {
+                        continue;
+                    }
+
+                    if (!BindActiveMacro(token)) {
+                        BindRegularSymbol(token, scope);
+                    }
+                }
+
+                continue;
+            }
+
+            if (node->directive == "undef") {
+                if (node->tokens.empty() || node->tokens.front().type != TokenType::kIdentifier) {
+                    continue;
+                }
+
+                BindActiveMacro(node->tokens.front());
+                active_macros.erase(node->tokens.front().text);
+                continue;
+            }
+
+            if (node->directive != "include" &&
+                node->directive != "if"      &&
+                node->directive != "elif"    &&
+                node->directive != "ifdef"   &&
+                node->directive != "ifndef")
             {
                 continue;
             }
 
-            const auto& tokens = node->tokens;
-            for (auto i = 0uz; i != tokens.size(); ++i) {
-                const auto& token = tokens[i];
-
-                if (token.text == "defined") {
-                    auto j = i + 1;
-                    if (j < tokens.size() && tokens[j].type == TokenType::kOpenParen) {
-                        ++j;
-                    }
-
-                    if (j < tokens.size() && tokens[j].type == TokenType::kIdentifier) {
-                        TryBindMacroIdentifier(tokens[j]);
-                        ++j;
-                    }
-
-                    continue;
-                }
-
-                TryBindMacroIdentifier(token);
+            for (const auto& token : node->tokens) {
+                BindActiveMacro(token);
             }
         }
     }
