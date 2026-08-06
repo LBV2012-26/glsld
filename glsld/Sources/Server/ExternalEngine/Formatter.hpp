@@ -17,6 +17,8 @@ namespace glsld {
             std::size_t start_line,
             std::size_t end_line) const;
 
+        std::string FormatSnippet(std::string_view source, const std::filesystem::path& filename) const;
+
         void set_clang_format_path(const std::filesystem::path& filename);
 
     private:

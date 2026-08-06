@@ -20,9 +20,10 @@ namespace glsld {
             "\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp",
             clang_format_path);
 
-        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+        int  exit_code = 0;
+        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
-        if (formatted.empty()) { // clang-format.exe not found
+        if (exit_code != 0 || formatted.empty()) {
             return {};
         }
 
@@ -35,7 +36,7 @@ namespace glsld {
         std::size_t start_line,
         std::size_t end_line) const
     {
-        std::string  clang_format_path;
+        std::string clang_format_path;
         {
             std::shared_lock lock(mutex_);
             clang_format_path = clang_format_path_;
@@ -46,10 +47,33 @@ namespace glsld {
             "--lines={}:{}",
             clang_format_path, start_line, end_line);
 
-        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source);
+        int  exit_code = 0;
+        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
-        if (formatted.empty()) { // clang-format.exe not found
+        if (exit_code != 0 && formatted.empty()) {
             return {};
+        }
+
+        return formatted;
+    }
+
+    std::string Formatter::FormatSnippet(std::string_view source, const std::filesystem::path& filename) const {
+        std::string clang_format_path;
+        {
+            std::shared_lock lock(mutex_);
+            clang_format_path = clang_format_path_;
+        }
+
+        auto command   = std::format("\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp", clang_format_path);
+        int  exit_code = 0;
+        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 1'000, &exit_code);
+
+        if (exit_code != 0 || formatted.empty()) {
+            return {};
+        }
+
+        while (!formatted.empty() && (formatted.back() == '\r' || formatted.back() == '\n')) {
+            formatted.pop_back();
         }
 
         return formatted;
