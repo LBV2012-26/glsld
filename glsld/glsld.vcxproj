@@ -157,7 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Sources\Server\Formatter.cpp" />
+    <ClCompile Include="Sources\Server\ExternalEngine\Formatter.cpp" />
     <ClCompile Include="Sources\Server\Index\IndexCache.cpp" />
     <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
     <ClCompile Include="Sources\Base\Arena.cpp" />
@@ -172,7 +172,7 @@
     <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
     <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
-    <ClCompile Include="Sources\Server\DiagnosticEngine.cpp" />
+    <ClCompile Include="Sources\Server\ExternalEngine\DiagnosticEngine.cpp" />
     <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
@@ -198,7 +198,7 @@
     <ClCompile Include="Sources\Base\Unicode.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\Server\Formatter.hpp" />
+    <ClInclude Include="Sources\Server\ExternalEngine\Formatter.hpp" />
     <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
     <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
     <ClInclude Include="Sources\Base\Arena.hpp" />
@@ -212,7 +212,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Server\DiagnosticEngine.hpp" />
+    <ClInclude Include="Sources\Server\ExternalEngine\DiagnosticEngine.hpp" />
     <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
