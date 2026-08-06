@@ -39,7 +39,8 @@ namespace glsld::utils {
         std::string_view command,
         std::string_view working_dir = {},
         std::string_view input = {},
-        int timeout_ms = 10'000);
+        int timeout_ms = 10'000,
+        int* exit_code = nullptr);
 }
 
 #include "Utils.inl"

@@ -288,7 +288,13 @@ namespace glsld::utils {
         return -static_cast<std::int64_t>(magnitude);
     }
 
-    std::string ExecuteCommand(std::string_view command, std::string_view working_dir, std::string_view input, int timeout_ms) {
+    std::string ExecuteCommand(
+        std::string_view command,
+        std::string_view working_dir,
+        std::string_view input,
+        int timeout_ms,
+        int* exit_code)
+    {
         SECURITY_ATTRIBUTES attributes{
             .nLength              = sizeof(attributes),
             .lpSecurityDescriptor = nullptr,
@@ -418,6 +424,11 @@ namespace glsld::utils {
                 DrainPipe();
                 break;
             }
+        }
+
+        DWORD process_exit_code = 0;
+        if (GetExitCodeProcess(info.hProcess, &process_exit_code) && exit_code != nullptr) {
+            *exit_code = static_cast<int>(process_exit_code);
         }
 
         CloseHandle(info.hProcess);
