@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\glsld\Externals\mimalloc\src\static.c">
+    <ClCompile Include="mimalloc\src\static.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -369,11 +369,9 @@ glsld/vcpkg_installed/
 .vcpkg/
 
 glsld/Win64
-/glsld/Output.txt
-/glsld/RefOutput.txt
-/glsld/Assets/a.spv
-glsld/reference.slang
-/glsld/Tools
-/glsld/Tests/Debugger.glsl
+glsld/Tools
+glsld/Tests/Debugger.glsl
 .glsld/
+
+# Built binary
 VSCodeExtension/bin/
