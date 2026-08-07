@@ -18,8 +18,8 @@ namespace glsld {
         void Reset() noexcept;
 
     private:
+        void FreeMemory() noexcept;
         void SwitchTo(std::size_t index) noexcept;
-        bool EnableLockMemoryPrivilege() noexcept;
         std::byte* AllocateBlock() noexcept;
 
         inline static constexpr auto kBlockSize = 2uz * 1024 * 1024; // 2MiB

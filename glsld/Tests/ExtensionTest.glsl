@@ -1,7 +1,7 @@
 #version 460
 #pragma shader_stage(raygen)
 
-#if defined(MACRO_NAME) && THIS_MACRO && !defined(FUCK_MACRO)
+#if defined(SHARED_MACRO) && UNIQUE_MACRO && !defined(INVERSE_MACRO)
 #include "Include.glsl"
 #endif
 

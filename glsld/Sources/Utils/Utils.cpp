@@ -10,7 +10,16 @@
 #include <limits>
 #include <system_error>
 
+#ifdef _WIN64
 #include <Windows.h>
+#else
+#include <csignal>
+#include <fcntl.h>
+#include <sys/select.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
 #include "Analyzer/Ast/Ast.hpp"
 
 namespace glsld::utils {
@@ -295,6 +304,7 @@ namespace glsld::utils {
         int timeout_ms,
         int* exit_code)
     {
+#ifdef _WIN64
         SECURITY_ATTRIBUTES attributes{
             .nLength              = sizeof(attributes),
             .lpSecurityDescriptor = nullptr,
@@ -436,5 +446,161 @@ namespace glsld::utils {
         CloseHandle(stdout_read);
 
         return output;
+#else
+        if (command.empty()) {
+            return {};
+        }
+
+        int stdout_pipe[2]{};
+        int stdin_pipe[2]{};
+
+        if (pipe(stdout_pipe) != 0) {
+            return {};
+        }
+
+        bool use_stdin = !input.empty();
+
+        if (use_stdin && pipe(stdin_pipe) != 0) {
+            close(stdout_pipe[0]);
+            close(stdout_pipe[1]);
+            return {};
+        }
+
+        auto pid = fork();
+
+        if (pid < 0) {
+            close(stdout_pipe[0]);
+            close(stdout_pipe[1]);
+
+            if (use_stdin) {
+                close(stdin_pipe[0]);
+                close(stdin_pipe[1]);
+            }
+
+            return {};
+        }
+
+        if (pid == 0) {
+            // child
+
+            if (!working_dir.empty()) {
+                chdir(std::string(working_dir).c_str());
+            }
+
+            // stdout/stderr
+            dup2(stdout_pipe[1], STDOUT_FILENO);
+            dup2(stdout_pipe[1], STDERR_FILENO);
+
+            close(stdout_pipe[0]);
+            close(stdout_pipe[1]);
+
+            if (use_stdin) {
+                dup2(stdin_pipe[0], STDIN_FILENO);
+                close(stdin_pipe[0]);
+                close(stdin_pipe[1]);
+            } else {
+                int devnull = open("/dev/null", O_RDONLY);
+                if (devnull >= 0) {
+                    dup2(devnull, STDIN_FILENO);
+                    close(devnull);
+                }
+            }
+
+            execl("/bin/sh", "sh", "-c", std::string(command).c_str(), nullptr);
+            _exit(127);
+        }
+
+        // parent
+
+        close(stdout_pipe[1]);
+
+        if (use_stdin) {
+            close(stdin_pipe[0]);
+
+            ssize_t total = 0;
+            while (total < static_cast<ssize_t>(input.size())) {
+                ssize_t n = write(stdin_pipe[1], input.data() + total, input.size() - total);
+                if (n <= 0) {
+                    break;
+                }
+
+                total += n;
+            }
+
+            close(stdin_pipe[1]);
+        }
+
+        std::string output;
+        std::array<char, 4096> buffer{};
+        auto start = std::chrono::steady_clock::now();
+
+        while (true) {
+            fd_set readfds;
+            FD_ZERO(&readfds);
+            FD_SET(stdout_pipe[0], &readfds);
+
+            timeval tv{};
+            tv.tv_sec  = 0;
+            tv.tv_usec = 10000; // 10ms
+
+            int ret = select(stdout_pipe[0] + 1, &readfds, nullptr, nullptr, &tv);
+            if (ret > 0 && FD_ISSET(stdout_pipe[0], &readfds)) {
+
+                ssize_t n = read(stdout_pipe[0], buffer.data(), buffer.size());
+                if (n > 0) {
+                    output.append(buffer.data(), n);
+                }
+            }
+
+            int  status = 0;
+            auto result = waitpid(pid, &status, WNOHANG);
+
+            if (result == pid) {
+                // drain remaining pipe
+                while (true) {
+                    ssize_t n = read(stdout_pipe[0], buffer.data(), buffer.size());
+                    if (n <= 0) {
+                        break;
+                    }
+
+                    output.append(buffer.data(), n);
+                }
+
+                if (exit_code != nullptr) {
+                    if (WIFEXITED(status)) {
+                        *exit_code = WEXITSTATUS(status);
+                    } else if (WIFSIGNALED(status)) {
+                        *exit_code = 128 + WTERMSIG(status);
+                    } else {
+                        *exit_code = -1;
+                    }
+                }
+
+                break;
+            }
+
+            bool timed_out = timeout_ms >= 0 && std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(timeout_ms);
+            if (timed_out) {
+                kill(pid, SIGTERM);
+
+                // 给进程一点退出机会
+                usleep(100000);
+                if (waitpid(pid, nullptr, WNOHANG) == 0) {
+                    kill(pid, SIGKILL);
+                }
+
+                waitpid(pid, nullptr, 0);
+
+                if (exit_code != nullptr) {
+                    *exit_code = 128 + SIGKILL;
+                }
+
+                break;
+            }
+        }
+
+        close(stdout_pipe[0]);
+        return output;
+#endif
     }
 }

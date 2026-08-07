@@ -1,7 +1,7 @@
 {
-  "name": "glsl-analyzer",
+  "name": "glsld",
   "version": "1.0.0",
-  "description": "OpenGL Shading Language Analyzer",
+  "description": "GLSL Language Server",
   "dependencies": [
     "magic-enum",
     "nlohmann-json",
@@ -9,5 +9,5 @@
     "spdlog",
     "unordered-dense"
   ],
-  "builtin-baseline": "6d9d7df564a1ccdaa994e4ad39ccd4a32360867b"
+  "builtin-baseline": "d92484ed3c5020c6679d095ad3e5add907887b62"
 }

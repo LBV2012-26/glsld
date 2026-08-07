@@ -1,10 +1,17 @@
 #include "pch.hpp"
 #include "Arena.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <utility>
+
+#ifdef _WIN64
 #include <Windows.h>
+#else
+#include <csignal>
+#include <sys/mman.h>
+#endif
 
 namespace glsld {
     Arena::Arena() noexcept {
@@ -20,20 +27,12 @@ namespace glsld {
     {}
 
     Arena::~Arena() {
-        for (auto* memory : blocks_) {
-            if (memory != nullptr) {
-                VirtualFree(memory, 0, MEM_RELEASE);
-            }
-        }
+        FreeMemory();
     }
 
     Arena& Arena::operator=(Arena&& other) noexcept {
         if (this != &other) {
-            for (auto* memory : blocks_) {
-                if (memory != nullptr) {
-                    VirtualFree(memory, 0, MEM_RELEASE);
-                }
-            }
+            FreeMemory();
 
             blocks_  = std::move(other.blocks_);
             current_ = std::exchange(other.current_, 0uz);
@@ -44,10 +43,18 @@ namespace glsld {
         return *this;
     }
 
-    std::byte* Arena::Allocate(std::size_t size, std::size_t alignment) {
-        auto address = (reinterpret_cast<std::uintptr_t>(memory_) + alignment - 1) & ~(alignment - 1);
+    namespace {
+        std::byte* AlignUp(std::byte* memory, std::size_t alignment) {
+            auto address = reinterpret_cast<std::uintptr_t>(memory);
+            address = (address + alignment - 1) & ~(alignment - 1);
+            return reinterpret_cast<std::byte*>(address);
+        };
+    }
 
-        if (address + size > reinterpret_cast<std::uintptr_t>(last_)) {
+    std::byte* Arena::Allocate(std::size_t size, std::size_t alignment) {
+        auto aligned = AlignUp(memory_, alignment);
+
+        if (reinterpret_cast<std::uintptr_t>(aligned) + size > reinterpret_cast<std::uintptr_t>(last_)) {
             auto next = current_ + 1;
             if (next < blocks_.size()) {
                 SwitchTo(next);
@@ -56,20 +63,28 @@ namespace glsld {
                 SwitchTo(blocks_.size() - 1);
             }
 
-            auto* memory = memory_;
-            memory_ += size;
-            return memory;
+            aligned = AlignUp(memory_, alignment);
         }
 
-        memory_ = reinterpret_cast<std::byte*>(address);
-        auto* memory = memory_;
-        memory_ += size;
-        return memory;
+        memory_ = aligned + size;
+        return aligned;
     }
 
     void Arena::Reset() noexcept {
         if (!blocks_.empty()) {
             SwitchTo(0);
+        }
+    }
+
+    void Arena::FreeMemory() noexcept {
+        for (auto* memory : blocks_) {
+            if (memory != nullptr) {
+#ifdef _WIN64
+                VirtualFree(memory, 0, MEM_RELEASE);
+#else
+                mumap(memory, kBlockSize);
+#endif
+            }
         }
     }
 
@@ -79,36 +94,18 @@ namespace glsld {
         last_    = memory_ + kBlockSize;
     }
 
-    bool Arena::EnableLockMemoryPrivilege() noexcept {
-        // HANDLE token = nullptr;
-        bool success = false;
-
-        // if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
-        //     TOKEN_PRIVILEGES token_privileges{};
-        //     LUID luid{};
-        // 
-        //     if (LookupPrivilegeValue(nullptr, SE_LOCK_MEMORY_NAME, &luid)) {
-        //         token_privileges.PrivilegeCount           = 1;
-        //         token_privileges.Privileges[0].Luid       = luid;
-        //         token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-        //         AdjustTokenPrivileges(token, FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), nullptr, nullptr);
-        // 
-        //         if (GetLastError() == ERROR_SUCCESS) {
-        //             success = true;
-        //         }
-        //     }
-        // 
-        //     CloseHandle(token);
-        // }
-
-        return success;
-    }
-
     std::byte* Arena::AllocateBlock() noexcept {
+#ifdef _WIN64
         auto* memory = VirtualAlloc(nullptr, kBlockSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
         if (memory == nullptr) {
             __fastfail(1);
         }
+#else
+        auto* memory = mmap(nullptr, kBlockSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (memory == MAP_FAILED) {
+            std::raise(SIGKILL);
+        }
+#endif
 
         return static_cast<std::byte*>(memory);
     }

@@ -11,5 +11,6 @@
 		"Tests"
 	],
 	"glsld.diagnostics.enabled": true,
-	"glsld.glslc.path": ""
+	"glsld.glslc.path": "",
+	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe"
 }

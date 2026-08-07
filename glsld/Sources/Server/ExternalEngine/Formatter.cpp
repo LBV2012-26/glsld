@@ -81,6 +81,11 @@ namespace glsld {
 
     void Formatter::set_clang_format_path(const std::filesystem::path& filename) {
         std::lock_guard lock(mutex_);
-        clang_format_path_ = filename.empty() ? "clang-format.exe" : filename.generic_string();
+#ifdef _WIN64
+        auto default_path = "clang-format.exe";
+#else
+        auto default_path = "clang-format";
+#endif
+        clang_format_path_ = filename.empty() ? default_path : filename.generic_string();
     }
 }

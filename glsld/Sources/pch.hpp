@@ -2,9 +2,15 @@
 
 #include "xstdafx.hpp"
 
+#include <ankerl/unordered_dense.h>
+#include <magic_enum/magic_enum_all.hpp>
 #include <mimalloc.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#define NOMINMAX
-#include <Windows.h>
+#ifdef _WIN64
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#    include <Windows.h>
+#  endif
+#endif

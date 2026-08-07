@@ -185,7 +185,9 @@ int g5_b;
 int g5_c;
 #endif
 
-#if UNDEFINED_IDENTIFIER
+#undef EMPTY
+
+#if defined(EMPTY) || UNDEFINED_IDENTIFIER
 int g5_d;
 #endif
 

@@ -23,6 +23,10 @@ namespace glsld {
 
     private:
         mutable std::shared_mutex mutex_;
-        std::string               clang_format_path_{ "clang-format.exe" };
+#ifdef _WIN64
+        std::string clang_format_path_{ "clang-format.exe" };
+#else
+        std::string clang_format_path_{ "clang-format" };
+#endif
     };
 }

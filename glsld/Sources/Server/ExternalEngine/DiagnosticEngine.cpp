@@ -20,18 +20,23 @@
 namespace glsld {
     namespace {
         std::string FindGlslc() {
-            char* vksdk = nullptr;
-            auto length = 0uz;
-            if (_dupenv_s(&vksdk, &length, "VULKAN_SDK") == 0 && vksdk != nullptr && length > 0) {
-                auto path = std::format("{}/Bin/glslc.exe", vksdk);
-                std::free(vksdk);
-
+            const char* vksdk = std::getenv("VULKAN_SDK");
+            if (vksdk != nullptr) {
+#ifdef _WIN64
+                auto path = std::filesystem::path(vksdk) / "Bin" / "glslc.exe";
+#else
+                auto path = std::filesystem::path(vksdk) / "bin" / "glslc";
+#endif
                 if (std::filesystem::exists(path)) {
-                    return path;
+                    return path.string();
                 }
             }
 
+#ifdef _WIN64
             return "glslc.exe";
+#else
+            return "glslc";
+#endif
         }
     }
 
