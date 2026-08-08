@@ -154,86 +154,87 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>mimalloc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LinkTimeCodeGeneration>PGOptimization</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Sources\Server\ExternalEngine\Formatter.cpp" />
-    <ClCompile Include="Sources\Server\Index\IndexCache.cpp" />
-    <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
-    <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
-    <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
-    <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
-    <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
-    <ClCompile Include="Sources\Server\ExternalEngine\DiagnosticEngine.cpp" />
-    <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Symbol.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Lexer.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
+    <ClCompile Include="Sources\Analyzer\Syntax\Symbol.cpp" />
+    <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
+    <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
+    <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Base\Logger.cpp" />
     <ClCompile Include="Sources\Base\ThreadPool.cpp" />
-    <ClCompile Include="Sources\main.cpp" />
+    <ClCompile Include="Sources\Base\Unicode.cpp" />
+    <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
+    <ClCompile Include="Sources\Server\ExternalEngine\DiagnosticEngine.cpp" />
+    <ClCompile Include="Sources\Server\ExternalEngine\Formatter.cpp" />
+    <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
+    <ClCompile Include="Sources\Server\Index\IndexCache.cpp" />
+    <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
     <ClCompile Include="Sources\Server\JsonResponse.cpp" />
-    <ClCompile Include="Sources\Server\Router.cpp" />
     <ClCompile Include="Sources\Server\LspServer.cpp" />
+    <ClCompile Include="Sources\Server\Router.cpp" />
+    <ClCompile Include="Sources\Server\Workspace.cpp" />
+    <ClCompile Include="Sources\Utils\Utils.cpp" />
+    <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.hpp</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.hpp</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Sources\Utils\Utils.cpp" />
-    <ClCompile Include="Sources\Server\Workspace.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Base\Unicode.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\Server\ExternalEngine\Formatter.hpp" />
-    <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
-    <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
-    <ClInclude Include="Sources\Base\Arena.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
-    <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
-    <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
-    <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Server\ExternalEngine\DiagnosticEngine.hpp" />
-    <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
+    <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Symbol.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Lexer.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
+    <ClInclude Include="Sources\Analyzer\Syntax\Symbol.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
+    <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
+    <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
+    <ClInclude Include="Sources\Base\Arena.hpp" />
+    <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Base\Logger.hpp" />
     <ClInclude Include="Sources\Base\ThreadPool.hpp" />
-    <ClInclude Include="Sources\Server\Context.hpp" />
-    <ClInclude Include="Sources\Server\JsonResponse.hpp" />
-    <ClInclude Include="Sources\Server\Router.hpp" />
-    <ClInclude Include="Sources\Server\LspServer.hpp" />
-    <ClInclude Include="Sources\pch.hpp" />
-    <ClInclude Include="Sources\Utils\Utils.hpp" />
-    <ClInclude Include="Sources\xstdafx.hpp" />
-    <ClInclude Include="Sources\Server\Workspace.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
     <ClInclude Include="Sources\Base\Unicode.hpp" />
+    <ClInclude Include="Sources\Server\ExternalEngine\DiagnosticEngine.hpp" />
+    <ClInclude Include="Sources\Server\ExternalEngine\Formatter.hpp" />
+    <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
+    <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
+    <ClInclude Include="Sources\Server\Context.hpp" />
+    <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
+    <ClInclude Include="Sources\Server\JsonResponse.hpp" />
+    <ClInclude Include="Sources\Server\LspServer.hpp" />
+    <ClInclude Include="Sources\Server\Router.hpp" />
+    <ClInclude Include="Sources\Server\Workspace.hpp" />
+    <ClInclude Include="Sources\Utils\Utils.hpp" />
+    <ClInclude Include="Sources\pch.hpp" />
+    <ClInclude Include="Sources\xstdafx.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Analyzer\Ast\Ast.inl" />
