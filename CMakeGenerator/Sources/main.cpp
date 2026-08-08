@@ -245,8 +245,9 @@ ClCompileSettings ParseClCompile(
             if (!trimed_item.empty()) {
                 try {
                     auto absolute = std::filesystem::absolute(std::move(trimed_item));
-                    auto relative = std::filesystem::relative(absolute, project_dir);
-                    settings.include_dirs.push_back(relative.generic_string());
+                    auto relative = std::filesystem::relative(absolute, project_dir).generic_string();
+                    std::ranges::replace(relative, '\\', '/');
+                    settings.include_dirs.push_back(std::move(relative));
                 } catch (...) {
                     settings.include_dirs.push_back(std::move(trimed_item));
                 }
@@ -500,6 +501,69 @@ std::string GenerateCMakeLists(
     return result;
 }
 
+bool IsCommandAvailable(std::string_view command) {
+    auto check_command = "which " + std::string(command) + " > /dev/null 2>&1";
+    return std::system(check_command.c_str()) == 0;
+}
+
+std::optional<std::string> FindClangExecutable() {
+    if (IsCommandAvailable("clang++")) {
+        return "clang++";
+    }
+
+    for (int version = 25; version >= 12; --version) {
+        std::string candidate = std::format("clang++-{}", version);
+        if (IsCommandAvailable(candidate)) {
+            return candidate;
+        }
+    }
+
+    return std::nullopt;
+}
+
+bool RunCMakeWorkflow(const std::filesystem::path& target_dir) {
+    try {
+        std::println("\n[CMake Helper] Changing directory to: {}", target_dir.generic_string());
+        std::filesystem::current_path(target_dir);
+    } catch (const std::exception& e) {
+        std::println(stderr, "ERROR: Failed to change directory: {}", e.what());
+        return false;
+    }
+
+    if (!IsCommandAvailable("cmake")) {
+        std::println(stderr, "ERROR: 'cmake' is not found in PATH. Skipping build.");
+        return false;
+    }
+
+    std::string cmake_config_cmd = "cmake -B Linux -S . -DCMAKE_BUILD_TYPE=Release";
+
+    auto clang_executable = FindClangExecutable();
+    if (!clang_executable.has_value()) {
+        std::println(stderr, "ERROR: This repo will cause GCC internal compiler errors. Use clang please.");
+        return false;
+    }
+
+    cmake_config_cmd += " -DCMAKE_CXX_COMPILER=" + *clang_executable;
+
+    std::println("[CMake Helper] Executing: {}", cmake_config_cmd);
+    int config_result = std::system(cmake_config_cmd.c_str());
+    if (config_result != 0) {
+        std::println(stderr, "ERROR: CMake configuration failed with code {}", config_result);
+        return false;
+    }
+
+    std::string cmake_build_cmd = "cmake --build Linux --config Release";
+    std::println("[CMake Helper] Executing: {}", cmake_build_cmd);
+    int build_result = std::system(cmake_build_cmd.c_str());
+    if (build_result != 0) {
+        std::println(stderr, "ERROR: CMake build failed with code {}", build_result);
+        return false;
+    }
+
+    std::println("[CMake Helper] CMake workflow completed successfully. Built executable located at: glsld/Linux/glsld");
+    return true;
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -572,6 +636,12 @@ int main() {
     WriteFile(cmake_out, cmake);
     std::println("  Written {} bytes to {}", cmake.size(), cmake_out.generic_string());
 
+#ifdef __linux__
+    if (!RunCMakeWorkflow(glsld_dir)) {
+        std::println(stderr, "Warning: CMake generation succeeded, but CMake build execution failed.");
+    }
+#endif
+
     std::println("\nDone.");
-    return 0;
+    return EXIT_SUCCESS;
 }
