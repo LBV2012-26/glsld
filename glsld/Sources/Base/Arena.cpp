@@ -82,7 +82,7 @@ namespace glsld {
 #ifdef _WIN64
                 VirtualFree(memory, 0, MEM_RELEASE);
 #else
-                mumap(memory, kBlockSize);
+                munmap(memory, kBlockSize);
 #endif
             }
         }
