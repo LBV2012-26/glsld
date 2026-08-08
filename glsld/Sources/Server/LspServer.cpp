@@ -644,7 +644,7 @@ namespace glsld {
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         ABORT_IF_CANCELLED();
@@ -667,7 +667,7 @@ namespace glsld {
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -692,7 +692,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -760,7 +760,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -811,7 +811,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -861,7 +861,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -906,7 +906,7 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -983,7 +983,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -1042,7 +1042,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
@@ -1100,7 +1100,7 @@ namespace glsld {
     nlohmann::json LspServer::HandleFormatting(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
@@ -1128,7 +1128,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& range      = context.params["range"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
@@ -1159,7 +1159,7 @@ namespace glsld {
     nlohmann::json LspServer::HandleOnTypeFormatting(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri);
+        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
         const auto  snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
@@ -1194,7 +1194,7 @@ namespace glsld {
         int version            = document["version"];
 
         auto deadline = std::chrono::steady_clock::now();
-        auto uri      = NormalizeUri(origin_uri);
+        auto uri      = NormalizeUri(origin_uri.get<std::string_view>());
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -1225,7 +1225,7 @@ namespace glsld {
 
         using namespace std::chrono_literals;
         auto deadline = std::chrono::steady_clock::now() + 0ms;
-        auto uri      = NormalizeUri(origin_uri);
+        auto uri      = NormalizeUri(origin_uri.get<std::string_view>());
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -1254,7 +1254,7 @@ namespace glsld {
         const auto& document   = context.params["textDocument"];
         const auto& origin_uri = document["uri"];
 
-        auto uri = NormalizeUri(origin_uri);
+        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
         workspace_.InvalidateInclude(uri);
 
         auto affected_uris = workspace_.GetAffectedDocuments(uri);
@@ -1271,7 +1271,7 @@ namespace glsld {
 
     void LspServer::HandleDidClose(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto uri = NormalizeUri(origin_uri);
+        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
         workspace_.CloseDocument(uri);
 
         {
@@ -1330,7 +1330,7 @@ namespace glsld {
 
     void LspServer::HandleRemoveConfiguration(Context& context) {
         const auto& origin_uri = context.params["uri"];
-        auto uri = NormalizeUri(origin_uri);
+        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
 
         workspace_.RemoveExtraShaderConfig(uri);
         RefreshDocument(uri);
@@ -1370,7 +1370,7 @@ namespace glsld {
             RebuildDocuments();
         } else {
             const auto& origin_uri = context.params["textDocument"]["uri"];
-            auto uri = NormalizeUri(origin_uri);
+            auto uri = NormalizeUri(origin_uri.get<std::string_view>());
             workspace_.ChangeVariant(VariantType::kUnique, std::move(variant), uri);
             RefreshDocument(uri);
         }
@@ -1384,7 +1384,7 @@ namespace glsld {
             RebuildDocuments();
         } else {
             const auto& origin_uri = context.params["textDocument"]["uri"];
-            auto uri = NormalizeUri(origin_uri);
+            auto uri = NormalizeUri(origin_uri.get<std::string_view>());
             workspace_.RemoveVariant(VariantType::kUnique, uri);
             RefreshDocument(uri);
         }

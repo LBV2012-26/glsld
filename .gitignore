@@ -369,9 +369,13 @@ glsld/vcpkg_installed/
 .vcpkg/
 
 glsld/Win64
+glsld/Linux
 glsld/Tools
 glsld/Tests/Debugger.glsl
 .glsld/
+
+# Generated CMakeLists.txt
+glsld/CMakeLists.txt
 
 # Built binary
 VSCodeExtension/bin/

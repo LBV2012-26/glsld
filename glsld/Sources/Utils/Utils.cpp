@@ -1,8 +1,8 @@
 #include "pch.hpp"
 #include "Utils.hpp"
 
-#include <algorithm>
 #include <cctype>
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -13,6 +13,7 @@
 #ifdef _WIN64
 #include <Windows.h>
 #else
+#include <cerrno>
 #include <csignal>
 #include <fcntl.h>
 #include <sys/select.h>
@@ -59,10 +60,14 @@ namespace glsld::utils {
     }
 
     std::string GetFilePath(std::string_view filename) {
+#ifdef _WIN64
         std::array<wchar_t, MAX_PATH> buffer{};
-        GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        GetModuleFileName(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
 
         auto work_directory = std::filesystem::path(buffer.data()).parent_path().parent_path();
+#else
+        auto work_directory = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+#endif
         auto file_path = work_directory / std::filesystem::path(filename);
 
         return file_path.generic_string();
@@ -297,6 +302,57 @@ namespace glsld::utils {
         return -static_cast<std::int64_t>(magnitude);
     }
 
+#ifndef _WIN64
+    namespace {
+        std::vector<std::string> ParseCommand(std::string_view command) {
+            std::vector<std::string> args;
+            std::string current;
+            char quote  = 0;
+            bool escape = false;
+
+            for (char ch : command) {
+                if (escape) {
+                    current += ch;
+                    escape = false;
+                    continue;
+                }
+
+                if (ch == '\\' && quote != '\'') {
+                    escape = true;
+                    continue;
+                }
+
+                if (quote) {
+                    if (ch == quote) {
+                        quote = 0;
+                    } else {
+                        current += ch;
+                    }
+                    continue;
+                }
+
+                if (ch == '\'' || ch == '"') {
+                    quote = ch;
+                } else if (std::isspace(static_cast<unsigned char>(ch))) {
+                    if (!current.empty()) {
+                        args.emplace_back(std::move(current));
+                        current.clear();
+                    }
+                } else {
+                    current += ch;
+                }
+            }
+
+            if (escape)
+                current += '\\';
+            if (!current.empty())
+                args.emplace_back(std::move(current));
+
+            return args;
+        };
+    }
+#endif
+
     std::string ExecuteCommand(
         std::string_view command,
         std::string_view working_dir,
@@ -451,16 +507,27 @@ namespace glsld::utils {
             return {};
         }
 
-        int stdout_pipe[2]{};
-        int stdin_pipe[2]{};
+        auto args = ParseCommand(command);
+        if (args.empty()) {
+            return {};
+        }
 
-        if (pipe(stdout_pipe) != 0) {
+        std::vector<char*> argv;
+        argv.reserve(args.size() + 1);
+        for (const auto& arg : args) {
+            argv.push_back(const_cast<char*>(arg.data()));
+        }
+
+        std::array<int, 2> stdout_pipe{};
+        std::array<int, 2> stdin_pipe{};
+
+        if (pipe(stdout_pipe.data()) != 0) {
             return {};
         }
 
         bool use_stdin = !input.empty();
 
-        if (use_stdin && pipe(stdin_pipe) != 0) {
+        if (use_stdin && pipe(stdin_pipe.data()) != 0) {
             close(stdout_pipe[0]);
             close(stdout_pipe[1]);
             return {};
@@ -471,7 +538,6 @@ namespace glsld::utils {
         if (pid < 0) {
             close(stdout_pipe[0]);
             close(stdout_pipe[1]);
-
             if (use_stdin) {
                 close(stdin_pipe[0]);
                 close(stdin_pipe[1]);
@@ -482,22 +548,22 @@ namespace glsld::utils {
 
         if (pid == 0) {
             // child
-
-            if (!working_dir.empty()) {
-                chdir(std::string(working_dir).c_str());
+            close(stdout_pipe[0]);
+            // stdout/stderr
+            if (dup2(stdout_pipe[1], STDOUT_FILENO) < 0 ||
+                dup2(stdout_pipe[1], STDERR_FILENO) < 0)
+            {
+                _exit(126);
             }
 
-            // stdout/stderr
-            dup2(stdout_pipe[1], STDOUT_FILENO);
-            dup2(stdout_pipe[1], STDERR_FILENO);
-
-            close(stdout_pipe[0]);
             close(stdout_pipe[1]);
 
             if (use_stdin) {
-                dup2(stdin_pipe[0], STDIN_FILENO);
-                close(stdin_pipe[0]);
                 close(stdin_pipe[1]);
+                if (dup2(stdin_pipe[0], STDIN_FILENO) < 0) {
+                    _exit(126);
+                }
+                close(stdin_pipe[0]);
             } else {
                 int devnull = open("/dev/null", O_RDONLY);
                 if (devnull >= 0) {
@@ -506,8 +572,14 @@ namespace glsld::utils {
                 }
             }
 
-            execl("/bin/sh", "sh", "-c", std::string(command).c_str(), nullptr);
-            _exit(127);
+            if (!working_dir.empty()) {
+                if (chdir(std::string(working_dir).c_str()) != 0) {
+                    _exit(126);
+                }
+            }
+
+            execvp(argv[0], argv.data());
+            _exit(errno == ENOENT ? 127 : 126);
         }
 
         // parent
@@ -523,7 +595,6 @@ namespace glsld::utils {
                 if (n <= 0) {
                     break;
                 }
-
                 total += n;
             }
 
@@ -545,7 +616,6 @@ namespace glsld::utils {
 
             int ret = select(stdout_pipe[0] + 1, &readfds, nullptr, nullptr, &tv);
             if (ret > 0 && FD_ISSET(stdout_pipe[0], &readfds)) {
-
                 ssize_t n = read(stdout_pipe[0], buffer.data(), buffer.size());
                 if (n > 0) {
                     output.append(buffer.data(), n);
@@ -554,7 +624,6 @@ namespace glsld::utils {
 
             int  status = 0;
             auto result = waitpid(pid, &status, WNOHANG);
-
             if (result == pid) {
                 // drain remaining pipe
                 while (true) {
@@ -562,7 +631,6 @@ namespace glsld::utils {
                     if (n <= 0) {
                         break;
                     }
-
                     output.append(buffer.data(), n);
                 }
 
@@ -582,17 +650,23 @@ namespace glsld::utils {
             bool timed_out = timeout_ms >= 0 && std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(timeout_ms);
             if (timed_out) {
                 kill(pid, SIGTERM);
+                bool segterm_success = true;
 
-                // 给进程一点退出机会
                 usleep(100000);
                 if (waitpid(pid, nullptr, WNOHANG) == 0) {
                     kill(pid, SIGKILL);
+                    segterm_success = false;
                 }
 
-                waitpid(pid, nullptr, 0);
+                int status = 0;
+                waitpid(pid, &status, 0);
 
-                if (exit_code != nullptr) {
-                    *exit_code = 128 + SIGKILL;
+                if (exit_code) {
+                    if (WIFSIGNALED(status)) {
+                        *exit_code = 128 + WTERMSIG(status);
+                    } else if (WIFEXITED(status)) {
+                        *exit_code = WEXITSTATUS(status);
+                    }
                 }
 
                 break;

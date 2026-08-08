@@ -20,7 +20,7 @@ namespace glsld {
             "\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp",
             clang_format_path);
 
-        int  exit_code = 0;
+        int  exit_code = -1;
         auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
         if (exit_code != 0 || formatted.empty()) {
@@ -47,7 +47,7 @@ namespace glsld {
             "--lines={}:{}",
             clang_format_path, start_line, end_line);
 
-        int  exit_code = 0;
+        int  exit_code = -1;
         auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
         if (exit_code != 0 && formatted.empty()) {
@@ -65,7 +65,7 @@ namespace glsld {
         }
 
         auto command   = std::format("\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp", clang_format_path);
-        int  exit_code = 0;
+        int  exit_code = -1;
         auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 1'000, &exit_code);
 
         if (exit_code != 0 || formatted.empty()) {

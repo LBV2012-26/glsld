@@ -21,6 +21,7 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 
 import { activateSidebar, getActiveVariants, getShaderConfigs } from './sidebar';
 import { compileWorkspace } from './compile';
+import * as fs from 'fs';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
 
@@ -33,7 +34,13 @@ const runtimeDisposables: Disposable[] = [];
 export async function activate(context: any) {
 	const config = workspace.getConfiguration('glsld');
 	const configuredServerPath = config.get<string>('server.path', '').trim();
-	const serverPath = configuredServerPath.length === 0 ? context.asAbsolutePath('bin/Win64/glsld.exe') : path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
+	const defaultServerPath = process.platform === 'linux'
+		? context.asAbsolutePath('bin/Linux/glsld')
+		: context.asAbsolutePath('bin/Win64/glsld.exe');
+	const serverPath = configuredServerPath.length === 0 ? defaultServerPath : path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
+	if (process.platform !== 'win32') {
+		try { fs.chmodSync(serverPath, 0o755); } catch (_) { /* best-effort */ }
+	}
 	const serverEnv = createServerEnvironment(config);
 	const serverOutput = window.createOutputChannel('glsld');
 	context.subscriptions.push(serverOutput);

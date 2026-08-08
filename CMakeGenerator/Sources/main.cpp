@@ -245,7 +245,7 @@ ClCompileSettings ParseClCompile(
             if (!trimed_item.empty()) {
                 try {
                     auto absolute = std::filesystem::absolute(std::move(trimed_item));
-                    auto relative = std::filesystem::relative(absolute, solution_dir);
+                    auto relative = std::filesystem::relative(absolute, project_dir);
                     settings.include_dirs.push_back(relative.generic_string());
                 } catch (...) {
                     settings.include_dirs.push_back(std::move(trimed_item));
@@ -377,9 +377,6 @@ std::string GenerateCMakeLists(
     result += "    endif()\n";
     result += "endif()\n\n";
 
-    result += "# Point vcpkg to the manifest file located in the project directory\n";
-    result += "set(VCPKG_MANIFEST_DIR \"${CMAKE_CURRENT_SOURCE_DIR}/glsld\" CACHE PATH \"Path to vcpkg.json\")\n\n";
-
     result += "project(glsld\n";
     result += "    VERSION 1.0.0\n";
     result += "    DESCRIPTION \"GLSL Language Server\"\n";
@@ -402,7 +399,7 @@ std::string GenerateCMakeLists(
     // vcpkg manifest dependencies
     result += "# ============================================================================\n";
     result += "# Dependencies — from vcpkg manifest (vcpkg.json)\n";
-    result += "# Build: cmake -B build -S glsld \\\n";
+    result += "# Build: cmake -B build -S . \\\n";
     result += "#     -DCMAKE_TOOLCHAIN_FILE=<vcpkg_root>/scripts/buildsystems/vcpkg.cmake\n";
     result += "# ============================================================================\n";
 
@@ -442,7 +439,7 @@ std::string GenerateCMakeLists(
     result += "set(MI_BUILD_TESTS  OFF CACHE BOOL \"\" FORCE)\n";
     result += "set(MI_OVERRIDE     OFF CACHE BOOL \"\" FORCE)\n";
     result += "set(MI_USE_CXX      ON  CACHE BOOL \"\" FORCE)\n";
-    result += "add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/mimalloc/mimalloc mimalloc_build)\n\n";
+    result += "add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../mimalloc/mimalloc mimalloc_build)\n\n";
 
     // Source files
     result += "# ============================================================================\n";
@@ -490,21 +487,15 @@ std::string GenerateCMakeLists(
     }
     result += ")\n\n";
 
-    result += "if(MSVC)\n";
-    result += "    # Windows / MSVC\n";
-    result += "    target_compile_options(glsld PRIVATE\n";
-    result += "        /W4 /Zc:__cplusplus /utf-8\n";
-    result += "    )\n";
-    result += "    target_compile_definitions(glsld PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)\n";
-    result += "    target_link_options(glsld PRIVATE /SUBSYSTEM:CONSOLE)\n";
-    result += "else()\n";
-    result += "    # Linux / GCC & Clang\n";
-    result += "    target_compile_options(glsld PRIVATE\n";
-    result += "        -Wall -Wextra -Wpedantic -Wno-gnu-line-marker\n";
-    result += "    )\n";
-    result += "    find_package(Threads REQUIRED)\n";
-    result += "    target_link_libraries(glsld PRIVATE Threads::Threads)\n";
-    result += "endif()\n";
+    result += "# Linux / GCC & Clang\n";
+    result += "target_compile_options(glsld PRIVATE\n";
+    result += "    -w -fpermissive\n";
+    result += ")\n\n";
+    result += "target_link_options(glsld PRIVATE\n";
+    result += "    -fuse-ld=lld\n";
+    result += ")\n\n";
+    result += "find_package(Threads REQUIRED)\n";
+    result += "target_link_libraries(glsld PRIVATE Threads::Threads)\n";
 
     return result;
 }
@@ -524,7 +515,7 @@ int main() {
     auto sources_dir  = glsld_dir / "Sources";
     auto vcxproj_path = glsld_dir / "glsld.vcxproj";
     auto vcpkg_path   = glsld_dir / "vcpkg.json";
-    auto cmake_out    = repo_root / "CMakeLists.txt";
+    auto cmake_out    = glsld_dir / "CMakeLists.txt";
 
     std::println("Repo root:    {}", repo_root.generic_string());
     std::println("glsld dir:    {}", glsld_dir.generic_string());
