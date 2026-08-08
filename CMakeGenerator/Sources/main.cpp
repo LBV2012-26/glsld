@@ -552,7 +552,7 @@ bool RunCMakeWorkflow(const std::filesystem::path& target_dir) {
         return false;
     }
 
-    std::string cmake_build_cmd = "cmake --build Linux --config Release";
+    std::string cmake_build_cmd = "cmake --build Linux --config Release -j";
     std::println("[CMake Helper] Executing: {}", cmake_build_cmd);
     int build_result = std::system(cmake_build_cmd.c_str());
     if (build_result != 0) {
