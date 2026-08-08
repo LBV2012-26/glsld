@@ -6,8 +6,11 @@
 #include <print>
 #include <string_view>
 #include <vector>
+
+#ifdef _WIN64
 #include <fcntl.h>
 #include <Windows.h>
+#endif
 
 #include "Analyzer/Ast/AstDumper.hpp"
 #include "Analyzer/Passes/MacroBinder.hpp"

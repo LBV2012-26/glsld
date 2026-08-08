@@ -671,7 +671,7 @@ namespace glsld {
                     };
 
                     std::ranges::reverse(dimensions);
-                    if (std::ranges::find(dimensions, std::nullopt) != dimensions.end()) {
+                    if (std::ranges::contains(dimensions, std::nullopt)) {
                         auto dimensions_from_args = DeduceArraySizesFromArgs(node);
                         for (auto&& [target, source] : std::views::zip(dimensions, dimensions_from_args)) {
                             if (!target.has_value()) {

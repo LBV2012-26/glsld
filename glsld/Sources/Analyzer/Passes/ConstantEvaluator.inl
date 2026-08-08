@@ -18,14 +18,14 @@ namespace glsld {
 
         if constexpr (std::same_as<Ty, std::string>) {
             return std::visit([](auto&& arg) -> std::string {
-                using Ty = std::decay_t<decltype(arg)>;
-                if constexpr (std::same_as<Ty, std::int64_t>) {
+                using Decayed = std::decay_t<decltype(arg)>;
+                if constexpr (std::same_as<Decayed, std::int64_t>) {
                     return std::to_string(arg);
-                } else if constexpr (std::same_as<Ty, std::uint64_t>) {
+                } else if constexpr (std::same_as<Decayed, std::uint64_t>) {
                     return std::to_string(arg);
-                } else if constexpr (std::same_as<Ty, double>) {
+                } else if constexpr (std::same_as<Decayed, double>) {
                     return std::format("{:g}", arg);
-                } else if constexpr (std::same_as<Ty, bool>) {
+                } else if constexpr (std::same_as<Decayed, bool>) {
                     return arg ? "true" : "false";
                 }
             }, *result);

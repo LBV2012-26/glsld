@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef _WIN64
 #include "xstdafx.hpp"
+#else
+#include <bits/stdc++.h>
+#endif
 
 #include <ankerl/unordered_dense.h>
 #include <magic_enum/magic_enum_all.hpp>
