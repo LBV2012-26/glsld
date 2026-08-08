@@ -1,8 +1,5 @@
 # glsld
 
-> [!WARNING]
-> glsld is in early development. Windows is currently the only supported platform; Linux support and build instructions are still in progress. Features, configuration formats, and internal interfaces may change between releases.
-
 > [!NOTE]
 > This extension is an independent project and is not affiliated with another Visual Studio Code extension that also uses the name `glsld` (https://github.com/daiyousei-qz/glsld). I was the one who discovered the name collision only while preparing this extension for publication on the Visual Studio Code Marketplace.
 
@@ -27,12 +24,9 @@ Screenshots and extension-specific setup instructions are available in the [Visu
 | --- | --- |
 | `glsld/Sources` | Native glsld language-server source code |
 | `glsld/Database` | Built-in GLSL lexical and semantic database |
-| `glsld/Tests` | Server tests and shader test inputs |
 | `VSCodeExtension` | Visual Studio Code client extension |
 
 ## Building the server
-
-The supported build environment is currently Windows with Visual Studio and the C++ desktop toolchain.
 
 Clone the repository together with its submodules:
 
@@ -40,9 +34,31 @@ Clone the repository together with its submodules:
 git clone --recursive https://github.com/LBV2012-26/glsld.git
 ```
 
-Open `glsld.slnx` in Visual Studio, select the desired x64 configuration, and build the `glsld` project. The project uses the vcpkg manifest at `glsld/vcpkg.json` for package dependencies.
+### Windows Build
 
-Linux builds are in progress.
+- Requirements: Visual Studio 2026 with C++ workload and vcpkg.
+
+> [!NOTE]
+> If you first install vcpkg, you must run `vcpkg integrate install` to make it available to Visual Studio.
+
+Open `glsld.slnx` in Visual Studio, select the desired x64 configuration, and press F7 to build the `glsld` project. The project uses the vcpkg manifest at `glsld/vcpkg.json` for package dependencies.
+
+The `glsld.exe` executable will be located in `glsld/Win64/glsld.exe`.
+
+### Linux Build
+
+- Requirements: CMake, Clang, lld and vcpkg.
+
+> [!NOTE]
+> This repo will cause GCC to fail to build due to a internal compiler error. So use Clang instead.
+> Make sure VCPKG_ROOT is set to the PATH.
+
+```bash
+cd glsld
+clang++ ./CMakeGenerator/Sources/main.cpp -o CMakeGen --std=c++26 && ./CMakeGen
+```
+
+The `glsld` executable will be located in `glsld/Linux/glsld`.
 
 ## Visual Studio Code extension
 

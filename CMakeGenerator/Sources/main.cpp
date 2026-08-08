@@ -490,10 +490,10 @@ std::string GenerateCMakeLists(
 
     result += "# Linux / GCC & Clang\n";
     result += "target_compile_options(glsld PRIVATE\n";
-    result += "    -w -fpermissive\n";
+    result += "    -O3 -w -fpermissive\n";
     result += ")\n\n";
     result += "target_link_options(glsld PRIVATE\n";
-    result += "    -fuse-ld=lld\n";
+    result += "    -flto=full -fuse-ld=lld\n";
     result += ")\n\n";
     result += "find_package(Threads REQUIRED)\n";
     result += "target_link_libraries(glsld PRIVATE Threads::Threads)\n";
