@@ -51,7 +51,7 @@ namespace glsld {
             return std::unexpected(binary.error());
         }
 
-        std::string source(reinterpret_cast<const char*>(binary->data()), binary->size());
+        std::string_view source(reinterpret_cast<const char*>(binary->data()), binary->size());
         return SanitizeUtf8(source);
     }
 
