@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <chrono>
+#include <filesystem>
 #include <memory>
 #include <print>
 #include <string_view>
@@ -26,11 +27,11 @@
 #include "Utils/Utils.hpp"
 
 namespace {
-    int Benchmark() {
+    int Benchmark(const std::filesystem::path& filename) {
         using namespace glsld;
 
-        auto filename = utils::GetFilePath("Tests/Benchmark/BlackHoleHeavy.glsl.bak");
-        auto shader_source = *LoadSource(filename);
+        auto normalized = utils::GetFilePath(filename.generic_string());
+        auto shader_source = *LoadSource(normalized);
 
         ThreadPool thread_pool;
         SourceTable source_table;
@@ -43,7 +44,7 @@ namespace {
 
         auto include_dirs = std::make_shared<std::vector<std::filesystem::path>>(std::move(includes));
 
-        const auto* source_file = source_table.InternByUri("file:///Z:/Source/Repos/glsld/glsld/Tests/Benchmark/BlackHoleHeavy.glsl.bak");
+        const auto* source_file = source_table.InternByUri(utils::PathToUri(filename));
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start    = std::chrono::high_resolution_clock::now();
@@ -54,7 +55,7 @@ namespace {
         document.arena = std::make_unique<Arena>();
 
         auto attach_start    = std::chrono::high_resolution_clock::now();
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, filename, raw_tokens, include_dirs);
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, raw_tokens, include_dirs);
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
@@ -83,7 +84,7 @@ namespace {
         // AstDumper dumper(0, nullptr);
         // dumper.Traverse(document.ast.get());
         // document.symbols.Dump();
-
+        std::println("Benchmark completed for file: {}", filename.generic_string());
         std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count(),
@@ -105,7 +106,14 @@ int main() {
     std::ignore = _setmode(_fileno(stdout), _O_BINARY);
 #endif
 
-    // return Benchmark();
+#ifdef BENCHMARK
+    Benchmark("Tests/Benchmark/BlackHoleHeavy.glsl.bak");
+    Benchmark("Tests/Benchmark/BlackHole.glsl.bak");
+    Benchmark("Tests/OverloadTest.glsl");
+    Benchmark("Tests/HoverTest.glsl");
+    Benchmark("Tests/ExtensionTest.glsl");
+    return 0;
+#endif
 
     glsld::Logger::GetInstance();
     glsld::LspServer server;
