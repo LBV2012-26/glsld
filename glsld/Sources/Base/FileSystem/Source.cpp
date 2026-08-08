@@ -7,6 +7,7 @@
 #include <fstream>
 #include <mutex>
 #include <ranges>
+#include <span>
 #include <system_error>
 #include <utility>
 
@@ -50,17 +51,7 @@ namespace glsld {
             return std::unexpected(binary.error());
         }
 
-        auto size  = binary->size();
-        auto bytes = (*binary) | std::views::take(size) | std::views::transform([](std::byte byte) -> char {
-            return static_cast<char>(byte);
-        });
-
-        std::string source;
-        source.resize_and_overwrite(size, [&](char* buffer, std::size_t size) -> std::size_t {
-            std::ranges::copy(bytes, buffer);
-            return size;
-        });
-
+        std::string source(reinterpret_cast<const char*>(binary->data()), binary->size());
         return SanitizeUtf8(source);
     }
 
