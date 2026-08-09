@@ -89,6 +89,10 @@ namespace glsld::utils {
             decoded.erase(decoded.begin()); // /C:/Path -> C:/Path
         }
 
+        while (decoded.size() > 1 && decoded[0] == '/' && decoded[1] == '/') {
+            decoded.erase(decoded.begin());
+        }
+
         return NormalizePath(std::filesystem::path(decoded));
     }
 
@@ -107,7 +111,10 @@ namespace glsld::utils {
             }
         }
 
-        return "file:///" + encoded;
+        if (encoded.starts_with('/')) {
+            return "file://" + encoded;  // "file://" + "/home/..." -> "file:///home/..."
+        }
+        return "file:///" + encoded;     // "file:///" + "C:/..."   -> "file:///C:/..."
     }
 
     std::filesystem::path NormalizePath(const std::filesystem::path& path) {
