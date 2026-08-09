@@ -400,7 +400,7 @@ std::string GenerateCMakeLists(
     // vcpkg manifest dependencies
     result += "# ============================================================================\n";
     result += "# Dependencies — from vcpkg manifest (vcpkg.json)\n";
-    result += "# Build: cmake -B build -S . \\\n";
+    result += "# Build: cmake -B Linux -S . \\\n";
     result += "#     -DCMAKE_TOOLCHAIN_FILE=<vcpkg_root>/scripts/buildsystems/vcpkg.cmake\n";
     result += "# ============================================================================\n";
 
