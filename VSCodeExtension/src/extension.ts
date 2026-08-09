@@ -156,10 +156,6 @@ export async function activate(context: any) {
 
 function createServerEnvironment(config: ReturnType<typeof workspace.getConfiguration>): NodeJS.ProcessEnv {
 	const environment: NodeJS.ProcessEnv = { ...process.env };
-	if (process.platform !== 'win32') {
-		return environment;
-	}
-
 	const mimallocVerbose = config.get<boolean>('mimalloc.verbose', false);
 	if (mimallocVerbose) {
 		environment.MIMALLOC_VERBOSE = '1';

@@ -5,7 +5,7 @@
 	"description": "GLSL language support with diagnostics, hover, completion, go-to-definition, and more",
 	"author": "LBV 2012-26",
 	"publisher": "LBV2012-26",
-	"version": "0.9.0",
+	"version": "0.9.1",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -94,7 +94,7 @@
 					"type": "boolean",
 					"default": false,
 					"scope": "resource",
-					"description": "Request Windows large pages for glsld's mimalloc arenas. Requires the Lock pages in memory user right (SeLockMemoryPrivilege). Large-page allocation is best-effort and may still fail because of memory availability or other system limits. Takes effect after restarting glsld."
+					"description": "Request OS large pages for glsld's mimalloc arenas. On Windows, requires the Lock pages in memory user right (SeLockMemoryPrivilege). On Linux, requires hugetlbfs to be configured or transparent huge pages (THP) to be available. Large-page allocation is best-effort and may still fail because of memory availability or other system limits. Takes effect after restarting glsld."
 				},
 				"glsld.mimalloc.largePages.reserveMiB": {
 					"type": "number",

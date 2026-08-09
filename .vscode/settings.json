@@ -7,5 +7,7 @@
 	"editor.codeActionsOnSave": {
 		"source.fixAll.eslint": "explicit"
 	},
-	"glsld.glslc.path": "",
+	"glsld.mimalloc.largePages.enabled": true,
+	"glsld.mimalloc.largePages.reserveMiB": 256,
+	"glsld.mimalloc.verbose": true
 }
