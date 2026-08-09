@@ -3,7 +3,7 @@
 glsld is a language server and Visual Studio Code extension for GLSL. It provides preprocessing-aware completion, semantic analysis, navigation, diagnostics, formatting, background indexing, and SPIR-V compilation support for shader projects.
 
 > [!WARNING]
-> glsld is still in early development. Only Windows packages are currently available, and features, configuration, and protocol details may change between releases.
+> glsld is still in early development. Features, configuration, and protocol details may change between releases.
 
 > [!NOTE]
 > This extension is an independent project and is not affiliated with the other Visual Studio Code extension named `glsld` at https://github.com/daiyousei-qz/glsld. The name collision was discovered while preparing this extension for publication.
@@ -52,6 +52,12 @@ Signature help follows the active call, selects the matching overload, and highl
 
 ![Signature help](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SignatureHelp.gif)
 
+## Formatting
+
+glsld invokes `clang-format` to format GLSL source files. Formatting can be triggered manually or automatically on save. Need to configure the path to `clang-format` in `glsld.formatting.clangFormatPath` or install it separately.
+
+![Formatting](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Formatting.gif)
+
 ## Diagnostics
 
 Syntax and semantic errors are reported while editing. Diagnostics can be enabled or disabled with `glsld.diagnostics.enabled`.
@@ -88,11 +94,12 @@ Hovering over a symbol displays its declaration and relevant type information.
 
 ### Variables and types
 
-![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover1.png)
+![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/TypeHover.png)
+![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SymbolHover.png)
 
 ### Functions
 
-![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Hover2.png)
+![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionHover.png)
 
 ## Inlay hints
 
@@ -103,6 +110,8 @@ Inlay hints expose parameter names and other information that makes shader code 
 ## Document symbols
 
 The document outline lists declarations in the current shader and supports quick navigation through large files.
+
+![Document symbols](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/DocumentSymbols.png)
 
 ## Preprocessor macros
 
