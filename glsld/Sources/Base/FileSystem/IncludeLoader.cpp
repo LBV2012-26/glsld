@@ -44,7 +44,7 @@ namespace glsld {
         std::string_view include_expr,
         IncludeDirectoryHandle include_dirs)
     {
-        std::ignore = Include(includer_uri, include_expr, include_dirs);
+        (void)Include(includer_uri, include_expr, include_dirs);
     }
 
     void IncludeLoader::Invalidate(std::string_view filename) {
@@ -179,33 +179,6 @@ namespace glsld {
             return ParseIncludeExpr(body_tokens.front().text);
         }
 
-        if (body_tokens.front().type == TokenType::kLessThan) {
-            std::string inner;
-            bool closed = false;
-
-            for (auto i = 1uz; i != body_tokens.size(); ++i) {
-                if (body_tokens[i].type == TokenType::kGreaterThan) {
-                    closed = true;
-                    break;
-                }
-
-                if (body_tokens[i].type == TokenType::kEndOfFile) {
-                    break;
-                }
-
-                inner += body_tokens[i].text;
-            }
-
-            if (!closed || inner.empty()) {
-                return std::nullopt;
-            }
-
-            return IncludeTarget{
-                .relative_path  = std::move(inner),
-                .system_include = true
-            };
-        }
-
         return std::nullopt;
     }
 
@@ -217,7 +190,7 @@ namespace glsld {
         std::vector<std::filesystem::path> candidates;
         candidates.reserve(include_dirs->size() + 1);
 
-        if (!target.system_include) {
+        if (!target.system_include) { // system include only find in -I paths
             candidates.push_back(includer_path.parent_path() / target.relative_path);
         }
 

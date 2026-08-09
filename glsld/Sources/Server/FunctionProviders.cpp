@@ -451,35 +451,31 @@ namespace glsld {
             return std::nullopt;
         }
 
-        std::vector<std::filesystem::path> ResolveIncludeCandidates(
+        std::optional<std::filesystem::path> ResolveIncludeFilename(
             std::string_view includer_uri,
             std::string_view include_expr,
             IncludeDirectoryHandle include_dirs)
         {
-            std::vector<std::filesystem::path> candidates;
-
-            auto PushPath = [&candidates](const std::filesystem::path& path) -> void {
-                if (std::filesystem::exists(path) && std::filesystem::is_regular_file(path)) {
-                    PushUniquePath(candidates, path);
-                }
-            };
-
-            if (!include_expr.starts_with('<')) { // #include <Include.glsl>
+            if (!include_expr.starts_with('<')) {
                 auto filename = include_expr.substr(1, include_expr.length() - 2);
                 auto includer = utils::UriToPath(includer_uri);
-                auto local    = utils::NormalizePath(includer.parent_path() / filename);
+                auto result   = utils::NormalizePath(includer.parent_path() / filename);
 
-                PushPath(local);
+                if (std::filesystem::exists(result)) {
+                    return result;
+                }
             }
 
             for (const auto& dir : *include_dirs) {
-                auto filename  = include_expr.substr(1, include_expr.length() - 2);
-                auto candidate = utils::NormalizePath(dir / filename);
+                auto filename = include_expr.substr(1, include_expr.length() - 2);
+                auto result   = utils::NormalizePath(dir / filename);
 
-                PushPath(candidate);
+                if (std::filesystem::exists(result)) {
+                    return result;
+                }
             }
 
-            return candidates;
+            return std::nullopt;
         }
     }
 
@@ -511,13 +507,12 @@ namespace glsld {
                 continue;
             }
 
-            auto candidates = ResolveIncludeCandidates(location.uri(), *include_expr, include_dirs);
-
-            if (candidates.size() != 1) {
+            auto result = ResolveIncludeFilename(location.uri(), *include_expr, include_dirs);
+            if (!result.has_value()) {
                 return std::nullopt;
             }
 
-            return utils::PathToUri(candidates.front());
+            return utils::PathToUri(*result);
         }
 
         return std::nullopt;

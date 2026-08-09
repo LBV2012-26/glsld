@@ -1,7 +1,6 @@
 {
 	"glsld.systemIncludeDirectories": [
-		"Tests",
-		"C:/VulkanSDK/Include"
+		"Tests"
 	],
 	"glsld.mimalloc.largePages.enabled": true,
 	"glsld.mimalloc.largePages.reserveMiB": 256,
