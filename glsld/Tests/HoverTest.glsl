@@ -122,8 +122,7 @@ void main() {
     float accumulated_value = 1.0;
     ApplyParameters(1.0, output_value, accumulated_value);
 
-    vec3 direct_light = normalize(lights[0].position - InPosition);
-    vec3 ambient_light = vec3(gl_FragCoord.xyz);
+    vec3 direct_light = normalize(lights[0].position - InPosition), ambient_light = vec3(gl_FragCoord.xyz);
 
     const int max_iterations = 10;
 #define MIN_ITERATIONS max_iterations
