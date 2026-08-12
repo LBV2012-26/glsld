@@ -197,7 +197,7 @@ namespace glsld {
         std::vector<Token>                          tokens;
         std::vector<std::string_view>               params;
         std::vector<std::unique_ptr<StatementNode>> body;
-        const SymbolInfo* symbol{ nullptr };
+        const SymbolInfo*                           symbol{ nullptr };
 
         using StatementNode::StatementNode;
         PreprocessorNode(const PreprocessorNode& other);
