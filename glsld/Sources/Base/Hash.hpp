@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <concepts>
 #include <string>
 #include <string_view>
 
@@ -30,7 +31,14 @@ namespace glsld {
 
     template <typename Ty>
     inline void HashCombine(std::size_t& seed, const Ty& value) {
-        std::hash<Ty> hasher;
-        seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        auto hash = 0uz;
+        if constexpr (std::same_as<Ty, std::string> || std::same_as<Ty, std::string_view>) {
+            hash = rapidhashMicro(value.data(), value.size());
+        } else {
+            std::hash<Ty> hasher;
+            hash = hasher(value);
+        }
+
+        seed ^= hash + 0x9e3779b97f4a7c15uz + (seed << 6) + (seed >> 2);
     }
 }
