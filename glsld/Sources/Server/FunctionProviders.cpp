@@ -2068,7 +2068,7 @@ namespace glsld {
 
         std::string title;
         std::string type_arrow;
-        std::string details("Details:\n\n");
+        std::string details;
         std::string declare;
 
         auto AppendLayoutOnDetails = [&details](std::string_view layout) -> void {
@@ -2243,18 +2243,18 @@ namespace glsld {
         case SymbolKind::kParameter: {
             const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
 
-            std::string scope_prefix = "**field**";
+            std::string scope_prefix = "**Field**";
             if (symbol->kind == SymbolKind::kParameter) {
-                scope_prefix = "**parameter**";
+                scope_prefix = "**Parameter**";
             } else if (symbol->located_scope->kind() == ScopeKind::kMacroBody) {
                 scope_prefix = "";
             } else if (symbol->located_scope->kind() == ScopeKind::kGlobalTransparent) {
-                scope_prefix = "**global variable**";
+                scope_prefix = "**Global Variable**";
             } else if (symbol->located_scope->kind() == ScopeKind::kCommon) {
-                scope_prefix = "**local variable**";
+                scope_prefix = "**Local Variable**";
             }
 
-            if (!scope_prefix.contains("field")) {
+            if (!scope_prefix.contains("Field")) {
                 title = std::format("{} `{}`\n\n{}", scope_prefix, symbol->name, BuildDefinedAt(symbol));
             } else {
                 title = std::format("{} `{}::{}`\n\n{}", scope_prefix, symbol->located_scope->host_symbol()->name, symbol->name, BuildDefinedAt(symbol));
@@ -2277,7 +2277,7 @@ namespace glsld {
         case SymbolKind::kFunctionImpl: {
             auto format_result = FormatFunctionSymbol(symbol, snapshot);
 
-            title      = std::format("**function** `{}`", format_result.base_name);
+            title      = std::format("**Function** `{}`", format_result.base_name);
             type_arrow = std::format("**Returns** -> `{}`", format_result.return_typename);
 
             std::string params_block = "**Parameters:**\n";
@@ -2312,7 +2312,7 @@ namespace glsld {
         }
 
         case SymbolKind::kStruct: {
-            title = std::format("**struct** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            title = std::format("**Struct** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
 
             BuildDefinedDeclare(symbol, "struct");
@@ -2322,7 +2322,7 @@ namespace glsld {
 
         case SymbolKind::kInterface: {
             const auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
-            title = std::format("**block** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            title = std::format("**Block** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
 
             auto full = BuildHoverSpecifierLine(node, snapshot.get());
