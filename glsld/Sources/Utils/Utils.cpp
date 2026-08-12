@@ -163,8 +163,8 @@ namespace glsld::utils {
             return argument->token.text;
 
         case QualifierArgumentKind::kAssignment: {
-            std::string lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0].get()) : "";
-            std::string rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1].get()) : "";
+            auto lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0].get()) : "";
+            auto rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1].get()) : "";
             return std::format("{} = {}", lhs, rhs);
         }
 
