@@ -14,20 +14,6 @@ namespace glsld {
         return ArithmeticStructure::kVector;
     }
 
-    inline bool SpirvOperandSignature::operator==(const SpirvOperandSignature& other) const {
-        return kind == other.kind && value == other.value;
-    }
-
-    inline bool SpirvTypeSignature::operator==(const SpirvTypeSignature& other) const {
-        return valid        == other.valid &&
-               has_id       == other.has_id &&
-               id           == other.id &&
-               set          == other.set &&
-               extensions   == other.extensions &&
-               capabilities == other.capabilities &&
-               operands     == other.operands;
-    }
-
     inline bool TypeInfo::is_builtin() const {
         return block_symbol == nullptr && typename_token.type == TokenType::kBuiltInType;
     }

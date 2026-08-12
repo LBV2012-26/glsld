@@ -566,7 +566,7 @@ namespace glsld {
         return std::format("[{}:{}-{}:{}]", node->begin.line(), node->begin.column(), node->end.line(), node->end.column());
     }
 
-    std::string AstDumper::TypeToString(TypeSpecifier& type_spec) const {
+    std::string AstDumper::TypeToString(TypeSpec& type_spec) const {
         std::string result;
         for (auto i = 0uz; i != type_spec.specifiers.size(); ++i) {
             const auto& specifier = type_spec.specifiers[i];

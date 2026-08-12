@@ -223,6 +223,18 @@ namespace glsld {
         return DefaultClone();
     }
 
+    inline Token TypeSpec::typename_token() const {
+        return specifiers.empty() ? Token{} : specifiers.back();
+    }
+
+    inline SourceLocation TypeSpec::begin_location() const {
+        return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
+    }
+
+    inline bool TypeSpec::empty() const {
+        return specifiers.empty();
+    }
+
     inline AstNodeKind VariableDeclarationNode::kind() const {
         return AstNodeKind::kVariableDeclaration;
     }

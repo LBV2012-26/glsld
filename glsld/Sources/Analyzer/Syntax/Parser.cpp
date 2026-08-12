@@ -393,7 +393,7 @@ namespace glsld {
     std::unique_ptr<StatementNode> Parser::ParseCodeStatement() {
         // current token is qualifier, type or identifier
         auto statement_begin_index = token_index_;
-        auto type_spec = ParseQualifiersAndType();
+        auto type_spec             = ParseTypeSpec();
 
         if (!type_spec.empty()) {
             // block, current is identifier, and next is '{', or current is '{'
@@ -479,7 +479,7 @@ namespace glsld {
         return nullptr;
     }
 
-    std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(TypeSpecifier type_spec) {
+    std::unique_ptr<FunctionDeclarationNode> Parser::ParseFunction(TypeSpec type_spec) {
         // current token is function name
         auto node = std::make_unique<FunctionDeclarationNode>(current_scope());
         node->begin     = type_spec.begin_location();
@@ -588,7 +588,7 @@ namespace glsld {
                 continue;
             }
 
-            auto type_spec  = ParseQualifiersAndType();
+            auto type_spec  = ParseTypeSpec();
             auto node       = std::make_unique<VariableDeclarationNode>(current_scope());
             node->begin     = type_spec.begin_location();
             node->type_spec = std::move(type_spec);
@@ -627,9 +627,9 @@ namespace glsld {
         return param_list;
     }
 
-    TypeSpecifier Parser::ParseQualifiersAndType() {
+    TypeSpec Parser::ParseTypeSpec() {
         // current token is specifier such as: Func("const int" input)
-        TypeSpecifier type_spec;
+        TypeSpec type_spec;
 
         while (true) {
             const auto& token = current_token();
@@ -1110,7 +1110,7 @@ namespace glsld {
         return node;
     }
 
-    bool Parser::TryParseLayoutQualifier(TypeSpecifier& type_spec) {
+    bool Parser::TryParseLayoutQualifier(TypeSpec& type_spec) {
         // layout(...)
         const auto& token = current_token();
         if (token.text != "layout") {
@@ -1128,7 +1128,7 @@ namespace glsld {
         return true;
     }
 
-    bool Parser::TryParseSpirvIntrinsics(TypeSpecifier& type_spec) {
+    bool Parser::TryParseSpirvIntrinsics(TypeSpec& type_spec) {
         auto node = ParseSpirvIntrinsics();
         if (node == nullptr) {
             return false;
@@ -1146,11 +1146,11 @@ namespace glsld {
     namespace {
         // const int kConstant = 0;
         // layout(constant_id = 0) kConstant;
-        bool IsLayoutAttachment(const TypeSpecifier& type_spec) {
-            if (type_spec.layouts.empty() ||
-                !type_spec.template_args.empty() ||
-                !type_spec.array_sizes.empty() ||
-                !type_spec.spirv_intrinsics.empty())
+        bool IsLayoutAttachment(const TypeSpec& type_spec) {
+            if (type_spec.layouts.empty()       ||
+               !type_spec.template_args.empty() ||
+               !type_spec.array_sizes.empty()   ||
+               !type_spec.spirv_intrinsics.empty())
             {
                 return false;
             }
@@ -1163,15 +1163,15 @@ namespace glsld {
 
             return std::ranges::any_of(type_spec.layouts, [](const auto& layout) -> bool {
                 return std::ranges::any_of(layout->params, [](const auto& param) -> bool {
-                    return param->arg_kind == QualifierArgumentKind::kAssignment
+                    return  param->arg_kind == QualifierArgumentKind::kAssignment
                         && !param->children.empty()
-                        && param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier
-                        && param->children.front()->token.text == "constant_id";
+                        &&  param->children.front()->arg_kind   == QualifierArgumentKind::kIdentifier
+                        &&  param->children.front()->token.text == "constant_id";
                 });
             });
         }
 
-        void MergeAttachedLayouts(TypeSpecifier& target, TypeSpecifier&& attachment) {
+        void MergeAttachedLayouts(TypeSpec& target, TypeSpec&& attachment) {
             auto spec_pos = std::ranges::find_if(target.specifiers, [](const Token& token) -> bool {
                 return token.text != "layout";
             });
@@ -1181,7 +1181,7 @@ namespace glsld {
         }
     }
 
-    std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpecifier type_spec) {
+    std::unique_ptr<DeclarationGroupNode> Parser::ParseVariableDeclarationList(TypeSpec type_spec) {
         // current token is variable name or semicolon
         if (current_token().type == TokenType::kSemicolon) {
             auto node   = std::make_unique<DeclarationGroupNode>(current_scope());
@@ -1599,7 +1599,7 @@ namespace glsld {
         return left;
     }
 
-    std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(TypeSpecifier type_spec) {
+    std::unique_ptr<DeclarationNode> Parser::ParseBlockBody(TypeSpec type_spec) {
         std::string    name;
         SourceLocation name_location;
 
@@ -1624,11 +1624,15 @@ namespace glsld {
 
             if (current_token().type != TokenType::kSemicolon) {
                 // struct MyStruct { ... } instance;
-                type_spec.specifiers.push_back({
-                    .text = name, .location = name_location, .type = TokenType::kIdentifier
-                });
+                auto instance_spec = type_spec;
+                Token specifier{
+                    .text     = name,
+                    .location = name_location,
+                    .type     = TokenType::kIdentifier
+                };
 
-                node->instances = ParseVariableDeclarationList(std::move(type_spec));
+                instance_spec.specifiers.push_back(std::move(specifier));
+                node->instances = ParseVariableDeclarationList(std::move(instance_spec));
             } else {
                 MatchAndConsume(TokenType::kSemicolon);
             }
@@ -1653,8 +1657,8 @@ namespace glsld {
             return node;
         } else {
             auto node = std::make_unique<InterfaceDeclarationNode>(current_scope());
-            node->type_spec = type_spec;
             ParseBody(node);
+            node->type_spec = std::move(type_spec);
             return node;
         }
     }

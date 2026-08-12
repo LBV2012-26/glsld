@@ -64,25 +64,30 @@ namespace glsld {
         std::unique_ptr<TranslationUnitNode> ParserMainTask();
         std::unique_ptr<StatementNode> ParseStatement();
         std::unique_ptr<PreprocessorNode> ParsePreprocessor();
-        std::unique_ptr<PreprocessorNode> ParseDefine(std::unique_ptr<PreprocessorNode> node, std::string_view target_file, std::uint32_t directive_physical_line);
+
+        std::unique_ptr<PreprocessorNode> ParseDefine(
+            std::unique_ptr<PreprocessorNode> node,
+            std::string_view target_file,
+            std::uint32_t directive_physical_line);
+
         std::vector<std::unique_ptr<StatementNode>> ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol);
         std::unique_ptr<CompoundStatementNode> ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
         std::unique_ptr<StatementNode> ParseCodeStatement();
-        std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpecifier type_spec);
+        std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpec type_spec);
         std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
 
-        TypeSpecifier ParseQualifiersAndType();
+        TypeSpec ParseTypeSpec();
         std::vector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
         std::unique_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
         std::unique_ptr<LayoutQualifierNode> ParseLayoutQualifier();
         std::unique_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
         std::unique_ptr<ExpressionNode> ParseTemplateArgument();
 
-        bool TryParseLayoutQualifier(TypeSpecifier& type_spec);
-        bool TryParseSpirvIntrinsics(TypeSpecifier& type_spec);
+        bool TryParseLayoutQualifier(TypeSpec& type_spec);
+        bool TryParseSpirvIntrinsics(TypeSpec& type_spec);
 
-        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpecifier type_spec);
+        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpec type_spec);
         std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
 
         std::unique_ptr<ExpressionNode> ParsePrefixExpression();
@@ -100,7 +105,7 @@ namespace glsld {
         std::unique_ptr<BinaryExpressionNode> ParseStandardBinary(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
         std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);
 
-        std::unique_ptr<DeclarationNode> ParseBlockBody(TypeSpecifier type_spec);
+        std::unique_ptr<DeclarationNode> ParseBlockBody(TypeSpec type_spec);
         std::unique_ptr<StatementNode> ParseControlFlowStatement();
         std::unique_ptr<IfStatementNode> ParseIfStatement();
         std::unique_ptr<ForStatementNode> ParseForStatement();
@@ -141,9 +146,11 @@ namespace glsld {
         VersionPointer                          version_pointer_;
         Document&                               document_;
 
-        // for re-attach syntax like
-        // const int kConstant = 0;
-        // layout(constant_id = 0) kConstant;
+        // Parser Global States
+        // --------------------------------------------------------------------
+        // for re-attach syntax for builtin variable, like
+        // const int gl_BuiltinVariable = 0; // builtin declaration
+        // layout(constant_id = 0) gl_BuiltinVariable; // re-attach
         ankerl::unordered_dense::map<const SymbolInfo*, VariableDeclarationNode*> variable_declaration_cache_;
     };
 }

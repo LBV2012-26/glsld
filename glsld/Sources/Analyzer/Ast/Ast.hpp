@@ -1,4 +1,3 @@
-// Ast.hpp
 #pragma once
 
 #include <cstddef>
@@ -573,7 +572,7 @@ namespace glsld {
         std::unique_ptr<AstNode> Clone() const override;
     };
 
-    struct TypeSpecifier {
+    struct TypeSpec {
         std::vector<Token>                                specifiers;
         std::vector<std::unique_ptr<ExpressionNode>>      template_args;
         std::vector<std::unique_ptr<ExpressionNode>>      array_sizes;
@@ -581,32 +580,23 @@ namespace glsld {
         std::vector<std::unique_ptr<SpirvIntrinsicNode>>  spirv_intrinsics;
         const SpirvIntrinsicNode*                         spirv_type{ nullptr };
 
-        TypeSpecifier() = default;
-        TypeSpecifier(const TypeSpecifier& other);
-        TypeSpecifier(TypeSpecifier&&) noexcept = default;
-        ~TypeSpecifier() = default;
+        TypeSpec() = default;
+        TypeSpec(const TypeSpec& other);
+        TypeSpec(TypeSpec&&) noexcept = default;
+        ~TypeSpec() = default;
 
-        TypeSpecifier& operator=(const TypeSpecifier& other);
-        TypeSpecifier& operator=(TypeSpecifier&&) noexcept = default;
+        TypeSpec& operator=(const TypeSpec& other);
+        TypeSpec& operator=(TypeSpec&&) noexcept = default;
 
-        Token typename_token() const {
-            return specifiers.empty() ? Token{} : specifiers.back();
-        }
-
-        SourceLocation begin_location() const {
-            return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
-        }
-
-        bool empty() const {
-            return specifiers.empty();
-        }
-
+        Token typename_token() const;
+        SourceLocation begin_location() const;
+        bool empty() const;
         bool has_keyword(std::string_view name) const;
     };
 
     struct VariableDeclarationNode final : public DeclarationNode {
         std::unique_ptr<ExpressionNode> init;
-        TypeSpecifier                   type_spec;
+        TypeSpec                        type_spec;
         bool                            is_variadic{ false };
 
         using DeclarationNode::DeclarationNode;
@@ -639,7 +629,7 @@ namespace glsld {
     struct FunctionDeclarationNode final : public DeclarationNode {
         std::vector<std::unique_ptr<VariableDeclarationNode>> params;
         std::unique_ptr<CompoundStatementNode>                body;
-        TypeSpecifier                                         type_spec;
+        TypeSpec                                              type_spec;
 
         using DeclarationNode::DeclarationNode;
         FunctionDeclarationNode(const FunctionDeclarationNode& other);
@@ -656,7 +646,7 @@ namespace glsld {
     struct InterfaceDeclarationNode final : public DeclarationNode {
         std::unique_ptr<CompoundStatementNode> body;
         std::unique_ptr<DeclarationGroupNode>  instances;
-        TypeSpecifier                          type_spec;
+        TypeSpec                               type_spec;
 
         using DeclarationNode::DeclarationNode;
         InterfaceDeclarationNode(const InterfaceDeclarationNode& other);

@@ -1,8 +1,8 @@
-// Ast.cpp
 #include "pch.hpp"
 #include "Ast.hpp"
 
 #include <algorithm>
+#include <ranges>
 #include <span>
 
 namespace glsld {
@@ -522,37 +522,35 @@ namespace glsld {
         return *this;
     }
 
-    TypeSpecifier::TypeSpecifier(const TypeSpecifier& other)
+    TypeSpec::TypeSpec(const TypeSpec& other)
         : specifiers{ other.specifiers }
         , template_args{ CloneVector<ExpressionNode>(other.template_args) }
         , array_sizes{ CloneVector<ExpressionNode>(other.array_sizes) }
         , layouts{ CloneVector<LayoutQualifierNode>(other.layouts) }
         , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(other.spirv_intrinsics) }
     {
-        if (other.spirv_type != nullptr && !spirv_intrinsics.empty()) {
-            spirv_type = spirv_intrinsics.back().get();
+        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
+            return;
+        }
+
+        for (const auto& spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
+            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+                spirv_type = spirv_intrinsic.get();
+                break;
+            }
         }
     }
 
-    TypeSpecifier& TypeSpecifier::operator=(const TypeSpecifier& other) {
+    TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
         if (this != &other) {
-            specifiers       = other.specifiers;
-            template_args    = CloneVector<ExpressionNode>(other.template_args);
-            array_sizes      = CloneVector<ExpressionNode>(other.array_sizes);
-            layouts          = CloneVector<LayoutQualifierNode>(other.layouts);
-            spirv_intrinsics = CloneVector<SpirvIntrinsicNode>(other.spirv_intrinsics);
-
-            if (other.spirv_type != nullptr && !spirv_intrinsics.empty()) {
-                spirv_type = spirv_intrinsics.back().get();
-            } else {
-                spirv_type = nullptr;
-            }
+            TypeSpec temp(other);
+            std::swap(*this, temp);
         }
 
         return *this;
     }
 
-    bool TypeSpecifier::has_keyword(std::string_view name) const {
+    bool TypeSpec::has_keyword(std::string_view name) const {
         return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
             return token.text == name;
         });
@@ -562,6 +560,7 @@ namespace glsld {
         : DeclarationNode(other)
         , init{ CloneNode(other.init) }
         , type_spec{ other.type_spec }
+        , is_variadic{ other.is_variadic }
     {}
 
     VariableDeclarationNode& VariableDeclarationNode::operator=(const VariableDeclarationNode& other) {

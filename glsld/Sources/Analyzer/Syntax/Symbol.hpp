@@ -66,21 +66,17 @@ namespace glsld {
         SpirvOperandKind kind{ SpirvOperandKind::kLiteral };
         std::string      value;
 
-        bool operator==(const SpirvOperandSignature& other) const;
+        bool operator==(const SpirvOperandSignature&) const noexcept = default;
     };
 
     struct SpirvTypeSignature {
         std::vector<std::string>           extensions;
         std::vector<std::int64_t>          capabilities;
-        std::string                        set;
-        std::int64_t                       id{};
+        std::optional<std::string>         set;
+        std::optional<std::int64_t>        id;
         std::vector<SpirvOperandSignature> operands;
-        std::string                        error;
 
-        bool has_id{ false };
-        bool valid{ false };
-
-        bool operator==(const SpirvTypeSignature& other) const;
+        bool operator==(const SpirvTypeSignature&) const noexcept = default;
     };
 
     struct SymbolInfo;

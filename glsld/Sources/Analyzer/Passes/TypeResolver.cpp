@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <expected>
 #include <format>
 #include <limits>
 #include <optional>
@@ -904,15 +905,12 @@ namespace glsld {
             return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
         }
 
-        SpirvTypeSignature BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
+        std::expected<SpirvTypeSignature, std::string> BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
             SpirvTypeSignature signature;
-            if (node == nullptr) {
-                signature.valid = false;
-                signature.error = "spirv_type node is null";
-                return signature;
-            }
 
-            bool seen_operand = false;
+            if (node == nullptr) {
+                return std::unexpected("spirv_type node is null");
+            }
 
             for (const auto& param : node->params) {
                 if (param == nullptr) {
@@ -923,16 +921,12 @@ namespace glsld {
                 if (!key.empty()) {
                     if (key == "extensions") {
                         if (!signature.extensions.empty()) {
-                            signature.valid = false;
-                            signature.error = "duplicate extensions";
-                            return signature;
+                            return std::unexpected("duplicate extensions");
                         }
 
                         auto extensions = CollectStringArray(rhs);
                         if (!extensions.has_value()) {
-                            signature.valid = false;
-                            signature.error = "invalid extensions format";
-                            return signature;
+                            return std::unexpected("invalid extensions format");
                         }
 
                         signature.extensions = std::move(*extensions);
@@ -941,16 +935,12 @@ namespace glsld {
 
                     if (key == "capabilities") {
                         if (!signature.capabilities.empty()) {
-                            signature.valid = false;
-                            signature.error = "duplicate capabilities";
-                            return signature;
+                            return std::unexpected("duplicate capabilities");
                         }
 
                         auto capabilities = CollectIntegerArray(rhs);
                         if (!capabilities.has_value()) {
-                            signature.valid = false;
-                            signature.error = "invalid capabilities format";
-                            return signature;
+                            return std::unexpected("invalid capabilities format");
                         }
 
                         signature.capabilities = std::move(*capabilities);
@@ -958,64 +948,47 @@ namespace glsld {
                     }
 
                     if (key == "id") {
-                        if (signature.has_id) {
-                            signature.valid = false;
-                            signature.error = "duplicate id";
-                            return signature;
+                        if (signature.id.has_value()) {
+                            return std::unexpected("duplicate id");
                         }
 
                         if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kNumberLiteral) {
-                            signature.valid = false;
-                            signature.error = "invalid id format";
-                            return signature;
+                            return std::unexpected("invalid id format");
                         }
 
-                        signature.id     = utils::ParseNumberLiteralToInteger(rhs->token.text);
-                        signature.has_id = true;
+                        signature.id = utils::ParseNumberLiteralToInteger(rhs->token.text);
                         continue;
                     }
 
                     if (key == "set") {
-                        if (!signature.set.empty()) {
-                            signature.valid = false;
-                            signature.error = "duplicate set";
-                            return signature;
+                        if (signature.set.has_value()) {
+                            return std::unexpected("duplicate set");
                         }
 
                         if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kStringLiteral) {
-                            signature.valid = false;
-                            signature.error = "invalid set format";
-                            return signature;
+                            return std::unexpected("invalid set format");
                         }
 
                         signature.set = utils::UnquoteStringLiteral(rhs->token.text);
                         continue;
                     }
 
-                    signature.valid = false;
-                    signature.error = std::format("unknown parameter '{}' in spirv_type", key);
-                    return signature;
+                    return std::unexpected(std::format("unknown parameter '{}' in spirv_type", key));
                 }
 
-                if (!signature.has_id) {
-                    signature.valid = false;
-                    signature.error = "missing id parameter in spirv_type";
-                    return signature;
+                if (!signature.id.has_value()) {
+                    return std::unexpected("missing id parameter in spirv_type");
                 }
-
-                seen_operand = true;
 
                 // spirv_id <expr>
                 if (param->arg_kind == QualifierArgumentKind::kSequence &&
-                    !param->children.empty() &&
+                   !param->children.empty() &&
                     param->children.front() != nullptr &&
                     param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier &&
                     param->children.front()->token.text == "spirv_id")
                 {
                     if (param->children.size() < 2) {
-                        signature.valid = false;
-                        signature.error = "missing operand after spirv_id";
-                        return signature;
+                        return std::unexpected("missing operand after spirv_id");
                     }
 
                     SpirvOperandSignature operand{
@@ -1035,18 +1008,23 @@ namespace glsld {
                 signature.operands.push_back(std::move(operand));
             }
 
-            if (!signature.has_id) {
-                signature.valid = false;
-                signature.error = "missing id parameter in spirv_type";
-                return signature;
+            if (!signature.id.has_value()) {
+                return std::unexpected("missing id parameter in spirv_type");
             }
 
-            signature.valid = true;
+            std::ranges::sort(signature.extensions);
+            auto [extension_first, extension_last] = std::ranges::unique(signature.extensions);
+            signature.extensions.erase(extension_first, extension_last);
+
+            std::ranges::sort(signature.capabilities);
+            auto [capability_first, capability_last] = std::ranges::unique(signature.capabilities);
+            signature.capabilities.erase(capability_first, capability_last);
+
             return signature;
         }
     }
 
-    TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpecifier& type_spec, const Scope* located_scope) {
+    TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpec& type_spec, const Scope* located_scope) {
         if (type_spec.typename_token().type == TokenType::kUnknown) {
             return {};
         }
@@ -1082,11 +1060,10 @@ namespace glsld {
         if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
             type_spec.spirv_type->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride)
         {
-            info.spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type);
-
-            if (!info.spirv_signature->valid) {
+            auto spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type);
+            if (!spirv_signature.has_value()) {
                 info.typename_token = {
-                    .text     = "unknown",
+                    .text     = std::format("<error_type>:{}", spirv_signature.error()),
                     .location = type_spec.spirv_type->keyword.location,
                     .type     = TokenType::kUnknown
                 };
@@ -1098,7 +1075,8 @@ namespace glsld {
                 return info;
             }
 
-            info.typename_token = type_spec.spirv_type->keyword;
+            info.spirv_signature = std::move(*spirv_signature);
+            info.typename_token  = type_spec.spirv_type->keyword;
 
             auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type);
             info.spirv_type = std::format("spirv_type({})", spirv_type_params);
@@ -1501,10 +1479,17 @@ namespace glsld {
         }
 
         auto IsAssignmentOperator = [](TokenType op) -> bool {
-            return op == TokenType::kEqual          || op == TokenType::kPlusEqual       || op == TokenType::kMinusEqual ||
-                   op == TokenType::kStarEqual      || op == TokenType::kSlashEqual      || op == TokenType::kPercentEqual ||
-                   op == TokenType::kLeftShiftEqual || op == TokenType::kRightShiftEqual ||
-                   op == TokenType::kAmpersandEqual || op == TokenType::kCaretEqual      || op == TokenType::kVerticalBarEqual;
+            return op == TokenType::kEqual
+                || op == TokenType::kPlusEqual
+                || op == TokenType::kMinusEqual
+                || op == TokenType::kStarEqual
+                || op == TokenType::kSlashEqual
+                || op == TokenType::kPercentEqual
+                || op == TokenType::kLeftShiftEqual
+                || op == TokenType::kRightShiftEqual
+                || op == TokenType::kAmpersandEqual
+                || op == TokenType::kCaretEqual
+                || op == TokenType::kVerticalBarEqual;
         };
 
         if (IsAssignmentOperator(op)) {

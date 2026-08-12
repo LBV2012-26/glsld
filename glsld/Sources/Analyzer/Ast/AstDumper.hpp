@@ -46,7 +46,7 @@ namespace glsld {
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         std::string FormatRange(AstNode* node) const;
-        std::string TypeToString(TypeSpecifier& type_spec) const;
+        std::string TypeToString(TypeSpec& type_spec) const;
         void PrintIndent();
         void TraverseWithoutIndent(auto* node);
 
