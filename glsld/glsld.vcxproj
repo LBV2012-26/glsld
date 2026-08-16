@@ -75,6 +75,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)Win64\</OutDir>
     <LibraryPath>$(SolutionDir)$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(ProjectDir)Win64\</OutDir>
@@ -242,6 +243,7 @@
     <None Include="Sources\Analyzer\Syntax\Parser.inl" />
     <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
     <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
+    <None Include="Sources\Base\Arena.inl" />
     <None Include="Sources\Base\FileSystem\Source.inl" />
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="Sources\Server\Workspace.inl" />

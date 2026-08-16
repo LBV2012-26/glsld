@@ -61,7 +61,7 @@ namespace glsld {
             }
 
             visited_symbols_.emplace(symbol);
-            auto result = Evaluate(var_decl->init.get());
+            auto result = Evaluate(var_decl->init);
 
             if (result.has_value()) {
                 current_value_ = *result;
@@ -81,8 +81,8 @@ namespace glsld {
             return;
         }
 
-        auto left_result  = Evaluate(node->left.get());
-        auto right_result = Evaluate(node->right.get());
+        auto left_result  = Evaluate(node->left);
+        auto right_result = Evaluate(node->right);
 
         if (!left_result || !right_result) {
             is_valid_ = false;
@@ -237,7 +237,7 @@ namespace glsld {
             return;
         }
 
-        auto result = Evaluate(node->operand.get());
+        auto result = Evaluate(node->operand);
         if (!result.has_value()) {
             is_valid_ = false;
             return;

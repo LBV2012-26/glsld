@@ -35,6 +35,14 @@ namespace glsld {
         }
     }
 
+    bool SpirvTypeSignature::operator==(const SpirvTypeSignature& other) const noexcept {
+        return std::ranges::equal(extensions, other.extensions)
+            && std::ranges::equal(capabilities, other.capabilities)
+            && set == other.set
+            && id  == other.id
+            && std::ranges::equal(operands, other.operands);
+    }
+
     bool TypeInfo::operator==(const TypeInfo& other) const {
         if (!CompareWithoutQualifiers(other)) {
             return false;

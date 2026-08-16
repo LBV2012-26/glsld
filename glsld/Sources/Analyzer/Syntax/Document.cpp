@@ -4,44 +4,12 @@
 #include <utility>
 
 namespace glsld {
-    Document::Document(Document&& other) noexcept
-        : dependencies{ std::move(other.dependencies) }
-        , builtins{ std::move(other.builtins) }
-        , symbols{ std::move(other.symbols) }
-        , source{ std::move(other.source) }
-        , raw_tokens{ std::move(other.raw_tokens) }
-        , expanded_tokens{ std::move(other.expanded_tokens) }
-        , inactive_regions{ std::move(other.inactive_regions) }
-        , ast{ std::move(other.ast) }
-        , arena{ std::move(other.arena) }
-        , bindings{ std::move(other.bindings) }
-        , macro_traces{ std::move(other.macro_traces) }
-        , macro_args_traces{ std::move(other.macro_args_traces) }
-        , macro_expansions{ std::move(other.macro_expansions) }
-        , macro_table{ std::move(other.macro_table) }
-        , version{ std::exchange(other.version, 0) }
-    {}
+    std::string_view Document::StoreString(std::string_view text) {
+        return arena.CopyString(text);
+    }
 
-    Document& Document::operator=(Document && other) noexcept {
-        if (this != &other) {
-            dependencies      = std::move(other.dependencies);
-            builtins          = std::move(other.builtins);
-            symbols           = std::move(other.symbols);
-            source            = std::move(other.source);
-            raw_tokens        = std::move(other.raw_tokens);
-            expanded_tokens   = std::move(other.expanded_tokens);
-            inactive_regions  = std::move(other.inactive_regions);
-            ast               = std::move(other.ast);
-            arena             = std::move(other.arena);
-            bindings          = std::move(other.bindings);
-            macro_traces      = std::move(other.macro_traces);
-            macro_args_traces = std::move(other.macro_args_traces);
-            macro_expansions  = std::move(other.macro_expansions);
-            macro_table       = std::move(other.macro_table);
-            version           = std::exchange(other.version, 0);
-        }
-
-        return *this;
+    void Document::StoreIncludeSource(IncludeSnapshot snapshot) {
+        include_snapshots_.push_back(std::move(snapshot));
     }
 
     void Document::PrepareInjectedMacros(const SourceFile* source_file) {
@@ -57,17 +25,27 @@ namespace glsld {
         }
     }
 
-    void Document::InjectMacro(std::string_view name, MacroDefinition definition) {
-        definition.original_token.text = name;
+    void Document::InjectMacro(MacroDefinition definition) {
+        definition.original_token.text = StoreString(definition.original_token.text);
+
+        for (auto& token : definition.replacement_list) {
+            token.text = StoreString(token.text);
+        }
+
+        for (auto& token : definition.params) {
+            token.text = StoreString(token.text);
+        }
+
+        auto name = definition.original_token.text;
         macro_table.insert_or_assign(name, definition);
         pending_macros_.insert_or_assign(name, std::move(definition));
     }
 
     void Document::InjectMacro(std::string_view name) {
-        InjectMacro(name, MacroDefinition{
+        InjectMacro(MacroDefinition{
             .is_function = false,
             .original_token = Token{
-                .text = std::string(name),
+                .text = name,
                 .type = TokenType::kIdentifier
             },
             .replacement_list = { Token{
@@ -82,16 +60,15 @@ namespace glsld {
         SourceLocation location(source_file, 0, 0);
 
         for (const auto& [name, definition] : pending_macros_) {
-            auto node = std::make_unique<PreprocessorNode>(root);
+            auto* node = arena.Construct<PreprocessorNode>(&arena, root);
 
             node->directive = "define";
             node->begin     = location;
             node->end       = location;
-            node->tokens    = definition.replacement_list;
-            node->symbol    = symbols.AddMacroSymbol(node.get(), name, location);
+            node->symbol    = symbols.AddMacroSymbol(node, name, location);
 
-            ast->preprocessor_references.push_back(node.get());
-            injected_nodes_.push_back(std::move(node));
+            node->tokens.assign_range(definition.replacement_list);
+            ast->preprocessor_references.push_back(node);
         }
 
         pending_macros_.clear();

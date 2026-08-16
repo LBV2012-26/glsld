@@ -2,10 +2,13 @@
 
 #include <cstdint>
 #include <atomic>
+#include <expected>
 #include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
+
+#include <ankerl/unordered_dense.h>
 
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
@@ -46,16 +49,25 @@ namespace glsld {
         void VisitRawExpression(RawExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
+        void SeparateType(TypeInfo& type_info, bool keep_vector);
+        TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc);
+        TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type);
         std::vector<std::int64_t> DeduceArraySizesFromArgs(const CallExpressionNode* call_node);
+        std::expected<SpirvTypeSignature, std::string> BuildSpirvTypeSignature(const SpirvIntrinsicNode* node);
         TypeInfo ExtractTypeInfo(const TypeSpec& type_spec, const Scope* located_scope);
         TypeDescriptor ParseTypeDescriptor(std::string_view text);
         TypeInfo SniffLiteralType(const Token& token);
         TypeInfo ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle);
-        SymbolReference ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
+        SymbolReference ResolveOverload(SymbolListView candidates, std::span<const TypeInfo> call_arg_types);
         TypeInfo ResolveBinaryOperationType(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
         TypeInfo ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
+        SymbolReferenceView ReferenceSymbol(const SymbolReference& reference);
 
         Document& document_;
-        bool      is_signature_pass_{ true };
+
+        using TypeDescriptorCache = ankerl::unordered_dense::map<TypeDescriptor, TypeInfo, TypeDescriptorHash>;
+        TypeDescriptorCache type_desc_cache_;
+
+        bool is_signature_pass_{ true };
     };
 }

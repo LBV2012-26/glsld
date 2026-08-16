@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cstddef>
 #include <algorithm>
-#include <charconv>
 #include <format>
 #include <fstream>
 #include <ios>
@@ -68,8 +67,8 @@ namespace glsld {
         }
 
         struct MacroCollectResult {
-            MacroTable injected_macros;
-            int        version{};
+            MacroTable       injected_macros;
+            std::string_view version{ "460" };
         };
 
         MacroCollectResult CollectRequestedExtensionsAndVersion(std::span<const Token> raw_tokens) {
@@ -79,7 +78,7 @@ namespace glsld {
                 injected_macros.try_emplace(name, MacroDefinition{
                     .is_function = false,
                     .original_token = Token{
-                        .text = std::string(name),
+                        .text = name,
                         .type = TokenType::kIdentifier
                     },
                     .replacement_list = { Token{
@@ -126,10 +125,7 @@ namespace glsld {
                     j + 1 < raw_tokens.size() &&
                     raw_tokens[j + 1].type == TokenType::kNumberLiteral)
                 {
-                    std::from_chars(
-                        raw_tokens[j + 1].text.data(),
-                        raw_tokens[j + 1].text.data() + raw_tokens[j + 1].text.size(),
-                        result.version);
+                    result.version = raw_tokens[j + 1].text;
 
                     i = j + 1;
                     continue;
@@ -181,8 +177,7 @@ namespace glsld {
 
         struct CollectResult {
             std::vector<std::filesystem::path> required_files;
-            MacroTable                         injected_macros;
-            int                                version{};
+            MacroCollectResult                 macro_collect_result;
         };
 
         CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
@@ -229,9 +224,11 @@ namespace glsld {
             required_files.erase(first, last);
 
             return {
-                .required_files  = std::move(required_files),
-                .injected_macros = std::move(injected_macros),
-                .version         = version
+                .required_files = std::move(required_files),
+                .macro_collect_result = {
+                    .injected_macros = std::move(injected_macros),
+                    .version         = version
+                }
             };
         }
     }
@@ -246,18 +243,7 @@ namespace glsld {
         std::span<const Token> raw_tokens,
         IncludeDirectoryHandle include_dirs)
     {
-        target.InjectMacro("_GLSLD", MacroDefinition{
-            .is_function = false,
-            .original_token = Token{
-                .text = "_GLSLD",
-                .type = TokenType::kIdentifier
-            },
-            .replacement_list = { Token{
-                .text = "1",
-                .type = TokenType::kNumberLiteral
-            } },
-        });
-
+        target.InjectMacro("_GLSLD");
         target.InjectMacro("__LINE__");
         target.InjectMacro("__FILE__");
 
@@ -295,16 +281,17 @@ namespace glsld {
             { "rcall", "Callable"       },
         };
 
-        auto [required_files, injected_macros, version] = CollectRequiredMetadataFiles(raw_tokens);
+        auto [required_files, macro_collect_result] = CollectRequiredMetadataFiles(raw_tokens);
+        auto [injected_macros, version]             = std::move(macro_collect_result);
 
-        target.InjectMacro("__VERSION__", MacroDefinition{
+        target.InjectMacro(MacroDefinition{
             .is_function = false,
             .original_token = Token{
                 .text = "__VERSION__",
                 .type = TokenType::kIdentifier
             },
             .replacement_list = { Token{
-                .text = std::format("{}", version),
+                .text = version,
                 .type = TokenType::kNumberLiteral
             } }
         });
@@ -320,17 +307,7 @@ namespace glsld {
             }
 
             if (!has_stage) {
-                target.InjectMacro(macro_it->second, MacroDefinition{
-                    .is_function = false,
-                    .original_token = Token{
-                        .text = macro_it->second,
-                        .type = TokenType::kIdentifier
-                    },
-                    .replacement_list = { Token{
-                        .text = "1",
-                        .type = TokenType::kNumberLiteral
-                    } },
-                });
+                target.InjectMacro(macro_it->second);
             }
 
             auto stage_it = kStages.find(shader_stage.value_or(""));
@@ -343,18 +320,18 @@ namespace glsld {
             }
         }
 
-        for (const auto& [name, definition] : injected_macros) {
-            target.InjectMacro(name, definition);
+        for (auto [_, definition] : injected_macros) {
+            target.InjectMacro(std::move(definition));
         }
 
         for (const auto& path : required_files) {
-            std::shared_ptr<Document> source = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
+            auto source = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
             if (source == nullptr) {
                 continue;
             }
 
-            for (const auto& [name, definition] : source->macro_table) {
-                target.InjectMacro(name, definition);
+            for (const auto& [_, definition] : source->macro_table) {
+                target.InjectMacro(definition);
             }
 
             auto* target_root = target.symbols.root_scope();
@@ -477,9 +454,13 @@ namespace glsld {
 
         std::unique_lock lock(builtin_mutex_);
         auto& cache = builtin_documents_[filename];
-        cache.write_time = latest;
-        cache.variants.try_emplace(cached_key, std::move(parsed));
 
+        if (cache.write_time != latest) {
+            cache.write_time = latest;
+            cache.variants.clear();
+        }
+
+        cache.variants.insert_or_assign(cached_key, std::move(parsed));
         return cache.variants[cached_key];
     }
 
@@ -565,19 +546,18 @@ namespace glsld {
 
         auto document = std::make_shared<Document>();
         document->source = std::move(*source);
-        document->arena  = std::make_unique<Arena>();
 
         if (injected_macros != nullptr) {
-            document->macro_table = *injected_macros;
+            for (const auto& [_, definition] : *injected_macros) {
+                document->InjectMacro(definition);
+            }
         }
 
         const auto* source_file = source_table_.Intern(filename, uri);
         Lexer lexer(source_file, document->source, include_loader_, include_dirs);
         auto raw_tokens = lexer.Tokenize();
 
-        thread_local_arena = document->arena.get();
-        thread_local_arena->Reset();
-        Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs, 0, nullptr, *document);
+        Parser parser(*document, source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs, 0, nullptr);
 
         if (document->ast == nullptr) {
             return nullptr;

@@ -879,10 +879,15 @@ namespace glsld {
     }
 
     Token Preprocessor::PasteTokens(const Token& left, const Token& right) {
-        std::string new_text = left.text + right.text;
+        std::string new_text;
+        new_text.reserve(left.text.size() + right.text.size());
+        new_text.append(left.text);
+        new_text.append(right.text);
 
         Lexer lexer(source_file_, new_text, include_loader_, include_dirs_);
         Token token = lexer.AcquireNextToken();
+
+        token.text     = document_.StoreString(token.text);
         token.location = left.location;
 
         return token;
@@ -1138,9 +1143,9 @@ namespace glsld {
         std::vector<Token> normalized;
         normalized.reserve(input.size());
 
-        auto MakeNumber = [](std::string text, const SourceLocation& location) -> Token {
+        auto MakeNumber = [this](std::string_view text, const SourceLocation& location) -> Token {
             return Token{
-                .text     = std::move(text),
+                .text     = document_.StoreString(text),
                 .location = location,
                 .type     = TokenType::kNumberLiteral
             };
@@ -1271,23 +1276,23 @@ namespace glsld {
             call_site = body_tokens.front().location;
         }
 
-        auto expanded_body = ExpandTokenSequence(body_tokens, active_macros, call_site);
-        auto future        = include_loader_.Include(source_file_->uri(), expanded_body, include_dirs_);
-        auto snapshot      = future.get();
+        auto expanded_body    = ExpandTokenSequence(body_tokens, active_macros, call_site);
+        auto future           = include_loader_.Include(source_file_->uri(), expanded_body, include_dirs_);
+        auto include_snapshot = future.get();
 
-        if (snapshot == nullptr || !snapshot->valid()) {
+        if (include_snapshot == nullptr || !include_snapshot->valid() ||
+            std::ranges::find(include_stack_, include_snapshot->filename) != include_stack_.end())
+        {
             return {};
         }
 
-        if (std::ranges::find(include_stack_, snapshot->filename) != include_stack_.end()) {
-            return {};
-        }
+        document_.dependencies.push_back(include_snapshot->uri);
 
-        document_.dependencies.push_back(snapshot->uri);
-
-        const auto* include_file = source_table_.Intern(snapshot->filename, snapshot->uri);
-        Preprocessor subprocessor(source_table_, include_file, include_loader_, include_dirs_, snapshot->tokens, document_, include_stack_);
+        const auto* include_file = source_table_.Intern(include_snapshot->filename, include_snapshot->uri);
+        Preprocessor subprocessor(source_table_, include_file, include_loader_, include_dirs_, include_snapshot->tokens, document_, include_stack_);
         auto expanded = subprocessor.Process();
+
+        document_.StoreIncludeSource(std::move(include_snapshot));
 
         if (!expanded.empty() && expanded.back().type == TokenType::kEndOfFile) {
             expanded.pop_back();

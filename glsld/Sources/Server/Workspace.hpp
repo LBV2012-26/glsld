@@ -31,9 +31,14 @@ namespace glsld {
         std::optional<std::string> target_spv;
     };
 
+    struct ActiveMacro {
+        std::string name;
+        std::string replacement;
+    };
+
     struct ActiveVariant {
-        std::string variant_name;
-        MacroTable  macros;
+        std::string              variant_name;
+        std::vector<ActiveMacro> macros;
     };
 
     enum class VariantType {
@@ -93,6 +98,8 @@ namespace glsld {
             int version_replica,
             VersionPointer version_pointer,
             Document& document);
+
+        void InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro);
 
         void UnregisterDependencies(std::string_view uri);
         void UpdateDependencies(std::string_view uri, std::span<const std::string> dependencies);

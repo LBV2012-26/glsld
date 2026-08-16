@@ -160,18 +160,18 @@ namespace glsld::utils {
         case QualifierArgumentKind::kStringLiteral:
         case QualifierArgumentKind::kBoolLiteral:
         case QualifierArgumentKind::kUnknown:
-            return argument->token.text;
+            return std::string(argument->token.text);
 
         case QualifierArgumentKind::kAssignment: {
-            auto lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0].get()) : "";
-            auto rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1].get()) : "";
+            auto lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0]) : "";
+            auto rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1]) : "";
             return std::format("{} = {}", lhs, rhs);
         }
 
         case QualifierArgumentKind::kArray: {
             std::string result = "[";
             for (auto i = 0uz; i != argument->children.size(); ++i) {
-                result += SerializeQualifierArguments(argument->children[i].get());
+                result += SerializeQualifierArguments(argument->children[i]);
                 if (i + 1 != argument->children.size()) {
                     result += ", ";
                 }
@@ -184,7 +184,7 @@ namespace glsld::utils {
         case QualifierArgumentKind::kGroup: {
             std::string result = "(";
             for (auto i = 0uz; i != argument->children.size(); ++i) {
-                result += SerializeQualifierArguments(argument->children[i].get());
+                result += SerializeQualifierArguments(argument->children[i]);
                 if (i + 1 != argument->children.size()) {
                     result += ", ";
                 }
@@ -197,7 +197,7 @@ namespace glsld::utils {
         case QualifierArgumentKind::kSequence: {
             std::string result;
             for (auto i = 0uz; i != argument->children.size(); ++i) {
-                const auto* current = argument->children[i].get();
+                const auto* current = argument->children[i];
                 result += SerializeQualifierArguments(current);
                 if (i + 1 < argument->children.size()) {
                     const auto& next = *argument->children[i + 1];

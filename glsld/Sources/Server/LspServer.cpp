@@ -1343,17 +1343,10 @@ namespace glsld {
 
             if (value.contains("macros") && value["macros"].is_object()) {
                 for (const auto& [name, replacement] : value["macros"].items()) {
-                    variant.macros[name] = MacroDefinition{
-                        .is_function = false,
-                        .original_token = Token{
-                            .text = name,
-                            .type = TokenType::kIdentifier
-                        },
-                        .replacement_list = { Token{
-                            .text = replacement.is_string() ? replacement.get<std::string>() : "1",
-                            .type = TokenType::kNumberLiteral
-                        } }
-                    };
+                    variant.macros.push_back(ActiveMacro{
+                        .name        = name,
+                        .replacement = replacement.is_string() ? replacement.get<std::string>() : "1"
+                    });
                 }
             }
 

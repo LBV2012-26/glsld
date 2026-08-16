@@ -25,6 +25,7 @@ namespace glsld::utils {
 
     template <typename Ty>
     concept IsQualifierArgument = std::same_as<Ty, LayoutQualifierNode> || std::same_as<Ty, SpirvIntrinsicNode>;
+
     std::string BuildQualifierParameterList(const IsQualifierArgument auto* node);
 
     // Parsing helper

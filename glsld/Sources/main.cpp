@@ -52,17 +52,13 @@ namespace {
         auto lexer_end      = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
-        document.arena = std::make_unique<Arena>();
-
         auto attach_start    = std::chrono::high_resolution_clock::now();
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, raw_tokens, include_dirs);
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
-        thread_local_arena = document.arena.get();
-
         auto parse_start    = std::chrono::high_resolution_clock::now();
-        Parser parser(source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr, document);
+        Parser parser(document, source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr);
         auto parse_end      = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
@@ -99,6 +95,8 @@ namespace {
         return EXIT_SUCCESS;
     }
 }
+
+// #define BENCHMARK
 
 int main() {
 #ifdef _WIN64

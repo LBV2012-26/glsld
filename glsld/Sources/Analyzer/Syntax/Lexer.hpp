@@ -8,6 +8,7 @@
 #include <optional>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Token.hpp"

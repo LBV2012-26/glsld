@@ -393,8 +393,8 @@ namespace glsld {
             }
 
             const SymbolInfo* symbol = nullptr;
-            if (std::holds_alternative<SymbolList>(it->second)) {
-                const auto& symbols = std::get<SymbolList>(it->second);
+            if (std::holds_alternative<SymbolListView>(it->second)) {
+                const auto& symbols = std::get<SymbolListView>(it->second);
                 if (!symbols.empty()) {
                     symbol = symbols.front();
                 }
@@ -429,7 +429,7 @@ namespace glsld {
     }
 
     namespace {
-        std::optional<std::string> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
+        std::optional<std::string_view> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
             if (node == nullptr || node->directive != "include") {
                 return std::nullopt;
             }
@@ -614,8 +614,8 @@ namespace glsld {
             if (symbol != nullptr) {
                 results.push_back(symbol);
             }
-        } else if (std::holds_alternative<SymbolList>(linked_symbols)) {
-            const auto& symbols = std::get<SymbolList>(linked_symbols);
+        } else if (std::holds_alternative<SymbolListView>(linked_symbols)) {
+            const auto& symbols = std::get<SymbolListView>(linked_symbols);
             if (!symbols.empty()) {
                 results.append_range(symbols);
             }
@@ -648,8 +648,8 @@ namespace glsld {
         const SymbolInfo* symbol = nullptr;
         if (std::holds_alternative<const SymbolInfo*>(it->second)) {
             symbol = std::get<const SymbolInfo*>(it->second);
-        } else if (std::holds_alternative<SymbolList>(it->second)) {
-            const auto& symbols = std::get<SymbolList>(it->second);
+        } else if (std::holds_alternative<SymbolListView>(it->second)) {
+            const auto& symbols = std::get<SymbolListView>(it->second);
             if (!symbols.empty()) {
                 symbol = symbols.front();
             }
@@ -738,7 +738,7 @@ namespace glsld {
             return std::nullopt;
         }
 
-        const auto* callee = static_cast<const VariableExpressionNode*>(node->callee.get());
+        const auto* callee = static_cast<const VariableExpressionNode*>(node->callee);
         auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
         if (std::holds_alternative<std::monostate>(candidates)) {
             return std::nullopt;
@@ -803,7 +803,7 @@ namespace glsld {
 
     namespace {
         struct IncludeCompletionContext {
-            std::string      prefix;
+            std::string_view prefix;
             std::string_view uri;
             std::uint32_t    line{};
             std::uint32_t    replace_start_column{};
@@ -1341,7 +1341,7 @@ namespace glsld {
                         continue;
                     }
 
-                    param_map[*subtype].push_back(param->token.text);
+                    param_map[*subtype].push_back(std::string(param->token.text));
                     continue;
                 }
 
@@ -1392,7 +1392,7 @@ namespace glsld {
             return result;
         }
 
-        std::string RenderMergedLayout(std::span<const std::unique_ptr<LayoutQualifierNode>> layouts) {
+        std::string RenderMergedLayout(std::span<const LayoutQualifierNode* const> layouts) {
             std::vector<const QualifierArgumentNode*> canonical_params;
             for (const auto& layout : layouts) {
                 if (layout == nullptr) {
@@ -1401,7 +1401,7 @@ namespace glsld {
 
                 for (const auto& param : layout->params) {
                     if (param != nullptr) {
-                        canonical_params.push_back(param.get());
+                        canonical_params.push_back(param);
                     }
                 }
             }
@@ -1453,8 +1453,8 @@ namespace glsld {
                 std::vector<std::string> ids;
 
                 for (const auto& param : params) {
-                    if (IsAssignmentWithKey(param.get(), "extensions")) {
-                        auto extensions = CollectStringArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back());
                         if (!extensions.has_value()) {
                             continue;
                         }
@@ -1463,8 +1463,8 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
-                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back());
                         if (!capabilities.has_value()) {
                             continue;
                         }
@@ -1473,17 +1473,17 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "sets")) {
-                        sets.push_back(std::format("set = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                    if (IsAssignmentWithKey(param, "sets")) {
+                        sets.push_back(std::format("set = {}", utils::SerializeQualifierArguments(param->children.back())));
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "ids")) {
-                        ids.push_back(std::format("ids = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                    if (IsAssignmentWithKey(param, "ids")) {
+                        ids.push_back(std::format("ids = {}", utils::SerializeQualifierArguments(param->children.back())));
                         continue;
                     }
 
-                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
+                    positional.push_back(utils::SerializeQualifierArguments(param));
                 }
 
                 std::ranges::sort(exts_union);
@@ -1504,8 +1504,8 @@ namespace glsld {
                 ordered.append_range(positional | std::views::as_rvalue);
             } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
                 for (const auto& param : params) {
-                    if (IsAssignmentWithKey(param.get(), "extensions")) {
-                        auto extensions = CollectStringArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back());
                         if (!extensions.has_value()) {
                             continue;
                         }
@@ -1514,8 +1514,8 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
-                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back());
                         if (!capabilities.has_value()) {
                             continue;
                         }
@@ -1524,7 +1524,7 @@ namespace glsld {
                         continue;
                     }
 
-                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
+                    positional.push_back(utils::SerializeQualifierArguments(param));
                 }
 
                 std::ranges::sort(exts_union);
@@ -1543,7 +1543,7 @@ namespace glsld {
                 ordered.append_range(positional | std::views::as_rvalue);
             } else {
                 for (const auto& param : params) {
-                    ordered.push_back(utils::SerializeQualifierArguments(param.get()));
+                    ordered.push_back(utils::SerializeQualifierArguments(param));
                 }
             }
 
@@ -1567,7 +1567,7 @@ namespace glsld {
 
             auto it = snapshot->macro_traces.find(location);
             if (it != snapshot->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
-                return it->second.text;
+                return std::string(it->second.text);
             }
 
             for (const auto& builtin : snapshot->builtins) {
@@ -1575,7 +1575,7 @@ namespace glsld {
 #pragma warning(disable : 4456)
                 auto it = builtin->macro_traces.find(location);
                 if (it != builtin->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
-                    return it->second.text;
+                    return std::string(it->second.text);
                 }
 #pragma warning(pop)
             }
@@ -1607,9 +1607,9 @@ namespace glsld {
             if (!node->type_spec.template_args.empty()) {
                 type_name += "<";
                 for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i].get())) {
+                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i])) {
                         type_name += var->name;
-                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i].get())) {
+                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i])) {
                         type_name += raw->tokens.front().text;
                     }
 
@@ -1645,13 +1645,13 @@ namespace glsld {
 
             for (const auto& spec : node->type_spec.specifiers) {
                 if (spec.text == "layout" || spec.type == TokenType::kSpirvIntrinsic ||
-                    spec.text == "true" || spec.text == "false")
+                    spec.text == "true"   || spec.text == "false")
                 {
                     continue;
                 }
 
                 auto alias = ResolveAlias(snapshot, spec.location);
-                auto text  = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : spec.text) : alias;
+                auto text  = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : std::string(spec.text)) : std::string(alias);
                 if (auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers"))
                 {
@@ -1664,9 +1664,9 @@ namespace glsld {
                     continue;
                 }
 
-                const auto& name = spirv->keyword.text;
+                auto name  = spirv->keyword.text;
                 auto alias = ResolveAlias(snapshot, spirv->keyword.location);
-                auto call  = alias.empty() ? RenderCanonicalSpirvCall(spirv.get()) : alias;
+                auto call  = alias.empty() ? RenderCanonicalSpirvCall(spirv) : alias;
 
                 if (name == "spirv_execution_mode" || name == "spirv_execution_mode_ide" || name == "spirv_instruction") {
                     layer_exec_env.push_back(std::move(call));
@@ -1675,7 +1675,7 @@ namespace glsld {
                 } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
                     layer_decorate.push_back(std::move(call));
                 } else if (name == "spirv_by_reference" || name == "spirv_literal") {
-                    layer_decorate.push_back(name);
+                    layer_decorate.push_back(std::string(name));
                 }
             }
 
@@ -1727,8 +1727,8 @@ namespace glsld {
         }
 
         std::string return_typename = symbol->type_info.spirv_type.empty()
-                                    ? symbol->type_info.typename_token.text
-                                    : symbol->type_info.spirv_type;
+                                    ? std::string(symbol->type_info.typename_token.text)
+                                    : std::string(symbol->type_info.spirv_type);
 
         for (const auto& template_args : symbol->type_info.template_args) {
             return_typename += (template_args == symbol->type_info.template_args.front()) ? "<" : ", ";
@@ -1766,7 +1766,7 @@ namespace glsld {
                 continue;
             }
 
-            auto        param_line   = BuildHoverSpecifierLine(param.get(), snapshot.get());
+            auto        param_line   = BuildHoverSpecifierLine(param, snapshot.get());
             const auto* param_symbol = param->declared_symbol;
 
             if (param_symbol == nullptr) {
@@ -1822,7 +1822,7 @@ namespace glsld {
 
             case AstNodeKind::kVariableExpression: {
                 const auto* node = static_cast<const VariableExpressionNode*>(expr);
-                return node->name;
+                return std::string(node->name);
             }
 
             case AstNodeKind::kUnaryExpression: {
@@ -1840,10 +1840,10 @@ namespace glsld {
                 }(unary->op);
 
                 if (unary->is_postfix) {
-                    return SerializeInitializer(unary->operand.get()) + op_text;
+                    return SerializeInitializer(unary->operand) + op_text;
                 }
 
-                return op_text + SerializeInitializer(unary->operand.get());
+                return op_text + SerializeInitializer(unary->operand);
             }
 
             case AstNodeKind::kBinaryExpression: {
@@ -1874,14 +1874,14 @@ namespace glsld {
                     }
                 }(binary->op);
 
-                return SerializeInitializer(binary->left.get()) + op_text + SerializeInitializer(binary->right.get());
+                return SerializeInitializer(binary->left) + op_text + SerializeInitializer(binary->right);
             }
 
             case AstNodeKind::kCallExpression: {
                 const auto* call = static_cast<const CallExpressionNode*>(expr);
-                std::string result = SerializeInitializer(call->callee.get()) + "(";
+                std::string result = SerializeInitializer(call->callee) + "(";
                 for (auto i = 0uz; i != call->args.size(); ++i) {
-                    result += SerializeInitializer(call->args[i].get());
+                    result += SerializeInitializer(call->args[i]);
                     if (i + 1 != call->args.size()) {
                         result += ", ";
                     }
@@ -1893,19 +1893,19 @@ namespace glsld {
 
             case AstNodeKind::kIndexExpression: {
                 const auto* index = static_cast<const IndexExpressionNode*>(expr);
-                return SerializeInitializer(index->base.get()) + "[" + SerializeInitializer(index->index.get()) + "]";
+                return SerializeInitializer(index->base) + "[" + SerializeInitializer(index->index) + "]";
             }
 
             case AstNodeKind::kMemberAccessExpression: {
                 const auto* member = static_cast<const MemberAccessExpressionNode*>(expr);
-                return SerializeInitializer(member->object.get()) + "." + SerializeInitializer(member->member.get());
+                return SerializeInitializer(member->object) + "." + SerializeInitializer(member->member);
             }
 
             case AstNodeKind::kTernaryExpression: {
                 const auto* ternary = static_cast<const TernaryExpressionNode*>(expr);
-                return SerializeInitializer(ternary->condition.get()) + " ? "
-                     + SerializeInitializer(ternary->true_expr.get()) + " : "
-                     + SerializeInitializer(ternary->false_expr.get());
+                return SerializeInitializer(ternary->condition) + " ? "
+                     + SerializeInitializer(ternary->true_expr) + " : "
+                     + SerializeInitializer(ternary->false_expr);
             }
 
             default:
@@ -2039,7 +2039,7 @@ namespace glsld {
                     break;
                 }
 
-                expr = declare->init.get();
+                expr = declare->init;
             }
 
             return expr;
@@ -2101,14 +2101,14 @@ namespace glsld {
                 if (auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers")) {
                     if (spec.text != "layout") {
-                        storage_hits.push_back(spec.text);
+                        storage_hits.push_back(std::string(spec.text));
                     }
                 }
             }
 
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_storage_class") {
-                    storage_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    storage_hits.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 
@@ -2125,7 +2125,7 @@ namespace glsld {
 
                 const auto& name = spirv->keyword.text;
                 if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
-                    decorate_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    decorate_hits.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 
@@ -2168,14 +2168,14 @@ namespace glsld {
                 return;
             }
 
-            auto initializer = SerializeInitializer(node->init.get());
+            auto initializer = SerializeInitializer(node->init);
             if (!initializer.empty()) {
                 declare.insert(declare.find_last_of(';'), " = " + initializer);
                 if (node->init->kind() != AstNodeKind::kLiteralExpression) {
                     ConstantEvaluator evaluator;
-                    if (auto value = evaluator.EvaluateAs<std::string>(node->init.get())) {
+                    if (auto value = evaluator.EvaluateAs<std::string>(node->init)) {
                         declare += "\n// Evaluates to\n" + *value;
-                    } else if (auto* root = FollowConstantChain(node->init.get()); root != nullptr && root != node->init.get()) {
+                    } else if (auto* root = FollowConstantChain(node->init); root != nullptr && root != node->init) {
                         auto root_text = SerializeInitializer(root);
                         if (!root_text.empty()) {
                             declare += "\n// Evaluates to\n" + root_text;
@@ -2295,7 +2295,7 @@ namespace glsld {
             std::vector<std::string> decorate_calls;
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_instruction") {
-                    decorate_calls.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    decorate_calls.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 

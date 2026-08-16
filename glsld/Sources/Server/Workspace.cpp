@@ -27,13 +27,13 @@ namespace glsld {
         VersionPointer version_pointer)
     {
         auto document = std::make_shared<Document>();
-        document->source  = std::string(source);
+        document->source  = source;
         document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
 
         auto process_start = std::chrono::high_resolution_clock::now();;
-        ProcessSource(source_file, source, version_replica, version_pointer, *document);
+        ProcessSource(source_file, document->source, version_replica, version_pointer, *document);
         auto process_end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Processed document {} in {} ms (replica: {}, current: {})",
@@ -282,23 +282,19 @@ namespace glsld {
             std::shared_lock lock(variant_mutex_);
             auto variant_it = active_variants_.find(source_file->uri());
             if (variant_it != active_variants_.end()) {
-                for (const auto& [name, macro] : variant_it->second.macros) {
-                    document.InjectMacro(name, macro);
+                for (const auto& macro : variant_it->second.macros) {
+                    InjectVariantMacro(document, source_file, macro);
                 }
             }
 
             if (shared_variant_.has_value()) {
-                for (const auto& [name, macro] : shared_variant_->macros) {
-                    document.InjectMacro(name, macro);
+                for (const auto& macro : shared_variant_->macros) {
+                    InjectVariantMacro(document, source_file, macro);
                 }
             }
         }
 
-        document.arena = std::make_unique<Arena>();
-        thread_local_arena = document.arena.get();
-        thread_local_arena->Reset();
-
-        Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
+        Parser parser(document, source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
                 GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",
@@ -328,6 +324,33 @@ namespace glsld {
 
         if (Cancelled()) return;
         MacroBinder binder(document, version_replica, version_pointer);
+    }
+
+    void Workspace::InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro) {
+        auto name        = document.StoreString(macro.name);
+        auto replacement = document.StoreString(macro.replacement);
+
+        Lexer lexer(source_file, replacement, include_loader_, include_dirs_);
+        auto tokens = lexer.Tokenize();
+
+        if (!tokens.empty() && tokens.back().type == TokenType::kEndOfFile) {
+            tokens.pop_back();
+        }
+
+        SourceLocation location(source_file, 0, 0);
+        for (auto& token : tokens) {
+            token.location = location;
+        }
+
+        document.InjectMacro(MacroDefinition{
+            .is_function = false,
+            .original_token = Token{
+                .text     = name,
+                .location = location,
+                .type     = TokenType::kIdentifier
+            },
+            .replacement_list = std::move(tokens)
+        });
     }
 
     void Workspace::UnregisterDependencies(std::string_view uri) {

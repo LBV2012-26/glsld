@@ -25,7 +25,7 @@ namespace glsld {
         std::optional<std::string> shader_stage;
         std::optional<std::string> target_env;
         std::optional<std::string> target_spv;
-        int                        version_replica;
+        int                        version_replica{};
         VersionPointer             version_pointer;
     };
 

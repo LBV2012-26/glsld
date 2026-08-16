@@ -9,7 +9,7 @@ namespace glsld {
         : AstVisitor(version_replica, vesion_pointer)
         , document_{ document }
     {
-        Traverse(document_.ast.get());
+        Traverse(document_.ast);
     }
 
     void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
@@ -18,7 +18,7 @@ namespace glsld {
         }
 
         for (auto& statement : node->body) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
     }
 
@@ -45,8 +45,8 @@ namespace glsld {
             {
                 auto function = document_.symbols.FindFunctionsByOriginalName(node->name);
                 if (!std::holds_alternative<std::monostate>(function)) {
-                    node->linked_symbols = std::move(function);
-                    node->node_type = VariableExpressionNode::NodeType::kFunctionCallee;
+                    node->linked_symbols = ReferenceSymbol(function);
+                    node->node_type      = VariableExpressionNode::NodeType::kFunctionCallee;
                 }
             }
 
@@ -62,7 +62,7 @@ namespace glsld {
                 if (std::holds_alternative<std::monostate>(it->second)) {
                     FindConstructor();
                 } else {
-                    node->linked_symbols = it->second;
+                    node->linked_symbols = ReferenceSymbol(it->second);
                 }
 
                 break;
@@ -77,14 +77,14 @@ namespace glsld {
                 break;
             }
 
-            node->linked_symbols = inserted_it->second;
+            node->linked_symbols = ReferenceSymbol(inserted_it->second);
             break;
         }
         default:
             break;
         }
 
-        if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
+        if (std::holds_alternative<SymbolListView>(node->linked_symbols)) {
             document_.bindings.try_emplace(node->begin, node->linked_symbols);
         } else if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
             const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
@@ -92,5 +92,18 @@ namespace glsld {
                 document_.bindings.try_emplace(node->original_token.location, symbol);
             }
         }
+    }
+
+    SymbolReferenceView SymbolLinker::ReferenceSymbol(const SymbolReference& reference) {
+        if (std::holds_alternative<std::monostate>(reference)) {
+            return std::monostate{};
+        }
+
+        if (std::holds_alternative<const SymbolInfo*>(reference)) {
+            return std::get<const SymbolInfo*>(reference);
+        }
+
+        const auto& symbols = std::get<SymbolList>(reference);
+        return document_.arena.CopySpan<const SymbolInfo*>(symbols);
     }
 }

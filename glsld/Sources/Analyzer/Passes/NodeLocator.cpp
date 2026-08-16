@@ -5,7 +5,7 @@ namespace glsld {
     LeafLocator::LeafLocator(const Document& document, const SourceLocation& target)
         : LocatorHelper(target)
     {
-        Traverse(document.ast.get());
+        Traverse(document.ast);
     }
 
     void LeafLocator::Traverse(AstNode* node) {
@@ -22,7 +22,7 @@ namespace glsld {
     ContextLocator::ContextLocator(const Document& document, const SourceLocation& target)
         : LocatorHelper(target)
     {
-        Traverse(document.ast.get());
+        Traverse(document.ast);
     }
 
     void ContextLocator::Traverse(AstNode* node) {
@@ -36,14 +36,14 @@ namespace glsld {
     }
 
     void ContextLocator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
-        best_match_ = node->object.get();
+        best_match_ = node->object;
         // AstVisitor::VisitMemberAccessExpression(node);
     }
 
     SignatureLocator::SignatureLocator(const Document& document, const SourceLocation& target)
         : LocatorHelper(target)
     {
-        Traverse(document.ast.get());
+        Traverse(document.ast);
     }
 
     void SignatureLocator::VisitCallExpression(CallExpressionNode* node) {

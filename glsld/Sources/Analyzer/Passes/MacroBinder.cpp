@@ -64,7 +64,7 @@ namespace glsld {
 
             auto functions = document_.symbols.FindFunctionsByOriginalName(trace.token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(location, std::move(functions));
+                document_.bindings.try_emplace(location, ReferenceSymbol(functions));
             }
         }
     }
@@ -112,7 +112,7 @@ namespace glsld {
 
             auto functions = document_.symbols.FindFunctionsByOriginalName(token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(token.location, std::move(functions));
+                document_.bindings.try_emplace(token.location, ReferenceSymbol(functions));
             }
         };
 
@@ -169,5 +169,18 @@ namespace glsld {
                 BindActiveMacro(token);
             }
         }
+    }
+
+    SymbolReferenceView MacroBinder::ReferenceSymbol(const SymbolReference& reference) {
+        if (std::holds_alternative<std::monostate>(reference)) {
+            return std::monostate{};
+        }
+
+        if (std::holds_alternative<const SymbolInfo*>(reference)) {
+            return std::get<const SymbolInfo*>(reference);
+        }
+
+        const auto& symbols = std::get<SymbolList>(reference);
+        return document_.arena.CopySpan<const SymbolInfo*>(symbols);
     }
 }

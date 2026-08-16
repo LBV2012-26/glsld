@@ -8,7 +8,6 @@
 #include <ranges>
 #include <string>
 #include <stdexcept>
-#include <vector>
 
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Base/Unicode.hpp"
@@ -106,7 +105,7 @@ namespace glsld {
             }
 
             return {
-                .text     = std::string(source_.substr(begin, position_ - begin)),
+                .text     = source_.substr(begin, position_ - begin),
                 .location = location,
                 .type     = TokenType::kNumberLiteral
             };
@@ -120,7 +119,7 @@ namespace glsld {
                 Advance(length);
 
                 return {
-                    .text     = std::string(source_.substr(begin, length)),
+                    .text     = source_.substr(begin, length),
                     .location = location,
                     .type     = TokenType::kStringLiteral
                 };
@@ -153,13 +152,13 @@ namespace glsld {
                 if (it->second == TokenType::kPreprocessor) {
                     if (preprocessor_line_) {
                         return {
-                            .text     = std::string(word),
+                            .text     = word,
                             .location = location,
                             .type     = it->second
                         };
                     } else {
                         return {
-                            .text     = std::string(word),
+                            .text     = word,
                             .location = location,
                             .type     = TokenType::kIdentifier
                         };
@@ -172,7 +171,7 @@ namespace glsld {
                     if (subtype.has_value() && (subtype->starts_with("Primitives.Layout") || subtype->starts_with("Primitives.Spirv"))) {
                         if (qualifier_paren_depth_ == 0 || qualifier_after_equal_) {
                             return {
-                                .text     = std::string(word),
+                                .text     = word,
                                 .location = location,
                                 .type     = TokenType::kIdentifier
                             };
@@ -181,14 +180,14 @@ namespace glsld {
                 }
 
                 return {
-                    .text     = std::string(word),
+                    .text     = word,
                     .location = location,
                     .type     = it->second
                 };
             }
 
             return {
-                .text     = std::string(word),
+                .text     = word,
                 .location = location,
                 .type     = TokenType::kIdentifier
             };
@@ -209,7 +208,7 @@ namespace glsld {
             }
 
             return {
-                .text     = std::string(source_.substr(begin, position_ - begin)),
+                .text     = source_.substr(begin, position_ - begin),
                 .location = location,
                 .type     = TokenType::kStringLiteral
             };
@@ -221,8 +220,8 @@ namespace glsld {
 
         return {
             .text     = point.valid
-                      ? std::string(source_.substr(begin, point.byte_count))
-                      : std::string("\xEF\xBF\xBD"),
+                      ? source_.substr(begin, point.byte_count)
+                      : "\xEF\xBF\xBD",
             .location = location,
             .type     = TokenType::kUnknown
         };
@@ -239,7 +238,7 @@ namespace glsld {
         }
 
         auto [include_begin, include_end] = *include_expr_range;
-        std::string_view include_expr = source_.substr(include_begin, include_end - include_begin);
+        auto include_expr = source_.substr(include_begin, include_end - include_begin);
         include_loader_.Prefetch(source_file_->uri(), include_expr, include_dirs_);
     }
 
@@ -401,7 +400,7 @@ namespace glsld {
     Token Lexer::Capture(TokenType type, std::size_t length) {
         const SourceLocation location(source_file_, line_, column_);
 
-        std::string text(source_.substr(position_, length));
+        auto text = source_.substr(position_, length);
         Advance(length);
 
         return {

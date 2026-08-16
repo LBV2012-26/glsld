@@ -142,7 +142,7 @@ namespace glsld {
         for (const auto& [location, symbols] : document.bindings) {
             if (const auto* single = std::get_if<const SymbolInfo*>(&symbols)) {
                 AddSymbol(location, *single);
-            } else if (const auto* list = std::get_if<SymbolList>(&symbols)) {
+            } else if (const auto* list = std::get_if<SymbolListView>(&symbols)) {
                 for (const auto* symbol : *list) {
                     AddSymbol(location, symbol);
                 }

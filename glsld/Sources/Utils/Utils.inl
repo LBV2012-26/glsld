@@ -10,7 +10,7 @@ namespace glsld::utils {
 
         std::string params;
         for (auto i = 0uz; i != node->params.size(); ++i) {
-            params += SerializeQualifierArguments(node->params[i].get());
+            params += SerializeQualifierArguments(node->params[i]);
             if (i + 1 != node->params.size()) {
                 params += ", ";
             }

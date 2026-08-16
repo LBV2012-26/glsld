@@ -54,7 +54,7 @@ namespace glsld {
 
         if (IsStatementKind(node->kind())) {
             for (auto& attribute : static_cast<StatementNode*>(node)->attributes) {
-                VisitAttribute(attribute.get());
+                VisitAttribute(attribute);
             }
         }
 
@@ -168,209 +168,209 @@ namespace glsld {
 
     void AstVisitor::VisitTranslationUnit(TranslationUnitNode* node) {
         for (auto& statement : node->statements) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
     }
 
     void AstVisitor::VisitDeclarationGroup(DeclarationGroupNode* node) {
         for (auto& declaration : node->declarations) {
-            Traverse(declaration.get());
+            Traverse(declaration);
         }
     }
 
     void AstVisitor::VisitPreprocessor(PreprocessorNode* node) {
         for (auto& statement : node->body) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
     }
 
     void AstVisitor::VisitAttribute(AttributeNode* node) {
-        Traverse(node->argument.get());
+        Traverse(node->argument);
     }
 
     void AstVisitor::VisitQualifierArgument(QualifierArgumentNode* node) {
         for (auto& child : node->children) {
-            Traverse(child.get());
+            Traverse(child);
         }
 
         if (node->rhs_expr != nullptr) {
-            Traverse(node->rhs_expr.get());
+            Traverse(node->rhs_expr);
         }
     }
 
     void AstVisitor::VisitLayoutQualifier(LayoutQualifierNode* node) {
         for (auto& param : node->params) {
-            Traverse(param.get());
+            Traverse(param);
         }
     }
 
     void AstVisitor::VisitSpirvIntrinsic(SpirvIntrinsicNode* node) {
         for (auto& param : node->params) {
-            Traverse(param.get());
+            Traverse(param);
         }
     }
 
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout.get());
+            Traverse(layout);
         }
 
         for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic.get());
+            Traverse(spirv_intrinsic);
         }
 
         for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg.get());
+            Traverse(template_arg);
         }
 
         for (auto& size_expr : node->type_spec.array_sizes) {
-            Traverse(size_expr.get());
+            Traverse(size_expr);
         }
 
         for (auto& param : node->params) {
-            Traverse(param.get());
+            Traverse(param);
         }
 
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
     }
 
     void AstVisitor::VisitVariableDeclaration(VariableDeclarationNode* node) {
         for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout.get());
+            Traverse(layout);
         }
 
         for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic.get());
+            Traverse(spirv_intrinsic);
         }
 
         for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg.get());
+            Traverse(template_arg);
         }
 
         for (auto& size_expr : node->type_spec.array_sizes) {
-            Traverse(size_expr.get());
+            Traverse(size_expr);
         }
 
         if (node->init != nullptr) {
-            Traverse(node->init.get());
+            Traverse(node->init);
         }
     }
 
     void AstVisitor::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
         for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout.get());
+            Traverse(layout);
         }
 
         for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic.get());
+            Traverse(spirv_intrinsic);
         }
 
         for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg.get());
+            Traverse(template_arg);
         }
 
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
 
         if (node->instances != nullptr) {
-            Traverse(node->instances.get());
+            Traverse(node->instances);
         }
     }
 
     void AstVisitor::VisitStructDeclaration(StructDeclarationNode* node) {
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
 
         if (node->instances != nullptr) {
-            Traverse(node->instances.get());
+            Traverse(node->instances);
         }
     }
 
     void AstVisitor::VisitCompoundStatement(CompoundStatementNode* node) {
         for (auto& child : node->children) {
-            Traverse(child.get());
+            Traverse(child);
         }
     }
 
     void AstVisitor::VisitIfStatement(IfStatementNode* node) {
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         if (node->then_branch != nullptr) {
-            Traverse(node->then_branch.get());
+            Traverse(node->then_branch);
         }
 
         if (node->else_branch != nullptr) {
-            Traverse(node->else_branch.get());
+            Traverse(node->else_branch);
         }
     }
 
     void AstVisitor::VisitForStatement(ForStatementNode* node) {
         if (node->init != nullptr) {
-            Traverse(node->init.get());
+            Traverse(node->init);
         }
 
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         if (node->iteration != nullptr) {
-            Traverse(node->iteration.get());
+            Traverse(node->iteration);
         }
 
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
     }
 
     void AstVisitor::VisitWhileStatement(WhileStatementNode* node) {
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
     }
 
     void AstVisitor::VisitDoStatement(DoStatementNode* node) {
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
 
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
     }
 
     void AstVisitor::VisitSwitchStatement(SwitchStatementNode* node) {
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         for (auto& case_node : node->cases) {
-            Traverse(case_node.get());
+            Traverse(case_node);
         }
     }
 
     void AstVisitor::VisitCaseStatement(CaseStatementNode* node) {
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         for (auto& statement : node->body) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
     }
 
     void AstVisitor::VisitReturnStatement(ReturnStatementNode* node) {
         if (node->return_value != nullptr) {
-            Traverse(node->return_value.get());
+            Traverse(node->return_value);
         }
     }
 
@@ -388,7 +388,7 @@ namespace glsld {
 
     void AstVisitor::VisitExpressionStatement(ExpressionStatementNode* node) {
         if (node->expr != nullptr) {
-            Traverse(node->expr.get());
+            Traverse(node->expr);
         }
     }
 
@@ -398,57 +398,57 @@ namespace glsld {
 
     void AstVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
         for (auto& element : node->elements) {
-            Traverse(element.get());
+            Traverse(element);
         }
     }
 
     void AstVisitor::VisitBinaryExpression(BinaryExpressionNode* node) {
         if (node->left != nullptr) {
-            Traverse(node->left.get());
+            Traverse(node->left);
         }
 
         if (node->right != nullptr) {
-            Traverse(node->right.get());
+            Traverse(node->right);
         }
     }
 
     void AstVisitor::VisitUnaryExpression(UnaryExpressionNode* node) {
         if (node->operand != nullptr) {
-            Traverse(node->operand.get());
+            Traverse(node->operand);
         }
     }
 
     void AstVisitor::VisitTernaryExpression(TernaryExpressionNode* node) {
         if (node->condition != nullptr) {
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         }
 
         if (node->true_expr != nullptr) {
-            Traverse(node->true_expr.get());
+            Traverse(node->true_expr);
         }
 
         if (node->false_expr != nullptr) {
-            Traverse(node->false_expr.get());
+            Traverse(node->false_expr);
         }
     }
 
     void AstVisitor::VisitCallExpression(CallExpressionNode* node) {
         if (node->callee != nullptr) {
-            Traverse(node->callee.get());
+            Traverse(node->callee);
         }
 
         for (auto& arg : node->args) {
-            Traverse(arg.get());
+            Traverse(arg);
         }
     }
 
     void AstVisitor::VisitIndexExpression(IndexExpressionNode* node) {
         if (node->base != nullptr) {
-            Traverse(node->base.get());
+            Traverse(node->base);
         }
 
         if (node->index != nullptr) {
-            Traverse(node->index.get());
+            Traverse(node->index);
         }
     }
 
@@ -462,11 +462,11 @@ namespace glsld {
 
     void AstVisitor::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
         if (node->object != nullptr) {
-            Traverse(node->object.get());
+            Traverse(node->object);
         }
 
         if (node->member != nullptr) {
-            Traverse(node->member.get());
+            Traverse(node->member);
         }
     }
 }

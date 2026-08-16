@@ -3,6 +3,7 @@
 #include <atomic>
 #include <memory>
 #include "Analyzer/Syntax/Document.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 
 namespace glsld {
     class MacroBinder {
@@ -13,6 +14,8 @@ namespace glsld {
         void BindMacroInvocations();
         void BindMacroFunctionArguments();
         void BindPreprocessorIdentifiers();
+
+        SymbolReferenceView ReferenceSymbol(const SymbolReference& reference);
 
         Document&      document_;
         int            version_replica_{};

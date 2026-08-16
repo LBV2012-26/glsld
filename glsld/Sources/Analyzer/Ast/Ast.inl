@@ -4,14 +4,15 @@
 namespace glsld {
     template <typename Self>
     auto AstNode::DefaultClone(this Self&& self) {
-        return std::make_unique<std::remove_cvref_t<Self>>(self);
+        using NodeType = std::remove_cvref_t<Self>;
+        return self.arena->template Construct<NodeType>(self);
     }
 
     inline AstNodeKind QualifierArgumentNode::kind() const {
         return AstNodeKind::kQualifierArgument;
     }
 
-    inline std::unique_ptr<AstNode> QualifierArgumentNode::Clone() const {
+    inline AstNode* QualifierArgumentNode::Clone() const {
         return DefaultClone();
     }
 
@@ -19,7 +20,7 @@ namespace glsld {
         return AstNodeKind::kLayoutQualifier;
     }
 
-    inline std::unique_ptr<AstNode> LayoutQualifierNode::Clone() const {
+    inline AstNode* LayoutQualifierNode::Clone() const {
         return DefaultClone();
     }
 
@@ -27,7 +28,7 @@ namespace glsld {
         return AstNodeKind::kSpirvIntrinsic;
     }
 
-    inline std::unique_ptr<AstNode> SpirvIntrinsicNode::Clone() const {
+    inline AstNode* SpirvIntrinsicNode::Clone() const {
         return DefaultClone();
     }
 
@@ -35,7 +36,7 @@ namespace glsld {
         return AstNodeKind::kAttribute;
     }
 
-    inline std::unique_ptr<AstNode> AttributeNode::Clone() const {
+    inline AstNode* AttributeNode::Clone() const {
         return DefaultClone();
     }
 
@@ -43,7 +44,7 @@ namespace glsld {
         return AstNodeKind::kPreprocessor;
     }
 
-    inline std::unique_ptr<AstNode> PreprocessorNode::Clone() const {
+    inline AstNode* PreprocessorNode::Clone() const {
         return DefaultClone();
     }
 
@@ -51,7 +52,7 @@ namespace glsld {
         return AstNodeKind::kCompoundStatement;
     }
 
-    inline std::unique_ptr<AstNode> CompoundStatementNode::Clone() const {
+    inline AstNode* CompoundStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -59,7 +60,7 @@ namespace glsld {
         return AstNodeKind::kIfStatement;
     }
 
-    inline std::unique_ptr<AstNode> IfStatementNode::Clone() const {
+    inline AstNode* IfStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -67,7 +68,7 @@ namespace glsld {
         return AstNodeKind::kForStatement;
     }
 
-    inline std::unique_ptr<AstNode> ForStatementNode::Clone() const {
+    inline AstNode* ForStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -75,7 +76,7 @@ namespace glsld {
         return AstNodeKind::kWhileStatement;
     }
 
-    inline std::unique_ptr<AstNode> WhileStatementNode::Clone() const {
+    inline AstNode* WhileStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -83,7 +84,7 @@ namespace glsld {
         return AstNodeKind::kDoStatement;
     }
 
-    inline std::unique_ptr<AstNode> DoStatementNode::Clone() const {
+    inline AstNode* DoStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -91,7 +92,7 @@ namespace glsld {
         return AstNodeKind::kSwitchStatement;
     }
 
-    inline std::unique_ptr<AstNode> SwitchStatementNode::Clone() const {
+    inline AstNode* SwitchStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -99,7 +100,7 @@ namespace glsld {
         return AstNodeKind::kCaseStatement;
     }
 
-    inline std::unique_ptr<AstNode> CaseStatementNode::Clone() const {
+    inline AstNode* CaseStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -107,7 +108,7 @@ namespace glsld {
         return AstNodeKind::kReturnStatement;
     }
 
-    inline std::unique_ptr<AstNode> ReturnStatementNode::Clone() const {
+    inline AstNode* ReturnStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -115,7 +116,7 @@ namespace glsld {
         return AstNodeKind::kBreakStatement;
     }
 
-    inline std::unique_ptr<AstNode> BreakStatementNode::Clone() const {
+    inline AstNode* BreakStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -123,7 +124,7 @@ namespace glsld {
         return AstNodeKind::kContinueStatement;
     }
 
-    inline std::unique_ptr<AstNode> ContinueStatementNode::Clone() const {
+    inline AstNode* ContinueStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -131,7 +132,7 @@ namespace glsld {
         return AstNodeKind::kDiscardStatement;
     }
 
-    inline std::unique_ptr<AstNode> DiscardStatementNode::Clone() const {
+    inline AstNode* DiscardStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -139,7 +140,7 @@ namespace glsld {
         return AstNodeKind::kExpressionStatement;
     }
 
-    inline std::unique_ptr<AstNode> ExpressionStatementNode::Clone() const {
+    inline AstNode* ExpressionStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -147,7 +148,7 @@ namespace glsld {
         return AstNodeKind::kNullStatement;
     }
 
-    inline std::unique_ptr<AstNode> NullStatementNode::Clone() const {
+    inline AstNode* NullStatementNode::Clone() const {
         return DefaultClone();
     }
 
@@ -155,7 +156,7 @@ namespace glsld {
         return AstNodeKind::kInitializerListExpression;
     }
 
-    inline std::unique_ptr<AstNode> InitializerListExpressionNode::Clone() const {
+    inline AstNode* InitializerListExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -163,7 +164,7 @@ namespace glsld {
         return AstNodeKind::kBinaryExpression;
     }
 
-    inline std::unique_ptr<AstNode> BinaryExpressionNode::Clone() const {
+    inline AstNode* BinaryExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -171,7 +172,7 @@ namespace glsld {
         return AstNodeKind::kUnaryExpression;
     }
 
-    inline std::unique_ptr<AstNode> UnaryExpressionNode::Clone() const {
+    inline AstNode* UnaryExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -179,7 +180,7 @@ namespace glsld {
         return AstNodeKind::kTernaryExpression;
     }
 
-    inline std::unique_ptr<AstNode> TernaryExpressionNode::Clone() const {
+    inline AstNode* TernaryExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -187,7 +188,7 @@ namespace glsld {
         return AstNodeKind::kCallExpression;
     }
 
-    inline std::unique_ptr<AstNode> CallExpressionNode::Clone() const {
+    inline AstNode* CallExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -195,7 +196,7 @@ namespace glsld {
         return AstNodeKind::kIndexExpression;
     }
 
-    inline std::unique_ptr<AstNode> IndexExpressionNode::Clone() const {
+    inline AstNode* IndexExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -203,7 +204,7 @@ namespace glsld {
         return AstNodeKind::kVariableExpression;
     }
 
-    inline std::unique_ptr<AstNode> VariableExpressionNode::Clone() const {
+    inline AstNode* VariableExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -211,7 +212,7 @@ namespace glsld {
         return AstNodeKind::kLiteralExpression;
     }
 
-    inline std::unique_ptr<AstNode> RawExpressionNode::Clone() const {
+    inline AstNode* RawExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -219,7 +220,7 @@ namespace glsld {
         return AstNodeKind::kMemberAccessExpression;
     }
 
-    inline std::unique_ptr<AstNode> MemberAccessExpressionNode::Clone() const {
+    inline AstNode* MemberAccessExpressionNode::Clone() const {
         return DefaultClone();
     }
 
@@ -239,7 +240,7 @@ namespace glsld {
         return AstNodeKind::kVariableDeclaration;
     }
 
-    inline std::unique_ptr<AstNode> VariableDeclarationNode::Clone() const {
+    inline AstNode* VariableDeclarationNode::Clone() const {
         return DefaultClone();
     }
 
@@ -247,7 +248,7 @@ namespace glsld {
         return AstNodeKind::kDeclarationGroup;
     }
 
-    inline std::unique_ptr<AstNode> DeclarationGroupNode::Clone() const {
+    inline AstNode* DeclarationGroupNode::Clone() const {
         return DefaultClone();
     }
 
@@ -255,7 +256,7 @@ namespace glsld {
         return AstNodeKind::kFunctionDeclaration;
     }
 
-    inline std::unique_ptr<AstNode> FunctionDeclarationNode::Clone() const {
+    inline AstNode* FunctionDeclarationNode::Clone() const {
         return DefaultClone();
     }
 
@@ -263,7 +264,7 @@ namespace glsld {
         return AstNodeKind::kInterfaceDeclaration;
     }
 
-    inline std::unique_ptr<AstNode> InterfaceDeclarationNode::Clone() const {
+    inline AstNode* InterfaceDeclarationNode::Clone() const {
         return DefaultClone();
     }
 
@@ -271,7 +272,7 @@ namespace glsld {
         return AstNodeKind::kStructDeclaration;
     }
 
-    inline std::unique_ptr<AstNode> StructDeclarationNode::Clone() const {
+    inline AstNode* StructDeclarationNode::Clone() const {
         return DefaultClone();
     }
 
@@ -279,7 +280,7 @@ namespace glsld {
         return AstNodeKind::kTranslationUnit;
     }
 
-    inline std::unique_ptr<AstNode> TranslationUnitNode::Clone() const {
+    inline AstNode* TranslationUnitNode::Clone() const {
         return DefaultClone();
     }
 } // namespace glsld
