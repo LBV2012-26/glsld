@@ -1,9 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <atomic>
 #include <expected>
-#include <memory>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -61,7 +59,6 @@ namespace glsld {
         SymbolReference ResolveOverload(SymbolListView candidates, std::span<const TypeInfo> call_arg_types);
         TypeInfo ResolveBinaryOperationType(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
         TypeInfo ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op);
-        SymbolReferenceView ReferenceSymbol(const SymbolReference& reference);
 
         Document& document_;
 

@@ -1,10 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,18 +17,18 @@
 #include "Server/Index/GlobalIndex.hpp"
 #include "Server/Context.hpp"
 
-namespace glsld {
+namespace glsld::Providers {
     nlohmann::json GetDocumentSymbols(
         Context& context,
         Snapshot snapshot,
         std::string_view uri,
-        const PositionMapper& mapper);
+        const Unicode::PositionMapper& mapper);
 
     std::vector<std::uint32_t> GetSemanticData(
         Context& context,
         Snapshot snapshot,
         const SourceFile* source_file,
-        const PositionMapper& mapper);
+        const Unicode::PositionMapper& mapper);
 
     std::optional<std::string> GotoInclude(
         Context& context,
@@ -73,7 +71,7 @@ namespace glsld {
         Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs,
-        PositionMapper& mapper);
+        Unicode::PositionMapper& mapper);
 
     nlohmann::json GetCompletionItems(
         Context& context,

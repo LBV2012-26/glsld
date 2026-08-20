@@ -28,18 +28,18 @@ namespace glsld {
 
         SourceLocation ConvertToParserPosition(
             const SourceFile* source_file,
-            const PositionMapper& mapper,
+            const Unicode::PositionMapper& mapper,
             const auto& position)
         {
-            std::uint32_t line      = position["line"];
-            std::uint32_t character = position["character"];
+            const std::uint32_t line      = position["line"];
+            const std::uint32_t character = position["character"];
 
             return SourceLocation(source_file, line + 1, mapper.ToByteColumn(line, character));
         }
 
         nlohmann::json ConvertToLspPosition(
             const SourceLocation& location,
-            const PositionMapper& mapper)
+            const Unicode::PositionMapper& mapper)
         {
             return {
                 { "line",      location.line() - 1 },
@@ -48,8 +48,8 @@ namespace glsld {
         }
 
         std::string NormalizeUri(std::string_view uri) {
-            auto filename       = utils::UriToPath(uri);
-            auto normalized_uri = utils::PathToUri(filename);
+            const auto filename = Utils::UriToPath(uri);
+            auto normalized_uri = Utils::PathToUri(filename);
             return normalized_uri;
         }
     }
@@ -64,7 +64,7 @@ namespace glsld {
                 return;
             }
 
-            int current = [&]() -> int {
+            const int current = [&]() -> int {
                 std::shared_lock lock(pending_mutex_);
                 auto it = document_versions_.find(uri);
                 return it != document_versions_.end() ? it->second->load(std::memory_order::relaxed) : -1;
@@ -79,12 +79,12 @@ namespace glsld {
                 return;  // 文档已关闭，丢弃
             }
 
-            PositionMapper mapper(snapshot->source);
+            Unicode::PositionMapper mapper(snapshot->source);
 
             nlohmann::json info = nlohmann::json::array();
             for (const auto& item : diagnostic) {
-                auto start_char = mapper.ToUtf16Character(item.line     + 1, item.character     + 1);
-                auto end_char   = mapper.ToUtf16Character(item.end_line + 1, item.end_character + 1);
+                const auto start_char = mapper.ToUtf16Character(item.line     + 1, item.character     + 1);
+                const auto end_char   = mapper.ToUtf16Character(item.end_line + 1, item.end_character + 1);
 
                 info.push_back({
                     { "range", {
@@ -118,8 +118,7 @@ namespace glsld {
         submit_thread_ = std::jthread([this]() -> void { SubmitLoop(); });
         update_thread_ = std::jthread([this]() -> void { UpdateLoop(); });
 
-        auto stop_token = stop_source_.get_token();
-
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested() && std::cin.good()) {
             auto message = ReadMessage();
             if (!message.has_value()) {
@@ -289,7 +288,7 @@ namespace glsld {
     }
 
     void LspServer::WorkerLoop() {
-        auto stop_token = stop_source_.get_token();
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested()) {
             LspTask task;
             {
@@ -364,7 +363,7 @@ namespace glsld {
     }
 
     void LspServer::SubmitLoop() {
-        auto stop_token = stop_source_.get_token();
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested()) {
             LspSubmitItem item;
             {
@@ -394,7 +393,7 @@ namespace glsld {
     }
 
     void LspServer::UpdateLoop() {
-        auto stop_token = stop_source_.get_token();
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested()) {
             std::function<void()> work;
             {
@@ -479,11 +478,11 @@ namespace glsld {
         if (context.params.contains("workspaceFolders") && context.params["workspaceFolders"].is_array()) {
             for (const auto& folder : context.params["workspaceFolders"]) {
                 if (folder.contains("uri")) {
-                    workspace_roots_.push_back(utils::UriToPath(folder["uri"].get<std::string>()));
+                    workspace_roots_.push_back(Utils::UriToPath(folder["uri"].get<std::string>()));
                 }
             }
         } else if (context.params.contains("rootUri") && !context.params["rootUri"].is_null()) {
-            workspace_roots_.push_back(utils::UriToPath(context.params["rootUri"].get<std::string>()));
+            workspace_roots_.push_back(Utils::UriToPath(context.params["rootUri"].get<std::string>()));
         }
 
         nlohmann::json capabilities;
@@ -593,7 +592,7 @@ namespace glsld {
             {}
 
             std::uint32_t ToUtf16Character(const SourceLocation& location, std::uint32_t one_based_byte_column) {
-                auto*  mapper = GetCache(location.uri());
+                const auto* mapper = GetCache(location.uri());
                 return mapper != nullptr
                      ? mapper->ToUtf16Character(location.line(), one_based_byte_column)
                      : one_based_byte_column - 1;
@@ -601,12 +600,12 @@ namespace glsld {
 
         private:
             struct Entry {
-                Snapshot                        snapshot;
-                std::shared_ptr<std::string>    source;
-                std::unique_ptr<PositionMapper> mapper;
+                Snapshot                                 snapshot;
+                std::shared_ptr<std::string>             source;
+                std::unique_ptr<Unicode::PositionMapper> mapper;
             };
 
-            const PositionMapper* GetCache(std::string_view uri) {
+            const Unicode::PositionMapper* GetCache(std::string_view uri) {
                 auto it = entries_.find(uri);
                 if (it != entries_.end()) {
                     return it->second.mapper.get();
@@ -616,15 +615,15 @@ namespace glsld {
                 entry.snapshot = workspace_.GetDocumentSnapshot(uri);
 
                 if (entry.snapshot != nullptr) {
-                    entry.mapper = std::make_unique<PositionMapper>(entry.snapshot->source);
+                    entry.mapper = std::make_unique<Unicode::PositionMapper>(entry.snapshot->source);
                 } else {
-                    auto source = LoadSource(utils::UriToPath(uri));
+                    auto source = LoadSource(Utils::UriToPath(uri));
                     if (!source.has_value()) {
                         return nullptr;
                     }
 
                     entry.source = std::make_shared<std::string>(std::move(*source));
-                    entry.mapper = std::make_unique<PositionMapper>(*entry.source);
+                    entry.mapper = std::make_unique<Unicode::PositionMapper>(*entry.source);
                 }
 
                 auto [inserted, _] = entries_.try_emplace(std::string(uri), std::move(entry));
@@ -644,19 +643,19 @@ namespace glsld {
     nlohmann::json LspServer::HandleDocumentSymbol(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         ABORT_IF_CANCELLED();
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
+        Unicode::PositionMapper mapper(snapshot->source);
 
-        auto start  = std::chrono::high_resolution_clock::now();
-        auto result = GetDocumentSymbols(context, snapshot, uri, mapper);
-        auto end    = std::chrono::high_resolution_clock::now();
+        const auto start = std::chrono::high_resolution_clock::now();
+        auto result = Providers::GetDocumentSymbols(context, snapshot, uri, mapper);
+        const auto end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "DocumentSymbol for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
@@ -667,45 +666,44 @@ namespace glsld {
     nlohmann::json LspServer::HandleSemanticTokens(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
         ABORT_IF_CANCELLED();
-        PositionMapper mapper(snapshot->source);
+        Unicode::PositionMapper mapper(snapshot->source);
         const auto* source_file = workspace_.GetSource(uri);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        auto data  = GetSemanticData(context, snapshot, source_file, mapper);
-        auto end   = std::chrono::high_resolution_clock::now();
+        const auto start = std::chrono::high_resolution_clock::now();
+        auto data = Providers::GetSemanticData(context, snapshot, source_file, mapper);
+        const auto end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "SemanticTokens for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
-        return { { "data", data } };
+        return { { "data", std::move(data) } };
     }
 
     nlohmann::json LspServer::HandleDefinition(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
-        if (auto include = GotoInclude(context, snapshot, target, workspace_.include_dirs())) {
+        if (auto include = Providers::GotoInclude(context, snapshot, target, workspace_.include_dirs())) {
             nlohmann::json result;
-
             result["uri"]                         = *include;
             result["range"]["start"]["line"]      = 0;
             result["range"]["start"]["character"] = 0;
@@ -717,9 +715,9 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
 
-        auto start   = std::chrono::high_resolution_clock::now();
-        auto symbols = GetDefinitionSymbols(context, snapshot, target, true);
-        auto end     = std::chrono::high_resolution_clock::now();
+        const auto start   = std::chrono::high_resolution_clock::now();
+        const auto symbols = Providers::GetDefinitionSymbols(context, snapshot, target, true);
+        const auto end     = std::chrono::high_resolution_clock::now();
 
         if (symbols.empty()) {
             return {};
@@ -734,14 +732,15 @@ namespace glsld {
 
         for (const auto& symbol : symbols) {
             ABORT_IF_CANCELLED();
-            auto start_line  = symbol->location.line() - 1;
-            auto symbol_name = symbol->name;
+            const auto start_line = symbol->location.line() - 1;
+
+            std::string symbol_name;
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
-                symbol_name = utils::UnmangleFunctionName(symbol_name);
+                symbol_name = Utils::UnmangleFunctionName(symbol->name);
             }
 
-            auto start_char = mappers.ToUtf16Character(symbol->location, symbol->location.column());
-            auto end_char   = mappers.ToUtf16Character(symbol->location, symbol->location.column() + static_cast<std::uint32_t>(symbol_name.length()));
+            const auto start_char = mappers.ToUtf16Character(symbol->location, symbol->location.column());
+            const auto end_char   = mappers.ToUtf16Character(symbol->location, symbol->location.column() + static_cast<std::uint32_t>(symbol_name.length()));
 
             nlohmann::json result;
             result["uri"]                         = symbol->location.uri();
@@ -760,21 +759,21 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
 
-        auto start               = std::chrono::high_resolution_clock::now();
-        auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
-        auto end                 = std::chrono::high_resolution_clock::now();
+        const auto start               = std::chrono::high_resolution_clock::now();
+        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, workspace_.global_index());
+        const auto end                 = std::chrono::high_resolution_clock::now();
 
         if (symbol == nullptr) {
             return {};
@@ -785,15 +784,15 @@ namespace glsld {
 
         PositionMapperCache mappers(workspace_);
 
-        auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
-                         ? utils::UnmangleFunctionName(symbol->name)
-                         : std::string_view(symbol->name);
-        auto name_length = static_cast<std::uint32_t>(symbol_name.length());
+        const auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
+                               ? Utils::UnmangleFunctionName(symbol->name)
+                               : std::string_view(symbol->name);
+        const auto name_length = static_cast<std::uint32_t>(symbol_name.length());
 
         nlohmann::json response = nlohmann::json::array();
         for (const auto& location : locations) {
-            auto start_char = mappers.ToUtf16Character(location, location.column());
-            auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
+            const auto start_char = mappers.ToUtf16Character(location, location.column());
+            const auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
 
             response.push_back({
                 { "uri", location.uri() },
@@ -811,29 +810,30 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target   = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
-        auto new_name = context.params["newName"].get<std::string>();
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
-        auto [locations, symbol] = GetReferences(context, snapshot, target, workspace_.global_index());
+
+        const auto new_name = context.params["newName"].get<std::string>();
+        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, workspace_.global_index());
         if (symbol == nullptr) {
             return {};
         }
 
         PositionMapperCache mappers(workspace_);
 
-        auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
-                         ? utils::UnmangleFunctionName(symbol->name)
-                         : std::string_view(symbol->name);
-        auto name_length = static_cast<std::uint32_t>(symbol_name.length());
+        const auto symbol_name = symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl
+                               ? Utils::UnmangleFunctionName(symbol->name)
+                               : std::string_view(symbol->name);
+        const auto name_length = static_cast<std::uint32_t>(symbol_name.length());
 
         nlohmann::json changes = nlohmann::json::object();
         for (const auto& location : locations) {
@@ -841,10 +841,10 @@ namespace glsld {
                 continue;
             }
 
-            auto start_char = mappers.ToUtf16Character(location, location.column());
-            auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
-            auto& edits     = changes[location.uri()];
+            const auto start_char = mappers.ToUtf16Character(location, location.column());
+            const auto end_char   = mappers.ToUtf16Character(location, location.column() + name_length);
 
+            auto& edits = changes[location.uri()];
             edits.push_back({
                 { "range", {
                     { "start", { { "line", location.line() - 1 }, { "character", start_char } } },
@@ -854,25 +854,26 @@ namespace glsld {
             });
         }
 
-        return { { "changes", changes } };
+        return { { "changes", std::move(changes) } };
     }
 
     nlohmann::json LspServer::HandleHover(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
-        auto symbols = GetDefinitionSymbols(context, snapshot, target, false);
+
+        const auto symbols = Providers::GetDefinitionSymbols(context, snapshot, target, false);
         if (symbols.empty()) {
             return {};
         }
@@ -881,14 +882,13 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         if (symbols.size() == 1) {
-            markdown = BuildHoverMarkdown(symbols.front(), snapshot, target, uri, formatter_);
+            markdown = Providers::BuildHoverMarkdown(symbols.front(), snapshot, target, uri, formatter_);
         } else {
             markdown = std::format("Ambiguous call (+{} candidates)\n\n---\n```glsl\n", symbols.size());
             for (const auto* symbol : symbols) {
-                markdown += FormatFunctionSymbol(symbol, snapshot).full_spec;
+                markdown += Providers::FormatFunctionSymbol(symbol, snapshot).full_spec;
                 markdown += "\n";
             }
-
             markdown += "\n```";
         }
 
@@ -906,18 +906,18 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
+        Unicode::PositionMapper mapper(snapshot->source);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        auto hints = GetInlayHints(context, snapshot);
-        auto end   = std::chrono::high_resolution_clock::now();
+        const auto start = std::chrono::high_resolution_clock::now();
+        auto hints = Providers::GetInlayHints(context, snapshot);
+        const auto end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "InlayHints for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
@@ -931,7 +931,6 @@ namespace glsld {
             }
 
             nlohmann::json result;
-
             result["position"]     = ConvertToLspPosition(*hint.location, mapper);
             result["label"]        = std::move(hint.label);
             result["kind"]         = 2;
@@ -947,15 +946,15 @@ namespace glsld {
         auto ExtractParameterOffsets(std::string_view label) {
             std::vector<std::pair<std::size_t, std::size_t>> offsets;
 
-            auto begin = label.find('(');
-            auto end   = label.find(')');
+            const auto begin = label.find('(');
+            const auto end   = label.find(')');
 
             if (begin == std::string_view::npos || end == std::string_view::npos || end <= begin) {
                 return offsets;
             }
 
             auto current = begin + 1;
-            auto inner   = label.substr(current, end - current);
+            const auto inner = label.substr(current, end - current);
             if (inner.empty() || inner == "void") {
                 return offsets;
             }
@@ -983,21 +982,21 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         ABORT_IF_CANCELLED();
 
-        auto start          = std::chrono::high_resolution_clock::now();
-        auto signature_help = GetSignatureHelp(context, snapshot, target);
-        auto end            = std::chrono::high_resolution_clock::now();
+        const auto start          = std::chrono::high_resolution_clock::now();
+        const auto signature_help = Providers::GetSignatureHelp(context, snapshot, target);
+        const auto end            = std::chrono::high_resolution_clock::now();
 
         if (!signature_help.has_value()) {
             return {};
@@ -1010,7 +1009,7 @@ namespace glsld {
         for (const auto* symbol : signature_help->candidates) {
             ABORT_IF_CANCELLED();
 
-            auto label   = FormatFunctionSymbol(symbol, snapshot).full_spec;
+            auto label   = Providers::FormatFunctionSymbol(symbol, snapshot).full_spec;
             auto offsets = ExtractParameterOffsets(label);
 
             nlohmann::json params = nlohmann::json::array();
@@ -1021,7 +1020,7 @@ namespace glsld {
             }
 
             nlohmann::json item;
-            item["label"]      = label;
+            item["label"]      = std::move(label);
             item["parameters"] = std::move(params);
 
             response.push_back(std::move(item));
@@ -1032,7 +1031,7 @@ namespace glsld {
         }
 
         return {
-            { "signatures", response },
+            { "signatures",      std::move(response) },
             { "activeSignature", signature_help->active_signature_index },
             { "activeParameter", signature_help->active_param_index }
         };
@@ -1042,49 +1041,50 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        PositionMapper mapper(snapshot->source);
-        auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
+        Unicode::PositionMapper mapper(snapshot->source);
+        const auto target = ConvertToParserPosition(workspace_.InternSource(uri), mapper, position);
 
         if (context.params["context"]["triggerCharacter"] == ".") {
-            return GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
+            return Providers::GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
         }
 
         if (context.params["context"]["triggerCharacter"] == "\"" ||
             context.params["context"]["triggerCharacter"] == "<"  ||
             context.params["context"]["triggerCharacter"] == "/")
         {
-            return GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
+            return Providers::GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
         }
 
-        if (auto include_items = GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
+        if (auto include_items = Providers::GetIncludeCompletionItems(context, snapshot, target, workspace_.include_dirs(), mapper);
             !include_items.empty())
         {
             return include_items;
         }
 
-        if (auto extension_items = GetExtensionCompletionItems(context, snapshot, target);
+        if (auto extension_items = Providers::GetExtensionCompletionItems(context, snapshot, target);
             !extension_items.empty())
         {
             return extension_items;
         }
 
-        return GetCompletionItems(context, snapshot, target);
+        return Providers::GetCompletionItems(context, snapshot, target);
     }
 
     namespace {
         nlohmann::json BuildWholeDocumentRange(std::string_view source) {
-            auto line         = std::ranges::count(source, '\n');
-            auto last_newline = source.rfind('\n');
-            auto last_line    = last_newline == std::string_view::npos
-                              ? source
-                              : source.substr(last_newline + 1);
+            const auto line         = std::ranges::count(source, '\n');
+            const auto last_newline = source.rfind('\n');
+
+            auto last_line = last_newline == std::string_view::npos
+                           ? source
+                           : source.substr(last_newline + 1);
 
             if (!last_line.empty() && last_line.back() == '\r') {
                 last_line.remove_suffix(1);
@@ -1092,7 +1092,7 @@ namespace glsld {
 
             return {
                 { "start", { { "line", 0 },    { "character", 0 } } },
-                { "end",   { { "line", line }, { "character", Utf16Length(last_line) } } }
+                { "end",   { { "line", line }, { "character", Unicode::Utf16Length(last_line) } } }
             };
         }
     }
@@ -1100,14 +1100,14 @@ namespace glsld {
     nlohmann::json LspServer::HandleFormatting(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto formatted = formatter_.Format(snapshot->source, utils::UriToPath(uri));
+        auto formatted = formatter_.Format(snapshot->source, Utils::UriToPath(uri));
         ABORT_IF_CANCELLED();
 
         if (formatted.empty() || formatted == snapshot->source) {
@@ -1118,7 +1118,7 @@ namespace glsld {
 
         return nlohmann::json::array({
             {
-                { "range", range },
+                { "range",   std::move(range) },
                 { "newText", std::move(formatted) }
             }
         });
@@ -1128,18 +1128,18 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& range      = context.params["range"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto start_line = range["start"]["line"].get<std::size_t>() + 1;
-        auto end_line   = range["end"]["line"].get<std::size_t>() + (range["end"]["character"].get<std::size_t>() == 0 ? 0 : 1);
-        end_line = std::max(start_line, end_line);
+        const auto start_line = range["start"]["line"].get<std::size_t>() + 1;
+        const auto end_line =
+            std::max(start_line, range["end"]["line"].get<std::size_t>() + (range["end"]["character"].get<std::size_t>() == 0 ? 0 : 1));
 
-        auto formatted = formatter_.FormatRange(snapshot->source, utils::UriToPath(uri), start_line, end_line);
+        auto formatted = formatter_.FormatRange(snapshot->source, Utils::UriToPath(uri), start_line, end_line);
         ABORT_IF_CANCELLED();
 
         if (formatted.empty() || formatted == snapshot->source) {
@@ -1150,7 +1150,7 @@ namespace glsld {
 
         return nlohmann::json::array({
             {
-                { "range", response_range },
+                { "range",   std::move(response_range) },
                 { "newText", std::move(formatted) }
             }
         });
@@ -1159,16 +1159,16 @@ namespace glsld {
     nlohmann::json LspServer::HandleOnTypeFormatting(Context& context) {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto        uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        const auto  snapshot   = ValidateAndGetDocument(context, uri);
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
+        auto        snapshot   =  ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
         }
 
-        auto typed_line = context.params["position"]["line"].get<std::size_t>() + 1;
+        const auto typed_line = context.params["position"]["line"].get<std::size_t>() + 1;
 
-        auto formatted = formatter_.FormatRange(snapshot->source, utils::UriToPath(uri), typed_line, typed_line);
+        auto formatted = formatter_.FormatRange(snapshot->source, Utils::UriToPath(uri), typed_line, typed_line);
         ABORT_IF_CANCELLED();
 
         if (formatted.empty() || formatted == snapshot->source) {
@@ -1179,7 +1179,7 @@ namespace glsld {
 
         return nlohmann::json::array({
             {
-                { "range", response_range },
+                { "range",   std::move(response_range) },
                 { "newText", std::move(formatted) }
             }
         });
@@ -1191,10 +1191,10 @@ namespace glsld {
         const auto& document   = context.params["textDocument"];
         const auto& origin_uri = document["uri"];
         const auto& text       = document["text"];
-        int version            = document["version"];
+        const int   version    = document["version"];
 
-        auto deadline = std::chrono::steady_clock::now();
-        auto uri      = NormalizeUri(origin_uri.get<std::string_view>());
+        const auto deadline = std::chrono::steady_clock::now();
+        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -1215,7 +1215,7 @@ namespace glsld {
     void LspServer::HandleDidChange(Context& context) {
         const auto& document   = context.params["textDocument"];
         const auto& origin_uri = document["uri"];
-        int version            = document["version"];
+        const int   version    = document["version"];
 
         const auto& changes = context.params["contentChanges"];
         if (changes.empty() || !changes[0].contains("text")) {
@@ -1224,8 +1224,8 @@ namespace glsld {
         const auto& new_text = changes[0]["text"];
 
         using namespace std::chrono_literals;
-        auto deadline = std::chrono::steady_clock::now() + 0ms;
-        auto uri      = NormalizeUri(origin_uri.get<std::string_view>());
+        const auto deadline = std::chrono::steady_clock::now() + 0ms;
+        const auto uri      = NormalizeUri(origin_uri.get<std::string_view>());
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -1253,11 +1253,11 @@ namespace glsld {
     void LspServer::HandleDidSave(Context& context) {
         const auto& document   = context.params["textDocument"];
         const auto& origin_uri = document["uri"];
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
 
-        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
         workspace_.InvalidateInclude(uri);
 
-        auto affected_uris = workspace_.GetAffectedDocuments(uri);
+        const auto affected_uris = workspace_.GetAffectedDocuments(uri);
 
         std::scoped_lock lock(version_mutex_, affected_mutex_);
         for (const auto& affected_uri : affected_uris) {
@@ -1271,7 +1271,7 @@ namespace glsld {
 
     void LspServer::HandleDidClose(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
-        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
         workspace_.CloseDocument(uri);
 
         {
@@ -1330,7 +1330,7 @@ namespace glsld {
 
     void LspServer::HandleRemoveConfiguration(Context& context) {
         const auto& origin_uri = context.params["uri"];
-        auto uri = NormalizeUri(origin_uri.get<std::string_view>());
+        const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
 
         workspace_.RemoveExtraShaderConfig(uri);
         RefreshDocument(uri);
@@ -1405,8 +1405,8 @@ namespace glsld {
     }
 
     void LspServer::ApplyDiagnosticConfigs(const nlohmann::json& glsld) {
-        bool diagnostics_enabled = glsld.value("diagnosticsEnabled", true);
-        bool diagnostics_changed = diagnostics_enabled_.exchange(diagnostics_enabled, std::memory_order::relaxed) != diagnostics_enabled;
+        const bool diagnostics_enabled = glsld.value("diagnosticsEnabled", true);
+        const bool diagnostics_changed = diagnostics_enabled_.exchange(diagnostics_enabled, std::memory_order::relaxed) != diagnostics_enabled;
 
         if (glsld.contains("glslcPath") && glsld["glslcPath"].is_string()) {
             diagnostic_engine_.set_glslc_path(std::filesystem::path(glsld["glslcPath"].get<std::string>()));
@@ -1421,7 +1421,7 @@ namespace glsld {
             return;
         }
 
-        auto uris = [&]() -> std::vector<std::string> {
+        const auto uris = [&]() -> std::vector<std::string> {
             std::shared_lock lock(version_mutex_);
             return document_versions_ | std::views::keys | std::ranges::to<std::vector<std::string>>();
         }();
@@ -1450,14 +1450,13 @@ namespace glsld {
             return;
         }
 
-        IncludeDirectoryHandle include_dirs = std::make_shared<std::vector<std::filesystem::path>>();
+        auto include_dirs = std::make_shared<std::vector<std::filesystem::path>>();
         for (const auto& value : glsld["systemIncludeDirectories"]) {
             if (!value.is_string()) {
                 continue;
             }
 
-            auto directory = utils::NormalizePath(
-                std::filesystem::path(value.get<std::string>()));
+            auto directory = Utils::NormalizePath(std::filesystem::path(value.get<std::string>()));
 
             std::error_code ec;
             if (!std::filesystem::is_directory(directory, ec) || ec) {
@@ -1527,7 +1526,7 @@ namespace glsld {
                 continue;
             }
 
-            auto scope = value.value("scope", "file");
+            const auto scope = value.value("scope", "file");
             if (scope == "global") {
                 shared = ParseVariant(value);
                 continue;
@@ -1553,9 +1552,10 @@ namespace glsld {
         if (!workspace_roots_.empty() &&
             glsld.contains("backgroundIndex") &&
             glsld["backgroundIndex"].contains("roots") &&
-            glsld["backgroundIndex"]["roots"].is_array()) {
+            glsld["backgroundIndex"]["roots"].is_array())
+        {
             for (const auto& value : glsld["backgroundIndex"]["roots"]) {
-                auto path = std::filesystem::path(value.get<std::string>());
+                const auto path = std::filesystem::path(value.get<std::string>());
                 index_roots.push_back(path.is_absolute() ? path : workspace_roots_.front() / path);
             }
         }
@@ -1563,7 +1563,7 @@ namespace glsld {
         if (workspace_roots_.empty()) {
             workspace_.StopBackgroundIndex();
         } else {
-            auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
+            const auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
             workspace_.StartBackgroundIndex(std::move(index_roots), cache_path, "glsld-global-index-parser-v1");
         }
     }
@@ -1619,9 +1619,9 @@ namespace glsld {
         auto counter = std::make_shared<std::atomic<std::size_t>>(0);
 
         for (const auto& it : exists) {
-            const auto& uri      = it->first;
+            const auto& uri = it->first;
             auto version_pointer = it->second;
-            auto version_replica = version_pointer->load(std::memory_order::relaxed);
+            const auto version_replica = version_pointer->load(std::memory_order::relaxed);
 
             update_pool_.Submit([this, counter, total, uri, version_replica, version_pointer]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(uri);
@@ -1694,15 +1694,15 @@ namespace glsld {
     }
 
     void LspServer::Update(std::string_view uri, std::string_view text, int version_replica, VersionPointer version_pointer) {
-        auto start = std::chrono::high_resolution_clock::now();
+        const auto start = std::chrono::high_resolution_clock::now();
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer);
-        auto end = std::chrono::high_resolution_clock::now();
+        const auto end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Workspace::UpdateDocument for {} updated to version {} in {} ms",
                   uri, version_replica, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         ready_condition_.notify_all();
-        SubmitDiagnositcTask(uri, text, utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
+        SubmitDiagnositcTask(uri, text, Utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
     }
 
     namespace {
@@ -1716,7 +1716,7 @@ namespace glsld {
             }
             // 跳过 // 注释
             while (trimmed.starts_with("//")) {
-                auto eol = trimmed.find('\n');
+                const auto eol = trimmed.find('\n');
                 if (eol == std::string_view::npos) {
                     break;
                 }
@@ -1801,8 +1801,7 @@ namespace glsld {
             PickupPendingUpdate(uri);
         }
 
-        auto stop_token = stop_source_.get_token();
-
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested()) {
             GLSLD_LOG(debug, "Checking context cancellation for document {}. Request ID: {}.", uri, context.request_id->dump());
             if (context.cancelled()) {

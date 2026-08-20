@@ -41,12 +41,12 @@ namespace glsld {
         void SwitchTo(std::size_t index) noexcept;
         Block AllocateBlock(std::size_t size) noexcept;
 
-        inline static constexpr auto kBlockSize = 2uz * 1024 * 1024; // 2MiB
-
         std::vector<Block> blocks_;
         std::size_t        current_;
         std::byte*         memory_;
         std::byte*         last_;
+
+        inline static constexpr auto kDefaultBlockSize = 2uz * 1024 * 1024; // 2MiB
     };
 
     template <typename Ty>

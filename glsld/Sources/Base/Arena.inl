@@ -3,7 +3,6 @@
 #include <limits>
 #include <memory>
 #include <new>
-#include <type_traits>
 #include <utility>
 
 namespace glsld {
@@ -27,7 +26,6 @@ namespace glsld {
         auto  dest_span = std::span<RawTy>(reinterpret_cast<RawTy*>(memory), span.size());
 
         std::ranges::uninitialized_copy(span, dest_span);
-
         return std::span<const Ty>(reinterpret_cast<Ty*>(memory), span.size());
     }
 

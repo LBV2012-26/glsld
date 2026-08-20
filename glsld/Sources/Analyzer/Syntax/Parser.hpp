@@ -2,9 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <atomic>
-#include <filesystem>
-#include <memory>
 #include <span>
 #include <stack>
 #include <string_view>
@@ -15,7 +12,6 @@
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
-#include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
@@ -143,7 +139,7 @@ namespace glsld {
         const SourceFile*                       source_file_;
         std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
-        ArenaVector<PreprocessorNode*>          preprocessor_references_{ ArenaAllocator<PreprocessorNode*>(document_.arena) };
+        ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(document_.arena) };
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
         std::size_t                             anonymous_block_index_{};

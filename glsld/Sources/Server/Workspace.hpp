@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <atomic>
 #include <condition_variable>
 #include <filesystem>
 #include <memory>
@@ -93,11 +92,11 @@ namespace glsld {
 
     private:
         void ProcessSource(
+            Document& document,
             const SourceFile* source_file,
             std::string_view source,
             int version_replica,
-            VersionPointer version_pointer,
-            Document& document);
+            VersionPointer version_pointer);
 
         void InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro);
 

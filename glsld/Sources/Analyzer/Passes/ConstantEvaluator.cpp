@@ -39,7 +39,6 @@ namespace glsld {
         }
 
         const SymbolInfo* symbol = nullptr;
-
         if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
             symbol = std::get<const SymbolInfo*>(node->linked_symbols);
         }
@@ -54,14 +53,14 @@ namespace glsld {
             return;
         }
 
-        if (const auto* var_decl = dynamic_cast<const VariableDeclarationNode*>(symbol->node)) {
+        if (auto* var_decl = dynamic_cast<const VariableDeclarationNode*>(symbol->node)) {
             if (!var_decl->type_spec.has_keyword("const") || var_decl->init == nullptr) {
                 is_valid_ = false;
                 return;
             }
 
             visited_symbols_.emplace(symbol);
-            auto result = Evaluate(var_decl->init);
+            const auto result = Evaluate(var_decl->init);
 
             if (result.has_value()) {
                 current_value_ = *result;
@@ -81,8 +80,8 @@ namespace glsld {
             return;
         }
 
-        auto left_result  = Evaluate(node->left);
-        auto right_result = Evaluate(node->right);
+        const auto left_result  = Evaluate(node->left);
+        const auto right_result = Evaluate(node->right);
 
         if (!left_result || !right_result) {
             is_valid_ = false;
@@ -118,7 +117,7 @@ namespace glsld {
         case TokenType::kMinus:
         case TokenType::kStar:
         case TokenType::kSlash: {
-            auto promoted = PromoteArithmetic(*left_result, *right_result);
+            const auto promoted = PromoteArithmetic(*left_result, *right_result);
             if (!promoted.has_value()) {
                 is_valid_ = false;
                 return;
@@ -237,7 +236,7 @@ namespace glsld {
             return;
         }
 
-        auto result = Evaluate(node->operand);
+        const auto result = Evaluate(node->operand);
         if (!result.has_value()) {
             is_valid_ = false;
             return;
@@ -301,21 +300,21 @@ namespace glsld {
         const auto& text = node->tokens.front().text;
         if (text.find_first_of(".eEpPfF") != std::string::npos) {
             double value = 0.0;
-            auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+            const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
             if (ec == std::errc{}) {
                 current_value_ = value;
                 return;
             }
         } else if (text.find_first_of("uU") != std::string::npos) {
             std::uint64_t value = 0;
-            auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+            const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
             if (ec == std::errc{}) {
                 current_value_ = value;
                 return;
             }
         } else {
             std::int64_t value = 0;
-            auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+            const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
             if (ec == std::errc{}) {
                 current_value_ = value;
                 return;

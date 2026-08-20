@@ -620,7 +620,7 @@ namespace glsld {
     TranslationUnitNode::TranslationUnitNode(const TranslationUnitNode& other)
         : AstNode(other)
         , statements{ CloneVector<StatementNode>(*arena, other.statements) }
-        , preprocessor_references{ other.preprocessor_references }
+        , pprefs{ other.pprefs }
     {}
 
     TranslationUnitNode& TranslationUnitNode::operator=(const TranslationUnitNode& other) {

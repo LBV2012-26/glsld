@@ -4,7 +4,6 @@
 #include <atomic>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -74,7 +73,7 @@ namespace glsld {
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&&)      = delete;
 
-        std::string_view StoreString(std::string_view text);
+        std::string_view StoreTokenText(std::string_view text);
         void StoreIncludeSource(IncludeSnapshot snapshot);
 
         void PrepareInjectedMacros(const SourceFile* source_file);

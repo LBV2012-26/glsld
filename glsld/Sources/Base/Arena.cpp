@@ -1,7 +1,6 @@
 #include "pch.hpp"
 #include "Arena.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <bit>
@@ -19,7 +18,7 @@
 
 namespace glsld {
     Arena::Arena() noexcept {
-        blocks_.push_back(AllocateBlock(kBlockSize));
+        blocks_.push_back(AllocateBlock(kDefaultBlockSize));
         SwitchTo(0);
     }
 
@@ -58,9 +57,9 @@ namespace glsld {
             return {};
         }
 
-        auto* storage = reinterpret_cast<char*>(Allocate(text.size(), alignof(char)));
-        std::ranges::copy(text, storage);
-        return std::string_view(storage, text.size());
+        auto* memory = reinterpret_cast<char*>(Allocate(text.size(), alignof(char)));
+        std::ranges::copy(text, memory);
+        return std::string_view(memory, text.size());
     }
 
     std::byte* Arena::Allocate(std::size_t size, std::size_t alignment) {
@@ -73,8 +72,8 @@ namespace glsld {
         }
 
         auto TryAllocateCurrent = [&]() -> std::byte* {
-            void* memory = memory_;
-            auto available = static_cast<std::size_t>(last_ - memory_);
+            void* memory    = memory_;
+            auto  available = static_cast<std::size_t>(last_ - memory_);
 
             if (std::align(alignment, size, memory, available) == nullptr) {
                 return nullptr;
@@ -96,13 +95,13 @@ namespace glsld {
             }
         }
 
-        auto padding = alignment - 1;
+        const auto padding = alignment - 1;
         if (size > std::numeric_limits<std::size_t>::max() - padding) {
             throw std::bad_alloc{};
         }
 
-        auto required_size = size + padding;
-        auto block_size    = std::max(kBlockSize, required_size);
+        const auto required_size = size + padding;
+        const auto block_size    = std::max(kDefaultBlockSize, required_size);
 
         blocks_.push_back(AllocateBlock(block_size));
         SwitchTo(blocks_.size() - 1);
@@ -131,8 +130,8 @@ namespace glsld {
         current_ = index;
 
         const auto& block = blocks_[index];
-        memory_  = block.memory;
-        last_    = block.memory + block.size;
+        memory_ = block.memory;
+        last_   = block.memory + block.size;
     }
 
     Arena::Block Arena::AllocateBlock(std::size_t size) noexcept {

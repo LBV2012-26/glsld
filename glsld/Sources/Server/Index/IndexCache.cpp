@@ -60,10 +60,10 @@ namespace glsld::IndexCache {
         }
 
         DiskIndexRecord DeserializeRecord(const nlohmann::json& json) {
-            DiskIndexRecord record;
-
-            record.owner_uri    = json.at("owner").get<std::string>();
-            record.dependencies = json.at("dependencies").get<std::vector<std::string>>();
+            DiskIndexRecord record{
+                .owner_uri    = json.at("owner").get<std::string>(),
+                .dependencies = json.at("dependencies").get<std::vector<std::string>>()
+            };
 
             for (const auto& stamp_json : json.at("stamps")) {
                 record.stamps.push_back(IndexedFileStamp{
@@ -85,13 +85,13 @@ namespace glsld::IndexCache {
     }
 
     std::optional<DiskIndexSnapshot> Load(const std::filesystem::path& filename, std::string_view expected_cache_key) {
-        auto binary = LoadBinary(filename);
+        const auto binary = LoadBinary(filename);
         if (!binary.has_value()) {
             GLSLD_LOG(warn, "Failed to load global index cache {}: {}", filename.generic_string(), binary.error());
             return std::nullopt;
         }
 
-        auto json = nlohmann::json::from_msgpack(*binary);
+        const auto json = nlohmann::json::from_msgpack(*binary);
 
         DiskIndexSnapshot snapshot{
             .schema_version = json.at("schemaVersion").get<std::uint32_t>(),
@@ -165,15 +165,15 @@ namespace glsld::IndexCache {
     }
 
     std::optional<IndexedFileStamp> CaptureStamp(std::string_view uri) {
-        auto filename = utils::UriToPath(uri);
+        const auto filename = Utils::UriToPath(uri);
         std::error_code ec;
 
-        auto size = std::filesystem::file_size(filename, ec);
+        const auto size = std::filesystem::file_size(filename, ec);
         if (ec) {
             return std::nullopt;
         }
 
-        auto write_time = std::filesystem::last_write_time(filename, ec);
+        const auto write_time = std::filesystem::last_write_time(filename, ec);
         if (ec) {
             return std::nullopt;
         }
@@ -191,7 +191,7 @@ namespace glsld::IndexCache {
         }
 
         for (const auto& expected : record.stamps) {
-            auto actual = CaptureStamp(expected.uri);
+            const auto actual = CaptureStamp(expected.uri);
             if (!actual.has_value()) {
                 return false;
             }

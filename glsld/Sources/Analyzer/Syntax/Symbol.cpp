@@ -73,20 +73,18 @@ namespace glsld {
     }
 
     bool TypeInfo::CompareWithoutQualifiers(const TypeInfo& other) const {
-        if ((is_function_reference && other.is_function_reference)) {
+        if ((is_func_ref && other.is_func_ref)) {
             return true;
         }
 
         if (typename_token.type != other.typename_token.type) {
             auto IsCore = [](TokenType type, BaseFamily family) -> bool {
-                bool is_core_type = (type == TokenType::kPrimitive || type == TokenType::kBuiltInType);
-
-                bool is_core_family =
-                    (family == BaseFamily::kBool  ||
-                     family == BaseFamily::kInt   ||
-                     family == BaseFamily::kUint  ||
-                     family == BaseFamily::kFloat ||
-                     family == BaseFamily::kVoid);
+                const bool is_core_type   = (type == TokenType::kPrimitive || type == TokenType::kBuiltInType);
+                const bool is_core_family = (family == BaseFamily::kBool
+                                          || family == BaseFamily::kInt
+                                          || family == BaseFamily::kUint
+                                          || family == BaseFamily::kFloat
+                                          || family == BaseFamily::kVoid);
 
                 return is_core_type && is_core_family;
             };
@@ -379,9 +377,9 @@ namespace glsld {
     SymbolReference DocumentSymbols::FindFunctionsByOriginalName(std::string_view base_name) const {
         SymbolList overloads;
 
-        auto local = function_name_map_.find(base_name);
-        if (local != function_name_map_.end()) {
-            const auto& result = local->second;
+        auto local_it = function_name_map_.find(base_name);
+        if (local_it != function_name_map_.end()) {
+            const auto& result = local_it->second;
             if (std::holds_alternative<const SymbolInfo*>(result)) {
                 overloads.push_back(std::get<const SymbolInfo*>(result));
             } else if (std::holds_alternative<SymbolList>(result)) {
@@ -391,13 +389,17 @@ namespace glsld {
         }
 
         for (const auto* builtin : builtin_symbols_) {
-            auto result = builtin->FindFunctionsByOriginalName(base_name);
-            if (std::holds_alternative<const SymbolInfo*>(result)) {
-                overloads.push_back(std::get<const SymbolInfo*>(result));
-            } else if (std::holds_alternative<SymbolList>(result)) {
-                const auto& list = std::get<SymbolList>(result);
-                overloads.append_range(list);
-            }
+            const auto result = builtin->FindFunctionsByOriginalName(base_name);
+
+            std::visit(Overloaded{
+                [&](const SymbolInfo* symbol) -> void {
+                    overloads.push_back(symbol);
+                },
+                [&](const SymbolList& list) -> void {
+                    overloads.append_range(list);
+                },
+                [](std::monostate) -> void {}
+            }, result);
         }
 
         if (overloads.size() == 1) {
@@ -470,7 +472,7 @@ namespace glsld {
             return;
         }
 
-        utils::PrintIndent(indent_level);
+        Utils::PrintIndent(indent_level);
         std::println("-> {} Scope index {}, host symbol: {} @ 0x{:X} (Parent: 0x{:X}) [Lines {}:{}-{}:{}]",
                      magic_enum::enum_name(scope->kind_),
                      scope->index_,
@@ -481,16 +483,16 @@ namespace glsld {
                      scope->interval_.second.line(), scope->interval_.second.column());
 
         if (!scope->symbols_.empty()) {
-            utils::PrintIndent(indent_level + 1);
+            Utils::PrintIndent(indent_level + 1);
             std::println("Symbols:");
             for (const auto& [name, symbol] : scope->symbols_) {
-                utils::PrintIndent(indent_level + 2);
+                Utils::PrintIndent(indent_level + 2);
                 std::println("- '{}' (Kind: {}, Declared at L{})", symbol->name, magic_enum::enum_name(symbol->kind), symbol->location.line());
             }
         }
 
         if (!scope->children_.empty()) {
-            utils::PrintIndent(indent_level + 1);
+            Utils::PrintIndent(indent_level + 1);
             std::println("Children Scopes:");
             for (const auto& child : scope->children_) {
                 PrintScopes(child.get(), indent_level + 2);

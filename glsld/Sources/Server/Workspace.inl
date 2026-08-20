@@ -13,7 +13,7 @@ namespace glsld {
     }
 
     inline void Workspace::InvalidateInclude(std::string_view uri) {
-        auto filename = GetSource(uri)->filename();
+        const auto filename = GetSource(uri)->filename();
         include_loader_.Invalidate(filename);
     }
 
@@ -36,7 +36,7 @@ namespace glsld {
     }
 
     inline void Workspace::ScheduleDiskIndexByUri(std::string_view uri) {
-        ScheduleDiskIndex(utils::UriToPath(uri));
+        ScheduleDiskIndex(Utils::UriToPath(uri));
     }
 
     inline void Workspace::set_include_dirs(IncludeDirectoryHandle include_dirs) {

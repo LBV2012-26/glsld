@@ -9,6 +9,7 @@
 #include <format>
 #include <limits>
 #include <system_error>
+#include <variant>
 
 #ifdef _WIN64
 #include <Windows.h>
@@ -23,7 +24,7 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 
-namespace glsld::utils {
+namespace glsld::Utils {
     namespace {
         int HexToInt(char hex) {
             if (hex >= '0' && hex <= '9') {
@@ -43,8 +44,8 @@ namespace glsld::utils {
 
             for (auto i = 0uz; i < input.size(); ++i) {
                 if (input[i] == '%' && i + 2 < input.size()) {
-                    int high = HexToInt(input[i + 1]);
-                    int low  = HexToInt(input[i + 2]);
+                    const auto high = HexToInt(input[i + 1]);
+                    const auto low  = HexToInt(input[i + 2]);
                     if (high != -1 && low != -1) {
                         result += static_cast<char>((high << 4) | low);
                         i += 2;
@@ -64,12 +65,11 @@ namespace glsld::utils {
         std::array<wchar_t, MAX_PATH> buffer{};
         GetModuleFileName(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
 
-        auto work_directory = std::filesystem::path(buffer.data()).parent_path().parent_path();
+        const auto work_directory = std::filesystem::path(buffer.data()).parent_path().parent_path();
 #else
-        auto work_directory = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+        const auto work_directory = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 #endif
-        auto file_path = work_directory / std::filesystem::path(filename);
-
+        const auto file_path = work_directory / std::filesystem::path(filename);
         return file_path.generic_string();
     }
 
@@ -80,7 +80,7 @@ namespace glsld::utils {
             return NormalizePath(std::filesystem::path(uri));
         }
 
-        auto raw     = uri.substr(kPrefix.size());
+        const auto raw = uri.substr(kPrefix.size());
         auto decoded = PercentDecode(raw);
 
         if (decoded.size() >= 3 && decoded[0] == '/' &&
@@ -97,7 +97,7 @@ namespace glsld::utils {
     }
 
     std::string PathToUri(const std::filesystem::path& path) {
-        auto normalized = NormalizePath(path).generic_string();
+        const auto normalized = NormalizePath(path).generic_string();
 
         std::string encoded;
         encoded.reserve(normalized.size() + 16);
@@ -119,7 +119,7 @@ namespace glsld::utils {
 
     std::filesystem::path NormalizePath(const std::filesystem::path& path) {
         std::error_code ec;
-        auto normalized = std::filesystem::weakly_canonical(path, ec);
+        const auto normalized = std::filesystem::weakly_canonical(path, ec);
         if (ec) {
             return path.lexically_normal();
         }
@@ -127,8 +127,21 @@ namespace glsld::utils {
         return normalized.lexically_normal();
     }
 
+    SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference) {
+        if (std::holds_alternative<std::monostate>(reference)) {
+            return std::monostate{};
+        }
+
+        if (std::holds_alternative<const SymbolInfo*>(reference)) {
+            return std::get<const SymbolInfo*>(reference);
+        }
+
+        const auto& symbols = std::get<SymbolList>(reference);
+        return document.arena.CopySpan<const SymbolInfo*>(symbols);
+    }
+
     std::string_view UnmangleFunctionName(std::string_view mangled_name) {
-        std::string_view raw_name = mangled_name;
+        auto raw_name = mangled_name;
         // __Impl_main(void) -> main
         if (raw_name.starts_with("__Decl_") || raw_name.starts_with("__Impl_")) {
             raw_name = raw_name.substr(7);
@@ -163,8 +176,8 @@ namespace glsld::utils {
             return std::string(argument->token.text);
 
         case QualifierArgumentKind::kAssignment: {
-            auto lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0]) : "";
-            auto rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1]) : "";
+            const auto lhs = argument->children.size() > 0 ? SerializeQualifierArguments(argument->children[0]) : "";
+            const auto rhs = argument->children.size() > 1 ? SerializeQualifierArguments(argument->children[1]) : "";
             return std::format("{} = {}", lhs, rhs);
         }
 
@@ -220,16 +233,15 @@ namespace glsld::utils {
         if (text.size() >= 2 && text.front() == '"' && text.back() == '"') {
             return std::string(text.substr(1, text.size() - 2));
         }
-
         return std::string(text);
     }
 
     std::int64_t ParseNumberLiteralToInteger(std::string_view text) {
         auto IsSuffix = [](char ch) -> bool {
-            return ch == 'u' || ch == 'U' ||
-                   ch == 'l' || ch == 'L' ||
-                   ch == 's' || ch == 'S' ||
-                   ch == 'f' || ch == 'F';
+            return ch == 'u' || ch == 'U'
+                || ch == 'l' || ch == 'L'
+                || ch == 's' || ch == 'S'
+                || ch == 'f' || ch == 'F';
         };
 
         auto end = text.size();
@@ -242,16 +254,15 @@ namespace glsld::utils {
             return 0;
         }
 
-        bool maybe_float =
-            core.find('.') != std::string_view::npos ||
-            core.find('e') != std::string_view::npos ||
-            core.find('E') != std::string_view::npos ||
-            core.find('p') != std::string_view::npos ||
-            core.find('P') != std::string_view::npos;
+        bool maybe_float = core.find('.') != std::string_view::npos
+                        || core.find('e') != std::string_view::npos
+                        || core.find('E') != std::string_view::npos
+                        || core.find('p') != std::string_view::npos
+                        || core.find('P') != std::string_view::npos;
 
         if (maybe_float) {
             double float_value = 0.0;
-            auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), float_value);
+            const auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), float_value);
             if (ec == std::errc{} && ptr == core.data() + core.size() && std::isfinite(float_value)) {
                 if (float_value >= static_cast<double>(std::numeric_limits<std::int64_t>::max()))
                     return std::numeric_limits<std::int64_t>::max();
@@ -288,7 +299,7 @@ namespace glsld::utils {
         }
 
         std::uint64_t magnitude = 0;
-        auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), magnitude, base);
+        const auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), magnitude, base);
         if (ec != std::errc{} || ptr != core.data() + core.size()) {
             return 0;
         }
@@ -404,16 +415,16 @@ namespace glsld::utils {
             return {};
         }
 
-        auto size = MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, nullptr, 0);
+        const auto command_size = MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, nullptr, 0);
         std::wstring wcommand;
-        wcommand.resize_and_overwrite(size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
+        wcommand.resize_and_overwrite(command_size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
             return MultiByteToWideChar(CP_UTF8, 0, command.data(), -1, buffer, static_cast<int>(buffer_size));
         });
 
         std::wstring wworking_dir;
         if (!working_dir.empty()) {
-            size = MultiByteToWideChar(CP_UTF8, 0, working_dir.data(), -1, nullptr, 0);
-            wworking_dir.resize_and_overwrite(size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
+            const auto dir_size = MultiByteToWideChar(CP_UTF8, 0, working_dir.data(), -1, nullptr, 0);
+            wworking_dir.resize_and_overwrite(dir_size, [&](auto* buffer, std::size_t buffer_size) -> std::size_t {
                 return MultiByteToWideChar(CP_UTF8, 0, working_dir.data(), -1, buffer, static_cast<int>(buffer_size));
             });
         }
@@ -470,7 +481,7 @@ namespace glsld::utils {
                 }
 
                 DWORD read_bytes = 0;
-                auto read_size = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
+                const auto read_size = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
                 if (!ReadFile(stdout_read, buffer.data(), read_size, &read_bytes, nullptr) || read_bytes == 0) {
                     return;
                 }
@@ -479,18 +490,18 @@ namespace glsld::utils {
             }
         };
 
-        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(std::max(timeout_ms, 0));
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(std::max(timeout_ms, 0));
 
         while (true) {
             DrainPipe();
 
-            auto wait = WaitForSingleObject(info.hProcess, 10);
+            const auto wait = WaitForSingleObject(info.hProcess, 10);
             if (wait == WAIT_OBJECT_0) {
                 DrainPipe();
                 break;
             }
 
-            bool timed_out = timeout_ms >= 0 && std::chrono::steady_clock::now() >= deadline;
+            const bool timed_out = timeout_ms >= 0 && std::chrono::steady_clock::now() >= deadline;
             if (wait == WAIT_FAILED || timed_out) {
                 TerminateProcess(info.hProcess, timed_out ? WAIT_TIMEOUT : ERROR_PROCESS_ABORTED);
                 WaitForSingleObject(info.hProcess, INFINITE);

@@ -2,7 +2,6 @@
 #include "IncludeLoader.hpp"
 
 #include <exception>
-#include <ios>
 #include <mutex>
 #include <system_error>
 #include <utility>
@@ -65,23 +64,23 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs,
         std::optional<IncludeTarget> parsed_target)
     {
-        auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
+        const auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
         if (!target.has_value()) {
             auto failed = std::make_shared<IncludeData>();
             failed->error = "Invalid include expression";
             return MakeReadyFuture(std::move(failed));
         }
 
-        auto includer_path = utils::UriToPath(includer_uri);
-        auto resolved_path = ResolveIncludePath(includer_path, *target, include_dirs);
+        const auto includer_path = Utils::UriToPath(includer_uri);
+        const auto resolved_path = ResolveIncludePath(includer_path, *target, include_dirs);
         if (!resolved_path.has_value()) {
             auto failed = std::make_shared<IncludeData>();
             failed->error = "Failed to resolve include path";
             return MakeReadyFuture(std::move(failed));
         }
 
-        auto normalized = utils::NormalizePath(*resolved_path);
-        auto filename   = normalized.generic_string();
+        const auto normalized = Utils::NormalizePath(*resolved_path);
+        const auto filename   = normalized.generic_string();
 
         {
             std::shared_lock lock(mutex_);
@@ -148,8 +147,9 @@ namespace glsld {
         return future;
     }
 
-    std::optional<IncludeLoader::IncludeTarget>
-    IncludeLoader::ParseIncludeExpr(std::string_view include_expr) const {
+    std::optional<IncludeLoader::IncludeTarget> IncludeLoader::ParseIncludeExpr(
+        std::string_view include_expr) const
+    {
         if (include_expr.length() < 3) {
             return std::nullopt;
         }
@@ -169,8 +169,9 @@ namespace glsld {
         }
     }
 
-    std::optional<IncludeLoader::IncludeTarget>
-    IncludeLoader::ParseIncludeFromTokens(std::span<const Token> body_tokens) const {
+    std::optional<IncludeLoader::IncludeTarget> IncludeLoader::ParseIncludeFromTokens(
+        std::span<const Token> body_tokens) const
+    {
         if (body_tokens.empty()) {
             return std::nullopt;
         }
@@ -199,7 +200,7 @@ namespace glsld {
         }
 
         for (const auto& candidate : candidates) {
-            auto normalized = utils::NormalizePath(candidate);
+            auto normalized = Utils::NormalizePath(candidate);
             std::error_code ec;
             if (std::filesystem::exists(normalized, ec) && !ec) {
                 return normalized;
@@ -215,7 +216,7 @@ namespace glsld {
     {
         auto snapshot      = std::make_shared<IncludeData>();
         snapshot->filename = normalized_path.generic_string();
-        snapshot->uri      = utils::PathToUri(normalized_path);
+        snapshot->uri      = Utils::PathToUri(normalized_path);
 
         std::error_code ec;
         snapshot->write_time = std::filesystem::last_write_time(normalized_path, ec);

@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "Logger.hpp"
 
+#include <memory>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace glsld {

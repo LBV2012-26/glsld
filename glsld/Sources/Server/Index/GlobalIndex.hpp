@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <shared_mutex>
 #include <span>
 #include <string_view>
@@ -41,8 +40,8 @@ namespace glsld {
         using RefCountMap = ankerl::unordered_dense::map<SourceLocation, std::size_t, LocationHash>;
         ankerl::unordered_dense::map<SourceLocation, RefCountMap, LocationHash> references_; // [Definition, [Reference, RefCount]]
 
-        StringHeteroHashMap<std::vector<Contribution>>                          document_contributions_;
-        mutable std::shared_mutex                                               mutex_;
+        StringHeteroHashMap<std::vector<Contribution>> document_contributions_;
+        mutable std::shared_mutex                      mutex_;
     };
 
     class TypeMemberIndex {

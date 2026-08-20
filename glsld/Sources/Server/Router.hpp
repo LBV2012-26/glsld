@@ -2,7 +2,6 @@
 
 #include <functional>
 #include <string_view>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 #include "Server/Context.hpp"

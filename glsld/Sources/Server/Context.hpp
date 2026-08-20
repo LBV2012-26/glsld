@@ -1,6 +1,5 @@
 #pragma once
 
-#include <any>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -9,7 +8,6 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
-#include "Base/Hash.hpp"
 
 namespace glsld {
     using CancellationToken = std::shared_ptr<std::atomic<bool>>;
@@ -19,7 +17,6 @@ namespace glsld {
         std::optional<nlohmann::json>              request_id;
         std::optional<nlohmann::json>              response;
         std::optional<std::pair<int, std::string>> error;
-        StringHeteroHashMap<std::any>              use_data;
         nlohmann::json                             params;
         CancellationToken                          cancellation_token{ nullptr };
 

@@ -8,13 +8,17 @@
 #include <string_view>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/Document.hpp"
 
-namespace glsld::utils {
+namespace glsld::Utils {
     // FileSystem
     std::string GetFilePath(std::string_view filename);
     std::filesystem::path UriToPath(std::string_view uri);
     std::string PathToUri(const std::filesystem::path& path);
     std::filesystem::path NormalizePath(const std::filesystem::path& path);
+
+    // Arena helper
+    SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference);
 
     // String manipulation
     std::string_view UnmangleFunctionName(std::string_view mangled_name);
@@ -33,7 +37,10 @@ namespace glsld::utils {
     std::int64_t ParseNumberLiteralToInteger(std::string_view text);
 
     template <typename Ty>
-    std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& pred);
+    std::optional<std::vector<Ty>> CollectArgumentArray(
+        const QualifierArgumentNode* rhs,
+        QualifierArgumentKind required_kind,
+        auto&& pred);
 
     // External process execution
     std::string ExecuteCommand(

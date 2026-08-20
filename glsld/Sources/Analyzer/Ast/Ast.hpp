@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <new>
 #include <span>
 #include <string_view>
 #include <variant>
@@ -674,7 +673,7 @@ namespace glsld {
 
     struct TranslationUnitNode final : public AstNode {
         ArenaVector<StatementNode*>    statements{ ArenaAllocator<StatementNode*>(arena) };
-        ArenaVector<PreprocessorNode*> preprocessor_references{ ArenaAllocator<PreprocessorNode*>(arena) };
+        ArenaVector<PreprocessorNode*> pprefs{ ArenaAllocator<PreprocessorNode*>(arena) };
 
         using AstNode::AstNode;
         TranslationUnitNode(const TranslationUnitNode& other);

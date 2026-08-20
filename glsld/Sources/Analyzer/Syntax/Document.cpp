@@ -4,7 +4,7 @@
 #include <utility>
 
 namespace glsld {
-    std::string_view Document::StoreString(std::string_view text) {
+    std::string_view Document::StoreTokenText(std::string_view text) {
         return arena.CopyString(text);
     }
 
@@ -26,17 +26,17 @@ namespace glsld {
     }
 
     void Document::InjectMacro(MacroDefinition definition) {
-        definition.original_token.text = StoreString(definition.original_token.text);
+        definition.original_token.text = StoreTokenText(definition.original_token.text);
 
         for (auto& token : definition.replacement_list) {
-            token.text = StoreString(token.text);
+            token.text = StoreTokenText(token.text);
         }
 
         for (auto& token : definition.params) {
-            token.text = StoreString(token.text);
+            token.text = StoreTokenText(token.text);
         }
 
-        auto name = definition.original_token.text;
+        const auto name = definition.original_token.text;
         macro_table.insert_or_assign(name, definition);
         pending_macros_.insert_or_assign(name, std::move(definition));
     }
@@ -68,7 +68,7 @@ namespace glsld {
             node->symbol    = symbols.AddMacroSymbol(node, name, location);
 
             node->tokens.assign_range(definition.replacement_list);
-            ast->preprocessor_references.push_back(node);
+            ast->pprefs.push_back(node);
         }
 
         pending_macros_.clear();

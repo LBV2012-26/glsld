@@ -27,10 +27,10 @@
 #include "Utils/Utils.hpp"
 
 namespace {
-    int Benchmark(const std::filesystem::path& filename) {
+    int Benchmark(const std::filesystem::path& filename, bool dump_ast = false) {
         using namespace glsld;
 
-        auto normalized = utils::GetFilePath(filename.generic_string());
+        const auto normalized = Utils::GetFilePath(filename.generic_string());
         auto shader_source = *LoadSource(normalized);
 
         ThreadPool thread_pool;
@@ -44,7 +44,7 @@ namespace {
 
         auto include_dirs = std::make_shared<std::vector<std::filesystem::path>>(std::move(includes));
 
-        const auto* source_file = source_table.InternByUri(utils::PathToUri(filename));
+        const auto* source_file = source_table.InternByUri(Utils::PathToUri(filename));
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start    = std::chrono::high_resolution_clock::now();
@@ -77,9 +77,12 @@ namespace {
         auto bind_end      = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        // AstDumper dumper(0, nullptr);
-        // dumper.Traverse(document.ast.get());
-        // document.symbols.Dump();
+        if (dump_ast) {
+            AstDumper dumper(0, nullptr);
+            dumper.Traverse(document.ast);
+            document.symbols.Dump();
+        }
+
         std::println("Benchmark completed for file: {}", filename.generic_string());
         std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
@@ -110,6 +113,7 @@ int main() {
     Benchmark("Tests/OverloadTest.glsl");
     Benchmark("Tests/HoverTest.glsl");
     Benchmark("Tests/ExtensionTest.glsl");
+    Benchmark("Tests/MacroTest.glsl");
     return 0;
 #endif
 

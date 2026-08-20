@@ -16,12 +16,11 @@ namespace glsld {
             clang_format_path = clang_format_path_;
         }
 
-        auto command = std::format(
-            "\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp",
-            clang_format_path);
+        const auto command =
+            std::format("\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp", clang_format_path);
 
         int  exit_code = -1;
-        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
+        auto formatted = Utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
         if (exit_code != 0 || formatted.empty()) {
             return {};
@@ -42,13 +41,13 @@ namespace glsld {
             clang_format_path = clang_format_path_;
         }
 
-        auto command = std::format(
+        const auto command = std::format(
             "\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp "
             "--lines={}:{}",
             clang_format_path, start_line, end_line);
 
         int  exit_code = -1;
-        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
+        auto formatted = Utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
         if (exit_code != 0 && formatted.empty()) {
             return {};
@@ -64,9 +63,9 @@ namespace glsld {
             clang_format_path = clang_format_path_;
         }
 
-        auto command   = std::format("\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp", clang_format_path);
+        const auto command = std::format("\"{}\" --style=file --fallback-style=Microsoft --assume-filename=main.cpp", clang_format_path);
         int  exit_code = -1;
-        auto formatted = utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 1'000, &exit_code);
+        auto formatted = Utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 1'000, &exit_code);
 
         if (exit_code != 0 || formatted.empty()) {
             return {};
@@ -82,10 +81,10 @@ namespace glsld {
     void Formatter::set_clang_format_path(const std::filesystem::path& filename) {
         std::lock_guard lock(mutex_);
 #ifdef _WIN64
-        auto default_path = "clang-format.exe";
+        std::string default_path = "clang-format.exe";
 #else
-        auto default_path = "clang-format";
+        std::string default_path = "clang-format";
 #endif
-        clang_format_path_ = filename.empty() ? default_path : filename.generic_string();
+        clang_format_path_ = filename.empty() ? std::move(default_path) : filename.generic_string();
     }
 }

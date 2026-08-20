@@ -51,7 +51,7 @@ namespace glsld {
             return;
         }
 
-        bool valid_callee = node->callee->kind() == AstNodeKind::kVariableExpression;
+        const bool valid_callee = node->callee->kind() == AstNodeKind::kVariableExpression;
         if (valid_callee && target_ > node->callee->end && target_ <= node->end) {
             best_match_ = node;
         }

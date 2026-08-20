@@ -2,8 +2,8 @@
 
 #include <format>
 
-namespace glsld::utils {
-    inline std::string BuildQualifierParameterList(const IsQualifierArgument auto* node) {
+namespace glsld::Utils {
+    std::string BuildQualifierParameterList(const IsQualifierArgument auto* node) {
         if (node == nullptr) {
             return {};
         }
@@ -20,7 +20,11 @@ namespace glsld::utils {
     }
 
     template <typename Ty>
-    std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& pred) {
+    std::optional<std::vector<Ty>> CollectArgumentArray(
+        const QualifierArgumentNode* rhs,
+        QualifierArgumentKind required_kind,
+        auto&& pred)
+    {
         if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kArray) {
             return std::nullopt;
         }

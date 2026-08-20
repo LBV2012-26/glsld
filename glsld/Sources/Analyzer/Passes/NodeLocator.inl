@@ -8,7 +8,7 @@ namespace glsld {
     {}
 
     template <typename NodeType>
-    inline bool LocatorHelper<NodeType>::IsPositionInNode(const NodeType* node) const {
+    bool LocatorHelper<NodeType>::IsPositionInNode(const NodeType* node) const {
         // [begin.line, begin.col] <= target_ <= [end.line, end.col]
         return node->begin <= target_ && target_ <= node->end;
     }
@@ -27,7 +27,7 @@ namespace glsld {
     }
 
     template <typename NodeType>
-    inline const NodeType* const LocatorHelper<NodeType>::result() const {
+    const NodeType* const LocatorHelper<NodeType>::result() const {
         return best_match_;
     }
 }

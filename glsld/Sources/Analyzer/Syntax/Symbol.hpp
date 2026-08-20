@@ -45,7 +45,8 @@ namespace glsld {
         };
 
         BaseFamily family{ BaseFamily::kUnknown };
-        int bits{};
+        int        bits{};
+
         // mat2x3 -> 2 x vector with size 3
         int vector_count{};
         int vector_length{};
@@ -90,7 +91,7 @@ namespace glsld {
         std::span<const std::string_view>             template_args;
         std::string_view                              spirv_type;
         std::optional<SpirvTypeSignature>             spirv_signature;
-        bool                                          is_function_reference{ false };
+        bool                                          is_func_ref{ false };
 
         bool operator==(const TypeInfo& other) const;
         bool CompareWithoutQualifiers(const TypeInfo& other) const;
@@ -173,6 +174,14 @@ namespace glsld {
     using SymbolReference     = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
     using SymbolListView      = std::span<const SymbolInfo* const>;
     using SymbolReferenceView = std::variant<std::monostate, const SymbolInfo*, SymbolListView>;
+
+    template <typename... Ts>
+    struct Overloaded : Ts... {
+        using Ts::operator()...;
+    };
+
+    template <typename... Ts>
+    Overloaded(Ts...) -> Overloaded<Ts...>;
 
     class DocumentSymbols {
     public:

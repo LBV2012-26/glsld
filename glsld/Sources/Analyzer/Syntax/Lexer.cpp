@@ -1,13 +1,7 @@
 #include "pch.hpp"
 #include "Lexer.hpp"
 
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <ios>
-#include <ranges>
 #include <string>
-#include <stdexcept>
 
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Base/Unicode.hpp"
@@ -46,7 +40,8 @@ namespace glsld {
         auto token = ProduceToken();
         last_token_line_ = token.location.line();
 
-        bool need_deep_paren = (last_token_text_ == "layout" || (last_token_text_.starts_with("spirv")) && (token.text != "spirv_id" && token.text != "spirv_by_reference"));
+        const bool need_deep_paren = last_token_text_ == "layout"
+            || (last_token_text_.starts_with("spirv")) && (token.text != "spirv_id" && token.text != "spirv_by_reference");
 
         if (token.type == TokenType::kSharp)
             preprocessor_line_ = true;
@@ -59,7 +54,9 @@ namespace glsld {
             token.type == TokenType::kBuiltInType ||
             token.type == TokenType::kKeyword     ||
             token.type == TokenType::kSpirvIntrinsic)
+        {
             last_token_text_ = token.text;
+        }
 
         if (qualifier_paren_depth_ > 0 && token.type == TokenType::kEqual) {
             qualifier_after_equal_ = true;
@@ -73,13 +70,10 @@ namespace glsld {
     Token Lexer::ProduceToken() {
         SkipWhitespaceAndComments();
 
-        if (line_ > last_token_line_) {
+        if (line_ > last_token_line_)
             preprocessor_line_ = false;
-        }
-
-        if (position_ < source_.length() && source_[position_] == '#') {
+        if (position_ < source_.length() && source_[position_] == '#')
             TryPrefetchInclude();
-        }
 
         const SourceLocation location(source_file_, line_, column_);
 
@@ -91,14 +85,14 @@ namespace glsld {
             };
         }
 
-        unsigned char current_char = static_cast<unsigned char>(source_[position_]);
+        const auto current_char = static_cast<unsigned char>(source_[position_]);
 
         auto IsIdentifierAlnum = [](unsigned char ch) -> bool {
-            return IsAsciiAlnum(ch) || ch == '.' || ch == '_';
+            return Unicode::IsAsciiAlnum(ch) || ch == '.' || ch == '_';
         };
 
-        if (IsAsciiDigit(current_char) || (current_char == '.' && IsAsciiDigit(Peek()))) {
-            auto begin = position_;
+        if (Unicode::IsAsciiDigit(current_char) || (current_char == '.' && Unicode::IsAsciiDigit(Peek()))) {
+            const auto begin = position_;
             Advance();
             while (position_ < source_.length() && IsIdentifierAlnum(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
@@ -112,10 +106,10 @@ namespace glsld {
         }
 
         if (current_char == '<') {
-            auto angle_end = TryFindIncludeAngleEnd();
+            const auto angle_end = TryFindIncludeAngleEnd();
             if (angle_end.has_value()) {
-                auto begin  = position_;
-                auto length = *angle_end - begin;
+                const auto begin  = position_;
+                const auto length = *angle_end - begin;
                 Advance(length);
 
                 return {
@@ -132,20 +126,20 @@ namespace glsld {
         }
 
         auto IsIdentifierStart = [](unsigned char ch) -> bool {
-            return IsAsciiAlpha(ch) || ch == '_';
+            return Unicode::IsAsciiAlpha(ch) || ch == '_';
         };
 
         auto IsIdentifierChar = [](unsigned char ch) -> bool {
-            return IsAsciiAlnum(ch) || ch == '_';
+            return Unicode::IsAsciiAlnum(ch) || ch == '_';
         };
 
         if (IsIdentifierStart(current_char)) {
-            auto begin = position_;
+            const auto begin = position_;
             Advance();
             while (position_ < source_.length() && IsIdentifierChar(static_cast<unsigned char>(source_[position_]))) {
                 Advance();
             }
-            auto word = source_.substr(begin, position_ - begin);
+            const auto word = source_.substr(begin, position_ - begin);
 
             auto it = lexical_table_->find(word);
             if (it != lexical_table_->end()) {
@@ -167,7 +161,7 @@ namespace glsld {
 
                 // layout(...)/spirv_xxx(...)
                 if (it->second == TokenType::kPrimitive) {
-                    auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(word);
+                    const auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(word);
                     if (subtype.has_value() && (subtype->starts_with("Primitives.Layout") || subtype->starts_with("Primitives.Spirv"))) {
                         if (qualifier_paren_depth_ == 0 || qualifier_after_equal_) {
                             return {
@@ -194,7 +188,7 @@ namespace glsld {
         }
 
         if (current_char == '"') {
-            auto begin = position_;
+            const auto begin = position_;
             Advance(); // consume opening quote
             while (position_ < source_.length() && source_[position_] != '"') {
                 if (source_[position_] == '\\') { // handle escaped quotes
@@ -214,8 +208,8 @@ namespace glsld {
             };
         }
 
-        auto begin = position_;
-        auto point = DecodeUtf8(source_.substr(position_));
+        const auto begin = position_;
+        const auto point = Unicode::DecodeUtf8(source_.substr(position_));
         Advance(point.byte_count);
 
         return {
@@ -232,13 +226,13 @@ namespace glsld {
             return;
         }
 
-        auto include_expr_range = FindIncludeExprAfterSharp(position_);
+        const auto include_expr_range = FindIncludeExprAfterSharp(position_);
         if (!include_expr_range.has_value()) {
             return;
         }
 
-        auto [include_begin, include_end] = *include_expr_range;
-        auto include_expr = source_.substr(include_begin, include_end - include_begin);
+        const auto [include_begin, include_end] = *include_expr_range;
+        const auto include_expr = source_.substr(include_begin, include_end - include_begin);
         include_loader_.Prefetch(source_file_->uri(), include_expr, include_dirs_);
     }
 
@@ -278,7 +272,7 @@ namespace glsld {
         }
 
         if (source_[index] == '"' || source_[index] == '<') {
-            char delimiter = source_[index] == '"' ? '"' : '>';
+            const char delimiter = source_[index] == '"' ? '"' : '>';
 
             auto end = index + 1;
             while (end < source_.length() && source_[end] != delimiter && source_[end] != '\n') {
@@ -314,12 +308,12 @@ namespace glsld {
             return std::nullopt;
         }
 
-        auto include_expr = FindIncludeExprAfterSharp(first_non_space);
-        if (!include_expr.has_value()) {
+        const auto include_expr_range = FindIncludeExprAfterSharp(first_non_space);
+        if (!include_expr_range.has_value()) {
             return std::nullopt;
         }
 
-        auto [include_begin, include_end] = *include_expr;
+        const auto [include_begin, include_end] = *include_expr_range;
         if (include_begin == position_ && source_[include_begin] == '<') {
             return include_end;
         }
@@ -400,7 +394,7 @@ namespace glsld {
     Token Lexer::Capture(TokenType type, std::size_t length) {
         const SourceLocation location(source_file_, line_, column_);
 
-        auto text = source_.substr(position_, length);
+        const auto text = source_.substr(position_, length);
         Advance(length);
 
         return {
@@ -420,8 +414,8 @@ namespace glsld {
 
     void Lexer::SkipWhitespaceAndComments() {
         while (position_ < source_.length()) {
-            unsigned char ch = static_cast<unsigned char>(source_[position_]);
-            if (IsAsciiSpace(ch) || ch == '\0') {
+            const auto ch = static_cast<unsigned char>(source_[position_]);
+            if (Unicode::IsAsciiSpace(ch) || ch == '\0') {
                 Advance();
                 continue;
             }

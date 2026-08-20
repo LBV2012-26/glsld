@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <algorithm>
+#include <functional>
 #include <stop_token>
 #include <utility>
 
@@ -19,7 +20,7 @@ namespace glsld {
 
         for (auto i = 0uz; i != max_thread_count_; ++i) {
             threads_.emplace_back([this, i](std::stop_token stop_token) -> void {
-                Worker& worker = *workers_[i];
+                auto& worker = *workers_[i];
                 while (!stop_token.stop_requested()) {
                     std::function<void()> task;
                     {

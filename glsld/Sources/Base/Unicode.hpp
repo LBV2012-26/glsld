@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace glsld {
+namespace glsld::Unicode {
     struct Utf8CodePoint {
         char32_t    value{ 0xFFFD };
         std::size_t byte_count{ 1 };

@@ -84,7 +84,7 @@ namespace glsld {
 
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         PrintIndent();
-        auto name = node->declared_symbol ? node->declared_symbol->name : "unnamed";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "unnamed";
         std::println("FunctionDeclaration '{}' Type: {} {}", name, TypeToString(node->type_spec), FormatRange(node));
 
         ++indent_level_;
@@ -110,8 +110,8 @@ namespace glsld {
 
     void AstDumper::VisitVariableDeclaration(VariableDeclarationNode* node) {
         PrintIndent();
-        auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
-        auto type = node->declared_symbol ? std::string(node->declared_symbol->type_info.typename_token.text) : TypeToString(node->type_spec);
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto type = node->declared_symbol ? std::string(node->declared_symbol->type_info.typename_token.text) : TypeToString(node->type_spec);
 
         std::println("VariableDeclaration '{}' Type: {} {}", name, type, FormatRange(node));
 
@@ -138,7 +138,7 @@ namespace glsld {
 
     void AstDumper::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
         PrintIndent();
-        auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
         std::println("InterfaceDeclaration '{}' {}", name, FormatRange(node));
 
         ++indent_level_;
@@ -164,7 +164,7 @@ namespace glsld {
 
     void AstDumper::VisitStructDeclaration(StructDeclarationNode* node) {
         PrintIndent();
-        auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
         std::println("StructDeclaration '{}' {}", name, FormatRange(node));
 
         ++indent_level_;
@@ -415,7 +415,7 @@ namespace glsld {
     void AstDumper::VisitUnaryExpression(UnaryExpressionNode* node) {
         PrintIndent();
 
-        auto op_name = magic_enum::enum_name(node->op);
+        const auto op_name = magic_enum::enum_name(node->op);
         if (node->is_postfix) {
             std::println("UnaryExpression (Postfix) '{}' {}", op_name, FormatRange(node));
         } else {
@@ -602,7 +602,7 @@ namespace glsld {
             return;
         }
 
-        utils::PrintIndent(indent_level_);
+        Utils::PrintIndent(indent_level_);
     }
 
     void AstDumper::TraverseWithoutIndent(auto* node) {

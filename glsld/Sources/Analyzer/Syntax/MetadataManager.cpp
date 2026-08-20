@@ -1,12 +1,9 @@
 #include "pch.hpp"
 #include "MetadataManager.hpp"
 
-#include <cctype>
 #include <cstddef>
 #include <algorithm>
 #include <format>
-#include <fstream>
-#include <ios>
 #include <ranges>
 #include <stdexcept>
 #include <system_error>
@@ -17,6 +14,7 @@
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Unicode.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -57,13 +55,13 @@ namespace glsld {
         }
 
         std::optional<std::filesystem::path> TryResolveMetadataFile(const std::filesystem::path& relative_path) {
-            auto path = std::filesystem::path(utils::GetFilePath(relative_path.generic_string()));
+            const auto path = std::filesystem::path(Utils::GetFilePath(relative_path.generic_string()));
             std::error_code ec;
             if (!std::filesystem::exists(path, ec) || ec) {
                 return std::nullopt;
             }
 
-            return utils::NormalizePath(path);
+            return Utils::NormalizePath(path);
         }
 
         struct MacroCollectResult {
@@ -165,13 +163,16 @@ namespace glsld {
         }
 
         std::string ResolveExtensionFilename(std::string_view extension) {
-            auto first = extension.find('_');
+            const auto first = extension.find('_');
             if (first == std::string_view::npos) {
                 return "";
             }
 
-            auto second = extension.find('_', first + 1);
-            auto vendor = (second == std::string_view::npos ? extension.substr(first + 1) : extension.substr(first + 1, second - first - 1));
+            const auto second = extension.find('_', first + 1);
+            const auto vendor = second == std::string_view::npos
+                              ? extension.substr(first + 1)
+                              : extension.substr(first + 1, second - first - 1);
+
             return std::format("Database/Meta/Extensions/Main/{}/{}.glsl", vendor, extension);
         }
 
@@ -186,7 +187,7 @@ namespace glsld {
             auto PushIfExists = [&required_files](std::string_view relative_path) {
                 auto resolved = TryResolveMetadataFile(relative_path);
                 if (resolved.has_value()) {
-                    required_files.push_back(*resolved);
+                    required_files.push_back(std::move(*resolved));
                 }
             };
 
@@ -282,7 +283,7 @@ namespace glsld {
         };
 
         auto [required_files, macro_collect_result] = CollectRequiredMetadataFiles(raw_tokens);
-        auto [injected_macros, version]             = std::move(macro_collect_result);
+        const auto [injected_macros, version]       = std::move(macro_collect_result);
 
         target.InjectMacro(MacroDefinition{
             .is_function = false,
@@ -312,10 +313,10 @@ namespace glsld {
 
             auto stage_it = kStages.find(shader_stage.value_or(""));
             if (stage_it != kStages.end()) {
-                auto builtin_filename = std::format("Database/Meta/BuiltinVariables/{}.glsl", stage_it->second);
+                const auto builtin_filename = std::format("Database/Meta/BuiltinVariables/{}.glsl", stage_it->second);
                 auto resolved = TryResolveMetadataFile(builtin_filename);
                 if (resolved.has_value()) {
-                    required_files.push_back(*resolved);
+                    required_files.push_back(std::move(*resolved));
                 }
             }
         }
@@ -387,7 +388,7 @@ namespace glsld {
         lexical_entries_.clear();
         lexical_table_.clear();
 
-        auto lexical_root = std::filesystem::path(utils::GetFilePath("Database/Lexicals"));
+        const auto lexical_root = std::filesystem::path(Utils::GetFilePath("Database/Lexicals"));
         std::error_code ec;
         if (!std::filesystem::exists(lexical_root, ec) || ec) {
             throw std::runtime_error("Lexical metadata directory does not exist: " + lexical_root.string());
@@ -398,12 +399,12 @@ namespace glsld {
                 continue;
             }
 
-            auto filename = entry.path().filename().string();
+            const auto filename = entry.path().filename().string();
             if (!EndsWithCaseInsensitive(filename, ".txt")) {
                 continue;
             }
 
-            auto relative_path = std::filesystem::relative(entry.path(), lexical_root).generic_string();
+            const auto relative_path = std::filesystem::relative(entry.path(), lexical_root).generic_string();
             LoadLexicalMetadata(entry.path(), relative_path);
         }
 
@@ -423,16 +424,16 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs,
         const MacroTable* injected_macros)
     {
-        auto normalized = utils::NormalizePath(path);
-        auto filename   = normalized.generic_string();
+        const auto normalized = Utils::NormalizePath(path);
+        const auto filename   = normalized.generic_string();
 
         std::error_code ec;
-        auto latest = std::filesystem::last_write_time(normalized, ec);
+        const auto latest = std::filesystem::last_write_time(normalized, ec);
         if (ec) {
             return nullptr;
         }
 
-        auto cached_key = injected_macros == nullptr ? "" : MakeMacroFingerprint(*injected_macros);
+        const auto cached_key = injected_macros == nullptr ? "" : MakeMacroFingerprint(*injected_macros);
 
         {
             std::shared_lock lock(builtin_mutex_);
@@ -467,10 +468,10 @@ namespace glsld {
     namespace {
         std::vector<std::string_view> ExtractWords(std::string_view text) {
             auto words_range = text | std::views::chunk_by([](auto lhs, auto rhs) -> bool {
-                return (std::isspace(static_cast<unsigned char>(lhs)) ==
-                        std::isspace(static_cast<unsigned char>(rhs)));
+                return (Unicode::IsAsciiSpace(static_cast<unsigned char>(lhs)) ==
+                        Unicode::IsAsciiSpace(static_cast<unsigned char>(rhs)));
             }) | std::views::filter([](auto chunk) -> bool {
-                return !std::isspace(static_cast<unsigned char>(chunk.front()));
+                return !Unicode::IsAsciiSpace(static_cast<unsigned char>(chunk.front()));
             }) | std::views::transform([](auto word_view) -> std::string_view {
                 return std::string_view(word_view);
             });
@@ -508,14 +509,14 @@ namespace glsld {
     }
 
     void MetadataManager::LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path) {
-        auto source = LoadSource(path);
+        const auto source = LoadSource(path);
         if (!source.has_value()) {
             throw std::runtime_error("Failed to load lexical metadata: " + source.error());
         }
 
-        auto words      = ExtractWords(*source);
-        auto token_type = ResolveTokenType(relative_path);
-        auto subtype    = BuildSubtype(relative_path);
+        const auto words      = ExtractWords(*source);
+        const auto token_type = ResolveTokenType(relative_path);
+        const auto subtype    = BuildSubtype(relative_path);
 
         for (auto word : words) {
             if (word.empty()) {
@@ -535,9 +536,9 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs,
         const MacroTable* injected_macros)
     {
-        auto normalized = utils::NormalizePath(path);
-        auto filename   = normalized.generic_string();
-        auto uri        = utils::PathToUri(normalized);
+        const auto normalized = Utils::NormalizePath(path);
+        const auto filename   = normalized.generic_string();
+        const auto uri        = Utils::PathToUri(normalized);
 
         auto source = LoadSource(normalized);
         if (!source.has_value()) {
@@ -573,13 +574,13 @@ namespace glsld {
     }
 
     void MetadataManager::LoadNoExpandHints() {
-        auto path = utils::GetFilePath("Database/NoExpandHints.txt");
-        auto source = LoadSource(path);
+        const auto path   = Utils::GetFilePath("Database/NoExpandHints.txt");
+        const auto source = LoadSource(path);
         if (!source.has_value()) {
             throw std::runtime_error("Failed to load no-expand hints: " + source.error());
         }
 
-        auto words = ExtractWords(*source);
+        const auto words = ExtractWords(*source);
         for (auto word : words) {
             no_expand_hints_.insert(word);
         }
