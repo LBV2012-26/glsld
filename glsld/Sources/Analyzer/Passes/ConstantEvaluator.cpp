@@ -43,35 +43,31 @@ namespace glsld {
             symbol = std::get<const SymbolInfo*>(node->linked_symbols);
         }
 
-        if (symbol == nullptr || symbol->kind != SymbolKind::kVariable) {
+        if (symbol == nullptr || symbol->kind != SymbolKind::kVariable ||
+            visited_symbols_.contains(symbol) ||
+            symbol->node->kind() != AstNodeKind::kVariableDeclaration)
+        {
             is_valid_ = false;
             return;
         }
 
-        if (visited_symbols_.contains(symbol)) {
+        auto* var_decl = static_cast<const VariableDeclarationNode*>(symbol->node);
+
+        if (!var_decl->type_spec.has_keyword("const") || var_decl->init == nullptr) {
             is_valid_ = false;
             return;
         }
 
-        if (auto* var_decl = dynamic_cast<const VariableDeclarationNode*>(symbol->node)) {
-            if (!var_decl->type_spec.has_keyword("const") || var_decl->init == nullptr) {
-                is_valid_ = false;
-                return;
-            }
+        visited_symbols_.emplace(symbol);
+        const auto result = Evaluate(var_decl->init);
 
-            visited_symbols_.emplace(symbol);
-            const auto result = Evaluate(var_decl->init);
-
-            if (result.has_value()) {
-                current_value_ = *result;
-            } else {
-                is_valid_ = false;
-            }
-
-            visited_symbols_.erase(symbol);
+        if (result.has_value()) {
+            current_value_ = *result;
         } else {
             is_valid_ = false;
         }
+
+        visited_symbols_.erase(symbol);
     }
 
     void ConstantEvaluator::VisitBinaryExpression(BinaryExpressionNode* node) {

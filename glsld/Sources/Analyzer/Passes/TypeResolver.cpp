@@ -1052,8 +1052,9 @@ namespace glsld {
         dimensions.push_back(static_cast<std::int64_t>(call_node->args.size()));
         const auto* first_arg = call_node->args.front();
 
-        if (const auto* next_call = dynamic_cast<const CallExpressionNode*>(first_arg)) {
-            if (dynamic_cast<IndexExpressionNode*>(next_call->callee) != nullptr) {
+        if (first_arg->kind() == AstNodeKind::kCallExpression) {
+            auto* next_call = static_cast<const CallExpressionNode*>(first_arg);
+            if (next_call->callee->kind() == AstNodeKind::kIndexExpression) {
                 auto next_dimensions = DeduceArraySizesFromArgs(next_call);
                 dimensions.append_range(next_dimensions | std::views::as_rvalue);
             }
@@ -1296,11 +1297,13 @@ namespace glsld {
         std::vector<std::string> template_args;
         for (const auto& template_arg : type_spec.template_args) {
             std::string arg_text;
-            if (auto* var = dynamic_cast<const VariableExpressionNode*>(template_arg)) {
-                arg_text = var->name;
-            } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(template_arg)) {
-                if (!raw->tokens.empty()) {
-                    arg_text = raw->tokens.front().text;
+            if (template_arg->kind() == AstNodeKind::kVariableExpression) {
+                auto* var_expr = static_cast<const VariableExpressionNode*>(template_arg);
+                arg_text = var_expr->name;
+            } else if (template_arg->kind() == AstNodeKind::kRawExpression) {
+                auto* raw_expr = static_cast<const RawExpressionNode*>(template_arg);
+                if (!raw_expr->tokens.empty()) {
+                    arg_text = raw_expr->tokens.front().text;
                 }
             }
 

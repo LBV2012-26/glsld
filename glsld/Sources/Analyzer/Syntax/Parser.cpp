@@ -2096,9 +2096,11 @@ namespace glsld {
             if (!param->type_spec.template_args.empty()) {
                 param_typename += "<";
                 for (auto i = 0uz; i != param->type_spec.template_args.size(); ++i) {
-                    if (auto* var_expr = dynamic_cast<const VariableExpressionNode*>(param->type_spec.template_args[i])) {
+                    if (param->type_spec.template_args[i]->kind() == AstNodeKind::kVariableExpression) {
+                        auto* var_expr = static_cast<const VariableExpressionNode*>(param->type_spec.template_args[i]);
                         param_typename += var_expr->name;
-                    } else if (auto* raw_node = dynamic_cast<const RawExpressionNode*>(param->type_spec.template_args[i])) {
+                    } else if (param->type_spec.template_args[i]->kind() == AstNodeKind::kRawExpression) {
+                        auto* raw_node = static_cast<const RawExpressionNode*>(param->type_spec.template_args[i]);
                         if (!raw_node->tokens.empty()) {
                             param_typename += raw_node->tokens.front().text;
                         }
@@ -2120,7 +2122,7 @@ namespace glsld {
 
                 std::string array_dimension;
 
-                if (array_size->kind() == AstNodeKind::kLiteralExpression) {
+                if (array_size->kind() == AstNodeKind::kRawExpression) {
                     auto* raw_node = static_cast<const RawExpressionNode*>(array_size);
                     for (const auto& token : raw_node->tokens) {
                         array_dimension += token.text;

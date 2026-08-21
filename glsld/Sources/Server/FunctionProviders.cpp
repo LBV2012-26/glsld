@@ -1173,47 +1173,48 @@ namespace glsld::Providers {
         ContextLocator locator(*snapshot, dot_location);
         const auto* node = locator.result();
 
+        auto* expr_node = dynamic_cast<const ExpressionNode*>(node);
+        if (expr_node == nullptr) {
+            return {};
+        }
+
+        const auto& type_info = expr_node->evaluated_type;
+        if (!type_info.is_valid()) {
+            return {};
+        }
+
+        SymbolList fields;
+        if (type_info.block_symbol != nullptr && !type_info.block_symbol->name.empty()) {
+            fields = type_member_index.GetMembers(type_info.block_symbol->name);
+        }
+
+        if (fields.empty() && type_info.block_symbol != nullptr &&
+            type_info.block_symbol->internal_scope != nullptr)
+        {
+            const auto* scope = type_info.block_symbol->internal_scope;
+            for (const auto& symbol : scope->symbols()) {
+                ABORT_IF_CANCELLED();
+                fields.push_back(symbol.second.get());
+            }
+        }
+
+        StringHeteroHashSet existing_labels;
         nlohmann::json items = nlohmann::json::array();
 
-        if (auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
-            const auto& type_info = expr_node->evaluated_type;
+        for (const auto* field : fields) {
+            ABORT_IF_CANCELLED();
 
-            if (!type_info.is_valid()) {
-                return items;
+            if (existing_labels.contains(field->name)) {
+                continue;
             }
 
-            SymbolList fields;
-            if (type_info.block_symbol != nullptr && !type_info.block_symbol->name.empty()) {
-                fields = type_member_index.GetMembers(type_info.block_symbol->name);
-            }
+            existing_labels.emplace(field->name);
 
-            if (fields.empty() && type_info.block_symbol != nullptr &&
-                type_info.block_symbol->internal_scope != nullptr)
-            {
-                const auto* scope = type_info.block_symbol->internal_scope;
-                for (const auto& symbol : scope->symbols()) {
-                    ABORT_IF_CANCELLED();
-                    fields.push_back(symbol.second.get());
-                }
-            }
+            nlohmann::json item;
+            item["label"] = field->name;
+            item["kind"]  = 5;
 
-            StringHeteroHashSet existing_labels;
-
-            for (const auto* field : fields) {
-                ABORT_IF_CANCELLED();
-
-                if (existing_labels.contains(field->name)) {
-                    continue;
-                }
-
-                existing_labels.emplace(field->name);
-
-                nlohmann::json item;
-                item["label"] = field->name;
-                item["kind"]  = 5;
-
-                items.push_back(item);
-            }
+            items.push_back(item);
         }
 
         return items;
@@ -1617,10 +1618,12 @@ namespace glsld::Providers {
             if (!node->type_spec.template_args.empty()) {
                 type_name += "<";
                 for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i])) {
-                        type_name += var->name;
-                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i])) {
-                        type_name += raw->tokens.front().text;
+                    if (node->type_spec.template_args[i]->kind() == AstNodeKind::kVariableExpression) {
+                        auto* var_expr = static_cast<const VariableExpressionNode*>(node->type_spec.template_args[i]);
+                        type_name += var_expr->name;
+                    } else if (node->type_spec.template_args[i]->kind() == AstNodeKind::kRawExpression) {
+                        auto* raw_expr = static_cast<const RawExpressionNode*>(node->type_spec.template_args[i]);
+                        type_name += raw_expr->tokens.front().text;
                     }
 
                     if (i + 1 != node->type_spec.template_args.size()) {
@@ -1820,7 +1823,7 @@ namespace glsld::Providers {
             }
 
             switch (expr->kind()) {
-            case AstNodeKind::kLiteralExpression: {
+            case AstNodeKind::kRawExpression: {
                 auto* node = static_cast<const RawExpressionNode*>(expr);
                 std::string result;
                 for (const auto& token : node->tokens) {
@@ -2040,12 +2043,16 @@ namespace glsld::Providers {
                     symbol = std::get<const SymbolInfo*>(variable->linked_symbols);
                 }
 
-                if (symbol == nullptr || symbol->kind != SymbolKind::kVariable || !symbol->type_info.is_const()) {
+                if (symbol == nullptr                     ||
+                    symbol->kind != SymbolKind::kVariable ||
+                    !symbol->type_info.is_const()         ||
+                    symbol->node->kind() != AstNodeKind::kVariableDeclaration)
+                {
                     break;
                 }
 
-                auto* declare = dynamic_cast<const VariableDeclarationNode*>(symbol->node);
-                if (declare == nullptr || declare->init == nullptr) {
+                auto* declare = static_cast<const VariableDeclarationNode*>(symbol->node);
+                if (declare->init == nullptr) {
                     break;
                 }
 
@@ -2181,7 +2188,7 @@ namespace glsld::Providers {
             const auto initializer = SerializeInitializer(node->init);
             if (!initializer.empty()) {
                 declare.insert(declare.find_last_of(';'), " = " + initializer);
-                if (node->init->kind() != AstNodeKind::kLiteralExpression) {
+                if (node->init->kind() != AstNodeKind::kRawExpression) {
                     ConstantEvaluator evaluator;
                     if (auto value = evaluator.EvaluateAs<std::string>(node->init)) {
                         declare += "\n// Evaluates to\n" + *value;
@@ -2197,7 +2204,7 @@ namespace glsld::Providers {
 
         switch (symbol->kind) {
         case SymbolKind::kAttribute: {
-            std::string markdown = std::format("attribute `{}`\n\n---\n", symbol->name);
+            std::string markdown = std::format("**Attribute** `{}`\n\n---\n", symbol->name);
             // TODO: insert example
             // markdown += "Example:\n\n---\n";
             markdown += std::format("```glsl\n[[{}]]\n```", symbol->name);
@@ -2208,7 +2215,7 @@ namespace glsld::Providers {
             auto* node = static_cast<const PreprocessorNode*>(symbol->node);
 
             const auto cursor_index = FindCursorTokenIndex(snapshot->raw_tokens, location);
-            auto markdown = std::format("**macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
+            auto markdown = std::format("**Macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
             declare.clear();
             details.clear();
 
