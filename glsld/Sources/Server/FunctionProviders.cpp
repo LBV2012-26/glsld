@@ -17,7 +17,7 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
-#include "Analyzer/Passes/InlayHintVisitor.hpp"
+#include "Analyzer/Passes/InlayHintCollector.hpp"
 #include "Analyzer/Passes/NodeLocator.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
 #include "Analyzer/Syntax/MetadataManager.hpp"
@@ -704,8 +704,8 @@ namespace glsld::Providers {
         }
 
         ABORT_IF_CANCELLED();
-        InlayHintVisitor visitor(*snapshot);
-        return visitor.hints();
+        InlayHintCollector collector(*snapshot);
+        return collector.hints();
     }
 
     namespace {

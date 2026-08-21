@@ -1,6 +1,7 @@
 #version 460
 #pragma shader_stage(raygen)
 
+#define MACRO_VALUE 1
 #if defined(SHARED_MACRO) && UNIQUE_MACRO && !defined(INVERSE_MACRO)
 #include "Include.glsl"
 #endif

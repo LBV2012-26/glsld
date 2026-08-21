@@ -65,7 +65,7 @@ layout(heap_offset = push_constants.data) samplerheap SamplerHeap {
     sampler shadow;
 } sampler_heap;
 
-#define MAX_RETURN_ARRAY_SIZE 5
+#define MAX_RETURN_ARRAY_SIZE 24 + 42
 #define SQUARE(x) ((x) * (x))
 
 #ifdef MACRO_NAME

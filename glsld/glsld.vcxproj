@@ -160,7 +160,7 @@
     <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
     <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\InlayHintCollector.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
@@ -201,7 +201,7 @@
     <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
     <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\InlayHintCollector.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />

@@ -1,25 +1,42 @@
 #include "pch.hpp"
-#include "InlayHintVisitor.hpp"
+#include "InlayHintCollector.hpp"
 
 #include <algorithm>
 #include <format>
 #include <iterator>
 #include <string>
 #include <variant>
+
 #include "Analyzer/Ast/Ast.hpp"
+#include "Utils/Utils.hpp"
 
 namespace glsld {
-    InlayHintVisitor::InlayHintVisitor(const Document& document)
+    InlayHintCollector::InlayHintCollector(const Document& document)
         : AstVisitor(0, nullptr)
     {
         Traverse(document.ast);
     }
 
-    const std::vector<InlayHint>& InlayHintVisitor::hints() const {
+    const std::vector<InlayHint>& InlayHintCollector::hints() const {
         return hints_;
     }
 
-    void InlayHintVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+    void InlayHintCollector::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+        if (node->declared_symbol == nullptr || node->body == nullptr) {
+            return;
+        }
+
+        const auto func_name = Utils::UnmangleFunctionName(node->declared_symbol->name);
+
+        hints_.push_back({
+            .location = &node->body->end,
+            .label    = std::format(" // {}", func_name)
+        });
+
+        AstVisitor::VisitFunctionDeclaration(node);
+    }
+
+    void InlayHintCollector::VisitInitializerListExpression(InitializerListExpressionNode* node) {
         for (auto i = 0uz; i != node->elements.size(); ++i) {
             if (node->elements[i] == nullptr) {
                 continue;
@@ -27,14 +44,14 @@ namespace glsld {
 
             hints_.push_back({
                 .location = &node->elements[i]->begin,
-                .label = std::format("[{}]=", i)
+                .label    = std::format("[{}]=", i)
             });
         }
 
         AstVisitor::VisitInitializerListExpression(node);
     }
 
-    void InlayHintVisitor::VisitCallExpression(CallExpressionNode* node) {
+    void InlayHintCollector::VisitCallExpression(CallExpressionNode* node) {
         const SymbolInfo* symbol = nullptr;
 
         if (node->callee == nullptr || node->callee->kind() != AstNodeKind::kVariableExpression) {

@@ -19,7 +19,7 @@
     <ClCompile Include="Sources\Server\Workspace.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\InlayHintVisitor.cpp" />
+    <ClCompile Include="Sources\Analyzer\Passes\InlayHintCollector.cpp" />
     <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
     <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
@@ -60,7 +60,7 @@
     <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\InlayHintVisitor.hpp" />
+    <ClInclude Include="Sources\Analyzer\Passes\InlayHintCollector.hpp" />
     <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
     <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />

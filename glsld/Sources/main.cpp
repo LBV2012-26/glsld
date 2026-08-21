@@ -117,7 +117,7 @@ int main() {
     return 0;
 #endif
 
-    // enchmark("Tests/Debugger.glsl", true);
+    Benchmark("Tests/Debugger.glsl", true);
 
     glsld::Logger::GetInstance();
     glsld::LspServer server;
