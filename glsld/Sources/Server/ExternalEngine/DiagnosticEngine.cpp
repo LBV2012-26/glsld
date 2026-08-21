@@ -8,11 +8,9 @@
 #include <charconv>
 #include <format>
 #include <fstream>
-#include <ios>
 #include <mutex>
 #include <ranges>
 #include <system_error>
-#include <tuple>
 #include <utility>
 
 #include "Utils/Utils.hpp"
@@ -23,9 +21,9 @@ namespace glsld {
             const char* vksdk = std::getenv("VULKAN_SDK");
             if (vksdk != nullptr) {
 #ifdef _WIN64
-                auto path = std::filesystem::path(vksdk) / "Bin" / "glslc.exe";
+                const auto path = std::filesystem::path(vksdk) / "Bin" / "glslc.exe";
 #else
-                auto path = std::filesystem::path(vksdk) / "bin" / "glslc";
+                const auto path = std::filesystem::path(vksdk) / "bin" / "glslc";
 #endif
                 if (std::filesystem::exists(path)) {
                     return path.string();
@@ -77,8 +75,7 @@ namespace glsld {
     }
 
     void DiagnosticEngine::Run() {
-        auto stop_token = stop_source_.get_token();
-
+        const auto stop_token = stop_source_.get_token();
         while (!stop_token.stop_requested()) {
             DiagnosticTask task;
             {
@@ -117,27 +114,27 @@ namespace glsld {
         }
 
         std::string_view Trim(std::string_view text) {
-            auto begin = text.find_first_not_of(" \t");
+            const auto begin = text.find_first_not_of(" \t");
             if (begin == std::string_view::npos) {
                 return {};
             }
 
-            auto end = text.find_last_not_of(" \t\r");
+            const auto end = text.find_last_not_of(" \t\r");
             return text.substr(begin, end - begin + 1);
         }
 
         bool TryParseInteger(std::string_view text, int& result) {
-            auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), result);
+            const auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), result);
             return ec == std::errc() && ptr == text.data() + text.size();
         }
 
         std::string_view ExtractSymbol(std::string_view message) {
-            auto begin = message.find('\'');
+            const auto begin = message.find('\'');
             if (begin == std::string_view::npos) {
                 return {};
             }
 
-            auto end = message.find('\'', begin + 1);
+            const auto end = message.find('\'', begin + 1);
             if (end == std::string_view::npos) {
                 return {};
             }
@@ -155,7 +152,7 @@ namespace glsld {
                 return { 0, static_cast<int>(source.size()) };
             }
 
-            auto pos = source.find(symbol);
+            const auto pos = source.find(symbol);
             if (pos == std::string_view::npos) {
                 return { 0, static_cast<int>(source.size()) };
             }
@@ -164,7 +161,7 @@ namespace glsld {
         }
 
         std::string_view GetFilename(std::string_view path) {
-            auto last_slash = path.find_last_of("\\/");
+            const auto last_slash = path.find_last_of("\\/");
             if (last_slash == std::string_view::npos) {
                 return path;
             }
@@ -178,7 +175,8 @@ namespace glsld {
 
             for (auto i = 0uz; i < lhs.size(); ++i) {
                 if (std::tolower(static_cast<unsigned char>(lhs[i])) !=
-                    std::tolower(static_cast<unsigned char>(rhs[i]))) {
+                    std::tolower(static_cast<unsigned char>(rhs[i])))
+                {
                     return false;
                 }
             }
@@ -196,7 +194,8 @@ namespace glsld {
                 bool match = true;
                 for (auto j = 0uz; j < needle.size(); ++j) {
                     if (std::tolower(static_cast<unsigned char>(haystack[i + j])) !=
-                        std::tolower(static_cast<unsigned char>(needle[j]))) {
+                        std::tolower(static_cast<unsigned char>(needle[j])))
+                    {
                         match = false;
                         break;
                     }
@@ -216,8 +215,8 @@ namespace glsld {
             std::string_view source)
         {
             std::vector<Diagnostic> results;
-            auto source_lines  = SplitLines(source);
-            auto filename_base = GetFilename(filename);
+            const auto source_lines  = SplitLines(source);
+            const auto filename_base = GetFilename(filename);
 
             struct SeverityPattern {
                 std::string_view   pattern;
@@ -231,7 +230,7 @@ namespace glsld {
             } };
 
             for (auto raw : SplitLines(error)) {
-                auto line = Trim(raw);
+                const auto line = Trim(raw);
                 if (line.empty()) {
                     continue;
                 }
@@ -258,17 +257,17 @@ namespace glsld {
                 }
 
                 // 拆分前缀部分 [Path]:[Line] 与 消息部分 [Message]
-                auto prefix  = Trim(line.substr(0, severity_pos));
-                auto message = Trim(line.substr(severity_pos + pattern_length));
+                const auto prefix  = Trim(line.substr(0, severity_pos));
+                const auto message = Trim(line.substr(severity_pos + pattern_length));
 
                 int  zero_based_line     = 0;
                 bool is_valid_diagnostic = false;
 
                 // 从前缀末尾解析行号
-                auto last_colon = prefix.find_last_of(':');
+                const auto last_colon = prefix.find_last_of(':');
                 if (last_colon != std::string_view::npos) {
-                    auto path_part = Trim(prefix.substr(0, last_colon));
-                    auto line_part = Trim(prefix.substr(last_colon + 1));
+                    const auto path_part = Trim(prefix.substr(0, last_colon));
+                    const auto line_part = Trim(prefix.substr(last_colon + 1));
 
                     int line_num = 0;
                     if (TryParseInteger(line_part, line_num)) {
@@ -294,12 +293,12 @@ namespace glsld {
                     continue;
                 }
 
-                auto symbol      = ExtractSymbol(message);
-                auto source_line = static_cast<std::size_t>(zero_based_line) < source_lines.size()
-                                 ? source_lines[zero_based_line]
-                                 : std::string_view{};
+                const auto symbol      = ExtractSymbol(message);
+                const auto source_line = static_cast<std::size_t>(zero_based_line) < source_lines.size()
+                                       ? source_lines[zero_based_line]
+                                       : std::string_view{};
 
-                auto range = LocateSymbol(source_line, symbol);
+                const auto range = LocateSymbol(source_line, symbol);
 
                 results.push_back(Diagnostic{
                     .line          = zero_based_line,
@@ -322,11 +321,11 @@ namespace glsld {
             glslc_path = glslc_path_;
         }
 
-        auto extension_name = std::filesystem::path(task.filename).extension().string();
-        auto compile_path   = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
+        const auto extension_name = std::filesystem::path(task.filename).extension().string();
+        const auto compile_path   = (std::filesystem::temp_directory_path() / std::filesystem::path(task.filename).filename()).generic_string();
 
         std::ofstream(compile_path, std::ios::binary) << task.source;
-        std::string target_path = std::format("{}.spv", compile_path);
+        const auto target_path = std::format("{}.spv", compile_path);
 
         auto command = std::format("\"{}\" -o {} ", glslc_path, target_path);
         if (task.shader_stage.has_value()) {
@@ -345,7 +344,7 @@ namespace glsld {
         if (task.target_spv.has_value())
             command += std::format("--target-spv={} ", *task.target_spv);
 
-        auto output = utils::ExecuteCommand(command);
+        const auto output = Utils::ExecuteCommand(command);
         std::filesystem::remove(compile_path);
         std::filesystem::remove(target_path);
 

@@ -30,7 +30,7 @@ namespace glsld {
     using StringHeteroHashSet = ankerl::unordered_dense::set<std::string,        StringViewHeteroHash, StringViewHeteroEqual>;
 
     template <typename Ty>
-    inline void HashCombine(std::size_t& seed, const Ty& value) {
+    void HashCombine(std::size_t& seed, const Ty& value) {
         auto hash = 0uz;
         if constexpr (std::same_as<Ty, std::string> || std::same_as<Ty, std::string_view>) {
             hash = rapidhashMicro(value.data(), value.size());

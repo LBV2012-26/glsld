@@ -9,5 +9,6 @@
 	"glsld.backgroundIndex.roots": [
 		"Tests"
 	],
-	"glsld.diagnostics.enabled": true
+	"glsld.diagnostics.enabled": true,
+	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe"
 }

@@ -2,9 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <atomic>
-#include <filesystem>
-#include <memory>
 #include <span>
 #include <stack>
 #include <string_view>
@@ -15,22 +12,22 @@
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
-#include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Arena.hpp"
 
 namespace glsld {
     class Parser {
     public:
-        Parser(SourceTable& source_table,
+        Parser(Document& document,
+               SourceTable& source_table,
                const SourceFile* source_file,
                std::vector<Token> raw_tokens,
                IncludeLoader& include_loader,
                IncludeDirectoryHandle include_dirs,
                int version_replica,
-               VersionPointer version_pointer,
-               Document& document);
+               VersionPointer version_pointer);
 
     private:
         enum class Precedence : int {
@@ -49,6 +46,7 @@ namespace glsld {
             kShift,          // << >>
             kAdditive,       // + -
             kMultiplicative, // * / %
+            kTypecast,       // (type)expr
             kPrefix,         // ! ~ - + ++ --
             kPostfix,        // . [ ] ( ) ++ --
             kHighest
@@ -61,70 +59,76 @@ namespace glsld {
                    IncludeLoader& include_loader,
                    IncludeDirectoryHandle include_dirs);
 
-        std::unique_ptr<TranslationUnitNode> ParserMainTask();
-        std::unique_ptr<StatementNode> ParseStatement();
-        std::unique_ptr<PreprocessorNode> ParsePreprocessor();
+        template <typename NodeType, typename... Types>
+        NodeType* MakeNode(Types&&... args);
 
-        std::unique_ptr<PreprocessorNode> ParseDefine(
-            std::unique_ptr<PreprocessorNode> node,
+        TranslationUnitNode* ParserMainTask();
+        StatementNode* ParseStatement();
+        PreprocessorNode* ParsePreprocessor();
+
+        PreprocessorNode* ParseDefine(
+            PreprocessorNode* node,
             std::string_view target_file,
             std::uint32_t directive_physical_line);
 
-        std::vector<std::unique_ptr<StatementNode>> ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol);
-        std::unique_ptr<CompoundStatementNode> ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
-        std::vector<std::unique_ptr<AttributeNode>> ParseAttributeList();
-        std::unique_ptr<StatementNode> ParseCodeStatement();
-        std::unique_ptr<FunctionDeclarationNode> ParseFunction(TypeSpec type_spec);
-        std::vector<std::unique_ptr<VariableDeclarationNode>> ParseParameterList();
+        ArenaVector<StatementNode*> ParseMacroBody(std::span<const Token> body_tokens, const SymbolInfo* host_symbol);
+        CompoundStatementNode* ParseScope(const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
+        ArenaVector<AttributeNode*> ParseAttributeList();
+        StatementNode* ParseCodeStatement();
+        FunctionDeclarationNode* ParseFunction(TypeSpec type_spec);
+        ArenaVector<VariableDeclarationNode*> ParseParameterList();
 
         TypeSpec ParseTypeSpec();
-        std::vector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
-        std::unique_ptr<QualifierArgumentNode> ParseQualifierArguments(std::span<const Token> tokens);
-        std::unique_ptr<LayoutQualifierNode> ParseLayoutQualifier();
-        std::unique_ptr<SpirvIntrinsicNode> ParseSpirvIntrinsics();
-        std::unique_ptr<ExpressionNode> ParseTemplateArgument();
+        ArenaVector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
+        QualifierArgumentNode* ParseQualifierArguments(std::span<const Token> tokens);
+        LayoutQualifierNode* ParseLayoutQualifier();
+        SpirvIntrinsicNode* ParseSpirvIntrinsics();
+        ExpressionNode* ParseTemplateArgument();
 
         bool TryParseLayoutQualifier(TypeSpec& type_spec);
         bool TryParseSpirvIntrinsics(TypeSpec& type_spec);
 
-        std::unique_ptr<DeclarationGroupNode> ParseVariableDeclarationList(TypeSpec type_spec);
-        std::unique_ptr<ExpressionStatementNode> ParseExpressionStatement();
+        DeclarationGroupNode* ParseVariableDeclarationList(TypeSpec type_spec);
+        ExpressionStatementNode* ParseExpressionStatement();
 
-        std::unique_ptr<ExpressionNode> ParsePrefixExpression();
-        std::unique_ptr<RawExpressionNode> ParseLiteral();
-        std::unique_ptr<VariableExpressionNode> ParseVariableReference();
-        std::unique_ptr<UnaryExpressionNode> ParsePrefixUnary();
-        std::unique_ptr<InitializerListExpressionNode> ParseInitializerList();
+        bool IsCastExpression();
 
-        std::unique_ptr<ExpressionNode> ParseInfixExpression(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
-        std::unique_ptr<MemberAccessExpressionNode> ParseMemberAccess(std::unique_ptr<ExpressionNode> object);
-        std::unique_ptr<IndexExpressionNode> ParseArrayIndex(std::unique_ptr<ExpressionNode> base);
-        std::unique_ptr<CallExpressionNode> ParseFunctionCall(std::unique_ptr<ExpressionNode> callee);
-        std::unique_ptr<TernaryExpressionNode> ParseTernary(std::unique_ptr<ExpressionNode> condition);
-        std::unique_ptr<UnaryExpressionNode> ParsePostfixUnary(std::unique_ptr<ExpressionNode> operand, TokenType op_type);
-        std::unique_ptr<BinaryExpressionNode> ParseStandardBinary(std::unique_ptr<ExpressionNode> left, TokenType op_type, Precedence precedence);
-        std::unique_ptr<ExpressionNode> ParseExpression(Precedence min_prec);
+        ExpressionNode* ParsePrefixExpression();
+        CastExpressionNode* ParseCastExpression();
+        RawExpressionNode* ParseLiteral();
+        VariableExpressionNode* ParseVariableReference();
+        UnaryExpressionNode* ParsePrefixUnary();
+        InitializerListExpressionNode* ParseInitializerList();
 
-        std::unique_ptr<DeclarationNode> ParseBlockBody(TypeSpec type_spec);
-        std::unique_ptr<StatementNode> ParseControlFlowStatement();
-        std::unique_ptr<IfStatementNode> ParseIfStatement();
-        std::unique_ptr<ForStatementNode> ParseForStatement();
-        std::unique_ptr<DoStatementNode> ParseDoStatement();
-        std::unique_ptr<WhileStatementNode> ParseWhileStatement();
-        std::unique_ptr<SwitchStatementNode> ParseSwitchStatement();
-        std::unique_ptr<CaseStatementNode> ParseCaseLabel();
-        std::unique_ptr<StatementNode> ParseJumpStatement();
+        ExpressionNode* ParseInfixExpression(ExpressionNode* left, TokenType op_type, Precedence precedence);
+        MemberAccessExpressionNode* ParseMemberAccess(ExpressionNode* object);
+        IndexExpressionNode* ParseArrayIndex(ExpressionNode* base);
+        CallExpressionNode* ParseFunctionCall(ExpressionNode* callee);
+        TernaryExpressionNode* ParseTernary(ExpressionNode* condition);
+        UnaryExpressionNode* ParsePostfixUnary(ExpressionNode* operand, TokenType op_type);
+        BinaryExpressionNode* ParseStandardBinary(ExpressionNode* left, TokenType op_type, Precedence precedence);
+        ExpressionNode* ParseExpression(Precedence min_prec);
+
+        DeclarationNode* ParseBlockBody(TypeSpec type_spec);
+        StatementNode* ParseControlFlowStatement();
+        IfStatementNode* ParseIfStatement();
+        ForStatementNode* ParseForStatement();
+        DoStatementNode* ParseDoStatement();
+        WhileStatementNode* ParseWhileStatement();
+        SwitchStatementNode* ParseSwitchStatement();
+        CaseStatementNode* ParseCaseLabel();
+        StatementNode* ParseJumpStatement();
 
         const Token& current_token() const;
         const Token& PeekToken(std::int64_t offset = 1) const;
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
-        std::vector<Token> CaptureDirectiveTokens(std::string_view target_file, std::uint32_t directive_physical_line);
+        ArenaVector<Token> CaptureDirectiveTokens(std::string_view target_file, std::uint32_t directive_physical_line);
         SourceLocation GetCurrentTokenEnd() const;
         SourceLocation GetPreviousTokenEnd() const;
 
         template <typename Ty>
-        std::vector<std::unique_ptr<Ty>> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
+        ArenaVector<Ty*> ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator);
 
         Scope* EnterScope(const SourceLocation& location, const SymbolInfo* host_symbol = nullptr, ScopeKind kind = ScopeKind::kCommon);
         void   LeaveScope(const SourceLocation& location);
@@ -135,16 +139,16 @@ namespace glsld {
 
         Scope* current_scope();
 
+        Document&                               document_;
         const SourceFile*                       source_file_;
         std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
-        std::vector<PreprocessorNode*>          preprocessor_references_;
+        ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(document_.arena) };
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
         std::size_t                             anonymous_block_index_{};
         int                                     version_replica_{};
         VersionPointer                          version_pointer_;
-        Document&                               document_;
 
         // Parser Global States
         // --------------------------------------------------------------------

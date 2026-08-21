@@ -49,7 +49,7 @@ namespace glsld {
         if (node->argument != nullptr) {
             dump_info += " Argument: ";
             std::print("{}", dump_info);
-            TraverseWithoutIndent(node->argument.get());
+            TraverseWithoutIndent(node->argument);
         } else {
             std::println("{}", dump_info);
         }
@@ -84,7 +84,7 @@ namespace glsld {
 
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         PrintIndent();
-        std::string name = node->declared_symbol ? node->declared_symbol->name : "unnamed";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "unnamed";
         std::println("FunctionDeclaration '{}' Type: {} {}", name, TypeToString(node->type_spec), FormatRange(node));
 
         ++indent_level_;
@@ -93,7 +93,7 @@ namespace glsld {
         std::println("Parameters:");
         ++indent_level_;
         for (const auto& param : node->params) {
-            Traverse(param.get());
+            Traverse(param);
         }
         --indent_level_;
 
@@ -101,7 +101,7 @@ namespace glsld {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
 
@@ -110,8 +110,8 @@ namespace glsld {
 
     void AstDumper::VisitVariableDeclaration(VariableDeclarationNode* node) {
         PrintIndent();
-        std::string name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
-        std::string type = node->declared_symbol ? node->declared_symbol->type_info.typename_token.text : TypeToString(node->type_spec);
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto type = node->declared_symbol ? std::string(node->declared_symbol->type_info.typename_token.text) : TypeToString(node->type_spec);
 
         std::println("VariableDeclaration '{}' Type: {} {}", name, type, FormatRange(node));
 
@@ -122,7 +122,7 @@ namespace glsld {
             std::println("ArraySize:");
             ++indent_level_;
             for (const auto& array_size : node->type_spec.array_sizes) {
-                Traverse(array_size.get());
+                Traverse(array_size);
             }
             --indent_level_;
         }
@@ -130,7 +130,7 @@ namespace glsld {
         if (node->init != nullptr) {
             PrintIndent();
             std::print("Init: ");
-            TraverseWithoutIndent(node->init.get());
+            TraverseWithoutIndent(node->init);
         }
 
         --indent_level_;
@@ -138,7 +138,7 @@ namespace glsld {
 
     void AstDumper::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
         PrintIndent();
-        std::string name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
         std::println("InterfaceDeclaration '{}' {}", name, FormatRange(node));
 
         ++indent_level_;
@@ -147,7 +147,7 @@ namespace glsld {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
 
@@ -155,7 +155,7 @@ namespace glsld {
             PrintIndent();
             std::println("Instances:");
             ++indent_level_;
-            Traverse(node->instances.get());
+            Traverse(node->instances);
             --indent_level_;
         }
 
@@ -164,7 +164,7 @@ namespace glsld {
 
     void AstDumper::VisitStructDeclaration(StructDeclarationNode* node) {
         PrintIndent();
-        std::string name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
+        const auto name = node->declared_symbol ? node->declared_symbol->name : "<anon>";
         std::println("StructDeclaration '{}' {}", name, FormatRange(node));
 
         ++indent_level_;
@@ -173,7 +173,7 @@ namespace glsld {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
 
@@ -181,7 +181,7 @@ namespace glsld {
             PrintIndent();
             std::println("Instances:");
             ++indent_level_;
-            Traverse(node->instances.get());
+            Traverse(node->instances);
             --indent_level_;
         }
 
@@ -205,13 +205,13 @@ namespace glsld {
 
         PrintIndent();
         std::print("Condition: ");
-        TraverseWithoutIndent(node->condition.get());
+        TraverseWithoutIndent(node->condition);
 
         if (node->then_branch != nullptr) {
             PrintIndent();
             std::println("Then:");
             ++indent_level_;
-            Traverse(node->then_branch.get());
+            Traverse(node->then_branch);
             --indent_level_;
         }
 
@@ -219,7 +219,7 @@ namespace glsld {
             PrintIndent();
             std::println("Else:");
             ++indent_level_;
-            Traverse(node->else_branch.get());
+            Traverse(node->else_branch);
             --indent_level_;
         }
 
@@ -233,26 +233,26 @@ namespace glsld {
         if (node->init != nullptr) {
             PrintIndent();
             std::print("Init: ");
-            TraverseWithoutIndent(node->init.get());
+            TraverseWithoutIndent(node->init);
         }
 
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         }
 
         if (node->iteration != nullptr) {
             PrintIndent();
             std::print("Iteration: ");
-            TraverseWithoutIndent(node->iteration.get());
+            TraverseWithoutIndent(node->iteration);
         }
 
         if (node->body != nullptr) {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
     }
@@ -266,14 +266,14 @@ namespace glsld {
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         }
 
         if (node->body != nullptr) {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
 
@@ -290,14 +290,14 @@ namespace glsld {
             PrintIndent();
             std::println("Body:");
             ++indent_level_;
-            Traverse(node->body.get());
+            Traverse(node->body);
             --indent_level_;
         }
 
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         }
 
         --indent_level_;
@@ -312,11 +312,11 @@ namespace glsld {
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         }
 
         for (const auto& case_node : node->cases) {
-            Traverse(case_node.get());
+            Traverse(case_node);
         }
 
         --indent_level_;
@@ -331,14 +331,14 @@ namespace glsld {
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         } else {
             PrintIndent();
             std::println("Default:");
         }
 
         for (const auto& statement : node->body) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
 
         --indent_level_;
@@ -391,6 +391,21 @@ namespace glsld {
         --indent_level_;
     }
 
+    void AstDumper::VisitCastExpression(CastExpressionNode* node) {
+        PrintIndent();
+        std::println("CastExpression Type: {} {}", TypeToString(node->target_type), FormatRange(node));
+
+        ++indent_level_;
+
+        if (node->operand != nullptr) {
+            PrintIndent();
+            std::print("Operand: ");
+            TraverseWithoutIndent(node->operand);
+        }
+
+        --indent_level_;
+    }
+
     void AstDumper::VisitBinaryExpression(BinaryExpressionNode* node) {
         PrintIndent();
         std::println("BinaryExpression '{}' {}", magic_enum::enum_name(node->op), FormatRange(node));
@@ -400,13 +415,13 @@ namespace glsld {
         if (node->left != nullptr) {
             PrintIndent();
             std::print("Left: ");
-            TraverseWithoutIndent(node->left.get());
+            TraverseWithoutIndent(node->left);
         }
 
         if (node->right != nullptr) {
             PrintIndent();
             std::print("Right: ");
-            TraverseWithoutIndent(node->right.get());
+            TraverseWithoutIndent(node->right);
         }
 
         --indent_level_;
@@ -415,7 +430,7 @@ namespace glsld {
     void AstDumper::VisitUnaryExpression(UnaryExpressionNode* node) {
         PrintIndent();
 
-        auto op_name = magic_enum::enum_name(node->op);
+        const auto op_name = magic_enum::enum_name(node->op);
         if (node->is_postfix) {
             std::println("UnaryExpression (Postfix) '{}' {}", op_name, FormatRange(node));
         } else {
@@ -427,7 +442,7 @@ namespace glsld {
         if (node->operand != nullptr) {
             PrintIndent();
             std::print("Operand: ");
-            TraverseWithoutIndent(node->operand.get());
+            TraverseWithoutIndent(node->operand);
         }
 
         --indent_level_;
@@ -442,14 +457,14 @@ namespace glsld {
         if (node->condition != nullptr) {
             PrintIndent();
             std::print("Condition: ");
-            TraverseWithoutIndent(node->condition.get());
+            TraverseWithoutIndent(node->condition);
         }
 
         if (node->true_expr != nullptr) {
             PrintIndent();
             std::println("TrueExpression:");
             ++indent_level_;
-            Traverse(node->true_expr.get());
+            Traverse(node->true_expr);
             --indent_level_;
         }
 
@@ -457,7 +472,7 @@ namespace glsld {
             PrintIndent();
             std::println("FalseExpression:");
             ++indent_level_;
-            Traverse(node->false_expr.get());
+            Traverse(node->false_expr);
             --indent_level_;
         }
 
@@ -473,7 +488,7 @@ namespace glsld {
         if (node->callee != nullptr) {
             PrintIndent();
             std::print("Callee: ");
-            TraverseWithoutIndent(node->callee.get());
+            TraverseWithoutIndent(node->callee);
         }
 
         if (!node->args.empty()) {
@@ -481,7 +496,7 @@ namespace glsld {
             std::println("Arguments:");
             ++indent_level_;
             for (const auto& arg : node->args) {
-                Traverse(arg.get());
+                Traverse(arg);
             }
             --indent_level_;
         }
@@ -497,12 +512,12 @@ namespace glsld {
 
         PrintIndent();
         std::print("Base: ");
-        TraverseWithoutIndent(node->base.get());
+        TraverseWithoutIndent(node->base);
 
         PrintIndent();
         std::print("Index: ");
         if (node->index != nullptr) {
-            TraverseWithoutIndent(node->index.get());
+            TraverseWithoutIndent(node->index);
         } else {
             std::println("<null>");
         }
@@ -550,13 +565,13 @@ namespace glsld {
         if (node->object != nullptr) {
             PrintIndent();
             std::print("Object: ");
-            TraverseWithoutIndent(node->object.get());
+            TraverseWithoutIndent(node->object);
         }
 
         if (node->member != nullptr) {
             PrintIndent();
             std::print("Member: ");
-            TraverseWithoutIndent(node->member.get());
+            TraverseWithoutIndent(node->member);
         }
 
         --indent_level_;
@@ -581,12 +596,12 @@ namespace glsld {
         for (const auto& array_size : type_spec.array_sizes) {
             std::string array_dimension;
             if (array_size->kind() == AstNodeKind::kLiteralExpression) {
-                const auto* raw_node = static_cast<const RawExpressionNode*>(array_size.get());
+                const auto* raw_node = static_cast<const RawExpressionNode*>(array_size);
                 for (const auto& token : raw_node->tokens) {
                     array_dimension += token.text;
                 }
             } else if (array_size->kind() == AstNodeKind::kVariableExpression) {
-                const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size.get());
+                const auto* var_expr = static_cast<const VariableExpressionNode*>(array_size);
                 array_dimension = var_expr->name;
             }
 
@@ -602,7 +617,7 @@ namespace glsld {
             return;
         }
 
-        utils::PrintIndent(indent_level_);
+        Utils::PrintIndent(indent_level_);
     }
 
     void AstDumper::TraverseWithoutIndent(auto* node) {

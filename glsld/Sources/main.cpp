@@ -27,10 +27,10 @@
 #include "Utils/Utils.hpp"
 
 namespace {
-    int Benchmark(const std::filesystem::path& filename) {
+    int Benchmark(const std::filesystem::path& filename, bool dump_ast = false) {
         using namespace glsld;
 
-        auto normalized = utils::GetFilePath(filename.generic_string());
+        const auto normalized = Utils::GetFilePath(filename.generic_string());
         auto shader_source = *LoadSource(normalized);
 
         ThreadPool thread_pool;
@@ -44,7 +44,7 @@ namespace {
 
         auto include_dirs = std::make_shared<std::vector<std::filesystem::path>>(std::move(includes));
 
-        const auto* source_file = source_table.InternByUri(utils::PathToUri(filename));
+        const auto* source_file = source_table.InternByUri(Utils::PathToUri(filename));
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start    = std::chrono::high_resolution_clock::now();
@@ -52,17 +52,13 @@ namespace {
         auto lexer_end      = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
-        document.arena = std::make_unique<Arena>();
-
         auto attach_start    = std::chrono::high_resolution_clock::now();
         MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, raw_tokens, include_dirs);
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
-        thread_local_arena = document.arena.get();
-
         auto parse_start    = std::chrono::high_resolution_clock::now();
-        Parser parser(source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr, document);
+        Parser parser(document, source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr);
         auto parse_end      = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
@@ -81,9 +77,12 @@ namespace {
         auto bind_end      = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
-        // AstDumper dumper(0, nullptr);
-        // dumper.Traverse(document.ast.get());
-        // document.symbols.Dump();
+        if (dump_ast) {
+            AstDumper dumper(0, nullptr);
+            dumper.Traverse(document.ast);
+            document.symbols.Dump();
+        }
+
         std::println("Benchmark completed for file: {}", filename.generic_string());
         std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
@@ -100,6 +99,8 @@ namespace {
     }
 }
 
+// #define BENCHMARK
+
 int main() {
 #ifdef _WIN64
     std::ignore = _setmode(_fileno(stdin), _O_BINARY);
@@ -112,8 +113,11 @@ int main() {
     Benchmark("Tests/OverloadTest.glsl");
     Benchmark("Tests/HoverTest.glsl");
     Benchmark("Tests/ExtensionTest.glsl");
+    Benchmark("Tests/MacroTest.glsl");
     return 0;
 #endif
+
+    // enchmark("Tests/Debugger.glsl", true);
 
     glsld::Logger::GetInstance();
     glsld::LspServer server;

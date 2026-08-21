@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -44,7 +45,8 @@ namespace glsld {
         };
 
         BaseFamily family{ BaseFamily::kUnknown };
-        int bits{};
+        int        bits{};
+
         // mat2x3 -> 2 x vector with size 3
         int vector_count{};
         int vector_length{};
@@ -64,32 +66,32 @@ namespace glsld {
 
     struct SpirvOperandSignature {
         SpirvOperandKind kind{ SpirvOperandKind::kLiteral };
-        std::string      value;
+        std::string_view value;
 
         bool operator==(const SpirvOperandSignature&) const noexcept = default;
     };
 
     struct SpirvTypeSignature {
-        std::vector<std::string>           extensions;
-        std::vector<std::int64_t>          capabilities;
-        std::optional<std::string>         set;
-        std::optional<std::int64_t>        id;
-        std::vector<SpirvOperandSignature> operands;
+        std::span<const std::string_view>      extensions;
+        std::span<const std::int64_t>          capabilities;
+        std::optional<std::string_view>        set;
+        std::optional<std::int64_t>            id;
+        std::span<const SpirvOperandSignature> operands;
 
-        bool operator==(const SpirvTypeSignature&) const noexcept = default;
+        bool operator==(const SpirvTypeSignature& other) const noexcept;
     };
 
     struct SymbolInfo;
     struct TypeInfo {
-        Token                                     typename_token;
-        TypeDescriptor                            type_desc;
-        const SymbolInfo*                         block_symbol{ nullptr };
-        std::vector<std::optional<std::uint64_t>> array_sizes;
-        std::vector<Token>                        qualifiers;
-        std::vector<std::string>                  template_args;
-        std::string                               spirv_type;
-        std::optional<SpirvTypeSignature>         spirv_signature;
-        bool                                      is_function_reference{ false };
+        Token                                         typename_token;
+        TypeDescriptor                                type_desc;
+        const SymbolInfo*                             block_symbol{ nullptr };
+        std::span<const std::optional<std::uint64_t>> array_sizes;
+        std::span<const Token>                        qualifiers;
+        std::span<const std::string_view>             template_args;
+        std::string_view                              spirv_type;
+        std::optional<SpirvTypeSignature>             spirv_signature;
+        bool                                          is_func_ref{ false };
 
         bool operator==(const TypeInfo& other) const;
         bool CompareWithoutQualifiers(const TypeInfo& other) const;
@@ -168,8 +170,18 @@ namespace glsld {
         ScopeKind                                        kind_{ ScopeKind::kGlobalTransparent };
     };
 
-    using SymbolList      = std::vector<const SymbolInfo*>;
-    using SymbolReference = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
+    using SymbolList          = std::vector<const SymbolInfo*>;
+    using SymbolReference     = std::variant<std::monostate, const SymbolInfo*, SymbolList>;
+    using SymbolListView      = std::span<const SymbolInfo* const>;
+    using SymbolReferenceView = std::variant<std::monostate, const SymbolInfo*, SymbolListView>;
+
+    template <typename... Ts>
+    struct Overloaded : Ts... {
+        using Ts::operator()...;
+    };
+
+    template <typename... Ts>
+    Overloaded(Ts...) -> Overloaded<Ts...>;
 
     class DocumentSymbols {
     public:

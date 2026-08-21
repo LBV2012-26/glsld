@@ -2,6 +2,7 @@
 
 #include <condition_variable>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <shared_mutex>
 #include <optional>
@@ -25,7 +26,7 @@ namespace glsld {
         std::optional<std::string> shader_stage;
         std::optional<std::string> target_env;
         std::optional<std::string> target_spv;
-        int                        version_replica;
+        int                        version_replica{};
         VersionPointer             version_pointer;
     };
 
@@ -35,12 +36,12 @@ namespace glsld {
     };
 
     struct Diagnostic {
-        int                line;          // 0-based
-        int                character;     // 0-based
-        int                end_line;
-        int                end_character;
-        DiagnosticSeverity severity;
-        std::string        message;
+        int                line{};          // 0-based
+        int                character{};     // 0-based
+        int                end_line{};
+        int                end_character{};
+        DiagnosticSeverity severity{};
+        std::string        message{};
     };
 
     class DiagnosticEngine {

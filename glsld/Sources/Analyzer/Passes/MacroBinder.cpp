@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <string_view>
 #include <utility>
+#include <variant>
+
+#include "Utils/Utils.hpp"
 
 namespace glsld {
     MacroBinder::MacroBinder(Document& document, int version_replica, VersionPointer version_pointer)
@@ -27,7 +30,7 @@ namespace glsld {
                 continue;
             }
 
-            auto* macro_symbol = document_.symbols.FindMacroSymbol(trace_it->second);
+            const auto* macro_symbol = document_.symbols.FindMacroSymbol(trace_it->second);
             if (macro_symbol == nullptr) {
                 continue;
             }
@@ -44,27 +47,27 @@ namespace glsld {
             }
 
             if (trace.definition.has_value()) {
-                auto* macro_symbol = document_.symbols.FindMacroSymbol(*trace.definition);
+                const auto* macro_symbol = document_.symbols.FindMacroSymbol(*trace.definition);
                 if (macro_symbol != nullptr) {
                     document_.bindings.try_emplace(location, macro_symbol);
                 }
                 continue;
             }
 
-            auto* scope = document_.symbols.FindScopeAt(location);
+            const auto* scope = document_.symbols.FindScopeAt(location);
             if (scope == nullptr) {
                 continue;
             }
 
-            auto* symbol = scope->FindSymbol(trace.token.text);
+            const auto* symbol = scope->FindSymbol(trace.token.text);
             if (symbol != nullptr) {
                 document_.bindings.try_emplace(location, symbol);
                 continue;
             }
 
-            auto functions = document_.symbols.FindFunctionsByOriginalName(trace.token.text);
+            const auto functions = document_.symbols.FindFunctionsByOriginalName(trace.token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(location, std::move(functions));
+                document_.bindings.try_emplace(location, Utils::ReferenceSymbol(document_, functions));
             }
         }
     }
@@ -75,7 +78,7 @@ namespace glsld {
         }
 
         StringHeteroHashMap<const SymbolInfo*> active_macros;
-        const auto& references = document_.ast->preprocessor_references;
+        const auto& references = document_.ast->pprefs;
 
         for (const auto* node : references) {
             if (node != nullptr && node->directive == "define" &&
@@ -104,15 +107,15 @@ namespace glsld {
                 return;
             }
 
-            auto* symbol = scope->FindSymbol(token.text);
+            const auto* symbol = scope->FindSymbol(token.text);
             if (symbol != nullptr) {
                 document_.bindings.try_emplace(token.location, symbol);
                 return;
             }
 
-            auto functions = document_.symbols.FindFunctionsByOriginalName(token.text);
+            const auto functions = document_.symbols.FindFunctionsByOriginalName(token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(token.location, std::move(functions));
+                document_.bindings.try_emplace(token.location, Utils::ReferenceSymbol(document_, functions));
             }
         };
 
@@ -131,7 +134,7 @@ namespace glsld {
                 }
 
                 active_macros.insert_or_assign(node->symbol->name, node->symbol);
-                auto* scope = document_.symbols.FindScopeAt(node->symbol->location);
+                const auto* scope = document_.symbols.FindScopeAt(node->symbol->location);
 
                 for (const auto& token : node->tokens) {
                     if (std::ranges::contains(node->params, token.text)) {

@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <mutex>
 #include <print>
-#include <string_view>
 
 namespace glsld {
     namespace {

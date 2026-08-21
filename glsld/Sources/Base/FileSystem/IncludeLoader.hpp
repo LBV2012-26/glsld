@@ -16,7 +16,7 @@
 #include "Base/ThreadPool.hpp"
 
 namespace glsld {
-    struct IncludeFileSnapshot {
+    struct IncludeData {
         std::string                     filename;
         std::string                     uri;
         std::string                     source;
@@ -29,19 +29,19 @@ namespace glsld {
         }
     };
 
+    using IncludeSnapshot       = std::shared_ptr<const IncludeData>;
+    using IncludeSnapshotFuture = std::shared_future<IncludeSnapshot>;
+
     class IncludeLoader {
     public:
-        using Snapshot       = std::shared_ptr<const IncludeFileSnapshot>;
-        using SnapshotFuture = std::shared_future<Snapshot>;
-
         IncludeLoader(SourceTable& source_table, ThreadPool& thread_pool);
 
-        SnapshotFuture Include(
+        IncludeSnapshotFuture Include(
             std::string_view includer_uri,
             std::string_view include_expr,
             IncludeDirectoryHandle include_dirs);
 
-        SnapshotFuture Include(
+        IncludeSnapshotFuture Include(
             std::string_view includer_uri,
             std::span<const Token> body_tokens,
             IncludeDirectoryHandle include_dirs);
@@ -60,7 +60,7 @@ namespace glsld {
             bool        system_include{ false };
         };
 
-        SnapshotFuture Include(
+        IncludeSnapshotFuture Include(
             std::string_view includer_uri,
             std::string_view include_expr,
             IncludeDirectoryHandle include_dirs,
@@ -74,16 +74,16 @@ namespace glsld {
             const IncludeTarget& target,
             IncludeDirectoryHandle include_dirs) const;
 
-        Snapshot LoadIncludeFile(
+        IncludeSnapshot LoadIncludeFile(
             const std::filesystem::path& normalized_path,
             IncludeDirectoryHandle include_dirs);
 
-        SnapshotFuture MakeReadyFuture(Snapshot snapshot) const;
+        IncludeSnapshotFuture MakeReadyFuture(IncludeSnapshot snapshot) const;
 
-        SourceTable&                        source_table_;
-        ThreadPool&                         thread_pool_;
-        std::shared_mutex                   mutex_;
-        StringHeteroHashMap<Snapshot>       cache_;
-        StringHeteroHashMap<SnapshotFuture> inflight_;
+        SourceTable&                               source_table_;
+        ThreadPool&                                thread_pool_;
+        std::shared_mutex                          mutex_;
+        StringHeteroHashMap<IncludeSnapshot>       cache_;
+        StringHeteroHashMap<IncludeSnapshotFuture> inflight_;
     };
 }

@@ -4,12 +4,14 @@
 #include <utility>
 #include <variant>
 
+#include "Utils/Utils.hpp"
+
 namespace glsld {
     SymbolLinker::SymbolLinker(Document& document, int version_replica, VersionPointer vesion_pointer)
         : AstVisitor(version_replica, vesion_pointer)
         , document_{ document }
     {
-        Traverse(document_.ast.get());
+        Traverse(document_.ast);
     }
 
     void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
@@ -18,7 +20,7 @@ namespace glsld {
         }
 
         for (auto& statement : node->body) {
-            Traverse(statement.get());
+            Traverse(statement);
         }
     }
 
@@ -36,21 +38,23 @@ namespace glsld {
 
         switch (node->node_type) {
             using enum VariableExpressionNode::NodeType;
-        case kCommonVariable:
+        case kCommonVariable: {
             node->linked_symbols = scope->FindSymbol(node->name);
 
-            if (std::holds_alternative<std::monostate>(node->linked_symbols) ||
-                (std::holds_alternative<const SymbolInfo*>(node->linked_symbols) &&
-                 std::get<const SymbolInfo*>(node->linked_symbols) == nullptr))
-            {
-                auto function = document_.symbols.FindFunctionsByOriginalName(node->name);
-                if (!std::holds_alternative<std::monostate>(function)) {
-                    node->linked_symbols = std::move(function);
-                    node->node_type = VariableExpressionNode::NodeType::kFunctionCallee;
+            const bool nothing_linked = std::holds_alternative<std::monostate>(node->linked_symbols);
+            const bool linked_nullptr = std::holds_alternative<const SymbolInfo*>(node->linked_symbols)
+                                     && std::get<const SymbolInfo*>(node->linked_symbols) == nullptr;
+
+            if (nothing_linked || linked_nullptr) {
+                const auto functions = document_.symbols.FindFunctionsByOriginalName(node->name);
+                if (!std::holds_alternative<std::monostate>(functions)) {
+                    node->linked_symbols = Utils::ReferenceSymbol(document_, functions);
+                    node->node_type      = VariableExpressionNode::NodeType::kFunctionCallee;
                 }
             }
 
             break;
+        }
         case kFunctionCallee: {
             auto FindConstructor = [node, scope]() -> void {
                 const auto* symbol_result = scope->FindSymbol(node->name);
@@ -62,14 +66,14 @@ namespace glsld {
                 if (std::holds_alternative<std::monostate>(it->second)) {
                     FindConstructor();
                 } else {
-                    node->linked_symbols = it->second;
+                    node->linked_symbols = Utils::ReferenceSymbol(document_, it->second);
                 }
 
                 break;
             }
 
-            auto function_result = document_.symbols.FindFunctionsByOriginalName(node->name);
-            auto [inserted_it, _] = function_cache_.try_emplace(node->name, std::move(function_result));
+            auto functions = document_.symbols.FindFunctionsByOriginalName(node->name);
+            auto [inserted_it, _] = function_cache_.try_emplace(node->name, std::move(functions));
 
             if (std::holds_alternative<std::monostate>(inserted_it->second)) {
                 // constructor calling, like "BufferReference ref = BufferReference(device_address);"
@@ -77,20 +81,23 @@ namespace glsld {
                 break;
             }
 
-            node->linked_symbols = inserted_it->second;
+            node->linked_symbols = Utils::ReferenceSymbol(document_, inserted_it->second);
             break;
         }
         default:
             break;
         }
 
-        if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
-            document_.bindings.try_emplace(node->begin, node->linked_symbols);
-        } else if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
-            const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
-            if (!document_.macro_traces.contains(node->original_token.location)) {
-                document_.bindings.try_emplace(node->original_token.location, symbol);
-            }
-        }
+        std::visit(Overloaded{
+            [&](const SymbolInfo* symbol) -> void {
+                if (!document_.macro_traces.contains(node->original_token.location)) {
+                    document_.bindings.try_emplace(node->original_token.location, symbol);
+                }
+            },
+            [&](SymbolListView list) -> void {
+                document_.bindings.try_emplace(node->begin, list);
+            },
+            [](std::monostate) -> void {}
+        }, node->linked_symbols);
     }
 }

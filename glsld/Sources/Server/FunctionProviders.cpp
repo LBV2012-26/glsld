@@ -3,9 +3,11 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <filesystem>
 #include <format>
 #include <iterator>
 #include <ranges>
+#include <span>
 #include <system_error>
 #include <type_traits>
 #include <utility>
@@ -23,7 +25,7 @@
 #include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
-namespace glsld {
+namespace glsld::Providers {
     namespace {
         bool IsPositionInToken(const Token& token, const SourceLocation& position) {
             if (*token.location.source_file() != *position.source_file()) {
@@ -34,8 +36,8 @@ namespace glsld {
                 return false;
             }
 
-            auto start_column = token.location.column();
-            auto end_column   = start_column + static_cast<std::uint32_t>(token.text.length());
+            const auto start_column = token.location.column();
+            const auto end_column   = start_column + static_cast<std::uint32_t>(token.text.length());
 
             // [start_column, end_column]
             return position.column() >= start_column && position.column() <= end_column;
@@ -50,7 +52,7 @@ namespace glsld {
                 return std::nullopt;
             }
 
-            auto index = static_cast<std::size_t>(std::distance(tokens.begin(), std::prev(it)));
+            const auto index = static_cast<std::size_t>(std::distance(tokens.begin(), std::prev(it)));
             if (!IsPositionInToken(tokens[index], location)) {
                 return std::nullopt;
             }
@@ -63,7 +65,9 @@ namespace glsld {
                 return nullptr;
             }
 
-            auto target_kind = symbol->kind == SymbolKind::kFunctionImpl ? SymbolKind::kFunctionDecl : SymbolKind::kFunctionImpl;
+            const auto target_kind = symbol->kind == SymbolKind::kFunctionImpl
+                                   ? SymbolKind::kFunctionDecl
+                                   : SymbolKind::kFunctionImpl;
 
             for (const auto& counterpart : symbol_list) {
                 if (counterpart->kind != target_kind ||
@@ -88,11 +92,11 @@ namespace glsld {
         };
 
         void PushUniquePath(std::vector<std::filesystem::path>& paths, const std::filesystem::path& path) {
-            auto normalized = utils::NormalizePath(path);
-            auto filename   = normalized.generic_string();
+            const auto normalized = Utils::NormalizePath(path);
+            const auto filename   = normalized.generic_string();
 
             auto Predicate = [&](const auto& path) -> bool {
-                return utils::NormalizePath(path).generic_string() == filename;
+                return Utils::NormalizePath(path).generic_string() == filename;
             };
 
             if (std::ranges::any_of(paths, Predicate)) {
@@ -106,7 +110,7 @@ namespace glsld {
             Context& context,
             std::string_view uri,
             const Scope* const scope,
-            const PositionMapper& mapper)
+            const Unicode::PositionMapper& mapper)
         {
             nlohmann::json symbols = nlohmann::json::array();
 
@@ -166,7 +170,7 @@ namespace glsld {
                     }
                 }
 
-                symbol_node["name"] = symbol_name;
+                symbol_node["name"] = std::move(symbol_name);
                 symbol_node["kind"] = symbol_kind;
                 symbol_node["selectionRange"] = ConvertToSelectionRange(info->location, info->name);
 
@@ -190,7 +194,7 @@ namespace glsld {
                 if (child_scope != nullptr) {
                     symbol_node["range"] = ConvertToLspRange(info->location, child_scope->interval().second);
                     if (info->kind == SymbolKind::kInterface || info->kind == SymbolKind::kStruct) {
-                        auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope, mapper);
+                        const auto children = ConvertScopeToDocumentSymbols(context, uri, child_scope, mapper);
                         if (!children.empty()) {
                             symbol_node["children"] = children;
                         }
@@ -219,7 +223,7 @@ namespace glsld {
                      child_scope->kind() == ScopeKind::kBlockTransparent) &&
                     !handled_scopes.contains(child_scope.get()))
                 {
-                    auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get(), mapper);
+                    const auto transparent_children = ConvertScopeToDocumentSymbols(context, uri, child_scope.get(), mapper);
                     for (const auto& child : transparent_children) {
                         symbols.push_back(child);
                     }
@@ -234,12 +238,12 @@ namespace glsld {
         Context& context,
         Snapshot snapshot,
         std::string_view uri,
-        const PositionMapper& mapper)
+        const Unicode::PositionMapper& mapper)
     {
         auto result = ConvertScopeToDocumentSymbols(context, uri, snapshot->symbols.root_scope(), mapper);
 
         for (const auto& macro : snapshot->symbols.macro_symbols()) {
-            auto* symbol = macro.get();
+            const auto* symbol = macro.get();
             if (symbol->location.source_file() == nullptr ||
                 symbol->location.uri() != uri ||
                 symbol->location.line() == 0)
@@ -252,16 +256,36 @@ namespace glsld {
                 { "name", symbol->name },
                 { "kind", ConvertSymbolKind(SymbolKind::kMacro) },
                 { "selectionRange", {
-                    { "start", { { "line", symbol->location.line() - 1 }, { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column()) } } },
-                    { "end",   { { "line", symbol->location.line() - 1 }, { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column() + static_cast<std::uint32_t>(symbol->name.length())) } } }
+                    {
+                        "start", {
+                            { "line", symbol->location.line() - 1 },
+                            { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column()) }
+                        }
+                    },
+                    {
+                        "end", {
+                            { "line", symbol->location.line() - 1 },
+                            { "character", mapper.ToUtf16Character(symbol->location.line(), symbol->location.column() + static_cast<std::uint32_t>(symbol->name.length())) }
+                        }
+                    }
                 } },
                 { "range", {
-                    { "start", { { "line", node->begin.line() - 1 }, { "character", mapper.ToUtf16Character(node->begin.line(), node->begin.column()) } } },
-                    { "end",   { { "line", node->end.line()   - 1 }, { "character", mapper.ToUtf16Character(node->end.line(),   node->end.column()) } } }
+                    {
+                        "start", {
+                            { "line", node->begin.line() - 1 },
+                            { "character", mapper.ToUtf16Character(node->begin.line(), node->begin.column()) }
+                        }
+                    },
+                    {
+                        "end", {
+                            { "line", node->end.line() - 1 },
+                            { "character", mapper.ToUtf16Character(node->end.line(),   node->end.column()) }
+                        }
+                    }
                 } }
             };
 
-            result.push_back(std::move(macro_symbol));
+            result.push_back(macro_symbol);
         }
 
         return result;
@@ -321,7 +345,7 @@ namespace glsld {
         Context& context,
         Snapshot snapshot,
         const SourceFile* source_file,
-        const PositionMapper& mapper)
+        const Unicode::PositionMapper& mapper)
     {
         if (snapshot == nullptr) {
             return {};
@@ -336,11 +360,11 @@ namespace glsld {
                 return;
             }
 
-            std::size_t line       = token.location.line() - 1;
-            std::size_t character  = mapper.ToUtf16Character(token.location.line(), token.location.column());
-            std::size_t length     = Utf16Length(token.text);
-            std::size_t delta_line = line - last_line;
-            std::size_t delta_char = (delta_line == 0) ? (character - last_char) : character;
+            const auto line       = static_cast<std::size_t>(token.location.line() - 1);
+            const auto character  = mapper.ToUtf16Character(token.location.line(), token.location.column());
+            const auto length     = Unicode::Utf16Length(token.text);
+            const auto delta_line = line - last_line;
+            const auto delta_char = (delta_line == 0) ? (character - last_char) : character;
 
             data.push_back(static_cast<std::uint32_t>(delta_line));
             data.push_back(static_cast<std::uint32_t>(delta_char));
@@ -393,14 +417,18 @@ namespace glsld {
             }
 
             const SymbolInfo* symbol = nullptr;
-            if (std::holds_alternative<SymbolList>(it->second)) {
-                const auto& symbols = std::get<SymbolList>(it->second);
-                if (!symbols.empty()) {
-                    symbol = symbols.front();
-                }
-            } else if (std::holds_alternative<const SymbolInfo*>(it->second)) {
-                symbol = std::get<const SymbolInfo*>(it->second);
-            }
+
+            std::visit(Overloaded{
+                [&](const SymbolInfo* symbol_) -> void {
+                    symbol = symbol_;
+                },
+                [&](const SymbolListView list) -> void {
+                    if (!list.empty()) {
+                        symbol = list.front();
+                    }
+                },
+                [](std::monostate) -> void {}
+            }, it->second);
 
             if (symbol == nullptr) {
                 type_index = GetTokenSemanticHighlight(token.type);
@@ -429,7 +457,7 @@ namespace glsld {
     }
 
     namespace {
-        std::optional<std::string> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
+        std::optional<std::string_view> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
             if (node == nullptr || node->directive != "include") {
                 return std::nullopt;
             }
@@ -457,19 +485,18 @@ namespace glsld {
             IncludeDirectoryHandle include_dirs)
         {
             if (!include_expr.starts_with('<')) {
-                auto filename = include_expr.substr(1, include_expr.length() - 2);
-                auto includer = utils::UriToPath(includer_uri);
-                auto result   = utils::NormalizePath(includer.parent_path() / filename);
+                const auto filename = include_expr.substr(1, include_expr.length() - 2);
+                const auto includer = Utils::UriToPath(includer_uri);
 
+                auto result = Utils::NormalizePath(includer.parent_path() / filename);
                 if (std::filesystem::exists(result)) {
                     return result;
                 }
             }
 
             for (const auto& dir : *include_dirs) {
-                auto filename = include_expr.substr(1, include_expr.length() - 2);
-                auto result   = utils::NormalizePath(dir / filename);
-
+                const auto filename = include_expr.substr(1, include_expr.length() - 2);
+                auto result = Utils::NormalizePath(dir / filename);
                 if (std::filesystem::exists(result)) {
                     return result;
                 }
@@ -489,7 +516,7 @@ namespace glsld {
             return std::nullopt;
         }
 
-        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        const auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
         if (!index.has_value()) {
             return std::nullopt;
         }
@@ -499,20 +526,20 @@ namespace glsld {
             return std::nullopt;
         }
 
-        for (const auto* node : snapshot->ast->preprocessor_references) {
+        for (const auto* node : snapshot->ast->pprefs) {
             ABORT_IF_CANCELLED();
 
-            auto include_expr = ExtractIncludeExpr(node, location);
+            const auto include_expr = ExtractIncludeExpr(node, location);
             if (!include_expr.has_value()) {
                 continue;
             }
 
-            auto result = ResolveIncludeFilename(location.uri(), *include_expr, include_dirs);
+            const auto result = ResolveIncludeFilename(location.uri(), *include_expr, include_dirs);
             if (!result.has_value()) {
                 return std::nullopt;
             }
 
-            return utils::PathToUri(*result);
+            return Utils::PathToUri(*result);
         }
 
         return std::nullopt;
@@ -524,7 +551,7 @@ namespace glsld {
                 return nullptr;
             }
 
-            auto base_name = utils::UnmangleFunctionName(symbol->name);
+            const auto  base_name  = Utils::UnmangleFunctionName(symbol->name);
             const auto& candidates = snapshot->symbols.FindFunctionsByOriginalName(base_name);
 
             if (std::holds_alternative<std::monostate>(candidates) ||
@@ -542,20 +569,20 @@ namespace glsld {
                 return;
             }
 
-            const auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
+            auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
             if (linked_symbol == nullptr) {
                 return;
             }
 
-
             if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
-                linked_symbol->kind == SymbolKind::kFunctionImpl) {
+                linked_symbol->kind == SymbolKind::kFunctionImpl)
+            {
                 if (!toggle_function) {
                     results.push_back(linked_symbol);
                     return;
                 }
 
-                bool clicked_on_definition = (cursor_token->location == linked_symbol->location);
+                const bool clicked_on_definition = (cursor_token->location == linked_symbol->location);
                 if (clicked_on_definition) {
                     const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
                     results.push_back(toggled != nullptr ? toggled : linked_symbol);
@@ -585,7 +612,7 @@ namespace glsld {
 
         const Token* cursor_token = nullptr;
 
-        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        const auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
         if (index.has_value()) {
             cursor_token = &snapshot->raw_tokens[*index];
         }
@@ -608,18 +635,21 @@ namespace glsld {
             return {};
         }
 
-        const auto& linked_symbols = static_cast<const VariableExpressionNode*>(node)->linked_symbols;
-        if (std::holds_alternative<const SymbolInfo*>(linked_symbols)) {
-            const auto* symbol = std::get<const SymbolInfo*>(linked_symbols);
-            if (symbol != nullptr) {
-                results.push_back(symbol);
-            }
-        } else if (std::holds_alternative<SymbolList>(linked_symbols)) {
-            const auto& symbols = std::get<SymbolList>(linked_symbols);
-            if (!symbols.empty()) {
-                results.append_range(symbols);
-            }
-        }
+        auto* var_expr = static_cast<const VariableExpressionNode*>(node);
+
+        std::visit(Overloaded{
+            [&](const SymbolInfo* symbol) -> void {
+                if (symbol != nullptr) {
+                    results.push_back(symbol);
+                }
+            },
+            [&](SymbolListView list) -> void {
+                if (!list.empty()) {
+                    results.append_range(list);
+                }
+            },
+            [](std::monostate) -> void {}
+        }, var_expr->linked_symbols);
 
         return results;
     }
@@ -634,7 +664,7 @@ namespace glsld {
             return {};
         }
 
-        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        const auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
         if (!index.has_value()) {
             return {};
         }
@@ -648,8 +678,8 @@ namespace glsld {
         const SymbolInfo* symbol = nullptr;
         if (std::holds_alternative<const SymbolInfo*>(it->second)) {
             symbol = std::get<const SymbolInfo*>(it->second);
-        } else if (std::holds_alternative<SymbolList>(it->second)) {
-            const auto& symbols = std::get<SymbolList>(it->second);
+        } else if (std::holds_alternative<SymbolListView>(it->second)) {
+            const auto& symbols = std::get<SymbolListView>(it->second);
             if (!symbols.empty()) {
                 symbol = symbols.front();
             }
@@ -658,22 +688,6 @@ namespace glsld {
         if (symbol == nullptr) {
             return {};
         }
-
-        // std::vector<SourceLocation> locations;
-        // for (const auto& [ref_location, ref_symbol] : snapshot->bindings) {
-        //     ABORT_IF_CANCELLED();
-        // 
-        //     if (std::holds_alternative<const SymbolInfo*>(ref_symbol)) {
-        //         if (std::get<const SymbolInfo*>(ref_symbol) == symbol) {
-        //             locations.push_back(ref_location);
-        //         }
-        //     } else if (std::holds_alternative<SymbolList>(ref_symbol)) {
-        //         const auto& symbols = std::get<SymbolList>(ref_symbol);
-        //         if (std::ranges::any_of(symbols, [symbol](const SymbolInfo* storaged) -> bool { return storaged == symbol; })) {
-        //             locations.push_back(ref_location);
-        //         }
-        //     }
-        // }
 
         ABORT_IF_CANCELLED();
         auto locations = global_index.GetReferences(symbol->location);
@@ -711,8 +725,8 @@ namespace glsld {
             return unique_signatures;
         }
 
-        void ClampToVariadic(const SymbolInfo* symbol, int& index) {
-            const auto* func = static_cast<const FunctionDeclarationNode*>(symbol->node);
+        void ClampToVariadic(int& index, const SymbolInfo* symbol) {
+            auto* func = static_cast<const FunctionDeclarationNode*>(symbol->node);
             if (func != nullptr && !func->params.empty() && func->params.back()->is_variadic) {
                 index = std::min(index, static_cast<int>(func->params.size() - 1));
             }
@@ -738,14 +752,15 @@ namespace glsld {
             return std::nullopt;
         }
 
-        const auto* callee = static_cast<const VariableExpressionNode*>(node->callee.get());
-        auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
+        auto* callee = static_cast<const VariableExpressionNode*>(node->callee);
+        const auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
         if (std::holds_alternative<std::monostate>(candidates)) {
             return std::nullopt;
         }
 
-        auto open_paren_loc = callee->end;
+        const auto open_paren_loc = callee->end;
         auto it = std::ranges::lower_bound(snapshot->raw_tokens, open_paren_loc, std::ranges::less{}, &Token::location);
+
         int active_param_index = 0;
         int paren_level        = 0;
         while (it != snapshot->raw_tokens.end() && it->location < location) {
@@ -779,20 +794,19 @@ namespace glsld {
         }
 
         ABORT_IF_CANCELLED();
-        if (std::holds_alternative<const SymbolInfo*>(candidates)) {
-            const auto* symbol = std::get<const SymbolInfo*>(candidates);
-            ClampToVariadic(symbol, active_param_index);
+        if (auto* symbol = std::get_if<const SymbolInfo*>(&candidates)) {
+            ClampToVariadic(active_param_index, *symbol);
 
             return SignatureHelpResult{
-                .candidates             = { symbol },
+                .candidates             = { *symbol },
                 .active_signature_index = 0,
                 .active_param_index     = active_param_index
             };
         }
 
         auto unique_candidates = DeduplicateSignatures(std::get<SymbolList>(candidates));
-        int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
-        ClampToVariadic(unique_candidates[active_signature_index], active_param_index);
+        const int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
+        ClampToVariadic(active_param_index, unique_candidates[active_signature_index]);
 
         return SignatureHelpResult{
             .candidates             = std::move(unique_candidates),
@@ -803,12 +817,11 @@ namespace glsld {
 
     namespace {
         struct IncludeCompletionContext {
-            std::string      prefix;
+            std::string_view prefix;
             std::string_view uri;
             std::uint32_t    line{};
             std::uint32_t    replace_start_column{};
             std::uint32_t    replace_end_column{};
-            bool             valid{};
             bool             system_include{};
         };
 
@@ -832,12 +845,11 @@ namespace glsld {
                     continue;
                 }
 
-                auto literal_start = token.location.column(); // " or <
-                auto content_start = literal_start + 1;
-                auto content_end   = literal_start + static_cast<std::uint32_t>(token.text.length()) - 1;
-
-                auto clamped       = std::clamp(location.column(), content_start, content_end);
-                auto prefix_length = clamped > content_start ? (clamped - content_start) : 0;
+                const auto literal_start = token.location.column(); // " or <
+                const auto content_start = literal_start + 1;
+                const auto content_end   = literal_start + static_cast<std::uint32_t>(token.text.length()) - 1;
+                const auto clamped       = std::clamp(location.column(), content_start, content_end);
+                const auto prefix_length = clamped > content_start ? (clamped - content_start) : 0;
 
                 IncludeCompletionContext context{
                     .prefix               = token.text.substr(1, prefix_length),
@@ -845,7 +857,6 @@ namespace glsld {
                     .line                 = location.line(),
                     .replace_start_column = content_start,
                     .replace_end_column   = content_end,
-                    .valid                = true,
                     .system_include       = (token.text.front() == '<' && token.text.back() == '>')
                 };
 
@@ -862,7 +873,7 @@ namespace glsld {
             std::vector<std::filesystem::path> roots;
 
             if (!context.system_include) {
-                auto includer = utils::UriToPath(context.uri);
+                const auto includer = Utils::UriToPath(context.uri);
                 PushUniquePath(roots, includer.parent_path());
             }
 
@@ -877,7 +888,7 @@ namespace glsld {
             std::string dir_prefix;
             std::string file_prefix;
 
-            auto position = prefix.find_last_of("/\\");
+            const auto position = prefix.find_last_of("/\\");
             if (position == std::string_view::npos) {
                 dir_prefix.clear();
                 file_prefix = prefix;
@@ -895,13 +906,13 @@ namespace glsld {
         Snapshot snapshot,
         const SourceLocation& location,
         IncludeDirectoryHandle include_dirs,
-        PositionMapper& mapper)
+        Unicode::PositionMapper& mapper)
     {
         if (snapshot == nullptr) {
             return {};
         }
 
-        auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+        const auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
         if (!index.has_value()) {
             return {};
         }
@@ -912,7 +923,7 @@ namespace glsld {
         }
 
         std::optional<IncludeCompletionContext> include_context;
-        for (const auto& node : snapshot->ast->preprocessor_references) {
+        for (const auto& node : snapshot->ast->pprefs) {
             ABORT_IF_CANCELLED();
 
             include_context = TryBuildIncludeCompletionContext(node, location);
@@ -921,18 +932,18 @@ namespace glsld {
             }
         }
 
-        if (!include_context.has_value() || !include_context->valid) {
+        if (!include_context.has_value()) {
             return {};
         }
 
         ABORT_IF_CANCELLED();
 
-        auto roots = BuildSearchRoots(*include_context, include_dirs);
+        const auto roots = BuildSearchRoots(*include_context, include_dirs);
         if (roots.empty()) {
             return {};
         }
 
-        auto [dir_prefix, file_prefix] = SplitPrefix(include_context->prefix);
+        const auto [dir_prefix, file_prefix] = SplitPrefix(include_context->prefix);
 
         StringHeteroHashSet unique_labels;
         nlohmann::json items = nlohmann::json::array();
@@ -940,7 +951,7 @@ namespace glsld {
         for (const auto& root : roots) {
             ABORT_IF_CANCELLED();
 
-            auto base = utils::NormalizePath(root / dir_prefix);
+            const auto base = Utils::NormalizePath(root / dir_prefix);
             if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base)) {
                 continue;
             }
@@ -953,12 +964,12 @@ namespace glsld {
                     break;
                 }
 
-                auto name = entry.path().filename().generic_string();
+                const auto name = entry.path().filename().generic_string();
                 if (!file_prefix.empty() && !name.starts_with(file_prefix)) {
                     continue;
                 }
 
-                std::string relative_path = dir_prefix + name;
+                auto relative_path = dir_prefix + name;
                 if (entry.is_directory()) {
                     relative_path += "/";
                 }
@@ -967,7 +978,7 @@ namespace glsld {
                     continue;
                 }
 
-                auto kind = entry.is_directory() ? 19 : 17;  // Folder : File
+                const auto kind = entry.is_directory() ? 19 : 17;  // Folder : File
 
                 nlohmann::json item;
                 item["label"]    = relative_path;
@@ -989,12 +1000,12 @@ namespace glsld {
 
                 if (entry.is_directory()) {
                     item["command"] = {
-                        { "title",  "Trigger include completion" },
+                        { "title",   "Trigger include completion" },
                         { "command", "editor.action.triggerSuggest" }
                     };
                 }
 
-                items.push_back(std::move(item));
+                items.push_back(item);
             }
         }
 
@@ -1040,7 +1051,7 @@ namespace glsld {
             }
 
             StringHeteroHashMap<const SymbolInfo*> active_macros;
-            const auto& references = snapshot->ast->preprocessor_references;
+            const auto& references = snapshot->ast->pprefs;
 
             for (const auto* node : references) {
                 if (node != nullptr && node->directive == "define" &&
@@ -1091,7 +1102,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         std::vector<const SymbolInfo*> visible_symbols;
 
-        auto active_macros = GetActiveMacrosAt(snapshot.get(), location);
+        const auto active_macros = GetActiveMacrosAt(snapshot.get(), location);
         for (const auto& [_, symbol] : active_macros) {
             visible_symbols.push_back(symbol);
         }
@@ -1108,7 +1119,7 @@ namespace glsld {
             std::string_view symbol_name;
 
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
-                symbol_name = utils::UnmangleFunctionName(symbol->name);
+                symbol_name = Utils::UnmangleFunctionName(symbol->name);
             } else {
                 symbol_name = symbol->name;
             }
@@ -1122,7 +1133,7 @@ namespace glsld {
             item["kind"]  = MapSymbolKindToLspCompletion(symbol->kind, symbol->type_info.is_const());
 
             // TODO: document, detail, etc
-            items.push_back(std::move(item));
+            items.push_back(item);
         }
 
         const auto& meta = MetadataManager::GetInstance().GetMeta();
@@ -1136,7 +1147,7 @@ namespace glsld {
             nlohmann::json item;
             item["label"] = name;
             item["kind"]  = SubtypeToKind(subtype);
-            items.push_back(std::move(item));
+            items.push_back(item);
         }
 
         return items;
@@ -1164,7 +1175,7 @@ namespace glsld {
 
         nlohmann::json items = nlohmann::json::array();
 
-        if (const auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
+        if (auto* expr_node = dynamic_cast<const ExpressionNode*>(node)) {
             const auto& type_info = expr_node->evaluated_type;
 
             if (!type_info.is_valid()) {
@@ -1201,7 +1212,7 @@ namespace glsld {
                 item["label"] = field->name;
                 item["kind"]  = 5;
 
-                items.push_back(std::move(item));
+                items.push_back(item);
             }
         }
 
@@ -1217,7 +1228,7 @@ namespace glsld {
             return {};
         }
 
-        auto cursor = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
+        const auto cursor = std::ranges::upper_bound(snapshot->raw_tokens, location, std::ranges::less{}, &Token::location);
         if (cursor == snapshot->raw_tokens.begin()) {
             return {};
         }
@@ -1235,7 +1246,7 @@ namespace glsld {
             return {};
         }
 
-        auto start = cursor_index > 2 ? cursor_index - 2 : 0;
+        const auto start = cursor_index > 2 ? cursor_index - 2 : 0;
         bool is_extension = false;
         for (auto i = cursor_index;; --i) {
             ABORT_IF_CANCELLED();
@@ -1258,7 +1269,7 @@ namespace glsld {
             return {};
         }
 
-        auto root = utils::GetFilePath("Database/Meta/Extensions/Main");
+        const auto root = Utils::GetFilePath("Database/Meta/Extensions/Main");
         std::error_code ec;
         nlohmann::json items = nlohmann::json::array();
 
@@ -1269,7 +1280,7 @@ namespace glsld {
                 continue;
             }
 
-            auto name = entry.path().stem().generic_string();
+            const auto name = entry.path().stem().generic_string();
             if (name.empty()) {
                 continue;
             }
@@ -1277,7 +1288,7 @@ namespace glsld {
             nlohmann::json item;
             item["label"] = name;
             item["kind"]  = 9; // Module
-            items.push_back(std::move(item));
+            items.push_back(item);
         }
 
         return items;
@@ -1336,12 +1347,12 @@ namespace glsld {
 
             for (const auto* param : params) {
                 if (param->arg_kind == QualifierArgumentKind::kIdentifier) {
-                    auto subtype = metadata.GetLexicalSubtype(param->token.text);
+                    const auto subtype = metadata.GetLexicalSubtype(param->token.text);
                     if (!subtype.has_value()) {
                         continue;
                     }
 
-                    param_map[*subtype].push_back(param->token.text);
+                    param_map[*subtype].push_back(std::string(param->token.text));
                     continue;
                 }
 
@@ -1350,12 +1361,12 @@ namespace glsld {
                     param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier)
                 {
                     const auto& identifier_token = param->children.front()->token;
-                    auto subtype = metadata.GetLexicalSubtype(identifier_token.text);
+                    const auto subtype = metadata.GetLexicalSubtype(identifier_token.text);
                     if (!subtype.has_value()) {
                         continue;
                     }
 
-                    param_map[*subtype].push_back(utils::SerializeQualifierArguments(param));
+                    param_map[*subtype].push_back(Utils::SerializeQualifierArguments(param));
                 }
             }
 
@@ -1392,7 +1403,7 @@ namespace glsld {
             return result;
         }
 
-        std::string RenderMergedLayout(std::span<const std::unique_ptr<LayoutQualifierNode>> layouts) {
+        std::string RenderMergedLayout(std::span<const LayoutQualifierNode* const> layouts) {
             std::vector<const QualifierArgumentNode*> canonical_params;
             for (const auto& layout : layouts) {
                 if (layout == nullptr) {
@@ -1401,7 +1412,7 @@ namespace glsld {
 
                 for (const auto& param : layout->params) {
                     if (param != nullptr) {
-                        canonical_params.push_back(param.get());
+                        canonical_params.push_back(param);
                     }
                 }
             }
@@ -1414,11 +1425,11 @@ namespace glsld {
         }
 
         std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
-            return utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, utils::UnquoteStringLiteral);
+            return Utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, Utils::UnquoteStringLiteral);
         }
 
         std::optional<std::vector<std::int64_t>> CollectIntegerArray(const QualifierArgumentNode* rhs) {
-            return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
+            return Utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, Utils::ParseNumberLiteralToInteger);
         }
 
         template <typename Ty>
@@ -1453,8 +1464,8 @@ namespace glsld {
                 std::vector<std::string> ids;
 
                 for (const auto& param : params) {
-                    if (IsAssignmentWithKey(param.get(), "extensions")) {
-                        auto extensions = CollectStringArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back());
                         if (!extensions.has_value()) {
                             continue;
                         }
@@ -1463,8 +1474,8 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
-                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back());
                         if (!capabilities.has_value()) {
                             continue;
                         }
@@ -1473,17 +1484,17 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "sets")) {
-                        sets.push_back(std::format("set = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                    if (IsAssignmentWithKey(param, "sets")) {
+                        sets.push_back(std::format("set = {}", Utils::SerializeQualifierArguments(param->children.back())));
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "ids")) {
-                        ids.push_back(std::format("ids = {}", utils::SerializeQualifierArguments(param->children.back().get())));
+                    if (IsAssignmentWithKey(param, "ids")) {
+                        ids.push_back(std::format("ids = {}", Utils::SerializeQualifierArguments(param->children.back())));
                         continue;
                     }
 
-                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
+                    positional.push_back(Utils::SerializeQualifierArguments(param));
                 }
 
                 std::ranges::sort(exts_union);
@@ -1504,8 +1515,8 @@ namespace glsld {
                 ordered.append_range(positional | std::views::as_rvalue);
             } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
                 for (const auto& param : params) {
-                    if (IsAssignmentWithKey(param.get(), "extensions")) {
-                        auto extensions = CollectStringArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "extensions")) {
+                        auto extensions = CollectStringArray(param->children.back());
                         if (!extensions.has_value()) {
                             continue;
                         }
@@ -1514,8 +1525,8 @@ namespace glsld {
                         continue;
                     }
 
-                    if (IsAssignmentWithKey(param.get(), "capabilities")) {
-                        auto capabilities = CollectIntegerArray(param->children.back().get());
+                    if (IsAssignmentWithKey(param, "capabilities")) {
+                        auto capabilities = CollectIntegerArray(param->children.back());
                         if (!capabilities.has_value()) {
                             continue;
                         }
@@ -1524,7 +1535,7 @@ namespace glsld {
                         continue;
                     }
 
-                    positional.push_back(utils::SerializeQualifierArguments(param.get()));
+                    positional.push_back(Utils::SerializeQualifierArguments(param));
                 }
 
                 std::ranges::sort(exts_union);
@@ -1543,7 +1554,7 @@ namespace glsld {
                 ordered.append_range(positional | std::views::as_rvalue);
             } else {
                 for (const auto& param : params) {
-                    ordered.push_back(utils::SerializeQualifierArguments(param.get()));
+                    ordered.push_back(Utils::SerializeQualifierArguments(param));
                 }
             }
 
@@ -1567,7 +1578,7 @@ namespace glsld {
 
             auto it = snapshot->macro_traces.find(location);
             if (it != snapshot->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
-                return it->second.text;
+                return std::string(it->second.text);
             }
 
             for (const auto& builtin : snapshot->builtins) {
@@ -1575,7 +1586,7 @@ namespace glsld {
 #pragma warning(disable : 4456)
                 auto it = builtin->macro_traces.find(location);
                 if (it != builtin->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
-                    return it->second.text;
+                    return std::string(it->second.text);
                 }
 #pragma warning(pop)
             }
@@ -1595,9 +1606,8 @@ namespace glsld {
 
             auto& metadata = MetadataManager::GetInstance();
 
-            std::string type_name;
-            auto alias = ResolveAlias(snapshot, node->type_spec.typename_token().location);
-            type_name = alias.empty() ? node->type_spec.typename_token().text : alias;
+            const auto alias = ResolveAlias(snapshot, node->type_spec.typename_token().location);
+            auto type_name = alias.empty() ? std::string(node->type_spec.typename_token().text) : alias;
             if (auto subtype = metadata.GetLexicalSubtype(type_name);
                 subtype.has_value() && subtype->contains("Qualifiers"))
             {
@@ -1607,9 +1617,9 @@ namespace glsld {
             if (!node->type_spec.template_args.empty()) {
                 type_name += "<";
                 for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i].get())) {
+                    if (auto* var = dynamic_cast<const VariableExpressionNode*>(node->type_spec.template_args[i])) {
                         type_name += var->name;
-                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i].get())) {
+                    } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(node->type_spec.template_args[i])) {
                         type_name += raw->tokens.front().text;
                     }
 
@@ -1623,7 +1633,7 @@ namespace glsld {
 
             const auto* symbol = node->declared_symbol;
             if (symbol != nullptr) {
-                for (auto array_size : symbol->type_info.array_sizes) {
+                for (const auto array_size : symbol->type_info.array_sizes) {
                     if (array_size.has_value()) {
                         type_name += std::format("[{}]", *array_size);
                     } else {
@@ -1639,23 +1649,23 @@ namespace glsld {
             std::vector<std::string> layer_exec_env;
             std::vector<std::string> layer_storage;
             std::vector<std::string> layer_decorate;
-            auto layer_layout = RenderMergedLayout(node->type_spec.layouts);
+            const auto layer_layout = RenderMergedLayout(node->type_spec.layouts);
 
             auto& metadata = MetadataManager::GetInstance();
 
             for (const auto& spec : node->type_spec.specifiers) {
                 if (spec.text == "layout" || spec.type == TokenType::kSpirvIntrinsic ||
-                    spec.text == "true" || spec.text == "false")
+                    spec.text == "true"   || spec.text == "false")
                 {
                     continue;
                 }
 
-                auto alias = ResolveAlias(snapshot, spec.location);
-                auto text  = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : spec.text) : alias;
-                if (auto subtype = metadata.GetLexicalSubtype(spec.text);
+                const auto alias = ResolveAlias(snapshot, spec.location);
+                auto text = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : std::string(spec.text)) : std::string(alias);
+                if (const auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers"))
                 {
-                    layer_storage.push_back(text);
+                    layer_storage.push_back(std::move(text));
                 }
             }
 
@@ -1664,9 +1674,9 @@ namespace glsld {
                     continue;
                 }
 
-                const auto& name = spirv->keyword.text;
-                auto alias = ResolveAlias(snapshot, spirv->keyword.location);
-                auto call  = alias.empty() ? RenderCanonicalSpirvCall(spirv.get()) : alias;
+                const auto name  = spirv->keyword.text;
+                const auto alias = ResolveAlias(snapshot, spirv->keyword.location);
+                auto       call  = alias.empty() ? RenderCanonicalSpirvCall(spirv) : alias;
 
                 if (name == "spirv_execution_mode" || name == "spirv_execution_mode_ide" || name == "spirv_instruction") {
                     layer_exec_env.push_back(std::move(call));
@@ -1675,7 +1685,7 @@ namespace glsld {
                 } else if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
                     layer_decorate.push_back(std::move(call));
                 } else if (name == "spirv_by_reference" || name == "spirv_literal") {
-                    layer_decorate.push_back(name);
+                    layer_decorate.push_back(std::string(name));
                 }
             }
 
@@ -1727,8 +1737,8 @@ namespace glsld {
         }
 
         std::string return_typename = symbol->type_info.spirv_type.empty()
-                                    ? symbol->type_info.typename_token.text
-                                    : symbol->type_info.spirv_type;
+                                    ? std::string(symbol->type_info.typename_token.text)
+                                    : std::string(symbol->type_info.spirv_type);
 
         for (const auto& template_args : symbol->type_info.template_args) {
             return_typename += (template_args == symbol->type_info.template_args.front()) ? "<" : ", ";
@@ -1747,12 +1757,12 @@ namespace glsld {
             }
         }
 
-        auto raw_name = utils::UnmangleFunctionName(symbol->name);
+        const auto raw_name = Utils::UnmangleFunctionName(symbol->name);
         auto result = std::format("{} {}(", return_typename, raw_name);
 
         std::vector<std::string> params;
 
-        const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
+        auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
         for (auto i = 0uz; i != node->params.size(); ++i) {
             const auto& param = node->params[i];
 
@@ -1766,7 +1776,7 @@ namespace glsld {
                 continue;
             }
 
-            auto        param_line   = BuildHoverSpecifierLine(param.get(), snapshot.get());
+            auto        param_line   = BuildHoverSpecifierLine(param, snapshot.get());
             const auto* param_symbol = param->declared_symbol;
 
             if (param_symbol == nullptr) {
@@ -1776,8 +1786,8 @@ namespace glsld {
                 continue;
             }
 
-            auto last_close_paren = param_line.find(')');
-            auto open_bracket = (last_close_paren != std::string::npos) ? param_line.find('[', last_close_paren) : param_line.find('[');
+            const auto last_close_paren = param_line.find(')');
+            const auto open_bracket = (last_close_paren != std::string::npos) ? param_line.find('[', last_close_paren) : param_line.find('[');
 
             if (open_bracket != std::string::npos) {
                 param_line.insert(open_bracket, " " + param_symbol->name);
@@ -1811,7 +1821,7 @@ namespace glsld {
 
             switch (expr->kind()) {
             case AstNodeKind::kLiteralExpression: {
-                const auto* node = static_cast<const RawExpressionNode*>(expr);
+                auto* node = static_cast<const RawExpressionNode*>(expr);
                 std::string result;
                 for (const auto& token : node->tokens) {
                     result += token.text;
@@ -1821,12 +1831,12 @@ namespace glsld {
             }
 
             case AstNodeKind::kVariableExpression: {
-                const auto* node = static_cast<const VariableExpressionNode*>(expr);
-                return node->name;
+                auto* node = static_cast<const VariableExpressionNode*>(expr);
+                return std::string(node->name);
             }
 
             case AstNodeKind::kUnaryExpression: {
-                const auto* unary = static_cast<const UnaryExpressionNode*>(expr);
+                auto* unary = static_cast<const UnaryExpressionNode*>(expr);
 
                 std::string op_text = [](TokenType op) -> std::string {
                     switch (op) {
@@ -1840,14 +1850,14 @@ namespace glsld {
                 }(unary->op);
 
                 if (unary->is_postfix) {
-                    return SerializeInitializer(unary->operand.get()) + op_text;
+                    return SerializeInitializer(unary->operand) + op_text;
                 }
 
-                return op_text + SerializeInitializer(unary->operand.get());
+                return op_text + SerializeInitializer(unary->operand);
             }
 
             case AstNodeKind::kBinaryExpression: {
-                const auto* binary = static_cast<const BinaryExpressionNode*>(expr);
+                auto* binary = static_cast<const BinaryExpressionNode*>(expr);
 
                 std::string op_text = [](TokenType op) -> std::string {
                     switch (op) {
@@ -1874,14 +1884,14 @@ namespace glsld {
                     }
                 }(binary->op);
 
-                return SerializeInitializer(binary->left.get()) + op_text + SerializeInitializer(binary->right.get());
+                return SerializeInitializer(binary->left) + op_text + SerializeInitializer(binary->right);
             }
 
             case AstNodeKind::kCallExpression: {
-                const auto* call = static_cast<const CallExpressionNode*>(expr);
-                std::string result = SerializeInitializer(call->callee.get()) + "(";
+                auto* call = static_cast<const CallExpressionNode*>(expr);
+                std::string result = SerializeInitializer(call->callee) + "(";
                 for (auto i = 0uz; i != call->args.size(); ++i) {
-                    result += SerializeInitializer(call->args[i].get());
+                    result += SerializeInitializer(call->args[i]);
                     if (i + 1 != call->args.size()) {
                         result += ", ";
                     }
@@ -1892,20 +1902,20 @@ namespace glsld {
             }
 
             case AstNodeKind::kIndexExpression: {
-                const auto* index = static_cast<const IndexExpressionNode*>(expr);
-                return SerializeInitializer(index->base.get()) + "[" + SerializeInitializer(index->index.get()) + "]";
+                auto* index = static_cast<const IndexExpressionNode*>(expr);
+                return SerializeInitializer(index->base) + "[" + SerializeInitializer(index->index) + "]";
             }
 
             case AstNodeKind::kMemberAccessExpression: {
-                const auto* member = static_cast<const MemberAccessExpressionNode*>(expr);
-                return SerializeInitializer(member->object.get()) + "." + SerializeInitializer(member->member.get());
+                auto* member = static_cast<const MemberAccessExpressionNode*>(expr);
+                return SerializeInitializer(member->object) + "." + SerializeInitializer(member->member);
             }
 
             case AstNodeKind::kTernaryExpression: {
-                const auto* ternary = static_cast<const TernaryExpressionNode*>(expr);
-                return SerializeInitializer(ternary->condition.get()) + " ? "
-                     + SerializeInitializer(ternary->true_expr.get()) + " : "
-                     + SerializeInitializer(ternary->false_expr.get());
+                auto* ternary = static_cast<const TernaryExpressionNode*>(expr);
+                return SerializeInitializer(ternary->condition) + " ? "
+                     + SerializeInitializer(ternary->true_expr) + " : "
+                     + SerializeInitializer(ternary->false_expr);
             }
 
             default:
@@ -2023,7 +2033,7 @@ namespace glsld {
 
         const ExpressionNode* FollowConstantChain(const ExpressionNode* expr) {
             while (expr != nullptr && expr->kind() == AstNodeKind::kVariableExpression) {
-                const auto* variable = static_cast<const VariableExpressionNode*>(expr);
+                auto* variable = static_cast<const VariableExpressionNode*>(expr);
                 const SymbolInfo* symbol = nullptr;
 
                 if (std::holds_alternative<const SymbolInfo*>(variable->linked_symbols)) {
@@ -2034,12 +2044,12 @@ namespace glsld {
                     break;
                 }
 
-                const auto* declare = dynamic_cast<const VariableDeclarationNode*>(symbol->node);
+                auto* declare = dynamic_cast<const VariableDeclarationNode*>(symbol->node);
                 if (declare == nullptr || declare->init == nullptr) {
                     break;
                 }
 
-                expr = declare->init.get();
+                expr = declare->init;
             }
 
             return expr;
@@ -2062,7 +2072,7 @@ namespace glsld {
                 return std::format("Defined in this file, line {}", symbol->location.line());
             }
 
-            auto filename = utils::UriToPath(symbol->location.uri()).filename().generic_string();
+            auto filename = Utils::UriToPath(symbol->location.uri()).filename().generic_string();
             return std::format("Defined in {}, line {}", filename, symbol->location.line());
         };
 
@@ -2101,14 +2111,14 @@ namespace glsld {
                 if (auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers")) {
                     if (spec.text != "layout") {
-                        storage_hits.push_back(spec.text);
+                        storage_hits.push_back(std::string(spec.text));
                     }
                 }
             }
 
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_storage_class") {
-                    storage_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    storage_hits.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 
@@ -2125,7 +2135,7 @@ namespace glsld {
 
                 const auto& name = spirv->keyword.text;
                 if (name == "spirv_decorate" || name == "spirv_decorate_id" || name == "spirv_decorate_string") {
-                    decorate_hits.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    decorate_hits.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 
@@ -2140,7 +2150,7 @@ namespace glsld {
                 if (host_symbol->name.contains("__AnonymousStruct_")) {
                     host_name = "<anonymous>";
                 } else if (host_symbol->name.contains("__Impl_") || host_symbol->name.contains("__Decl_")) {
-                    host_name = utils::UnmangleFunctionName(host_symbol->name);
+                    host_name = Utils::UnmangleFunctionName(host_symbol->name);
                 } else {
                     host_name = host_symbol->name;
                 }
@@ -2149,8 +2159,8 @@ namespace glsld {
             }
 
             std::string full_spec(type_spec);
-            auto last_close_paren = full_spec.find(')');
-            auto open_bracket = (last_close_paren != std::string::npos) ? full_spec.find('[', last_close_paren) : full_spec.find('[');
+            const auto last_close_paren = full_spec.find(')');
+            const auto open_bracket = (last_close_paren != std::string::npos) ? full_spec.find('[', last_close_paren) : full_spec.find('[');
             if (open_bracket != std::string::npos) {
                 full_spec.insert(open_bracket, " " + symbol->name);
             } else {
@@ -2163,19 +2173,19 @@ namespace glsld {
                 return;
             }
 
-            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+            auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
             if (node == nullptr || node->init == nullptr) {
                 return;
             }
 
-            auto initializer = SerializeInitializer(node->init.get());
+            const auto initializer = SerializeInitializer(node->init);
             if (!initializer.empty()) {
                 declare.insert(declare.find_last_of(';'), " = " + initializer);
                 if (node->init->kind() != AstNodeKind::kLiteralExpression) {
                     ConstantEvaluator evaluator;
-                    if (auto value = evaluator.EvaluateAs<std::string>(node->init.get())) {
+                    if (auto value = evaluator.EvaluateAs<std::string>(node->init)) {
                         declare += "\n// Evaluates to\n" + *value;
-                    } else if (auto* root = FollowConstantChain(node->init.get()); root != nullptr && root != node->init.get()) {
+                    } else if (auto* root = FollowConstantChain(node->init); root != nullptr && root != node->init) {
                         auto root_text = SerializeInitializer(root);
                         if (!root_text.empty()) {
                             declare += "\n// Evaluates to\n" + root_text;
@@ -2195,10 +2205,10 @@ namespace glsld {
         }
 
         case SymbolKind::kMacro: {
-            const auto* node = static_cast<const PreprocessorNode*>(symbol->node);
+            auto* node = static_cast<const PreprocessorNode*>(symbol->node);
 
-            auto cursor_index = FindCursorTokenIndex(snapshot->raw_tokens, location);
-            std::string markdown = std::format("**macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
+            const auto cursor_index = FindCursorTokenIndex(snapshot->raw_tokens, location);
+            auto markdown = std::format("**macro** `{}`\n\n{}\n\n---\n\n```glsl\n", node->symbol->name, BuildDefinedAt(symbol));
             declare.clear();
             details.clear();
 
@@ -2218,16 +2228,16 @@ namespace glsld {
 
             if (cursor_index.has_value()) {
                 const auto& cursor_token = snapshot->raw_tokens.at(*cursor_index);
-                auto filename = utils::UriToPath(current_uri);
+                const auto  filename     = Utils::UriToPath(current_uri);
 
                 auto it = snapshot->macro_expansions.find(cursor_token.location);
                 if (it != snapshot->macro_expansions.end()) {
-                    auto expanded = RenderMacroExpansion(it->second, formatter, filename);
+                    const auto expanded = RenderMacroExpansion(it->second, formatter, filename);
                     if (!expanded.empty()) {
                         details = "\n\n// Expands to\n" + expanded + "\n```\n";
                     }
                 } else if (location == symbol->location) {
-                    auto body = RenderMacroExpansion(node->tokens, formatter, filename);
+                    const auto body = RenderMacroExpansion(node->tokens, formatter, filename);
                     if (!body.empty()) {
                         details = "\n\n// Expands to\n" + body + "\n```\n";
                     }
@@ -2235,13 +2245,12 @@ namespace glsld {
             }
 
             markdown = markdown + declare + details;
-
             return markdown;
         }
 
         case SymbolKind::kVariable:
         case SymbolKind::kParameter: {
-            const auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
+            auto* node = static_cast<const VariableDeclarationNode*>(symbol->node);
 
             std::string scope_prefix = "**Field**";
             if (symbol->kind == SymbolKind::kParameter) {
@@ -2260,10 +2269,10 @@ namespace glsld {
                 title = std::format("{} `{}::{}`\n\n{}", scope_prefix, symbol->located_scope->host_symbol()->name, symbol->name, BuildDefinedAt(symbol));
             }
 
-            auto type_text = BuildTypeText(node, snapshot.get());
+            const auto type_text = BuildTypeText(node, snapshot.get());
             type_arrow = std::format("**Type** -> `{}`", type_text);
 
-            auto full = BuildHoverSpecifierLine(node, snapshot.get());
+            const auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclare(symbol, full);
 
             AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
@@ -2275,7 +2284,7 @@ namespace glsld {
 
         case SymbolKind::kFunctionDecl:
         case SymbolKind::kFunctionImpl: {
-            auto format_result = FormatFunctionSymbol(symbol, snapshot);
+            const auto format_result = FormatFunctionSymbol(symbol, snapshot);
 
             title      = std::format("**Function** `{}`", format_result.base_name);
             type_arrow = std::format("**Returns** -> `{}`", format_result.return_typename);
@@ -2291,11 +2300,11 @@ namespace glsld {
 
             details += params_block + "\n";
 
-            const auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
+            auto* node = static_cast<const FunctionDeclarationNode*>(symbol->node);
             std::vector<std::string> decorate_calls;
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_instruction") {
-                    decorate_calls.push_back(RenderCanonicalSpirvCall(spirv.get()));
+                    decorate_calls.push_back(RenderCanonicalSpirvCall(spirv));
                 }
             }
 
@@ -2321,11 +2330,11 @@ namespace glsld {
         }
 
         case SymbolKind::kInterface: {
-            const auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
+            auto* node = static_cast<const InterfaceDeclarationNode*>(symbol->node);
             title = std::format("**Block** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
 
-            auto full = BuildHoverSpecifierLine(node, snapshot.get());
+            const auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclare(symbol, full);
 
             AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));

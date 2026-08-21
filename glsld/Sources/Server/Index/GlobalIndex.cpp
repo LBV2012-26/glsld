@@ -23,12 +23,10 @@ namespace glsld {
         }
 
         bool ContributionLess(const Contribution& lhs, const Contribution& rhs) {
-            auto definition_order = lhs.definition <=> rhs.definition;
-
+            const auto definition_order = lhs.definition <=> rhs.definition;
             if (!std::is_eq(definition_order)) {
                 return std::is_lt(definition_order);
             }
-
             return std::is_lt(lhs.reference <=> rhs.reference);
         }
 
@@ -140,13 +138,17 @@ namespace glsld {
         };
 
         for (const auto& [location, symbols] : document.bindings) {
-            if (const auto* single = std::get_if<const SymbolInfo*>(&symbols)) {
-                AddSymbol(location, *single);
-            } else if (const auto* list = std::get_if<SymbolList>(&symbols)) {
-                for (const auto* symbol : *list) {
+            std::visit(Overloaded{
+                [&](const SymbolInfo* symbol) -> void {
                     AddSymbol(location, symbol);
-                }
-            }
+                },
+                [&](SymbolListView list) -> void {
+                    for (const auto* symbol : list) {
+                        AddSymbol(location, symbol);
+                    }
+                },
+                [](std::monostate) -> void {}
+            }, symbols);
         }
 
         return contributions;
@@ -158,11 +160,9 @@ namespace glsld {
         });
 
         std::ranges::sort(contributions, ContributionLess);
-
         auto [first, last] = std::ranges::unique(contributions, [](const auto& lhs, const auto& rhs) -> bool {
             return lhs.definition == rhs.definition && lhs.reference == rhs.reference;
         });
-
         contributions.erase(first, last);
 
         std::lock_guard lock(mutex_);
@@ -181,7 +181,7 @@ namespace glsld {
         auto old_end = old_document_it->second.end();
         auto new_it  = contributions.begin();
         auto new_end = contributions.end();
-        auto changed = false;
+        bool changed = false;
 
         while (old_it != old_end && new_it != new_end) {
             if (ContributionEqual(*old_it, *new_it)) {

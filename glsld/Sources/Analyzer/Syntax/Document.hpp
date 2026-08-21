@@ -13,11 +13,12 @@
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
 #include "Analyzer/Syntax/Token.hpp"
+#include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Arena.hpp"
 
 namespace glsld {
-    using BindingMap = ankerl::unordered_dense::map<SourceLocation, SymbolReference, LocationHash>;
+    using BindingMap = ankerl::unordered_dense::map<SourceLocation, SymbolReferenceView, LocationHash>;
 
     struct MacroDefinition {
         bool               is_function{};
@@ -46,18 +47,17 @@ namespace glsld {
 
     struct Document {
     public:
-        using AstRoot = std::unique_ptr<TranslationUnitNode>;
         using Builtin = std::shared_ptr<const Document>;
 
+        Arena                    arena;
         std::vector<std::string> dependencies; // [URI]
         std::vector<Builtin>     builtins;
-        std::unique_ptr<Arena>   arena;
         DocumentSymbols          symbols;
         std::string              source;
         std::vector<Token>       raw_tokens;
         std::vector<Token>       expanded_tokens;
         InactiveRegionMap        inactive_regions;
-        AstRoot                  ast;
+        TranslationUnitNode*     ast{ nullptr };
         BindingMap               bindings;
         MacroTraceMap            macro_traces;
         MacroArgsTraceMap        macro_args_traces;
@@ -65,22 +65,25 @@ namespace glsld {
         MacroTable               macro_table;
         int                      version{};
 
-        Document() = default;
+        Document()                = default;
         Document(const Document&) = delete;
-        Document(Document&& other) noexcept;
-        ~Document() = default;
+        Document(Document&&)      = delete;
+        ~Document()               = default;
 
         Document& operator=(const Document&) = delete;
-        Document& operator=(Document&& other) noexcept;
+        Document& operator=(Document&&)      = delete;
+
+        std::string_view StoreTokenText(std::string_view text);
+        void StoreIncludeSource(IncludeSnapshot snapshot);
 
         void PrepareInjectedMacros(const SourceFile* source_file);
-        void InjectMacro(std::string_view name, MacroDefinition definition);
+        void InjectMacro(MacroDefinition definition);
         void InjectMacro(std::string_view name);
         void FinalizeInjectedMacros(const SourceFile* source_file);
 
     private:
-        StringHeteroHashMap<MacroDefinition>           pending_macros_;
-        std::vector<std::unique_ptr<PreprocessorNode>> injected_nodes_;
+        StringHeteroHashMap<MacroDefinition> pending_macros_;
+        std::vector<IncludeSnapshot>         include_snapshots_;
     };
 
     using Snapshot = std::shared_ptr<const Document>;

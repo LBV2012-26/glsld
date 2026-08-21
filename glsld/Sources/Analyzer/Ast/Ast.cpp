@@ -3,22 +3,21 @@
 
 #include <algorithm>
 #include <ranges>
-#include <span>
 
 namespace glsld {
     namespace {
         template <typename Ty>
-        std::unique_ptr<Ty> CloneNode(const std::unique_ptr<Ty>& ptr) {
+        Ty* CloneNode(const Ty* ptr) {
             if (ptr == nullptr) {
                 return nullptr;
             }
 
-            return std::unique_ptr<Ty>(static_cast<Ty*>(ptr->Clone().release()));
+            return static_cast<Ty*>(ptr->Clone());
         }
 
         template <typename Ty>
-        std::vector<std::unique_ptr<Ty>> CloneVector(std::span<const std::unique_ptr<Ty>> data) {
-            std::vector<std::unique_ptr<Ty>> cloned;
+        ArenaVector<Ty*> CloneVector(Arena& arena, std::span<Ty* const> data) {
+            ArenaVector<Ty*> cloned{ ArenaAllocator<Ty*>(arena) };
             cloned.reserve(data.size());
 
             for (const auto& item : data) {
@@ -29,12 +28,53 @@ namespace glsld {
         }
     }
 
-    AstNode::AstNode(Scope* scope)
-        : located_scope{ scope }
+    TypeSpec::TypeSpec(Arena* arena)
+        : arena{ arena }
+    {}
+
+    TypeSpec::TypeSpec(const TypeSpec& other)
+        : arena{ other.arena }
+        , specifiers{ other.specifiers }
+        , template_args{ CloneVector<ExpressionNode>(*arena, other.template_args) }
+        , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
+        , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
+        , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
+    {
+        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
+            return;
+        }
+
+        for (const auto* spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
+            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+                spirv_type = spirv_intrinsic;
+                break;
+            }
+        }
+    }
+
+    TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
+        if (this != &other) {
+            TypeSpec temp(other);
+            std::swap(*this, temp);
+        }
+
+        return *this;
+    }
+
+    bool TypeSpec::has_keyword(std::string_view name) const {
+        return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
+            return token.text == name;
+        });
+    }
+
+    AstNode::AstNode(Arena* arena, Scope* scope)
+        : arena{ arena }
+        , located_scope { scope }
     {}
 
     AstNode::AstNode(const AstNode& other)
-        : begin{ other.begin }
+        : arena{ other.arena }
+        , begin{ other.begin }
         , end{ other.end }
         , located_scope{ other.located_scope }
         , internal_scope{ other.internal_scope }
@@ -42,6 +82,7 @@ namespace glsld {
 
     AstNode& AstNode::operator=(const AstNode& other) {
         if (this != &other) {
+            arena          = other.arena;
             begin          = other.begin;
             end            = other.end;
             located_scope  = other.located_scope;
@@ -51,39 +92,12 @@ namespace glsld {
         return *this;
     }
 
-    void* AstNode::operator new(std::size_t size) {
-        return thread_local_arena->Allocate(size);
-    }
-
-    void* AstNode::operator new(std::size_t size, std::align_val_t alignment) {
-        return thread_local_arena->Allocate(size, static_cast<std::size_t>(alignment));
-    }
-
-    void AstNode::operator delete(void* ptr, std::size_t size) noexcept {
-        // Do nothing, memory will be freed when arena is reset or destroyed
-        (void)ptr;
-        (void)size;
-    }
-
-    void AstNode::operator delete(void* ptr, std::align_val_t alignment) noexcept {
-        // Do nothing, memory will be freed when arena is reset or destroyed
-        (void)ptr;
-        (void)alignment;
-    }
-
-    void AstNode::operator delete(void* ptr, std::size_t size, std::align_val_t alignment) noexcept {
-        // Do nothing, memory will be freed when arena is reset or destroyed
-        (void)ptr;
-        (void)size;
-        (void)alignment;
-    }
-
     QualifierArgumentNode::QualifierArgumentNode(const QualifierArgumentNode& other)
         : AstNode(other)
         , arg_kind{ other.arg_kind }
         , token{ other.token }
         , rhs_expr{ CloneNode(other.rhs_expr) }
-        , children{ CloneVector<QualifierArgumentNode>(other.children) }
+        , children{ CloneVector<QualifierArgumentNode>(*arena, other.children) }
     {}
 
     QualifierArgumentNode& QualifierArgumentNode::operator=(const QualifierArgumentNode& other) {
@@ -98,7 +112,7 @@ namespace glsld {
     LayoutQualifierNode::LayoutQualifierNode(const LayoutQualifierNode& other)
         : AstNode(other)
         , raw_tokens{ other.raw_tokens }
-        , params{ CloneVector<QualifierArgumentNode>(other.params) }
+        , params{ CloneVector<QualifierArgumentNode>(*arena, other.params) }
     {}
 
     LayoutQualifierNode& LayoutQualifierNode::operator=(const LayoutQualifierNode& other) {
@@ -155,15 +169,19 @@ namespace glsld {
         return *this;
     }
 
+    StatementNode::StatementNode(Arena* arena, Scope* scope)
+        : AstNode(arena, scope)
+    {}
+
     StatementNode::StatementNode(const StatementNode& other)
         : AstNode(other)
-        , attributes{ CloneVector<AttributeNode>(other.attributes) }
+        , attributes{ CloneVector<AttributeNode>(*arena, other.attributes) }
     {}
 
     StatementNode& StatementNode::operator=(const StatementNode& other) {
         if (this != &other) {
             AstNode::operator=(other);
-            attributes = CloneVector<AttributeNode>(other.attributes);
+            attributes = CloneVector<AttributeNode>(*arena, other.attributes);
         }
 
         return *this;
@@ -174,7 +192,7 @@ namespace glsld {
         , directive{ other.directive }
         , tokens{ other.tokens }
         , params{ other.params }
-        , body{ CloneVector<StatementNode>(other.body) }
+        , body{ CloneVector<StatementNode>(*arena, other.body) }
         , symbol{ other.symbol }
     {}
 
@@ -203,7 +221,7 @@ namespace glsld {
 
     CompoundStatementNode::CompoundStatementNode(const CompoundStatementNode& other)
         : StatementNode(other)
-        , children{ CloneVector<StatementNode>(other.children) }
+        , children{ CloneVector<StatementNode>(*arena, other.children) }
     {}
 
     CompoundStatementNode& CompoundStatementNode::operator=(const CompoundStatementNode& other) {
@@ -281,7 +299,7 @@ namespace glsld {
     SwitchStatementNode::SwitchStatementNode(const SwitchStatementNode& other)
         : StatementNode(other)
         , condition{ CloneNode(other.condition) }
-        , cases{ CloneVector<StatementNode>(other.cases) }
+        , cases{ CloneVector<StatementNode>(*arena, other.cases) }
     {}
 
     SwitchStatementNode& SwitchStatementNode::operator=(const SwitchStatementNode& other) {
@@ -296,7 +314,7 @@ namespace glsld {
     CaseStatementNode::CaseStatementNode(const CaseStatementNode& other)
         : StatementNode(other)
         , condition{ CloneNode(other.condition) }
-        , body{ CloneVector<StatementNode>(other.body) }
+        , body{ CloneVector<StatementNode>(*arena, other.body) }
     {}
 
     CaseStatementNode& CaseStatementNode::operator=(const CaseStatementNode& other) {
@@ -386,12 +404,27 @@ namespace glsld {
 
     InitializerListExpressionNode::InitializerListExpressionNode(const InitializerListExpressionNode& other)
         : ExpressionNode(other)
-        , elements{ CloneVector<ExpressionNode>(other.elements) }
+        , elements{ CloneVector<ExpressionNode>(*arena, other.elements) }
     {}
 
     InitializerListExpressionNode& InitializerListExpressionNode::operator=(const InitializerListExpressionNode& other) {
         if (this != &other) {
             InitializerListExpressionNode temp(other);
+            std::swap(*this, temp);
+        }
+
+        return *this;
+    }
+
+    CastExpressionNode::CastExpressionNode(const CastExpressionNode& other)
+        : ExpressionNode(other)
+        , target_type{ other.target_type }
+        , operand{ CloneNode(other.operand) }
+    {}
+
+    CastExpressionNode& CastExpressionNode::operator=(const CastExpressionNode & other) {
+        if (this != &other) {
+            CastExpressionNode temp(other);
             std::swap(*this, temp);
         }
 
@@ -449,7 +482,7 @@ namespace glsld {
     CallExpressionNode::CallExpressionNode(const CallExpressionNode& other)
         : ExpressionNode(other)
         , callee{ CloneNode(other.callee) }
-        , args{ CloneVector<ExpressionNode>(other.args) }
+        , args{ CloneVector<ExpressionNode>(*arena, other.args) }
     {}
 
     CallExpressionNode& CallExpressionNode::operator=(const CallExpressionNode& other) {
@@ -522,40 +555,6 @@ namespace glsld {
         return *this;
     }
 
-    TypeSpec::TypeSpec(const TypeSpec& other)
-        : specifiers{ other.specifiers }
-        , template_args{ CloneVector<ExpressionNode>(other.template_args) }
-        , array_sizes{ CloneVector<ExpressionNode>(other.array_sizes) }
-        , layouts{ CloneVector<LayoutQualifierNode>(other.layouts) }
-        , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(other.spirv_intrinsics) }
-    {
-        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
-            return;
-        }
-
-        for (const auto& spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
-            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
-                spirv_type = spirv_intrinsic.get();
-                break;
-            }
-        }
-    }
-
-    TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
-        if (this != &other) {
-            TypeSpec temp(other);
-            std::swap(*this, temp);
-        }
-
-        return *this;
-    }
-
-    bool TypeSpec::has_keyword(std::string_view name) const {
-        return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
-            return token.text == name;
-        });
-    }
-
     VariableDeclarationNode::VariableDeclarationNode(const VariableDeclarationNode& other)
         : DeclarationNode(other)
         , init{ CloneNode(other.init) }
@@ -574,7 +573,7 @@ namespace glsld {
 
     DeclarationGroupNode::DeclarationGroupNode(const DeclarationGroupNode& other)
         : StatementNode(other)
-        , declarations{ CloneVector<VariableDeclarationNode>(other.declarations) }
+        , declarations{ CloneVector<VariableDeclarationNode>(*arena, other.declarations) }
     {}
 
     DeclarationGroupNode& DeclarationGroupNode::operator=(const DeclarationGroupNode& other) {
@@ -588,7 +587,7 @@ namespace glsld {
 
     FunctionDeclarationNode::FunctionDeclarationNode(const FunctionDeclarationNode& other)
         : DeclarationNode(other)
-        , params{ CloneVector<VariableDeclarationNode>(other.params) }
+        , params{ CloneVector<VariableDeclarationNode>(*arena, other.params) }
         , body{ CloneNode(other.body) }
         , type_spec{ other.type_spec }
     {}
@@ -635,8 +634,8 @@ namespace glsld {
 
     TranslationUnitNode::TranslationUnitNode(const TranslationUnitNode& other)
         : AstNode(other)
-        , statements{ CloneVector<StatementNode>(other.statements) }
-        , preprocessor_references{ other.preprocessor_references }
+        , statements{ CloneVector<StatementNode>(*arena, other.statements) }
+        , pprefs{ other.pprefs }
     {}
 
     TranslationUnitNode& TranslationUnitNode::operator=(const TranslationUnitNode& other) {

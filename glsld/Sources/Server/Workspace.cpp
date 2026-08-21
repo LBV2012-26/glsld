@@ -13,6 +13,7 @@
 #include "Analyzer/Passes/MacroBinder.hpp"
 #include "Analyzer/Passes/SymbolLinker.hpp"
 #include "Analyzer/Passes/TypeResolver.hpp"
+#include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/Arena.hpp"
@@ -27,14 +28,14 @@ namespace glsld {
         VersionPointer version_pointer)
     {
         auto document = std::make_shared<Document>();
-        document->source  = std::string(source);
+        document->source  = source;
         document->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
 
-        auto process_start = std::chrono::high_resolution_clock::now();;
-        ProcessSource(source_file, source, version_replica, version_pointer, *document);
-        auto process_end = std::chrono::high_resolution_clock::now();
+        const auto process_start = std::chrono::high_resolution_clock::now();;
+        ProcessSource(*document, source_file, document->source, version_replica, version_pointer);
+        const auto process_end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Processed document {} in {} ms (replica: {}, current: {})",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(process_end - process_start).count(),
@@ -46,7 +47,7 @@ namespace glsld {
 
         UpdateDependencies(uri, document);
 
-        auto index_update_start = std::chrono::high_resolution_clock::now();
+        const auto index_update_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(index_mutex_);
 
@@ -54,17 +55,17 @@ namespace glsld {
             type_member_index_.RemoveDocument(uri);
             type_member_index_.IndexDocument(uri, document->symbols);
         }
-        auto index_update_end = std::chrono::high_resolution_clock::now();
+        const auto index_update_end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Indexed document (with lock) {} in {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(index_update_end - index_update_start).count());
 
-        auto reconcile_start = std::chrono::high_resolution_clock::now();
+        const auto reconcile_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(document_mutex_);
             documents_.insert_or_assign(uri, std::move(document));
         }
-        auto reconcile_end = std::chrono::high_resolution_clock::now();
+        const auto reconcile_end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Reconciled document (with lock) {} in {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(reconcile_end - reconcile_start).count());
@@ -117,8 +118,8 @@ namespace glsld {
             return;
         }
 
-        auto filename       = utils::UriToPath(uri);
-        auto normalized_uri = utils::PathToUri(filename);
+        const auto filename       = Utils::UriToPath(uri);
+        const auto normalized_uri = Utils::PathToUri(filename);
 
         {
             std::lock_guard lock(variant_mutex_);
@@ -154,8 +155,8 @@ namespace glsld {
             return;
         }
 
-        auto filename       = utils::UriToPath(uri);
-        auto normalized_uri = utils::PathToUri(filename);
+        const auto filename       = Utils::UriToPath(uri);
+        const auto normalized_uri = Utils::PathToUri(filename);
 
         {
             std::lock_guard lock(variant_mutex_);
@@ -229,8 +230,8 @@ namespace glsld {
     }
 
     void Workspace::ScheduleDiskIndex(const std::filesystem::path& filename) {
-        auto normalized = utils::NormalizePath(filename);
-        auto uri        = utils::PathToUri(normalized);
+        auto normalized = Utils::NormalizePath(filename);
+        auto uri        = Utils::PathToUri(normalized);
 
         {
             std::lock_guard lock(background_index_mutex_);
@@ -253,11 +254,11 @@ namespace glsld {
     }
 
     void Workspace::ProcessSource(
+        Document& document,
         const SourceFile* source_file,
         std::string_view source,
         int version_replica,
-        VersionPointer version_pointer,
-        Document& document)
+        VersionPointer version_pointer)
     {
         Lexer lexer(source_file, source, include_loader_, include_dirs_);
         auto raw_tokens = lexer.Tokenize(version_replica, version_pointer);
@@ -282,23 +283,19 @@ namespace glsld {
             std::shared_lock lock(variant_mutex_);
             auto variant_it = active_variants_.find(source_file->uri());
             if (variant_it != active_variants_.end()) {
-                for (const auto& [name, macro] : variant_it->second.macros) {
-                    document.InjectMacro(name, macro);
+                for (const auto& macro : variant_it->second.macros) {
+                    InjectVariantMacro(document, source_file, macro);
                 }
             }
 
             if (shared_variant_.has_value()) {
-                for (const auto& [name, macro] : shared_variant_->macros) {
-                    document.InjectMacro(name, macro);
+                for (const auto& macro : shared_variant_->macros) {
+                    InjectVariantMacro(document, source_file, macro);
                 }
             }
         }
 
-        document.arena = std::make_unique<Arena>();
-        thread_local_arena = document.arena.get();
-        thread_local_arena->Reset();
-
-        Parser parser(source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer, document);
+        Parser parser(document, source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
                 GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",
@@ -328,6 +325,33 @@ namespace glsld {
 
         if (Cancelled()) return;
         MacroBinder binder(document, version_replica, version_pointer);
+    }
+
+    void Workspace::InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro) {
+        auto name        = document.StoreTokenText(macro.name);
+        auto replacement = document.StoreTokenText(macro.replacement);
+
+        Lexer lexer(source_file, replacement, include_loader_, include_dirs_);
+        auto tokens = lexer.Tokenize();
+
+        if (!tokens.empty() && tokens.back().type == TokenType::kEndOfFile) {
+            tokens.pop_back();
+        }
+
+        const SourceLocation location(source_file, 0, 0);
+        for (auto& token : tokens) {
+            token.location = location;
+        }
+
+        document.InjectMacro(MacroDefinition{
+            .is_function = false,
+            .original_token = Token{
+                .text     = name,
+                .location = location,
+                .type     = TokenType::kIdentifier
+            },
+            .replacement_list = std::move(tokens)
+        });
     }
 
     void Workspace::UnregisterDependencies(std::string_view uri) {
@@ -396,7 +420,7 @@ namespace glsld {
                     index_task_queue_.pop();
                     queued_disk_uris_.erase(index_task.uri);
 
-                    auto revision = index_revisions_[index_task.uri];
+                    const auto revision = index_revisions_[index_task.uri];
                     futures.push_back(background_index_pool_.Submit([this, index_task = std::move(index_task), revision]() mutable -> void {
                         try {
                             ProcessDiskIndexTask(index_task.uri, index_task.filename, revision);
@@ -419,8 +443,7 @@ namespace glsld {
                 break;
             }
 
-            auto now = std::chrono::steady_clock::now();
-
+            const auto now = std::chrono::steady_clock::now();
             if (now >= next_reconcile) {
                 ReconcileWorkspace();
                 next_reconcile = now + 5s;
@@ -484,13 +507,13 @@ namespace glsld {
     }
 
     void Workspace::ReconcileWorkspace() {
-        auto candidates = DiscoverIndexCandidates();
+        const auto candidates = DiscoverIndexCandidates();
 
         StringHeteroHashSet candidate_uris;
         candidate_uris.reserve(candidates.size());
 
         for (const auto& filename : candidates) {
-            auto uri = utils::PathToUri(filename);
+            const auto uri = Utils::PathToUri(filename);
             candidate_uris.emplace(uri);
 
             bool need_index = true;
@@ -561,7 +584,7 @@ namespace glsld {
 
         const auto* source_file = source_table_.InternByUri(uri);
 
-        ProcessSource(source_file, document->source, 0, nullptr, *document);
+        ProcessSource(*document, source_file, document->source, 0, nullptr);
         if (document->ast == nullptr) {
             return;
         }
@@ -679,7 +702,7 @@ namespace glsld {
                         it.disable_recursion_pending();
                     }
                 } else if (entry.is_regular_file(ec) && IsIndexCandidate(entry.path())) {
-                    result.push_back(utils::NormalizePath(entry.path()));
+                    result.push_back(Utils::NormalizePath(entry.path()));
                 }
 
                 ec.clear();
@@ -692,24 +715,11 @@ namespace glsld {
 
     bool Workspace::IsIndexCandidate(const std::filesystem::path& filename) const {
         static constexpr std::array<std::string_view, 16> kExtensions{
-            ".glsl",
-            ".vert",
-            ".frag",
-            ".geom",
-            ".comp",
-            ".tesc",
-            ".tese",
-            ".mesh",
-            ".task",
-            ".rgen",
-            ".rchit",
-            ".rahit",
-            ".rmiss",
-            ".rint",
-            ".rcall"
+            ".glsl", ".vert", ".frag", ".geom", ".comp", ".tesc", ".tese", ".mesh",
+            ".task", ".rgen", ".rchit", ".rahit", ".rmiss", ".rint", ".rcall"
         };
 
-        auto extension = filename.extension().generic_string();
+        const auto extension = filename.extension().generic_string();
         return std::ranges::contains(kExtensions, extension);
     }
 }

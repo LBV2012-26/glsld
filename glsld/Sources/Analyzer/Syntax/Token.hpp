@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <string_view>
 #include "Base/FileSystem/Source.hpp"
 
 namespace glsld {
@@ -90,8 +90,8 @@ namespace glsld {
     };
 
     struct Token {
-        std::string    text{ "unknown" };
-        SourceLocation location;
-        TokenType      type{ TokenType::kUnknown };
+        std::string_view text{ "unknown" };
+        SourceLocation   location;
+        TokenType        type{ TokenType::kUnknown };
     };
 }

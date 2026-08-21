@@ -17,7 +17,7 @@ namespace glsld {
     }
 
     void Router::RegisterRequest(std::string_view method, RequestHandler handler) {
-        HandlerFunc adapter = [handler](Context& context) -> void {
+        auto Adapter = [handler](Context& context) -> void {
             try {
                 nlohmann::json response = handler(context);
                 context.response = std::move(response);
@@ -26,11 +26,11 @@ namespace glsld {
             }
         };
 
-        request_routes_[std::string(method)] = std::move(adapter);
+        request_routes_[method] = std::move(Adapter);
     }
 
     void Router::RegisterNotification(std::string_view method, NotificationHandler handler) {
-        HandlerFunc adapter = [handler](Context& context) -> void {
+        auto Adapter = [handler](Context& context) -> void {
             try {
                 handler(context);
             } catch (const std::exception& e) {
@@ -38,7 +38,7 @@ namespace glsld {
             }
         };
 
-        notification_routes_[std::string(method)] = std::move(adapter);
+        notification_routes_[method] = std::move(Adapter);
     }
 
     void Router::Dispatch(Context& context, bool is_request) {

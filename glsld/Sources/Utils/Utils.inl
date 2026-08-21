@@ -2,15 +2,15 @@
 
 #include <format>
 
-namespace glsld::utils {
-    inline std::string BuildQualifierParameterList(const IsQualifierArgument auto* node) {
+namespace glsld::Utils {
+    std::string BuildQualifierParameterList(const IsQualifierArgument auto* node) {
         if (node == nullptr) {
             return {};
         }
 
         std::string params;
         for (auto i = 0uz; i != node->params.size(); ++i) {
-            params += SerializeQualifierArguments(node->params[i].get());
+            params += SerializeQualifierArguments(node->params[i]);
             if (i + 1 != node->params.size()) {
                 params += ", ";
             }
@@ -20,7 +20,11 @@ namespace glsld::utils {
     }
 
     template <typename Ty>
-    std::optional<std::vector<Ty>> CollectArgumentArray(const QualifierArgumentNode* rhs, QualifierArgumentKind required_kind, auto&& pred) {
+    std::optional<std::vector<Ty>> CollectArgumentArray(
+        const QualifierArgumentNode* rhs,
+        QualifierArgumentKind required_kind,
+        auto&& pred)
+    {
         if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kArray) {
             return std::nullopt;
         }

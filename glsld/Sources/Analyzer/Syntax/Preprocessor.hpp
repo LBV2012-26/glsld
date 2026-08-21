@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <optional>
 #include <span>
 #include <stack>
@@ -26,12 +25,12 @@ namespace glsld {
 
     class Preprocessor {
     public:
-        Preprocessor(SourceTable& source_table,
+        Preprocessor(Document& document,
+                     SourceTable& source_table,
                      const SourceFile* source_file,
                      IncludeLoader& include_loader,
                      IncludeDirectoryHandle include_dirs,
                      std::span<const Token> raw_tokens,
-                     Document& document,
                      std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();

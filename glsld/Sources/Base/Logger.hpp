@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-#include <string_view>
 #include <spdlog/spdlog.h>
 
 namespace glsld {

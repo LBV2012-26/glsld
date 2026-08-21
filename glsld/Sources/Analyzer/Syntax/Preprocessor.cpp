@@ -24,7 +24,7 @@ namespace glsld {
                     return false;
                 }
 
-                auto value = ParseConditional();
+                const auto value = ParseConditional();
                 return value != 0;
             }
 
@@ -50,13 +50,13 @@ namespace glsld {
             }
 
             std::int64_t ParseConditional() {
-                auto condition = ParseLogicalOr();
+                const auto condition = ParseLogicalOr();
                 if (!MatchAndConsume(TokenType::kQuestion)) {
                     return condition;
                 }
 
                 if (static_cast<bool>(condition)) {
-                    auto true_value = ParseConditional();
+                    const auto true_value = ParseConditional();
                     MatchAndConsume(TokenType::kColon);
 
                     {
@@ -72,7 +72,7 @@ namespace glsld {
                     }
 
                     MatchAndConsume(TokenType::kColon);
-                    auto false_value = ParseConditional();
+                    const auto false_value = ParseConditional();
                     return IsSuppressed() ? 0 : false_value;
                 }
             }
@@ -83,7 +83,7 @@ namespace glsld {
                 }
 
                 if (MatchAndConsume("defined")) {
-                    bool has_paren = MatchAndConsume(TokenType::kOpenParen);
+                    const bool has_paren = MatchAndConsume(TokenType::kOpenParen);
 
                     std::string name;
                     const auto& token = current_token();
@@ -104,7 +104,7 @@ namespace glsld {
                 }
 
                 if (MatchAndConsume(TokenType::kOpenParen)) {
-                    auto value = ParseConditional();
+                    const auto value = ParseConditional();
                     MatchAndConsume(TokenType::kCloseParen);
                     return IsSuppressed() ? 0 : value;
                 }
@@ -116,7 +116,7 @@ namespace glsld {
                         return 0;
                     }
 
-                    return utils::ParseNumberLiteralToInteger(token.text);
+                    return Utils::ParseNumberLiteralToInteger(token.text);
                 }
 
                 if (token.type == TokenType::kSpirvIntrinsic  ||
@@ -137,22 +137,22 @@ namespace glsld {
 
             std::int64_t ParseUnary() {
                 if (MatchAndConsume(TokenType::kPlus)) {
-                    auto value = ParseUnary();
+                    const auto value = ParseUnary();
                     return IsSuppressed() ? 0 : +value;
                 }
 
                 if (MatchAndConsume(TokenType::kMinus)) {
-                    auto value = ParseUnary();
+                    const auto value = ParseUnary();
                     return IsSuppressed() ? 0 : -value;
                 }
 
                 if (MatchAndConsume(TokenType::kExclamation)) {
-                    auto value = ParseUnary();
+                    const auto value = ParseUnary();
                     return IsSuppressed() ? 0 : !value;
                 }
 
                 if (MatchAndConsume(TokenType::kTilde)) {
-                    auto value = ParseUnary();
+                    const auto value = ParseUnary();
                     return IsSuppressed() ? 0 : ~value;
                 }
 
@@ -164,17 +164,17 @@ namespace glsld {
 
                 while (true) {
                     if (MatchAndConsume(TokenType::kStar)) {
-                        auto rhs = ParseUnary();
+                        const auto rhs = ParseUnary();
                         if (!IsSuppressed()) {
                             lhs = lhs * rhs;
                         }
                     } else if (MatchAndConsume(TokenType::kSlash)) {
-                        auto rhs = ParseUnary();
+                        const auto rhs = ParseUnary();
                         if (!IsSuppressed()) {
                             lhs = rhs != 0 ? lhs / rhs : 0;
                         }
                     } else if (MatchAndConsume(TokenType::kPercent)) {
-                        auto rhs = ParseUnary();
+                        const auto rhs = ParseUnary();
                         if (!IsSuppressed()) {
                             lhs = rhs != 0 ? lhs % rhs : 0;
                         }
@@ -191,12 +191,12 @@ namespace glsld {
 
                 while (true) {
                     if (MatchAndConsume(TokenType::kPlus)) {
-                        auto rhs = ParseMultiplication();
+                        const auto rhs = ParseMultiplication();
                         if (!IsSuppressed()) {
                             lhs = lhs + rhs;
                         }
                     } else if (MatchAndConsume(TokenType::kMinus)) {
-                        auto rhs = ParseMultiplication();
+                        const auto rhs = ParseMultiplication();
                         if (!IsSuppressed()) {
                             lhs = lhs - rhs;
                         }
@@ -213,12 +213,12 @@ namespace glsld {
 
                 while (true) {
                     if (MatchAndConsume(TokenType::kLeftShift)) {
-                        auto rhs = ParseAddition();
+                        const auto rhs = ParseAddition();
                         if (!IsSuppressed()) {
                             lhs = SafeLeftShift(lhs, rhs);
                         }
                     } else if (MatchAndConsume(TokenType::kRightShift)) {
-                        auto rhs = ParseAddition();
+                        const auto rhs = ParseAddition();
                         if (!IsSuppressed()) {
                             lhs = SafeRightShift(lhs, rhs);
                         }
@@ -235,22 +235,22 @@ namespace glsld {
 
                 while (true) {
                     if (MatchAndConsume(TokenType::kLessThan)) {
-                        auto rhs = ParseShift();
+                        const auto rhs = ParseShift();
                         if (!IsSuppressed()) {
                             lhs = (lhs < rhs) ? 1 : 0;
                         }
                     } else if (MatchAndConsume(TokenType::kLessEqual)) {
-                        auto rhs = ParseShift();
+                        const auto rhs = ParseShift();
                         if (!IsSuppressed()) {
                             lhs = (lhs <= rhs) ? 1 : 0;
                         }
                     } else if (MatchAndConsume(TokenType::kGreaterThan)) {
-                        auto rhs = ParseShift();
+                        const auto rhs = ParseShift();
                         if (!IsSuppressed()) {
                             lhs = (lhs > rhs) ? 1 : 0;
                         }
                     } else if (MatchAndConsume(TokenType::kGreaterEqual)) {
-                        auto rhs = ParseShift();
+                        const auto rhs = ParseShift();
                         if (!IsSuppressed()) {
                             lhs = (lhs >= rhs) ? 1 : 0;
                         }
@@ -267,12 +267,12 @@ namespace glsld {
 
                 while (true) {
                     if (MatchAndConsume(TokenType::kEqualEqual)) {
-                        auto rhs = ParseRelational();
+                        const auto rhs = ParseRelational();
                         if (!IsSuppressed()) {
                             lhs = (lhs == rhs) ? 1 : 0;
                         }
                     } else if (MatchAndConsume(TokenType::kNotEqual)) {
-                        auto rhs = ParseRelational();
+                        const auto rhs = ParseRelational();
                         if (!IsSuppressed()) {
                             lhs = (lhs != rhs) ? 1 : 0;
                         }
@@ -288,7 +288,7 @@ namespace glsld {
                 auto lhs = ParseEquality();
 
                 while (MatchAndConsume(TokenType::kAmpersand)) {
-                    auto rhs = ParseEquality();
+                    const auto rhs = ParseEquality();
                     if (!IsSuppressed()) {
                         lhs = lhs & rhs;
                     }
@@ -301,7 +301,7 @@ namespace glsld {
                 auto lhs = ParseBitwiseAnd();
 
                 while (MatchAndConsume(TokenType::kCaret)) {
-                    auto rhs = ParseBitwiseAnd();
+                    const auto rhs = ParseBitwiseAnd();
                     if (!IsSuppressed()) {
                         lhs = lhs ^ rhs;
                     }
@@ -314,7 +314,7 @@ namespace glsld {
                 auto lhs = ParseBitwiseXor();
 
                 while (MatchAndConsume(TokenType::kVerticalBar)) {
-                    auto rhs = ParseBitwiseXor();
+                    const auto rhs = ParseBitwiseXor();
                     if (!IsSuppressed()) {
                         lhs = lhs | rhs;
                     }
@@ -332,7 +332,7 @@ namespace glsld {
                         ParseBitwiseOr();
                         lhs = 0;
                     } else {
-                        auto rhs = ParseBitwiseOr();
+                        const auto rhs = ParseBitwiseOr();
                         lhs = IsSuppressed() ? 0 : static_cast<bool>(rhs);
                     }
                 }
@@ -344,11 +344,11 @@ namespace glsld {
                 auto lhs = ParseLogicalAnd();
 
                 while (MatchAndConsume(TokenType::kCaretCaret)) {
-                    auto rhs = ParseLogicalAnd();
+                    const auto rhs = ParseLogicalAnd();
 
                     if (!IsSuppressed()) {
-                        auto lhs_bool = static_cast<bool>(lhs);
-                        auto rhs_bool = static_cast<bool>(rhs);
+                        const auto lhs_bool = static_cast<bool>(lhs);
+                        const auto rhs_bool = static_cast<bool>(rhs);
                         lhs = (lhs_bool != rhs_bool) ? 1 : 0;
                     }
                 }
@@ -365,7 +365,7 @@ namespace glsld {
                         ParseLogicalXor();
                         lhs = 1;
                     } else {
-                        auto rhs = ParseLogicalXor();
+                        const auto rhs = ParseLogicalXor();
                         lhs = IsSuppressed() ? 0 : static_cast<bool>(rhs);
                     }
                 }
@@ -436,12 +436,12 @@ namespace glsld {
         };
     }
 
-    Preprocessor::Preprocessor(SourceTable& source_table,
+    Preprocessor::Preprocessor(Document& document,
+                               SourceTable& source_table,
                                const SourceFile* source_file,
                                IncludeLoader& include_loader,
                                IncludeDirectoryHandle include_dirs,
                                std::span<const Token> raw_tokens,
-                               Document& document,
                                std::vector<std::string> parent_stack)
 
         : source_table_{ source_table }
@@ -729,10 +729,10 @@ namespace glsld {
 
             auto copied = token;
             copied.location = call_site;
-            replaced.push_back(copied);
+            replaced.push_back(std::move(copied));
         }
 
-        auto pasted    = ApplyTokenPasting(replaced);
+        const auto pasted = ApplyTokenPasting(replaced);
         auto rescanned = ExpandTokenSequence(pasted, active_macros, call_site);
         for (auto& token : rescanned) {
             token.location = call_site;
@@ -879,10 +879,15 @@ namespace glsld {
     }
 
     Token Preprocessor::PasteTokens(const Token& left, const Token& right) {
-        std::string new_text = left.text + right.text;
+        std::string new_text;
+        new_text.reserve(left.text.size() + right.text.size());
+        new_text.append(left.text);
+        new_text.append(right.text);
 
         Lexer lexer(source_file_, new_text, include_loader_, include_dirs_);
         Token token = lexer.AcquireNextToken();
+
+        token.text     = document_.StoreTokenText(token.text);
         token.location = left.location;
 
         return token;
@@ -900,7 +905,7 @@ namespace glsld {
 
         const auto& directive_token = current_token();
         const auto& directive_text  = directive_token.text;
-        auto        directive_line  = directive_token.location.line();
+        const auto  directive_line  = directive_token.location.line();
         ConsumeToken();
 
         auto ProcessLineSplicing = [this](auto& body) -> void {
@@ -926,9 +931,9 @@ namespace glsld {
         if (directive_text == "if"   || directive_text == "ifdef" || directive_text == "ifndef" ||
             directive_text == "elif" || directive_text == "else"  || directive_text == "endif")
         {
-            bool was_active = IsCurrentBranchActive();
-            bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line());
-            bool now_active = IsCurrentBranchActive();
+            const bool was_active = IsCurrentBranchActive();
+            const bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line());
+            const bool now_active = IsCurrentBranchActive();
 
             if (handled) {
                 UpdateInactiveRegions(was_active, now_active, sharp_token.location.line());
@@ -1037,8 +1042,8 @@ namespace glsld {
         std::uint32_t sharp_line)
     {
         if (directive == "if") {
-            bool parent_active = IsCurrentBranchActive();
-            bool condition     = parent_active && EvaluateIfCondition(body_tokens);
+            const bool parent_active = IsCurrentBranchActive();
+            const bool condition     = parent_active && EvaluateIfCondition(body_tokens);
             condition_stack_.push({
                 .parent_active  = parent_active,
                 .branch_taken   = condition,
@@ -1051,13 +1056,13 @@ namespace glsld {
         }
 
         if (directive == "ifdef" || directive == "ifndef") {
-            bool parent_active = IsCurrentBranchActive();
-            bool macro_defined = false;
+            const bool parent_active = IsCurrentBranchActive();
+            bool       macro_defined = false;
             if (!body_tokens.empty() && body_tokens.front().type == TokenType::kIdentifier) {
                 macro_defined = document_.macro_table.contains(body_tokens.front().text);
             } // #ifdef 和 #ifndef 不看宏本身的数值，只要被定义就算
 
-            bool condition = (directive == "ifdef") ? macro_defined : !macro_defined;
+            const bool condition = (directive == "ifdef") ? macro_defined : !macro_defined;
             condition_stack_.push({
                 .parent_active  = parent_active,
                 .branch_taken   = condition,
@@ -1084,7 +1089,7 @@ namespace glsld {
                 return true;
             }
 
-            bool condition = EvaluateIfCondition(body_tokens);
+            const bool condition = EvaluateIfCondition(body_tokens);
             frame.branch_taken   = condition;
             frame.current_active = frame.parent_active && condition;
             return true;
@@ -1124,7 +1129,7 @@ namespace glsld {
         }
 
         StringHeteroHashSet active_macros;
-        auto expanded = ExpandIfExpression(expr_tokens, active_macros);
+        const auto expanded = ExpandIfExpression(expr_tokens, active_macros);
 
         if (expanded.empty()) {
             return false;
@@ -1138,9 +1143,9 @@ namespace glsld {
         std::vector<Token> normalized;
         normalized.reserve(input.size());
 
-        auto MakeNumber = [](std::string text, const SourceLocation& location) -> Token {
+        auto MakeNumber = [this](std::string_view text, const SourceLocation& location) -> Token {
             return Token{
-                .text     = std::move(text),
+                .text     = document_.StoreTokenText(text),
                 .location = location,
                 .type     = TokenType::kNumberLiteral
             };
@@ -1200,7 +1205,7 @@ namespace glsld {
         std::vector<Token> final_tokens;
         final_tokens.reserve(expanded.size());
 
-        for (auto token : expanded) {
+        for (auto& token : expanded) {
             if (IsIdentifierLike(token)) {
                 token.text = "0";
                 token.type = TokenType::kNumberLiteral;
@@ -1248,8 +1253,8 @@ namespace glsld {
 
         // 从失活进入激活：到该条件指令上一行结束
         if (open_inactive_begin_line_.has_value()) {
-            auto begin_line = *open_inactive_begin_line_;
-            auto end_line   = (directive_line > 0) ? (directive_line - 1) : 0;
+            const auto begin_line = *open_inactive_begin_line_;
+            const auto end_line   = (directive_line > 0) ? (directive_line - 1) : 0;
             AppendInactiveRegion(begin_line, end_line);
             open_inactive_begin_line_.reset();
         }
@@ -1271,23 +1276,23 @@ namespace glsld {
             call_site = body_tokens.front().location;
         }
 
-        auto expanded_body = ExpandTokenSequence(body_tokens, active_macros, call_site);
-        auto future        = include_loader_.Include(source_file_->uri(), expanded_body, include_dirs_);
-        auto snapshot      = future.get();
+        auto expanded_body    = ExpandTokenSequence(body_tokens, active_macros, call_site);
+        auto future           = include_loader_.Include(source_file_->uri(), expanded_body, include_dirs_);
+        auto include_snapshot = future.get();
 
-        if (snapshot == nullptr || !snapshot->valid()) {
+        if (include_snapshot == nullptr || !include_snapshot->valid() ||
+            std::ranges::find(include_stack_, include_snapshot->filename) != include_stack_.end())
+        {
             return {};
         }
 
-        if (std::ranges::find(include_stack_, snapshot->filename) != include_stack_.end()) {
-            return {};
-        }
+        document_.dependencies.push_back(include_snapshot->uri);
 
-        document_.dependencies.push_back(snapshot->uri);
-
-        const auto* include_file = source_table_.Intern(snapshot->filename, snapshot->uri);
-        Preprocessor subprocessor(source_table_, include_file, include_loader_, include_dirs_, snapshot->tokens, document_, include_stack_);
+        const auto* include_file = source_table_.Intern(include_snapshot->filename, include_snapshot->uri);
+        Preprocessor subprocessor(document_, source_table_, include_file, include_loader_, include_dirs_, include_snapshot->tokens, include_stack_);
         auto expanded = subprocessor.Process();
+
+        document_.StoreIncludeSource(std::move(include_snapshot));
 
         if (!expanded.empty() && expanded.back().type == TokenType::kEndOfFile) {
             expanded.pop_back();

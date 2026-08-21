@@ -12,7 +12,7 @@ namespace glsld {
     InlayHintVisitor::InlayHintVisitor(const Document& document)
         : AstVisitor(0, nullptr)
     {
-        Traverse(document.ast.get());
+        Traverse(document.ast);
     }
 
     const std::vector<InlayHint>& InlayHintVisitor::hints() const {
@@ -42,7 +42,7 @@ namespace glsld {
             return;
         }
 
-        const auto* callee_node = static_cast<const VariableExpressionNode*>(node->callee.get());
+        auto* callee_node = static_cast<const VariableExpressionNode*>(node->callee);
         if (std::holds_alternative<const SymbolInfo*>(callee_node->linked_symbols)) {
             symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols);
         }
@@ -50,10 +50,10 @@ namespace glsld {
         if (symbol != nullptr && symbol->node != nullptr &&
             symbol->node->kind() == AstNodeKind::kFunctionDeclaration)
         {
-            const auto* func_decl = static_cast<const FunctionDeclarationNode*>(symbol->node);
+            auto* func_decl = static_cast<const FunctionDeclarationNode*>(symbol->node);
 
-            auto num_params = func_decl->params.size(); // 函数原始参数
-            auto num_args   = node->args.size();        // 调用参数
+            const auto num_params = func_decl->params.size(); // 函数原始参数
+            const auto num_args   = node->args.size();        // 调用参数
 
             for (auto i = 0uz; i != std::min(num_params, num_args); ++i) {
                 const auto& param = func_decl->params[i];

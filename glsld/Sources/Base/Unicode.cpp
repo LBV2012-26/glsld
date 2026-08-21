@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-namespace glsld {
+namespace glsld::Unicode {
     Utf8CodePoint DecodeUtf8(std::string_view text) noexcept {
         if (text.empty()) {
             return {
@@ -12,7 +12,7 @@ namespace glsld {
             };
         }
 
-        auto first = static_cast<unsigned char>(text.front());
+        const auto first = static_cast<unsigned char>(text.front());
         if (first <= 0x7F) {
             return {
                 .value       = static_cast<char32_t>(first),
@@ -47,7 +47,7 @@ namespace glsld {
         }
 
         for (auto i = 1uz; i != byte_count; ++i) {
-            auto byte = static_cast<unsigned char>(text[i]);
+            const auto byte = static_cast<unsigned char>(text[i]);
             if (!IsContinuationByte(byte)) {
                 return {};
             }
@@ -70,7 +70,7 @@ namespace glsld {
     bool IsValidUtf8(std::string_view text) noexcept {
         auto offset = 0uz;
         while (offset < text.size()) {
-            auto point = DecodeUtf8(text.substr(offset));
+            const auto point = DecodeUtf8(text.substr(offset));
             if (!point.valid) {
                 return false;
             }
@@ -86,7 +86,7 @@ namespace glsld {
         auto length = 0uz;
 
         while (offset < text.size()) {
-            auto point = DecodeUtf8(text.substr(offset));
+            const auto point = DecodeUtf8(text.substr(offset));
             offset += point.byte_count;
             length += point.utf16_units;
         }
@@ -99,7 +99,7 @@ namespace glsld {
         auto current_utf16_offset = 0uz;
 
         while (byte_offset < text.size()) {
-            auto point = DecodeUtf8(text.substr(byte_offset));
+            const auto point = DecodeUtf8(text.substr(byte_offset));
             if (current_utf16_offset + point.utf16_units > utf16_offset) {
                 break;
             }
@@ -125,7 +125,7 @@ namespace glsld {
         bool changed      = false;
 
         while (input_offset < text.size()) {
-            auto point = DecodeUtf8(text.substr(input_offset));
+            const auto point = DecodeUtf8(text.substr(input_offset));
             input_offset += point.byte_count;
             output_size  += point.valid ? point.byte_count : 3;
             changed |= !point.valid;
@@ -141,7 +141,7 @@ namespace glsld {
             auto dst_offset = 0uz;
 
             while (src_offset < text.size()) {
-                auto point = DecodeUtf8(text.substr(src_offset));
+                const auto point = DecodeUtf8(text.substr(src_offset));
                 if (point.valid) {
                     std::ranges::copy(text.substr(src_offset, point.byte_count), buffer + dst_offset);
                     dst_offset += point.byte_count;
@@ -173,13 +173,13 @@ namespace glsld {
     }
 
     std::uint32_t PositionMapper::ToByteColumn(std::uint32_t zero_based_line, std::uint32_t utf16_character) const {
-        auto line = GetLine(zero_based_line);
+        const auto line = GetLine(zero_based_line);
         return static_cast<std::uint32_t>(Utf16OffsetToByteOffset(line, utf16_character) + 1);
     }
 
     std::uint32_t PositionMapper::ToUtf16Character(std::uint32_t one_based_line, std::uint32_t one_based_byte_column) const {
-        auto line = GetLine(one_based_line - 1);
-        auto byte_offset = std::min(one_based_byte_column - 1, static_cast<std::uint32_t>(line.length()));
+        const auto line = GetLine(one_based_line - 1);
+        const auto byte_offset = std::min(one_based_byte_column - 1, static_cast<std::uint32_t>(line.length()));
         return static_cast<std::uint32_t>(Utf16Length(line.substr(0, byte_offset)));
     }
 
@@ -188,12 +188,12 @@ namespace glsld {
             return {};
         }
 
-        auto begin = line_starts_[zero_based_line];
-        auto end   = zero_based_line + 1 < line_starts_.size()
-                   ? line_starts_[zero_based_line + 1] - 1
-                   : source_.length();
-        auto line  = source_.substr(begin, end - begin);
+        const auto begin = line_starts_[zero_based_line];
+        const auto end   = static_cast<std::size_t>(zero_based_line) + 1 < line_starts_.size()
+                         ? line_starts_[static_cast<std::size_t>(zero_based_line) + 1] - 1
+                         : source_.length();
 
+        auto line = source_.substr(begin, end - begin);
         if (!line.empty() && line.back() == '\r') {
             line.remove_suffix(1);
         }

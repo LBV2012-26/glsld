@@ -2,8 +2,11 @@
 #pragma shader_stage(compute)
 
 #extension GL_EXT_shader_explicit_arithmetic_types : require
+#extension GL_EXT_buffer_reference                 : require
+#extension GL_EXT_buffer_reference_uvec2           : require
 #extension GL_KHR_cooperative_matrix               : require
 #extension GL_KHR_memory_scope_semantics           : require
+#extension GL_NV_explicit_typecast                 : require
 
 void OverloadFunction(int16_t Int16, int32_t Int32, int64_t Int64, float32_t Float32) {}
 void OverloadFunction(uint16_t UInt16, uint32_t UInt32, uint64_t UInt64, float16_t Float16) {}
@@ -22,6 +25,10 @@ void OverloadFunction(dvec4 double4) {}
 void OverloadFunction(ivec2 int2) {}
 void OverloadFunction(ivec3 int3) {}
 void OverloadFunction(ivec4 int4) {}
+
+void OverloadFunction(bvec2 bool2) {}
+void OverloadFunction(bvec3 bool3) {}
+void OverloadFunction(bvec4 bool4) {}
 
 void OverloadFunction(mat2x2 float2x2) {}
 void OverloadFunction(mat2x3 float2x3) {}
@@ -153,6 +160,10 @@ void OverloadFunction(MiddleData MiddleData) {}
 void OverloadFunction(OuterData OuterData) {}
 
 layout(buffer_reference, scalar) buffer _Buffer {
+    uint data[];
+};
+
+layout(buffer_reference, scalar) buffer _OtherBuffer {
     uint data[];
 };
 
@@ -532,6 +543,96 @@ void main() {
     ivec3 ivec3Array1D_2[2] = ivec3[](ivec3(1, 2, 3), ivec3(4, 5, 6));
     mat3  mat3Array1D_2[2]  = mat3[](mat3(1.0f), mat3(2.0f));
     mat4  mat4Array1D_2[2]  = mat4[](mat4(1.0f), mat4(2.0f));
+
+    // GL_NV_explicit_typecast: scalar -> scalar
+    OverloadFunction((bool)Scalar1);
+    OverloadFunction((int)Scalar1);
+    OverloadFunction((uint)Scalar3);
+    OverloadFunction((float)Scalar2);
+    OverloadFunction((double)Scalar3);
+    OverloadFunction((int8_t)Scalar2);
+    OverloadFunction((uint16_t)Scalar1);
+    OverloadFunction((float64_t)Scalar3);
+
+    // GL_NV_explicit_typecast: scalar -> vector
+    OverloadFunction((vec2)Scalar1);
+    OverloadFunction((vec3)Scalar2);
+    OverloadFunction((vec4)Scalar3);
+    OverloadFunction((dvec4)Scalar1);
+    OverloadFunction((ivec3)Scalar2);
+    OverloadFunction((uvec2)Scalar3);
+    OverloadFunction((bvec4)Scalar1);
+
+    // GL_NV_explicit_typecast: scalar -> square/non-square matrix
+    OverloadFunction((mat2)Scalar1);
+    OverloadFunction((mat3)Scalar2);
+    OverloadFunction((mat4)Scalar3);
+    OverloadFunction((mat2x3)Scalar1);
+    OverloadFunction((mat3x4)Scalar2);
+    OverloadFunction((mat4x2)Scalar3);
+
+    // GL_NV_explicit_typecast: vector -> vector, component count may shrink
+    OverloadFunction((vec2)float2);
+    OverloadFunction((vec2)float3);
+    OverloadFunction((vec2)float4);
+    OverloadFunction((vec3)float3);
+    OverloadFunction((vec3)float4);
+    OverloadFunction((ivec2)float4);
+    OverloadFunction((dvec3)int4);
+    OverloadFunction((bvec2)double4);
+
+    // GL_NV_explicit_typecast: vec4 -> mat2 is the only vector -> matrix case
+    OverloadFunction((mat2)float4);
+    OverloadFunction((mat2)int4);
+    OverloadFunction((mat2)double4);
+
+    // GL_NV_explicit_typecast: matrix -> any matrix
+    OverloadFunction((mat2)float4x4);
+    OverloadFunction((mat3)float2x2);
+    OverloadFunction((mat4)float3x3);
+    OverloadFunction((mat2x3)float4x2);
+    OverloadFunction((mat3x4)float2x3);
+    OverloadFunction((mat4x2)float3x4);
+
+    // Nested casts, right associativity and operator precedence
+    OverloadFunction((int)(float)(double)Scalar1);
+    OverloadFunction((vec2)(vec3)(vec4)Scalar1);
+    OverloadFunction((int)-Scalar1);
+    OverloadFunction((int)+Scalar1);
+    OverloadFunction(-(int)Scalar1);
+    OverloadFunction(+(int)Scalar1);
+    OverloadFunction((int)Scalar1 * Scalar3);
+    OverloadFunction((int)(Scalar1 * Scalar2));
+    OverloadFunction((float)float4.x);
+    OverloadFunction((vec2)GetVec4().xy);
+    OverloadFunction(((vec4)Scalar1).xyz);
+    OverloadFunction(((mat2)float4)[0]);
+
+    // The cast has exactly one operand. These commas form a sequence expression;
+    // the final scalar value is cast to the target vector/matrix.
+    OverloadFunction((vec3)(1.0f, 2.0f, 3.0f));
+    OverloadFunction((mat2)(Scalar1, Scalar2, Scalar3));
+
+    // Buffer reference conversions from GL_EXT_buffer_reference(_uvec2)
+    _Buffer      BufferFromUInt64 = (_Buffer)UInt64;
+    _Buffer      BufferFromUVec2  = (_Buffer)uvec2(0u, 0u);
+    uint64_t     UInt64FromBuffer = (uint64_t)BufferFromUInt64;
+    uvec2        UVec2FromBuffer  = (uvec2)BufferFromUInt64;
+    _OtherBuffer OtherFromBuffer  = (_OtherBuffer)BufferFromUInt64;
+
+    // Invalid casts required by the negative side of the extension rules.
+    // TypeResolver should leave these expressions as unknown/error types.
+    vec4 InvalidVectorGrowth   = (vec4)float2;          // vector component count increases
+    int  InvalidVectorScalar   = (int)float4;           // vector -> scalar
+    mat2 InvalidVec3Matrix     = (mat2)float3;          // only four-component vector -> mat2
+    vec4 InvalidMatrixVector   = (vec4)float4x4;        // matrix -> vector
+    float InvalidMatrixScalar  = (float)float2x2;       // matrix -> scalar
+    int  InvalidArrayScalar    = (int)uintArray1D;      // array casts are unsupported
+
+    InnerData InnerValue;
+    OuterData OuterValue;
+    InnerData InvalidStructSource = (InnerData)OuterValue;
+    InnerData InvalidStructTarget = (InnerData)Scalar3;
 
     // also test overloads that accept whole arrays
     OverloadFunction(vec2Array1D_3);

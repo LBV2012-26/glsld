@@ -2,7 +2,6 @@
 #include "IncludeLoader.hpp"
 
 #include <exception>
-#include <ios>
 #include <mutex>
 #include <system_error>
 #include <utility>
@@ -16,7 +15,7 @@ namespace glsld {
         , thread_pool_{ thread_pool }
     {}
 
-    IncludeLoader::SnapshotFuture IncludeLoader::Include(
+    IncludeSnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::string_view include_expr,
         IncludeDirectoryHandle include_dirs)
@@ -24,14 +23,14 @@ namespace glsld {
         return Include(includer_uri, include_expr, include_dirs, std::nullopt);
     }
 
-    IncludeLoader::SnapshotFuture IncludeLoader::Include(
+    IncludeSnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::span<const Token> body_tokens,
         IncludeDirectoryHandle include_dirs)
     {
         auto target = ParseIncludeFromTokens(body_tokens);
         if (!target.has_value()) {
-            auto failed = std::make_shared<IncludeFileSnapshot>();
+            auto failed = std::make_shared<IncludeData>();
             failed->error = "Invalid #include syntax";
             return MakeReadyFuture(std::move(failed));
         }
@@ -59,29 +58,29 @@ namespace glsld {
         inflight_.clear();
     }
 
-    IncludeLoader::SnapshotFuture IncludeLoader::Include(
+    IncludeSnapshotFuture IncludeLoader::Include(
         std::string_view includer_uri,
         std::string_view include_expr,
         IncludeDirectoryHandle include_dirs,
         std::optional<IncludeTarget> parsed_target)
     {
-        auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
+        const auto target = parsed_target.has_value() ? std::move(parsed_target) : ParseIncludeExpr(include_expr);
         if (!target.has_value()) {
-            auto failed = std::make_shared<IncludeFileSnapshot>();
+            auto failed = std::make_shared<IncludeData>();
             failed->error = "Invalid include expression";
             return MakeReadyFuture(std::move(failed));
         }
 
-        auto includer_path = utils::UriToPath(includer_uri);
-        auto resolved_path = ResolveIncludePath(includer_path, *target, include_dirs);
+        const auto includer_path = Utils::UriToPath(includer_uri);
+        const auto resolved_path = ResolveIncludePath(includer_path, *target, include_dirs);
         if (!resolved_path.has_value()) {
-            auto failed = std::make_shared<IncludeFileSnapshot>();
+            auto failed = std::make_shared<IncludeData>();
             failed->error = "Failed to resolve include path";
             return MakeReadyFuture(std::move(failed));
         }
 
-        auto normalized = utils::NormalizePath(*resolved_path);
-        auto filename   = normalized.generic_string();
+        const auto normalized = Utils::NormalizePath(*resolved_path);
+        const auto filename   = normalized.generic_string();
 
         {
             std::shared_lock lock(mutex_);
@@ -121,8 +120,8 @@ namespace glsld {
             }
         }
 
-        auto task = [this, normalized, filename, include_dirs = std::move(include_dirs)]()
-            -> Snapshot
+        auto Task = [this, normalized, filename, include_dirs = std::move(include_dirs)]()
+            -> IncludeSnapshot
         {
             auto loaded = LoadIncludeFile(normalized, include_dirs);
             {
@@ -137,19 +136,20 @@ namespace glsld {
             return loaded;
         };
 
-        SnapshotFuture future;
+        IncludeSnapshotFuture future;
         if (thread_pool_.max_thread_count() == 0) {
-            future = MakeReadyFuture(task());
+            future = MakeReadyFuture(Task());
         } else {
-            future = thread_pool_.Submit(std::move(task)).share();
+            future = thread_pool_.Submit(std::move(Task)).share();
         }
 
         inflight_[filename] = future;
         return future;
     }
 
-    std::optional<IncludeLoader::IncludeTarget>
-    IncludeLoader::ParseIncludeExpr(std::string_view include_expr) const {
+    std::optional<IncludeLoader::IncludeTarget> IncludeLoader::ParseIncludeExpr(
+        std::string_view include_expr) const
+    {
         if (include_expr.length() < 3) {
             return std::nullopt;
         }
@@ -169,8 +169,9 @@ namespace glsld {
         }
     }
 
-    std::optional<IncludeLoader::IncludeTarget>
-    IncludeLoader::ParseIncludeFromTokens(std::span<const Token> body_tokens) const {
+    std::optional<IncludeLoader::IncludeTarget> IncludeLoader::ParseIncludeFromTokens(
+        std::span<const Token> body_tokens) const
+    {
         if (body_tokens.empty()) {
             return std::nullopt;
         }
@@ -199,7 +200,7 @@ namespace glsld {
         }
 
         for (const auto& candidate : candidates) {
-            auto normalized = utils::NormalizePath(candidate);
+            auto normalized = Utils::NormalizePath(candidate);
             std::error_code ec;
             if (std::filesystem::exists(normalized, ec) && !ec) {
                 return normalized;
@@ -209,13 +210,13 @@ namespace glsld {
         return std::nullopt;
     }
 
-    IncludeLoader::Snapshot IncludeLoader::LoadIncludeFile(
+    IncludeSnapshot IncludeLoader::LoadIncludeFile(
         const std::filesystem::path& normalized_path,
         IncludeDirectoryHandle include_dirs)
     {
-        auto snapshot = std::make_shared<IncludeFileSnapshot>();
+        auto snapshot      = std::make_shared<IncludeData>();
         snapshot->filename = normalized_path.generic_string();
-        snapshot->uri      = utils::PathToUri(normalized_path);
+        snapshot->uri      = Utils::PathToUri(normalized_path);
 
         std::error_code ec;
         snapshot->write_time = std::filesystem::last_write_time(normalized_path, ec);
@@ -246,8 +247,8 @@ namespace glsld {
         return snapshot;
     }
 
-    IncludeLoader::SnapshotFuture IncludeLoader::MakeReadyFuture(Snapshot snapshot) const {
-        std::promise<Snapshot> promise;
+    IncludeSnapshotFuture IncludeLoader::MakeReadyFuture(IncludeSnapshot snapshot) const {
+        std::promise<IncludeSnapshot> promise;
         promise.set_value(std::move(snapshot));
         return promise.get_future().share();
     }

@@ -3,17 +3,13 @@
 
 #include <algorithm>
 #include <charconv>
-#include <expected>
 #include <format>
-#include <limits>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
-
-#include <ankerl/unordered_dense.h>
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
@@ -80,74 +76,15 @@ namespace glsld {
             return inserted_it->second;
         }
 
-        void SeparateType(TypeInfo& type_info, bool keep_vector) {
-            if (keep_vector) {
-                std::string prefix = GetTypeBitsPrefix(type_info.type_desc);
-                type_info.typename_token.text    = std::format("{}vec{}", prefix, type_info.type_desc.vector_length);
-                type_info.type_desc.vector_count = 1;
-            } else {
-                type_info.typename_token.text     = GetScalarTypename(type_info.type_desc);
-                type_info.type_desc.vector_count  = 1;
-                type_info.type_desc.vector_length = 1;
-            }
-        }
-
-        TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc) {
-            static thread_local ankerl::unordered_dense::map<TypeDescriptor, TypeInfo, TypeDescriptorHash> cache;
-            auto it = cache.find(type_desc);
-            if (it != cache.end()) {
-                return it->second;
-            }
-
-            if (type_desc.family == BaseFamily::kUnknown) {
-                return {
-                    .typename_token{
-                        .text = "unknown",
-                        .type = TokenType::kUnknown
-                    },
-                    .type_desc = type_desc
-                };
-            }
-
-            auto arithmetic_structure = type_desc.arithmetic_structure();
-            using enum TypeDescriptor::ArithmeticStructure;
-
-            TypeInfo type_info;
-            type_info.typename_token.type = TokenType::kBuiltInType;
-
-            if (arithmetic_structure == kScalar) {
-                type_info.typename_token.text = GetScalarTypename(type_desc);
-            } else {
-                std::string prefix = GetTypeBitsPrefix(type_desc);
-                if (arithmetic_structure == kVector) {
-                    type_info.typename_token.text = std::format("{}vec{}", prefix, type_desc.vector_length);
-                } else {
-                    type_info.typename_token.text = std::format("{}mat{}x{}", prefix, type_desc.vector_count, type_desc.vector_length);
-                }
-            }
-
-            type_info.type_desc = type_desc;
-
-            auto [inserted_it, _] = cache.try_emplace(type_desc, std::move(type_info));
-            return inserted_it->second;
-        }
-
         MatchGrade TryImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
-            if (from.typename_token.text == "" || to.typename_token.text == "") {
+            if (from.typename_token.text == "" || to.typename_token.text == "")
                 return MatchGrade::kFailed;
-            }
-
-            if (from.typename_token.type == TokenType::kUnknown || to.typename_token.type == TokenType::kUnknown) {
+            if (from.typename_token.type == TokenType::kUnknown || to.typename_token.type == TokenType::kUnknown)
                 return MatchGrade::kWildcard;
-            }
-
-            if (from == to) {
+            if (from == to)
                 throw std::logic_error("This path should not be reached since exact matches are handled separately.");
-            }
-
-            if (from.is_array() || to.is_array()) {
+            if (from.is_array() || to.is_array())
                 return MatchGrade::kFailed;
-            }
 
             const auto& from_desc = from.type_desc;
             const auto& to_desc   = to.type_desc;
@@ -223,7 +160,7 @@ namespace glsld {
             int lhs_better = 0;
             int rhs_better = 0;
 
-            auto min_size = std::min(lhs.param_grades.size(), rhs.param_grades.size());
+            const auto min_size = std::min(lhs.param_grades.size(), rhs.param_grades.size());
 
             for (auto i = 0uz; i != min_size; ++i) {
                 if (lhs.param_grades[i] > rhs.param_grades[i])
@@ -264,7 +201,7 @@ namespace glsld {
         : AstVisitor(version_replica, version_pointer)
         , document_{ document }
     {
-        Traverse(document_.ast.get());
+        Traverse(document_.ast);
     }
 
     int TypeResolver::RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types) {
@@ -336,7 +273,7 @@ namespace glsld {
                 continue;
             }
 
-            auto compare_result = CompareCandidates(score_results[index].score, score_results[i].score);
+            const auto compare_result = CompareCandidates(score_results[index].score, score_results[i].score);
             if (compare_result == MatchResult::kRhsBetter) {
                 index = static_cast<int>(i);
             }
@@ -359,7 +296,7 @@ namespace glsld {
         }
 
         for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg.get());
+            Traverse(template_arg);
         }
 
         auto* function_symbol = node->declared_symbol;
@@ -373,7 +310,7 @@ namespace glsld {
 
         function_symbol->param_typeinfos.clear();
         for (auto& param_node : node->params) {
-            VisitVariableDeclaration(param_node.get());
+            VisitVariableDeclaration(param_node);
 
             TypeInfo param_typeinfo;
             if (param_node->declared_symbol != nullptr) { // 是否无参数只有类型
@@ -390,7 +327,7 @@ namespace glsld {
         }
 
         if (node->body != nullptr) {
-            Traverse(node->body.get());
+            Traverse(node->body);
         }
     }
 
@@ -400,7 +337,7 @@ namespace glsld {
         }
 
         for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg.get());
+            Traverse(template_arg);
         }
 
         auto* variable_symbol = node->declared_symbol;
@@ -411,23 +348,31 @@ namespace glsld {
             return;
         }
 
-        Traverse(node->init.get());
+        Traverse(node->init);
 
         const auto& init_type  = node->init->evaluated_type;
         const auto& init_sizes = init_type.array_sizes;
-        auto& decl_sizes = variable_symbol->type_info.array_sizes;
+        const auto& decl_sizes = variable_symbol->type_info.array_sizes;
 
-        if (!decl_sizes.empty() && !init_sizes.empty()) {
-            for (auto i = 0uz; i != decl_sizes.size(); ++i) {
-                if (!decl_sizes[i].has_value()) {
-                    if (i < init_sizes.size()) {
-                        decl_sizes[i] = init_sizes[i];
-                    }
-                } else {
-                    // 显式指定了数组维度
-                    // do nothing
-                }
+        if (init_sizes.empty()) {
+            return;
+        }
+
+        std::vector<std::optional<std::uint64_t>> resolved_sizes(decl_sizes.begin(), decl_sizes.end());
+
+        const auto min_size = std::min(resolved_sizes.size(), init_sizes.size());
+        bool changed = false;
+
+        for (auto i = 0uz; i != min_size; ++i) {
+            if (!resolved_sizes[i].has_value()) {
+                resolved_sizes[i] = init_sizes[i];
+                changed = true;
             }
+        }
+
+        if (changed) {
+            variable_symbol->type_info.array_sizes =
+                document_.arena.CopySpan<std::optional<std::uint64_t>>(resolved_sizes);
         }
     }
 
@@ -468,7 +413,7 @@ namespace glsld {
                 continue;
             }
 
-            Traverse(element.get());
+            Traverse(element);
             const auto& element_type = element->evaluated_type;
 
             if (is_first) {
@@ -497,14 +442,181 @@ namespace glsld {
             };
         } else {
             node->evaluated_type = common_type;
-            node->evaluated_type.array_sizes.insert(node->evaluated_type.array_sizes.begin(),
-                                                    static_cast<std::int64_t>(node->elements.size()));
+
+            auto old_sizes = node->evaluated_type.array_sizes;
+            std::vector<std::optional<std::uint64_t>> new_sizes;
+            new_sizes.reserve(old_sizes.size() + 1);
+            new_sizes.push_back(node->elements.size());
+            new_sizes.append_range(old_sizes);
+
+            node->evaluated_type.array_sizes = document_.arena.CopySpan<std::optional<std::uint64_t>>(new_sizes);
         }
     }
 
+    namespace {
+        bool IsArithmeticType(const TypeInfo& type) {
+            if (type.is_array() || type.block_symbol != nullptr) {
+                return false;
+            }
+
+            const auto& desc = type.type_desc;
+
+            if (desc.vector_count < 1 || desc.vector_length < 1) {
+                return false;
+            }
+
+            switch (desc.family) {
+            case BaseFamily::kBool:
+            case BaseFamily::kInt:
+            case BaseFamily::kUint:
+            case BaseFamily::kFloat:
+                return true;
+            default:
+                return false;
+            }
+        }
+
+        bool IsUInt64Type(const TypeInfo& type) {
+            return !type.is_array()
+                 && type.block_symbol            == nullptr
+                 && type.type_desc.family        == BaseFamily::kUint
+                 && type.type_desc.bits          == 64
+                 && type.type_desc.vector_count  == 1
+                 && type.type_desc.vector_length == 1;
+        }
+
+        bool IsUVec2Type(const TypeInfo& type) {
+            return !type.is_array()
+                && type.block_symbol            == nullptr
+                && type.type_desc.family        == BaseFamily::kUint
+                && type.type_desc.bits          == 32
+                && type.type_desc.vector_count  == 1
+                && type.type_desc.vector_length == 2;
+        }
+
+        bool IsBufferReferenceType(const TypeInfo& type) {
+            const auto* symbol = type.block_symbol;
+            if (symbol == nullptr || symbol->kind != SymbolKind::kInterface) {
+                return false;
+            }
+
+            if (symbol->node->kind() != AstNodeKind::kInterfaceDeclaration) {
+                return false;
+            }
+
+            auto declaration = static_cast<const InterfaceDeclarationNode*>(symbol->node);
+
+            return std::ranges::any_of(declaration->type_spec.layouts, [](const auto* layout) -> bool {
+                if (layout == nullptr) {
+                    return false;
+                }
+
+                return std::ranges::any_of(layout->raw_tokens, [](const auto& token) -> bool {
+                    return token.text == "buffer_reference";
+                });
+            });
+        }
+
+        bool CanExplicitlyCast(const TypeInfo& source, const TypeInfo& target) {
+            if (source.is_array() || target.is_array()) {
+                return false;
+            }
+
+            const bool src_is_buffer_reference = IsBufferReferenceType(source);
+            const bool dst_is_buffer_reference = IsBufferReferenceType(target);
+
+            // GL_EXT_buffer_reference:
+            //     buffer reference <-> uint64_t
+            //
+            // GL_EXT_buffer_reference_uvec2:
+            //     buffer reference <-> uvec2
+            //
+            if (src_is_buffer_reference || dst_is_buffer_reference) {
+                if (src_is_buffer_reference && dst_is_buffer_reference) {
+                    return true;
+                }
+
+                const auto& arithmetic_type = src_is_buffer_reference ? target : source;
+                return IsUInt64Type(arithmetic_type) || IsUVec2Type(arithmetic_type);
+            }
+
+            // GL_NV_explicit_typecast 不支持除 buffer_reference 以外的定义类型强转
+            if (source.block_symbol != nullptr || target.block_symbol != nullptr)
+                return false;
+            if (!IsArithmeticType(source) || !IsArithmeticType(target))
+                return false;
+
+            const auto src_structure = source.type_desc.arithmetic_structure();
+            const auto dst_structure = target.type_desc.arithmetic_structure();
+
+            using enum TypeDescriptor::ArithmeticStructure;
+            switch (src_structure) {
+            case kScalar:
+                // scalar -> scalar/vector/matrix
+                return true;
+            case kVector:
+                // vector -> vector with same component
+                if (dst_structure == kVector) {
+                    return target.type_desc.vector_length <= source.type_desc.vector_length;
+                }
+
+                // vec4 -> mat2x2
+                return source.type_desc.vector_length == 4
+                    && dst_structure == kMatrix
+                    && target.type_desc.vector_count  == 2
+                    && target.type_desc.vector_length == 2;
+            case kMatrix:
+                // matrix -> matrix
+                return dst_structure == kMatrix;
+            }
+
+            return false;
+        }
+    }
+
+    void TypeResolver::VisitCastExpression(CastExpressionNode* node) {
+        if (node->operand == nullptr) {
+            return;
+        }
+
+        Traverse(node->operand);
+
+        const auto source_type = node->operand->evaluated_type;
+        const auto target_type = ExtractTypeInfo(node->target_type, node->located_scope);
+        if (!target_type.is_valid()) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        if (!source_type.is_valid()) {
+            node->evaluated_type = target_type;
+            return;
+        }
+
+        if (!CanExplicitlyCast(source_type, target_type)) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text     = "unknown",
+                    .location = node->target_type.typename_token().location,
+                    .type     = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        node->evaluated_type = target_type;
+    }
+
     void TypeResolver::VisitBinaryExpression(BinaryExpressionNode* node) {
-        Traverse(node->left.get());
-        Traverse(node->right.get());
+        Traverse(node->left);
+        Traverse(node->right);
 
         const auto& left_type  = node->left->evaluated_type;
         const auto& right_type = node->right->evaluated_type;
@@ -530,7 +642,7 @@ namespace glsld {
             return;
         }
 
-        Traverse(node->operand.get());
+        Traverse(node->operand);
 
         TypeInfo operand_type = node->operand->evaluated_type;
         if (operand_type.type_desc.family == BaseFamily::kUnknown) {
@@ -575,11 +687,11 @@ namespace glsld {
 
     void TypeResolver::VisitTernaryExpression(TernaryExpressionNode* node) {
         if (node->condition != nullptr)
-            Traverse(node->condition.get());
+            Traverse(node->condition);
         if (node->true_expr != nullptr)
-            Traverse(node->true_expr.get());
+            Traverse(node->true_expr);
         if (node->false_expr != nullptr)
-            Traverse(node->false_expr.get());
+            Traverse(node->false_expr);
 
         if (node->true_expr != nullptr && node->false_expr != nullptr) {
             const auto& true_type  = node->true_expr->evaluated_type;
@@ -606,7 +718,7 @@ namespace glsld {
         std::vector<TypeInfo> call_arg_types;
         for (const auto& arg : node->args) {
             if (arg != nullptr) {
-                Traverse(arg.get());
+                Traverse(arg);
                 call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
             } else {
                 call_arg_types.push_back({
@@ -618,9 +730,9 @@ namespace glsld {
             }
         }
 
-        Traverse(node->callee.get());
+        Traverse(node->callee);
 
-        ExpressionNode* current_base = node->callee.get();
+        ExpressionNode* current_base = node->callee;
         std::vector<std::optional<std::uint64_t>> dimensions;
         bool is_array_constructor = false;
 
@@ -631,13 +743,13 @@ namespace glsld {
             std::optional<std::uint64_t> size;
             if (index_node->index != nullptr) {
                 ConstantEvaluator evaluator;
-                size = evaluator.EvaluateAs<std::uint64_t>(index_node->index.get());
+                size = evaluator.EvaluateAs<std::uint64_t>(index_node->index);
             } else {
                 size = std::nullopt;
             }
 
             dimensions.push_back(std::move(size));
-            current_base = index_node->base.get();
+            current_base = index_node->base;
         }
 
         // int array[] = int[](...)
@@ -652,12 +764,11 @@ namespace glsld {
                 {
                     is_constructor = true;
                     base_desc = ParseTypeDescriptor(base_varexpr->name);
-                } else if (std::holds_alternative<const SymbolInfo*>(base_varexpr->linked_symbols)) {
-                    const auto* symbol = std::get<const SymbolInfo*>(base_varexpr->linked_symbols);
-                    if (symbol != nullptr) {
-                        if (symbol->kind == SymbolKind::kInterface || symbol->kind == SymbolKind::kStruct) {
+                } else if (auto* symbol = std::get_if<const SymbolInfo*>(&base_varexpr->linked_symbols)) {
+                    if (*symbol != nullptr) {
+                        if ((*symbol)->kind == SymbolKind::kInterface || (*symbol)->kind == SymbolKind::kStruct) {
                             is_constructor = true;
-                            base_desc = symbol->type_info.type_desc;
+                            base_desc = (*symbol)->type_info.type_desc;
                         }
                     }
                 }
@@ -677,7 +788,7 @@ namespace glsld {
 #else
                     if (std::ranges::any_of(dimensions, [](const auto& d) -> bool { return !d.has_value(); })) {
 #endif
-                        auto dimensions_from_args = DeduceArraySizesFromArgs(node);
+                        const auto dimensions_from_args = DeduceArraySizesFromArgs(node);
                         for (auto&& [target, source] : std::views::zip(dimensions, dimensions_from_args)) {
                             if (!target.has_value()) {
                                 target = source;
@@ -685,7 +796,7 @@ namespace glsld {
                         }
                     }
 
-                    array_type.array_sizes = std::move(dimensions);
+                    array_type.array_sizes = document_.arena.CopySpan<std::optional<std::uint64_t>>(dimensions);
 
                     node->evaluated_type         = array_type;
                     node->callee->evaluated_type = array_type;
@@ -694,10 +805,15 @@ namespace glsld {
             }
         }
 
-        auto* callee_node = static_cast<VariableExpressionNode*>(node->callee.get());
+        if (node->callee->kind() != AstNodeKind::kVariableExpression) {
+            return;
+        }
+
+        auto* callee_node = static_cast<VariableExpressionNode*>(node->callee);
 
         if (callee_node->original_token.type == TokenType::kPrimitive ||
-            callee_node->original_token.type == TokenType::kBuiltInType) {
+            callee_node->original_token.type == TokenType::kBuiltInType)
+        {
             TypeInfo constructor_type{
                 .typename_token{
                     .text = callee_node->name,
@@ -711,71 +827,62 @@ namespace glsld {
             return;
         }
 
-        if (std::holds_alternative<SymbolList>(callee_node->linked_symbols)) {
-            const auto& candidates = std::get<SymbolList>(callee_node->linked_symbols);
+        callee_node->linked_symbols = std::visit(Overloaded{
+            [&](SymbolListView candidates) -> SymbolReferenceView {
+                const auto resolved = ResolveOverload(candidates, call_arg_types);
 
-            auto resolved = ResolveOverload(candidates, call_arg_types);
-            if (std::holds_alternative<const SymbolInfo*>(resolved)) {
-                const auto* best_match = std::get<const SymbolInfo*>(resolved);
-                callee_node->linked_symbols            = best_match;
-                callee_node->evaluated_type            = best_match->type_info;
-                node->evaluated_type                   = best_match->type_info;
-                document_.bindings[callee_node->begin] = best_match;
-            } else if (std::holds_alternative<SymbolList>(resolved)) {
-                callee_node->linked_symbols = std::get<SymbolList>(resolved);
-            } else {
-                callee_node->linked_symbols = std::monostate{};
-            }
-        } else if (std::holds_alternative<const SymbolInfo*>(callee_node->linked_symbols)) {
-            const auto* symbol = std::get<const SymbolInfo*>(callee_node->linked_symbols);
-            if (symbol != nullptr) {
+                return std::visit(Overloaded{
+                    [&](const SymbolInfo* best_match) -> SymbolReferenceView {
+                        callee_node->evaluated_type            = best_match->type_info;
+                        node->evaluated_type                   = best_match->type_info;
+                        document_.bindings[callee_node->begin] = best_match;
+                        return best_match;
+                    },
+                    [&](const SymbolList&) -> SymbolReferenceView {
+                        return std::get<SymbolListView>(Utils::ReferenceSymbol(document_, resolved));
+                    },
+                    [](std::monostate) -> SymbolReferenceView {
+                        return std::monostate{};
+                    }
+                }, resolved);
+            },
+            [&](const SymbolInfo* symbol) -> SymbolReferenceView {
+                if (symbol == nullptr) {
+                    return nullptr;
+                }
+
+                TypeInfo result_type = symbol->type_info;
                 if (symbol->kind == SymbolKind::kInterface || symbol->kind == SymbolKind::kStruct) {
-                    TypeInfo constructor_type{
-                        .typename_token = symbol->type_info.typename_token,
-                        .type_desc      = symbol->type_info.type_desc,
-                        .block_symbol   = symbol
+                    result_type.block_symbol   = symbol;
+                    result_type.typename_token = Token{
+                        .text     = symbol->name,
+                        .location = symbol->location,
+                        .type     = TokenType::kIdentifier
                     };
                 }
 
-                callee_node->evaluated_type = symbol->type_info;
-                node->evaluated_type = symbol->type_info;
+                callee_node->evaluated_type            = result_type;
+                node->evaluated_type                   = result_type;
                 document_.bindings[callee_node->begin] = symbol;
+
+                return symbol;
+            },
+            [](std::monostate) -> SymbolReferenceView {
+                return std::monostate{};
             }
-        }
-    }
-
-    namespace {
-        TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type) {
-            if (base_type.type_desc.family == BaseFamily::kUnknown ||
-                base_type.type_desc.family == BaseFamily::kVoid    ||
-                base_type.type_desc.family == BaseFamily::kOpaque)
-            {
-                return base_type;
-            }
-
-            TypeInfo canonical_info = base_type;
-
-            using enum TypeDescriptor::ArithmeticStructure;
-            if (base_type.type_desc.arithmetic_structure() == kMatrix) {
-                SeparateType(canonical_info, true);
-            } else if (base_type.type_desc.arithmetic_structure() == kVector) {
-                SeparateType(canonical_info, false);
-            }
-
-            return canonical_info;
-        };
+        }, callee_node->linked_symbols);
     }
 
     void TypeResolver::VisitIndexExpression(IndexExpressionNode* node) {
-        Traverse(node->base.get());
-        Traverse(node->index.get());
+        Traverse(node->base);
+        Traverse(node->index);
 
         const auto& base_type = node->base->evaluated_type;
         auto& evaluated_type  = node->evaluated_type;
 
         if (base_type.is_array()) {
-            evaluated_type = base_type;
-            evaluated_type.array_sizes.erase(evaluated_type.array_sizes.begin());
+            evaluated_type             = base_type;
+            evaluated_type.array_sizes = evaluated_type.array_sizes.subspan(1); // 剥离最外层数组维度
         } else if (base_type.type_desc.vector_length > 1) {
             evaluated_type = SplitCanonicalTypeInfo(base_type); // 从向量或者矩阵中剥离子类型
         } else {
@@ -802,25 +909,22 @@ namespace glsld {
             return;
         }
 
-        if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
-            if (const auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols)) {
-                node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
-            }
-        }
-
-        if (std::holds_alternative<const SymbolInfo*>(node->linked_symbols)) {
-            auto* symbol = std::get<const SymbolInfo*>(node->linked_symbols);
-            if (symbol && (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl)) {
-                node->evaluated_type.is_function_reference = true;
-            }
-        } else if (std::holds_alternative<SymbolList>(node->linked_symbols)) {
-            auto& list = std::get<SymbolList>(node->linked_symbols);
-            if (!list.empty() && (list.front()->kind == SymbolKind::kFunctionDecl ||
-                                  list.front()->kind == SymbolKind::kFunctionImpl))
-            {
-                node->evaluated_type.is_function_reference = true;
-            }
-        }
+        std::visit(Overloaded{
+            [&](const SymbolInfo* symbol) -> void {
+                if (symbol != nullptr)
+                    node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
+                if (symbol && (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl))
+                    node->evaluated_type.is_func_ref = true;
+            },
+            [&](SymbolListView list) -> void {
+                if (!list.empty() && (list.front()->kind == SymbolKind::kFunctionDecl ||
+                                      list.front()->kind == SymbolKind::kFunctionImpl))
+                {
+                    node->evaluated_type.is_func_ref = true;
+                }
+            },
+            [](std::monostate) -> void {}
+        }, node->linked_symbols);
     }
 
     void TypeResolver::VisitRawExpression(RawExpressionNode* node) {
@@ -831,15 +935,15 @@ namespace glsld {
     }
 
     void TypeResolver::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
-        Traverse(node->object.get());
-        // Traverse(node->member.get()); SymbolLinker 不知道结构体内部作用域，遍历了也鸡毛用没有
+        Traverse(node->object);
+        // Traverse(node->member); SymbolLinker 不知道结构体内部作用域，遍历了也鸡毛用没有
 
         const auto& object_type  = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
 
         if (block_symbol != nullptr && block_symbol->internal_scope != nullptr && node->member != nullptr) {
             if (node->member->kind() == AstNodeKind::kVariableExpression) {
-                auto* member_node = static_cast<VariableExpressionNode*>(node->member.get());
+                auto* member_node = static_cast<VariableExpressionNode*>(node->member);
                 const auto* member_symbol = block_symbol->internal_scope->FindSymbol(member_node->name);
 
                 if (member_symbol != nullptr) {
@@ -857,12 +961,87 @@ namespace glsld {
                 return;
             }
 
-            const auto* member_node = static_cast<const VariableExpressionNode*>(node->member.get());
+            const auto* member_node = static_cast<const VariableExpressionNode*>(node->member);
             node->evaluated_type = ResolveSwizzleType(object_type, member_node->name);
         } else if (node->member == nullptr) {
             node->evaluated_type = object_type;
         }
     }
+
+    void TypeResolver::SeparateType(TypeInfo& type_info, bool keep_vector) {
+        if (keep_vector) {
+            std::string prefix = GetTypeBitsPrefix(type_info.type_desc);
+            type_info.typename_token.text =
+                document_.StoreTokenText(std::format("{}vec{}", prefix, type_info.type_desc.vector_length));
+            type_info.type_desc.vector_count = 1;
+        } else {
+            type_info.typename_token.text =
+                document_.StoreTokenText(GetScalarTypename(type_info.type_desc));
+            type_info.type_desc.vector_count  = 1;
+            type_info.type_desc.vector_length = 1;
+        }
+    }
+
+    TypeInfo TypeResolver::GetCanonicalTypeInfo(const TypeDescriptor& type_desc) {
+        auto it = type_desc_cache_.find(type_desc);
+        if (it != type_desc_cache_.end()) {
+            return it->second;
+        }
+
+        if (type_desc.family == BaseFamily::kUnknown) {
+            return {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                },
+                .type_desc = type_desc
+            };
+        }
+
+        const auto arithmetic_structure = type_desc.arithmetic_structure();
+        using enum TypeDescriptor::ArithmeticStructure;
+
+        TypeInfo type_info;
+        type_info.typename_token.type = TokenType::kBuiltInType;
+
+        if (arithmetic_structure == kScalar) {
+            type_info.typename_token.text = document_.StoreTokenText(GetScalarTypename(type_desc));
+        } else {
+            std::string prefix = GetTypeBitsPrefix(type_desc);
+            if (arithmetic_structure == kVector) {
+                type_info.typename_token.text =
+                    document_.StoreTokenText(std::format("{}vec{}", prefix, type_desc.vector_length));
+            } else {
+                type_info.typename_token.text =
+                    document_.StoreTokenText(std::format("{}mat{}x{}", prefix, type_desc.vector_count, type_desc.vector_length));
+            }
+        }
+
+        type_info.type_desc = type_desc;
+
+        auto [inserted_it, _] = type_desc_cache_.try_emplace(type_desc, std::move(type_info));
+        return inserted_it->second;
+    }
+
+    TypeInfo TypeResolver::SplitCanonicalTypeInfo(const TypeInfo& base_type) {
+        if (base_type.type_desc.family == BaseFamily::kUnknown ||
+            base_type.type_desc.family == BaseFamily::kVoid    ||
+            base_type.type_desc.family == BaseFamily::kOpaque)
+        {
+            return base_type;
+        }
+
+        TypeInfo canonical_info = base_type;
+
+        using enum TypeDescriptor::ArithmeticStructure;
+        if (base_type.type_desc.arithmetic_structure() == kMatrix) {
+            SeparateType(canonical_info, true);
+        } else if (base_type.type_desc.arithmetic_structure() == kVector) {
+            SeparateType(canonical_info, false);
+        }
+
+        return canonical_info;
+    };
 
     std::vector<std::int64_t> TypeResolver::DeduceArraySizesFromArgs(const CallExpressionNode* call_node) {
         std::vector<std::int64_t> dimensions;
@@ -871,10 +1050,10 @@ namespace glsld {
         }
 
         dimensions.push_back(static_cast<std::int64_t>(call_node->args.size()));
-        const auto* first_arg = call_node->args.front().get();
+        const auto* first_arg = call_node->args.front();
 
         if (const auto* next_call = dynamic_cast<const CallExpressionNode*>(first_arg)) {
-            if (dynamic_cast<IndexExpressionNode*>(next_call->callee.get()) != nullptr) {
+            if (dynamic_cast<IndexExpressionNode*>(next_call->callee) != nullptr) {
                 auto next_dimensions = DeduceArraySizesFromArgs(next_call);
                 dimensions.append_range(next_dimensions | std::views::as_rvalue);
             }
@@ -884,7 +1063,7 @@ namespace glsld {
     }
 
     namespace {
-        std::pair<const QualifierArgumentNode*, std::string> ExtractAssignment(const QualifierArgumentNode* node) {
+        std::pair<const QualifierArgumentNode*, std::string_view> ExtractAssignment(const QualifierArgumentNode* node) {
             if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
                 return { nullptr, "" };
             }
@@ -894,134 +1073,147 @@ namespace glsld {
                 return { nullptr, "" };
             }
 
-            return { node->children[1].get(), lhs->token.text };
+            return { node->children[1], lhs->token.text };
         }
 
         std::optional<std::vector<std::string>> CollectStringArray(const QualifierArgumentNode* rhs) {
-            return utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, utils::UnquoteStringLiteral);
+            return Utils::CollectArgumentArray<std::string>(rhs, QualifierArgumentKind::kStringLiteral, Utils::UnquoteStringLiteral);
         }
 
         std::optional<std::vector<std::int64_t>> CollectIntegerArray(const QualifierArgumentNode* rhs) {
-            return utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, utils::ParseNumberLiteralToInteger);
+            return Utils::CollectArgumentArray<std::int64_t>(rhs, QualifierArgumentKind::kNumberLiteral, Utils::ParseNumberLiteralToInteger);
+        }
+    }
+
+    std::expected<SpirvTypeSignature, std::string> TypeResolver::BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
+        SpirvTypeSignature signature;
+
+        if (node == nullptr) {
+            return std::unexpected("spirv_type node is null");
         }
 
-        std::expected<SpirvTypeSignature, std::string> BuildSpirvTypeSignature(const SpirvIntrinsicNode* node) {
-            SpirvTypeSignature signature;
+        std::vector<std::string>           signature_extensions;
+        std::vector<std::int64_t>          signature_capabilities;
+        std::vector<SpirvOperandSignature> signature_operands;
 
-            if (node == nullptr) {
-                return std::unexpected("spirv_type node is null");
+        for (const auto& param : node->params) {
+            if (param == nullptr) {
+                continue;
             }
 
-            for (const auto& param : node->params) {
-                if (param == nullptr) {
+            auto [rhs, key] = ExtractAssignment(param);
+            if (!key.empty()) {
+                if (key == "extensions") {
+                    if (!signature.extensions.empty()) {
+                        return std::unexpected("duplicate extensions");
+                    }
+
+                    auto extensions = CollectStringArray(rhs);
+                    if (!extensions.has_value()) {
+                        return std::unexpected("invalid extensions format");
+                    }
+
+                    signature_extensions = std::move(*extensions);
                     continue;
                 }
 
-                auto [rhs, key] = ExtractAssignment(param.get());
-                if (!key.empty()) {
-                    if (key == "extensions") {
-                        if (!signature.extensions.empty()) {
-                            return std::unexpected("duplicate extensions");
-                        }
-
-                        auto extensions = CollectStringArray(rhs);
-                        if (!extensions.has_value()) {
-                            return std::unexpected("invalid extensions format");
-                        }
-
-                        signature.extensions = std::move(*extensions);
-                        continue;
+                if (key == "capabilities") {
+                    if (!signature.capabilities.empty()) {
+                        return std::unexpected("duplicate capabilities");
                     }
 
-                    if (key == "capabilities") {
-                        if (!signature.capabilities.empty()) {
-                            return std::unexpected("duplicate capabilities");
-                        }
-
-                        auto capabilities = CollectIntegerArray(rhs);
-                        if (!capabilities.has_value()) {
-                            return std::unexpected("invalid capabilities format");
-                        }
-
-                        signature.capabilities = std::move(*capabilities);
-                        continue;
+                    auto capabilities = CollectIntegerArray(rhs);
+                    if (!capabilities.has_value()) {
+                        return std::unexpected("invalid capabilities format");
                     }
 
-                    if (key == "id") {
-                        if (signature.id.has_value()) {
-                            return std::unexpected("duplicate id");
-                        }
-
-                        if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kNumberLiteral) {
-                            return std::unexpected("invalid id format");
-                        }
-
-                        signature.id = utils::ParseNumberLiteralToInteger(rhs->token.text);
-                        continue;
-                    }
-
-                    if (key == "set") {
-                        if (signature.set.has_value()) {
-                            return std::unexpected("duplicate set");
-                        }
-
-                        if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kStringLiteral) {
-                            return std::unexpected("invalid set format");
-                        }
-
-                        signature.set = utils::UnquoteStringLiteral(rhs->token.text);
-                        continue;
-                    }
-
-                    return std::unexpected(std::format("unknown parameter '{}' in spirv_type", key));
-                }
-
-                if (!signature.id.has_value()) {
-                    return std::unexpected("missing id parameter in spirv_type");
-                }
-
-                // spirv_id <expr>
-                if (param->arg_kind == QualifierArgumentKind::kSequence &&
-                   !param->children.empty() &&
-                    param->children.front() != nullptr &&
-                    param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier &&
-                    param->children.front()->token.text == "spirv_id")
-                {
-                    if (param->children.size() < 2) {
-                        return std::unexpected("missing operand after spirv_id");
-                    }
-
-                    SpirvOperandSignature operand{
-                        .kind  = SpirvOperandKind::kIdReference,
-                        .value = utils::SerializeQualifierArguments(param->children[1].get())
-                    };
-
-                    signature.operands.push_back(std::move(operand));
+                    signature_capabilities = std::move(*capabilities);
                     continue;
                 }
 
-                SpirvOperandSignature operand{
-                    .kind  = SpirvOperandKind::kLiteral,
-                    .value = utils::SerializeQualifierArguments(param.get())
-                };
+                if (key == "id") {
+                    if (signature.id.has_value()) {
+                        return std::unexpected("duplicate id");
+                    }
 
-                signature.operands.push_back(std::move(operand));
+                    if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kNumberLiteral) {
+                        return std::unexpected("invalid id format");
+                    }
+
+                    signature.id = Utils::ParseNumberLiteralToInteger(rhs->token.text);
+                    continue;
+                }
+
+                if (key == "set") {
+                    if (signature.set.has_value()) {
+                        return std::unexpected("duplicate set");
+                    }
+
+                    if (rhs == nullptr || rhs->arg_kind != QualifierArgumentKind::kStringLiteral) {
+                        return std::unexpected("invalid set format");
+                    }
+
+                    signature.set = document_.StoreTokenText(Utils::UnquoteStringLiteral(rhs->token.text));
+                    continue;
+                }
+
+                return std::unexpected(std::format("unknown parameter '{}' in spirv_type", key));
             }
 
             if (!signature.id.has_value()) {
                 return std::unexpected("missing id parameter in spirv_type");
             }
 
-            std::ranges::sort(signature.extensions);
-            auto [extension_first, extension_last] = std::ranges::unique(signature.extensions);
-            signature.extensions.erase(extension_first, extension_last);
+            // spirv_id <expr>
+            if (param->arg_kind == QualifierArgumentKind::kSequence &&
+                !param->children.empty() &&
+                param->children.front() != nullptr &&
+                param->children.front()->arg_kind == QualifierArgumentKind::kIdentifier &&
+                param->children.front()->token.text == "spirv_id")
+            {
+                if (param->children.size() < 2) {
+                    return std::unexpected("missing operand after spirv_id");
+                }
 
-            std::ranges::sort(signature.capabilities);
-            auto [capability_first, capability_last] = std::ranges::unique(signature.capabilities);
-            signature.capabilities.erase(capability_first, capability_last);
+                SpirvOperandSignature operand{
+                    .kind  = SpirvOperandKind::kIdReference,
+                    .value = document_.StoreTokenText(Utils::SerializeQualifierArguments(param->children[1]))
+                };
 
-            return signature;
+                signature_operands.push_back(std::move(operand));
+                continue;
+            }
+
+            SpirvOperandSignature operand{
+                .kind  = SpirvOperandKind::kLiteral,
+                .value = document_.StoreTokenText(Utils::SerializeQualifierArguments(param))
+            };
+
+            signature_operands.push_back(std::move(operand));
         }
+
+        if (!signature.id.has_value()) {
+            return std::unexpected("missing id parameter in spirv_type");
+        }
+
+        std::ranges::sort(signature_extensions);
+        auto [extension_first, extension_last] = std::ranges::unique(signature_extensions);
+        signature_extensions.erase(extension_first, extension_last);
+
+        std::ranges::sort(signature_capabilities);
+        auto [capability_first, capability_last] = std::ranges::unique(signature_capabilities);
+        signature_capabilities.erase(capability_first, capability_last);
+
+        std::vector<std::string_view> extension_views;
+        for (const auto& extension : signature_extensions) {
+            extension_views.push_back(document_.StoreTokenText(extension));
+        }
+
+        signature.extensions   = document_.arena.CopySpan<std::string_view>(extension_views);
+        signature.capabilities = document_.arena.CopySpan<std::int64_t>(signature_capabilities);
+        signature.operands     = document_.arena.CopySpan<SpirvOperandSignature>(signature_operands);
+
+        return signature;
     }
 
     TypeInfo TypeResolver::ExtractTypeInfo(const TypeSpec& type_spec, const Scope* located_scope) {
@@ -1032,29 +1224,32 @@ namespace glsld {
         TypeInfo info;
 
         if (type_spec.typename_token().text == "__Function") {
-            info.is_function_reference = true;
+            info.is_func_ref = true;
         }
 
         const auto& typename_token = type_spec.typename_token();
         info.typename_token = typename_token;
 
+        std::vector<Token> qualifiers;
         if (type_spec.specifiers.size() > 0) {
-            info.qualifiers.clear();
             // 去掉最后一个，因为最后一个是类型名
-            info.qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
+            qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
         }
 
-        info.array_sizes.clear();
+        info.qualifiers = document_.arena.CopySpan<Token>(qualifiers);
 
+        std::vector<std::optional<std::size_t>> array_sizes;
         for (const auto& size : type_spec.array_sizes) {
             if (size == nullptr) {
-                info.array_sizes.push_back(std::nullopt);
+                array_sizes.push_back(std::nullopt);
                 continue;
             }
 
             ConstantEvaluator evaluator;
-            info.array_sizes.push_back(evaluator.EvaluateAs<std::uint64_t>(size.get()));
+            array_sizes.push_back(evaluator.EvaluateAs<std::uint64_t>(size));
         }
+
+        info.array_sizes = document_.arena.CopySpan<std::optional<std::size_t>>(array_sizes);
 
         // spirv_type
         if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
@@ -1063,7 +1258,7 @@ namespace glsld {
             auto spirv_signature = BuildSpirvTypeSignature(type_spec.spirv_type);
             if (!spirv_signature.has_value()) {
                 info.typename_token = {
-                    .text     = std::format("<error_type>:{}", spirv_signature.error()),
+                    .text     = document_.StoreTokenText(std::format("<error_type>:{}", spirv_signature.error())),
                     .location = type_spec.spirv_type->keyword.location,
                     .type     = TokenType::kUnknown
                 };
@@ -1078,8 +1273,8 @@ namespace glsld {
             info.spirv_signature = std::move(*spirv_signature);
             info.typename_token  = type_spec.spirv_type->keyword;
 
-            auto spirv_type_params = utils::BuildQualifierParameterList(type_spec.spirv_type);
-            info.spirv_type = std::format("spirv_type({})", spirv_type_params);
+            const auto spirv_type_params = Utils::BuildQualifierParameterList(type_spec.spirv_type);
+            info.spirv_type = document_.StoreTokenText(std::format("spirv_type({})", spirv_type_params));
 
             info.type_desc = {
                 .family = BaseFamily::kOpaque
@@ -1098,22 +1293,29 @@ namespace glsld {
             document_.bindings.try_emplace(typename_token.location, type_symbol);
         }
 
+        std::vector<std::string> template_args;
         for (const auto& template_arg : type_spec.template_args) {
             std::string arg_text;
-            if (auto* var = dynamic_cast<const VariableExpressionNode*>(template_arg.get())) {
+            if (auto* var = dynamic_cast<const VariableExpressionNode*>(template_arg)) {
                 arg_text = var->name;
-            } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(template_arg.get())) {
+            } else if (auto* raw = dynamic_cast<const RawExpressionNode*>(template_arg)) {
                 if (!raw->tokens.empty()) {
                     arg_text = raw->tokens.front().text;
                 }
             }
 
             if (!arg_text.empty()) {
-                info.template_args.push_back(std::move(arg_text));
+                template_args.push_back(std::move(arg_text));
             }
         }
 
-        info.type_desc = ParseTypeDescriptor(typename_token.text);
+        std::vector<std::string_view> template_arg_views;
+        for (const auto& arg : template_args) {
+            template_arg_views.push_back(document_.StoreTokenText(arg));
+        }
+
+        info.template_args = document_.arena.CopySpan<std::string_view>(template_arg_views);
+        info.type_desc     = ParseTypeDescriptor(typename_token.text);
 
         return info;
     }
@@ -1177,9 +1379,9 @@ namespace glsld {
         if (text == "float64_t")
             return { BaseFamily::kFloat, 64, 1, 1 };
 
-        auto vec_pos   = text.find("vec");
-        auto mat_pos   = text.find("mat");
-        bool is_matrix = (mat_pos != std::string_view::npos);
+        const auto vec_pos   = text.find("vec");
+        const auto mat_pos   = text.find("mat");
+        const bool is_matrix = (mat_pos != std::string_view::npos);
 
         std::string_view prefix;
         if (is_matrix) {
@@ -1218,7 +1420,7 @@ namespace glsld {
                 return { BaseFamily::kUnknown };
             }
 
-            auto num_start = (prefix[0] == 'f' || prefix[0] == 'i' || prefix[0] == 'u') ? 1 : 0;
+            const auto num_start = (prefix[0] == 'f' || prefix[0] == 'i' || prefix[0] == 'u') ? 1 : 0;
             int bits = 0;
             std::from_chars(prefix.data() + num_start, prefix.data() + prefix.size(), bits);
 
@@ -1244,7 +1446,7 @@ namespace glsld {
                 desc.vector_length = suffix[x_pos + 1] - '0';
             }
         } else {
-            int dimension = suffix[0] - '0';
+            const int dimension = suffix[0] - '0';
             desc.vector_length = dimension; // vector lengths or matrix rows
             if (is_matrix) {
                 desc.vector_count = dimension;
@@ -1261,7 +1463,7 @@ namespace glsld {
         auto BuildType = [](std::string_view name, BaseFamily family, int bits) -> TypeInfo {
             return TypeInfo{
                 .typename_token{
-                    .text = std::string(name),
+                    .text = name,
                     .type = name.contains("_t") ? TokenType::kBuiltInType : TokenType::kPrimitive
                 },
                 .type_desc{
@@ -1357,7 +1559,7 @@ namespace glsld {
         return result;
     }
 
-    SymbolReference TypeResolver::ResolveOverload(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types) {
+    SymbolReference TypeResolver::ResolveOverload(SymbolListView candidates, std::span<const TypeInfo> call_arg_types) {
         std::vector<TypeInfo> normalized_call_args(call_arg_types.begin(), call_arg_types.end());
         if (normalized_call_args.empty()) {
             normalized_call_args.push_back(TypeInfo{
@@ -1422,7 +1624,7 @@ namespace glsld {
                 continue;
             }
 
-            auto compare_result = CompareCandidates(current, best_matches.front()); // 严格偏序不存在石头剪刀布循环，直接比较第一个即可
+            const auto compare_result = CompareCandidates(current, best_matches.front()); // 严格偏序不存在石头剪刀布循环，直接比较第一个即可
             if (compare_result == MatchResult::kLhsBetter) {
                 best_matches.clear();
                 best_matches.push_back(current);
@@ -1504,15 +1706,15 @@ namespace glsld {
             return left_type;
         }
 
-        auto left_desc  = left_type.type_desc;
-        auto right_desc = right_type.type_desc;
+        const auto left_desc  = left_type.type_desc;
+        const auto right_desc = right_type.type_desc;
 
         TypeDescriptor result_desc;
         result_desc.family = std::max(left_desc.family, right_desc.family);
         result_desc.bits   = std::max(left_desc.bits,   right_desc.bits);
 
-        auto left_structure  = left_desc.arithmetic_structure();
-        auto right_structure = right_desc.arithmetic_structure();
+        const auto left_structure  = left_desc.arithmetic_structure();
+        const auto right_structure = right_desc.arithmetic_structure();
 
         using enum TypeDescriptor::ArithmeticStructure;
 

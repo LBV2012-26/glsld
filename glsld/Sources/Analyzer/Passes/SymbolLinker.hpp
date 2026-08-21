@@ -1,9 +1,8 @@
 #pragma once
 
-#include <atomic>
-#include <memory>
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Document.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 #include "Base/Hash.hpp"
 
 namespace glsld {
