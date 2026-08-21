@@ -158,7 +158,7 @@ namespace glsld {
         case AstNodeKind::kVariableExpression:
             VisitVariableExpression(static_cast<VariableExpressionNode*>(node));
             break;
-        case AstNodeKind::kLiteralExpression:
+        case AstNodeKind::kRawExpression:
             VisitRawExpression(static_cast<RawExpressionNode*>(node));
             break;
         case AstNodeKind::kMemberAccessExpression:

@@ -76,7 +76,7 @@ namespace glsld {
         kCallExpression,
         kIndexExpression,
         kVariableExpression,    // 变量引用
-        kLiteralExpression,
+        kRawExpression,
         kMemberAccessExpression // struct.member
     };
 

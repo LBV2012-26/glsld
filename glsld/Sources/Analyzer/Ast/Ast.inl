@@ -229,7 +229,7 @@ namespace glsld {
     }
 
     inline AstNodeKind RawExpressionNode::kind() const {
-        return AstNodeKind::kLiteralExpression;
+        return AstNodeKind::kRawExpression;
     }
 
     inline AstNode* RawExpressionNode::Clone() const {

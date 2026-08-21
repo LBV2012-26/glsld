@@ -595,7 +595,7 @@ namespace glsld {
         // TODO: modify to evaluate
         for (const auto& array_size : type_spec.array_sizes) {
             std::string array_dimension;
-            if (array_size->kind() == AstNodeKind::kLiteralExpression) {
+            if (array_size->kind() == AstNodeKind::kRawExpression) {
                 const auto* raw_node = static_cast<const RawExpressionNode*>(array_size);
                 for (const auto& token : raw_node->tokens) {
                     array_dimension += token.text;
