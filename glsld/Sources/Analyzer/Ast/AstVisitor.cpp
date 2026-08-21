@@ -137,6 +137,9 @@ namespace glsld {
         case AstNodeKind::kInitializerListExpression:
             VisitInitializerListExpression(static_cast<InitializerListExpressionNode*>(node));
             break;
+        case AstNodeKind::kCastExpression:
+            VisitCastExpression(static_cast<CastExpressionNode*>(node));
+            break;
         case AstNodeKind::kBinaryExpression:
             VisitBinaryExpression(static_cast<BinaryExpressionNode*>(node));
             break;
@@ -399,6 +402,12 @@ namespace glsld {
     void AstVisitor::VisitInitializerListExpression(InitializerListExpressionNode* node) {
         for (auto& element : node->elements) {
             Traverse(element);
+        }
+    }
+
+    void AstVisitor::VisitCastExpression(CastExpressionNode* node) {
+        if (node->operand != nullptr) {
+            Traverse(node->operand);
         }
     }
 

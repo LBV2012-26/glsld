@@ -10,6 +10,33 @@
 #include "Base/Arena.hpp"
 
 namespace glsld {
+    struct ExpressionNode;
+    struct LayoutQualifierNode;
+    struct SpirvIntrinsicNode;
+
+    struct TypeSpec {
+        Arena* arena{ nullptr };
+        ArenaVector<Token>                specifiers{ ArenaAllocator<Token>(arena) };
+        ArenaVector<ExpressionNode*>      template_args{ ArenaAllocator<ExpressionNode*>(arena) };
+        ArenaVector<ExpressionNode*>      array_sizes{ ArenaAllocator<ExpressionNode*>(arena) };
+        ArenaVector<LayoutQualifierNode*> layouts{ ArenaAllocator<LayoutQualifierNode*>(arena) };
+        ArenaVector<SpirvIntrinsicNode*>  spirv_intrinsics{ ArenaAllocator<SpirvIntrinsicNode*>(arena) };
+        const SpirvIntrinsicNode*         spirv_type{ nullptr };
+
+        TypeSpec(Arena* arena);
+        TypeSpec(const TypeSpec& other);
+        TypeSpec(TypeSpec&&) noexcept = default;
+        ~TypeSpec() = default;
+
+        TypeSpec& operator=(const TypeSpec& other);
+        TypeSpec& operator=(TypeSpec&&) noexcept = default;
+
+        Token typename_token() const;
+        SourceLocation begin_location() const;
+        bool empty() const;
+        bool has_keyword(std::string_view name) const;
+    };
+
     enum class AstNodeKind {
         kTranslationUnit,
         kDeclarationGroup,
@@ -42,6 +69,7 @@ namespace glsld {
 
         // Expressions
         kInitializerListExpression,
+        kCastExpression,        // (int)value;
         kBinaryExpression,
         kUnaryExpression,
         kTernaryExpression,
@@ -86,7 +114,6 @@ namespace glsld {
         kSequence    // token sequence
     };
 
-    struct ExpressionNode;
     struct QualifierArgumentNode final : public AstNode {
         QualifierArgumentKind               arg_kind{ QualifierArgumentKind::kUnknown };
         Token                               token;
@@ -428,6 +455,22 @@ namespace glsld {
         AstNode* Clone() const override;
     };
 
+    struct CastExpressionNode final : public ExpressionNode {
+        TypeSpec        target_type{ arena };
+        ExpressionNode* operand{ nullptr };
+
+        using ExpressionNode::ExpressionNode;
+        CastExpressionNode(const CastExpressionNode& other);
+        CastExpressionNode(CastExpressionNode&&) noexcept = default;
+        ~CastExpressionNode() = default;
+
+        CastExpressionNode& operator=(const CastExpressionNode& other);
+        CastExpressionNode& operator=(CastExpressionNode&&) noexcept = default;
+
+        AstNodeKind kind() const override;
+        AstNode* Clone() const override;
+    };
+
     struct BinaryExpressionNode final : public ExpressionNode {
         TokenType       op{};
         ExpressionNode* left{ nullptr };
@@ -564,29 +607,6 @@ namespace glsld {
 
         AstNodeKind kind() const override;
         AstNode* Clone() const override;
-    };
-
-    struct TypeSpec {
-        Arena*                            arena{ nullptr };
-        ArenaVector<Token>                specifiers{ ArenaAllocator<Token>(arena) };
-        ArenaVector<ExpressionNode*>      template_args{ ArenaAllocator<ExpressionNode*>(arena) };
-        ArenaVector<ExpressionNode*>      array_sizes{ ArenaAllocator<ExpressionNode*>(arena) };
-        ArenaVector<LayoutQualifierNode*> layouts{ ArenaAllocator<LayoutQualifierNode*>(arena) };
-        ArenaVector<SpirvIntrinsicNode*>  spirv_intrinsics{ ArenaAllocator<SpirvIntrinsicNode*>(arena) };
-        const SpirvIntrinsicNode*         spirv_type{ nullptr };
-
-        TypeSpec(Arena* arena);
-        TypeSpec(const TypeSpec& other);
-        TypeSpec(TypeSpec&&) noexcept = default;
-        ~TypeSpec() = default;
-
-        TypeSpec& operator=(const TypeSpec& other);
-        TypeSpec& operator=(TypeSpec&&) noexcept = default;
-
-        Token typename_token() const;
-        SourceLocation begin_location() const;
-        bool empty() const;
-        bool has_keyword(std::string_view name) const;
     };
 
     struct VariableDeclarationNode final : public DeclarationNode {

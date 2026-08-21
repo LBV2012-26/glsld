@@ -391,6 +391,21 @@ namespace glsld {
         --indent_level_;
     }
 
+    void AstDumper::VisitCastExpression(CastExpressionNode* node) {
+        PrintIndent();
+        std::println("CastExpression Type: {} {}", TypeToString(node->target_type), FormatRange(node));
+
+        ++indent_level_;
+
+        if (node->operand != nullptr) {
+            PrintIndent();
+            std::print("Operand: ");
+            TraverseWithoutIndent(node->operand);
+        }
+
+        --indent_level_;
+    }
+
     void AstDumper::VisitBinaryExpression(BinaryExpressionNode* node) {
         PrintIndent();
         std::println("BinaryExpression '{}' {}", magic_enum::enum_name(node->op), FormatRange(node));

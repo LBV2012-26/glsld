@@ -28,6 +28,45 @@ namespace glsld {
         }
     }
 
+    TypeSpec::TypeSpec(Arena* arena)
+        : arena{ arena }
+    {}
+
+    TypeSpec::TypeSpec(const TypeSpec& other)
+        : arena{ other.arena }
+        , specifiers{ other.specifiers }
+        , template_args{ CloneVector<ExpressionNode>(*arena, other.template_args) }
+        , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
+        , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
+        , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
+    {
+        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
+            return;
+        }
+
+        for (const auto* spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
+            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
+                spirv_type = spirv_intrinsic;
+                break;
+            }
+        }
+    }
+
+    TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
+        if (this != &other) {
+            TypeSpec temp(other);
+            std::swap(*this, temp);
+        }
+
+        return *this;
+    }
+
+    bool TypeSpec::has_keyword(std::string_view name) const {
+        return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
+            return token.text == name;
+        });
+    }
+
     AstNode::AstNode(Arena* arena, Scope* scope)
         : arena{ arena }
         , located_scope { scope }
@@ -377,6 +416,21 @@ namespace glsld {
         return *this;
     }
 
+    CastExpressionNode::CastExpressionNode(const CastExpressionNode& other)
+        : ExpressionNode(other)
+        , target_type{ other.target_type }
+        , operand{ CloneNode(other.operand) }
+    {}
+
+    CastExpressionNode& CastExpressionNode::operator=(const CastExpressionNode & other) {
+        if (this != &other) {
+            CastExpressionNode temp(other);
+            std::swap(*this, temp);
+        }
+
+        return *this;
+    }
+
     BinaryExpressionNode::BinaryExpressionNode(const BinaryExpressionNode& other)
         : ExpressionNode(other)
         , op{ other.op }
@@ -499,45 +553,6 @@ namespace glsld {
         }
 
         return *this;
-    }
-
-    TypeSpec::TypeSpec(Arena* arena)
-        : arena{ arena }
-    {}
-
-    TypeSpec::TypeSpec(const TypeSpec& other)
-        : arena{ other.arena }
-        , specifiers{ other.specifiers }
-        , template_args{ CloneVector<ExpressionNode>(*arena, other.template_args) }
-        , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
-        , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
-        , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
-    {
-        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
-            return;
-        }
-
-        for (const auto* spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
-            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
-                spirv_type = spirv_intrinsic;
-                break;
-            }
-        }
-    }
-
-    TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
-        if (this != &other) {
-            TypeSpec temp(other);
-            std::swap(*this, temp);
-        }
-
-        return *this;
-    }
-
-    bool TypeSpec::has_keyword(std::string_view name) const {
-        return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
-            return token.text == name;
-        });
     }
 
     VariableDeclarationNode::VariableDeclarationNode(const VariableDeclarationNode& other)

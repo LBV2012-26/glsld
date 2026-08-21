@@ -2,6 +2,18 @@
 #include <type_traits>
 
 namespace glsld {
+    inline Token TypeSpec::typename_token() const {
+        return specifiers.empty() ? Token{} : specifiers.back();
+    }
+
+    inline SourceLocation TypeSpec::begin_location() const {
+        return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
+    }
+
+    inline bool TypeSpec::empty() const {
+        return specifiers.empty();
+    }
+
     template <typename Self>
     auto AstNode::DefaultClone(this Self&& self) {
         using NodeType = std::remove_cvref_t<Self>;
@@ -160,6 +172,14 @@ namespace glsld {
         return DefaultClone();
     }
 
+    inline AstNodeKind CastExpressionNode::kind() const {
+        return AstNodeKind::kCastExpression;
+    }
+
+    inline AstNode* CastExpressionNode::Clone() const {
+        return DefaultClone();
+    }
+
     inline AstNodeKind BinaryExpressionNode::kind() const {
         return AstNodeKind::kBinaryExpression;
     }
@@ -222,18 +242,6 @@ namespace glsld {
 
     inline AstNode* MemberAccessExpressionNode::Clone() const {
         return DefaultClone();
-    }
-
-    inline Token TypeSpec::typename_token() const {
-        return specifiers.empty() ? Token{} : specifiers.back();
-    }
-
-    inline SourceLocation TypeSpec::begin_location() const {
-        return specifiers.empty() ? SourceLocation{} : specifiers.front().location;
-    }
-
-    inline bool TypeSpec::empty() const {
-        return specifiers.empty();
     }
 
     inline AstNodeKind VariableDeclarationNode::kind() const {

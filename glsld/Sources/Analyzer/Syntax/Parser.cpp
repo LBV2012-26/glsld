@@ -1297,8 +1297,38 @@ namespace glsld {
         return node;
     }
 
+    bool Parser::IsCastExpression() {
+        if (current_token().type != TokenType::kOpenParen) {
+            return false;
+        }
+
+        const auto& type_token  = PeekToken(1);
+        const auto& close_token = PeekToken(2);
+
+        if (close_token.type != TokenType::kCloseParen) {
+            return false;
+        }
+
+        switch (type_token.type) {
+        case TokenType::kPrimitive:
+        case TokenType::kBuiltInType:
+            return true;
+
+        case TokenType::kIdentifier:
+            return current_scope()->FindVisibleType(type_token.text) != nullptr;
+
+        default:
+            return false;
+        }
+    }
+
     ExpressionNode* Parser::ParsePrefixExpression() {
         const auto& token = current_token();
+
+        // GL_NV_explicit_typecast: (type)expr
+        if (token.type == TokenType::kOpenParen && IsCastExpression()) {
+            return ParseCastExpression();
+        }
 
         // ( expr )
         if (token.type == TokenType::kOpenParen) {
@@ -1331,6 +1361,7 @@ namespace glsld {
         // 前缀一元运算符 (!b, -x, ++i, --j, ~mask)
         case TokenType::kExclamation:
         case TokenType::kMinus:
+        case TokenType::kPlus:
         case TokenType::kPlusPlus:
         case TokenType::kMinusMinus:
         case TokenType::kTilde:
@@ -1343,6 +1374,29 @@ namespace glsld {
         default:
             return nullptr;
         }
+    }
+
+    CastExpressionNode* Parser::ParseCastExpression() {
+        // current token is (
+        auto* node  = MakeNode<CastExpressionNode>(current_scope());
+        node->begin = current_token().location;
+
+        ConsumeToken();
+
+        node->target_type.specifiers.push_back(current_token());
+        ConsumeToken();
+
+        MatchAndConsume(TokenType::kCloseParen);
+
+        node->operand = ParseExpression(Precedence::kTypecast);
+
+        if (node->operand != nullptr) {
+            node->end = node->operand->end;
+        } else {
+            node->end = GetPreviousTokenEnd();
+        }
+
+        return node;
     }
 
     RawExpressionNode* Parser::ParseLiteral() {

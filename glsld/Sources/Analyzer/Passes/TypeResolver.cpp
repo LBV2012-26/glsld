@@ -453,6 +453,167 @@ namespace glsld {
         }
     }
 
+    namespace {
+        bool IsArithmeticType(const TypeInfo& type) {
+            if (type.is_array() || type.block_symbol != nullptr) {
+                return false;
+            }
+
+            const auto& desc = type.type_desc;
+
+            if (desc.vector_count < 1 || desc.vector_length < 1) {
+                return false;
+            }
+
+            switch (desc.family) {
+            case BaseFamily::kBool:
+            case BaseFamily::kInt:
+            case BaseFamily::kUint:
+            case BaseFamily::kFloat:
+                return true;
+            default:
+                return false;
+            }
+        }
+
+        bool IsUInt64Type(const TypeInfo& type) {
+            return !type.is_array()
+                 && type.block_symbol            == nullptr
+                 && type.type_desc.family        == BaseFamily::kUint
+                 && type.type_desc.bits          == 64
+                 && type.type_desc.vector_count  == 1
+                 && type.type_desc.vector_length == 1;
+        }
+
+        bool IsUVec2Type(const TypeInfo& type) {
+            return !type.is_array()
+                && type.block_symbol            == nullptr
+                && type.type_desc.family        == BaseFamily::kUint
+                && type.type_desc.bits          == 32
+                && type.type_desc.vector_count  == 1
+                && type.type_desc.vector_length == 2;
+        }
+
+        bool IsBufferReferenceType(const TypeInfo& type) {
+            const auto* symbol = type.block_symbol;
+            if (symbol == nullptr || symbol->kind != SymbolKind::kInterface) {
+                return false;
+            }
+
+            if (symbol->node->kind() != AstNodeKind::kInterfaceDeclaration) {
+                return false;
+            }
+
+            auto declaration = static_cast<const InterfaceDeclarationNode*>(symbol->node);
+
+            return std::ranges::any_of(declaration->type_spec.layouts, [](const auto* layout) -> bool {
+                if (layout == nullptr) {
+                    return false;
+                }
+
+                return std::ranges::any_of(layout->raw_tokens, [](const auto& token) -> bool {
+                    return token.text == "buffer_reference";
+                });
+            });
+        }
+
+        bool CanExplicitlyCast(const TypeInfo& source, const TypeInfo& target) {
+            if (source.is_array() || target.is_array()) {
+                return false;
+            }
+
+            const bool src_is_buffer_reference = IsBufferReferenceType(source);
+            const bool dst_is_buffer_reference = IsBufferReferenceType(target);
+
+            // GL_EXT_buffer_reference:
+            //     buffer reference <-> uint64_t
+            //
+            // GL_EXT_buffer_reference_uvec2:
+            //     buffer reference <-> uvec2
+            //
+            if (src_is_buffer_reference || dst_is_buffer_reference) {
+                if (src_is_buffer_reference && dst_is_buffer_reference) {
+                    return true;
+                }
+
+                const auto& arithmetic_type = src_is_buffer_reference ? target : source;
+                return IsUInt64Type(arithmetic_type) || IsUVec2Type(arithmetic_type);
+            }
+
+            // GL_NV_explicit_typecast 不支持除 buffer_reference 以外的定义类型强转
+            if (source.block_symbol != nullptr || target.block_symbol != nullptr)
+                return false;
+            if (!IsArithmeticType(source) || !IsArithmeticType(target))
+                return false;
+
+            const auto src_structure = source.type_desc.arithmetic_structure();
+            const auto dst_structure = target.type_desc.arithmetic_structure();
+
+            using enum TypeDescriptor::ArithmeticStructure;
+            switch (src_structure) {
+            case kScalar:
+                // scalar -> scalar/vector/matrix
+                return true;
+            case kVector:
+                // vector -> vector with same component
+                if (dst_structure == kVector) {
+                    return target.type_desc.vector_length <= source.type_desc.vector_length;
+                }
+
+                // vec4 -> mat2x2
+                return source.type_desc.vector_length == 4
+                    && dst_structure == kMatrix
+                    && target.type_desc.vector_count  == 2
+                    && target.type_desc.vector_length == 2;
+            case kMatrix:
+                // matrix -> matrix
+                return dst_structure == kMatrix;
+            }
+
+            return false;
+        }
+    }
+
+    void TypeResolver::VisitCastExpression(CastExpressionNode* node) {
+        if (node->operand == nullptr) {
+            return;
+        }
+
+        Traverse(node->operand);
+
+        const auto source_type = node->operand->evaluated_type;
+        const auto target_type = ExtractTypeInfo(node->target_type, node->located_scope);
+        if (!target_type.is_valid()) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        if (!source_type.is_valid()) {
+            node->evaluated_type = target_type;
+            return;
+        }
+
+        if (!CanExplicitlyCast(source_type, target_type)) {
+            node->evaluated_type = {
+                .typename_token{
+                    .text     = "unknown",
+                    .location = node->target_type.typename_token().location,
+                    .type     = TokenType::kUnknown
+                }
+            };
+
+            return;
+        }
+
+        node->evaluated_type = target_type;
+    }
+
     void TypeResolver::VisitBinaryExpression(BinaryExpressionNode* node) {
         Traverse(node->left);
         Traverse(node->right);

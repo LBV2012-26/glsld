@@ -46,6 +46,7 @@ namespace glsld {
             kShift,          // << >>
             kAdditive,       // + -
             kMultiplicative, // * / %
+            kTypecast,       // (type)expr
             kPrefix,         // ! ~ - + ++ --
             kPostfix,        // . [ ] ( ) ++ --
             kHighest
@@ -90,7 +91,10 @@ namespace glsld {
         DeclarationGroupNode* ParseVariableDeclarationList(TypeSpec type_spec);
         ExpressionStatementNode* ParseExpressionStatement();
 
+        bool IsCastExpression();
+
         ExpressionNode* ParsePrefixExpression();
+        CastExpressionNode* ParseCastExpression();
         RawExpressionNode* ParseLiteral();
         VariableExpressionNode* ParseVariableReference();
         UnaryExpressionNode* ParsePrefixUnary();
