@@ -548,6 +548,9 @@ namespace glsld {
         auto document = std::make_shared<Document>();
         document->source = std::move(*source);
 
+        auto arena = arena_pool_.Acquire();
+        document->arena = std::move(arena);
+
         if (injected_macros != nullptr) {
             for (const auto& [_, definition] : *injected_macros) {
                 document->InjectMacro(definition);

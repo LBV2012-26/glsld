@@ -657,7 +657,7 @@ namespace glsld {
         auto result = Providers::GetDocumentSymbols(context, snapshot, uri, mapper);
         const auto end = std::chrono::high_resolution_clock::now();
 
-        GLSLD_LOG(info, "DocumentSymbol for {} took {} ms",
+        GLSLD_LOG(trace, "DocumentSymbol for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         return result;
@@ -681,7 +681,7 @@ namespace glsld {
         auto data = Providers::GetSemanticData(context, snapshot, source_file, mapper);
         const auto end = std::chrono::high_resolution_clock::now();
 
-        GLSLD_LOG(info, "SemanticTokens for {} took {} ms",
+        GLSLD_LOG(trace, "SemanticTokens for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         return { { "data", std::move(data) } };
@@ -723,7 +723,7 @@ namespace glsld {
             return {};
         }
 
-        GLSLD_LOG(info, "Definition for {} took {} ms",
+        GLSLD_LOG(trace, "Definition for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         auto response_array = nlohmann::json::array();
@@ -779,7 +779,7 @@ namespace glsld {
             return {};
         }
 
-        GLSLD_LOG(info, "References for {} took {} ms",
+        GLSLD_LOG(trace, "References for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         PositionMapperCache mappers(workspace_);
@@ -919,7 +919,7 @@ namespace glsld {
         auto hints = Providers::GetInlayHints(context, snapshot);
         const auto end = std::chrono::high_resolution_clock::now();
 
-        GLSLD_LOG(info, "InlayHints for {} took {} ms",
+        GLSLD_LOG(trace, "InlayHints for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
@@ -1002,7 +1002,7 @@ namespace glsld {
             return {};
         }
 
-        GLSLD_LOG(info, "SignatureHelp for {} took {} ms",
+        GLSLD_LOG(trace, "SignatureHelp for {} took {} ms",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
@@ -1698,7 +1698,7 @@ namespace glsld {
         workspace_.UpdateDocument(uri, text, version_replica, version_pointer);
         const auto end = std::chrono::high_resolution_clock::now();
 
-        GLSLD_LOG(info, "Workspace::UpdateDocument for {} updated to version {} in {} ms",
+        GLSLD_LOG(trace, "Workspace::UpdateDocument for {} updated to version {} in {} ms",
                   uri, version_replica, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         ready_condition_.notify_all();

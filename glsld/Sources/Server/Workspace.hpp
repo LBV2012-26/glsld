@@ -17,6 +17,7 @@
 #include "Analyzer/Syntax/Document.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Arena.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
 #include "Server/Index/GlobalIndex.hpp"
@@ -128,6 +129,7 @@ namespace glsld {
         StringHeteroHashMap<ExtraShaderConfig>         shader_configs_; // [Uri, Config]
         SourceTable                                    source_table_;
 
+        ArenaPool                                      arena_pool_;
         ThreadPool                                     loader_pool_{ std::jthread::hardware_concurrency() };
         IncludeLoader                                  include_loader_{ source_table_, loader_pool_ };
         IncludeDirectoryHandle                         include_dirs_{ std::make_shared<std::vector<std::filesystem::path>>() };

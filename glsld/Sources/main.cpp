@@ -6,6 +6,7 @@
 #include <memory>
 #include <print>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN64
@@ -22,12 +23,13 @@
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Arena.hpp"
 #include "Base/Logger.hpp"
 #include "Server/LspServer.hpp"
 #include "Utils/Utils.hpp"
 
 namespace {
-    int Benchmark(const std::filesystem::path& filename, bool dump_ast = false) {
+    int Benchmark(glsld::ArenaPool& arena_pool, const std::filesystem::path& filename, bool dump_ast = false) {
         using namespace glsld;
 
         const auto normalized = Utils::GetFilePath(filename.generic_string());
@@ -37,6 +39,9 @@ namespace {
         SourceTable source_table;
         IncludeLoader loader(source_table, thread_pool);
         Document document;
+
+        auto arena = arena_pool.Acquire();
+        document.arena = std::move(arena);
 
         std::vector includes{
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
@@ -103,23 +108,27 @@ namespace {
 
 int main() {
 #ifdef _WIN64
-    std::ignore = _setmode(_fileno(stdin), _O_BINARY);
-    std::ignore = _setmode(_fileno(stdout), _O_BINARY);
+    (void)_setmode(_fileno(stdin), _O_BINARY);
+    (void)_setmode(_fileno(stdout), _O_BINARY);
 #endif
 
+    glsld::Logger::GetInstance();
+
 #ifdef BENCHMARK
-    Benchmark("Tests/Benchmark/BlackHoleHeavy.glsl.bak");
-    Benchmark("Tests/Benchmark/BlackHole.glsl.bak");
-    Benchmark("Tests/OverloadTest.glsl");
-    Benchmark("Tests/HoverTest.glsl");
-    Benchmark("Tests/ExtensionTest.glsl");
-    Benchmark("Tests/MacroTest.glsl");
+    glsld::ArenaPool arena_pool;
+
+    std::println("-----------------------------------------------------------------------");
+    Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl.bak");
+    Benchmark(arena_pool, "Tests/Benchmark/BlackHoleHeavy.glsl.bak");
+    Benchmark(arena_pool, "Tests/OverloadTest.glsl");
+    Benchmark(arena_pool, "Tests/HoverTest.glsl");
+    Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
+    Benchmark(arena_pool, "Tests/MacroTest.glsl");
+    std::println("-----------------------------------------------------------------------");
+
     return 0;
 #endif
 
-    Benchmark("Tests/Debugger.glsl", true);
-
-    glsld::Logger::GetInstance();
     glsld::LspServer server;
     server.Run();
 

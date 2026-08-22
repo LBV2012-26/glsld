@@ -16,6 +16,7 @@
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/IncludeLoader.hpp"
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Arena.hpp"
 #include "Base/Hash.hpp"
 #include "Base/ThreadPool.hpp"
 
@@ -70,6 +71,7 @@ namespace glsld {
             StringHeteroHashMap<std::shared_ptr<Document>> variants;
         };
 
+        ArenaPool                                 arena_pool_;
         StringHeteroHashMap<LexicalEntry>         lexical_entries_;
         StringHeteroHashMap<TokenType>            lexical_table_;
         StringHeteroHashMap<BuiltinDocumentCache> builtin_documents_;

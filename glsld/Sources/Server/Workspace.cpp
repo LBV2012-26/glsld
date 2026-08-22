@@ -16,7 +16,6 @@
 #include "Analyzer/Syntax/Lexer.hpp"
 #include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Analyzer/Syntax/Parser.hpp"
-#include "Base/Arena.hpp"
 #include "Base/Logger.hpp"
 #include "Utils/Utils.hpp"
 
@@ -27,33 +26,36 @@ namespace glsld {
         int version_replica,
         VersionPointer version_pointer)
     {
-        auto document = std::make_shared<Document>();
-        document->source  = source;
-        document->version = version_replica;
+        auto next = std::make_shared<Document>();
+        next->source  = source;
+        next->version = version_replica;
 
         const auto* source_file = source_table_.InternByUri(uri);
 
+        auto arena  = arena_pool_.Acquire();
+        next->arena = std::move(arena);
+
         const auto process_start = std::chrono::high_resolution_clock::now();;
-        ProcessSource(*document, source_file, document->source, version_replica, version_pointer);
+        ProcessSource(*next, source_file, next->source, version_replica, version_pointer);
         const auto process_end = std::chrono::high_resolution_clock::now();
 
         GLSLD_LOG(info, "Processed document {} in {} ms (replica: {}, current: {})",
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(process_end - process_start).count(),
                   version_replica, version_pointer != nullptr ? version_pointer->load() : 0);
 
-        if (document->ast == nullptr) {
+        if (next->ast == nullptr) {
             return;
         }
 
-        UpdateDependencies(uri, document);
+        UpdateDependencies(uri, next);
 
         const auto index_update_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(index_mutex_);
 
-            global_index_.IndexDocument(uri, *document);
+            global_index_.IndexDocument(uri, *next);
             type_member_index_.RemoveDocument(uri);
-            type_member_index_.IndexDocument(uri, document->symbols);
+            type_member_index_.IndexDocument(uri, next->symbols);
         }
         const auto index_update_end = std::chrono::high_resolution_clock::now();
 
@@ -63,7 +65,7 @@ namespace glsld {
         const auto reconcile_start = std::chrono::high_resolution_clock::now();
         {
             std::lock_guard lock(document_mutex_);
-            documents_.insert_or_assign(uri, std::move(document));
+            documents_.insert_or_assign(uri, std::move(next));
         }
         const auto reconcile_end = std::chrono::high_resolution_clock::now();
 
@@ -581,6 +583,9 @@ namespace glsld {
         auto document = std::make_shared<Document>();
         document->source  = std::move(*source);
         document->version = 0;
+
+        auto arena = arena_pool_.Acquire();
+        document->arena = std::move(arena);
 
         const auto* source_file = source_table_.InternByUri(uri);
 

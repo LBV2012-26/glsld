@@ -29,6 +29,14 @@ namespace glsld {
         return std::span<const Ty>(reinterpret_cast<Ty*>(memory), span.size());
     }
 
+    inline std::size_t Arena::capacity() const noexcept {
+        auto total_capacity = 0uz;
+        for (const auto& block : blocks_) {
+            total_capacity += block.size;
+        }
+        return total_capacity;
+    }
+
     template <typename Ty>
     ArenaAllocator<Ty>::ArenaAllocator(Arena& arena) noexcept
         : arena_{ std::addressof(arena) }

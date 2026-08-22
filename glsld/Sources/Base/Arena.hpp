@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <vector>
 
@@ -26,6 +29,9 @@ namespace glsld {
 
         template <typename Ty>
         std::span<const Ty> CopySpan(std::span<const Ty> span);
+
+        std::size_t capacity() const noexcept;
+        std::size_t size() const noexcept;
 
     private:
         template <typename Ty>
@@ -89,6 +95,30 @@ namespace glsld {
 
     template <typename Ty>
     using ArenaVector = std::vector<Ty, ArenaAllocator<Ty>>;
+
+    class ArenaPool {
+    public:
+        using Lease = std::shared_ptr<Arena>;
+
+        ArenaPool();
+        ArenaPool(const ArenaPool&) = delete;
+        ArenaPool(ArenaPool&&)      = delete;
+        ~ArenaPool();
+
+        ArenaPool& operator=(const ArenaPool&) = delete;
+        ArenaPool& operator=(ArenaPool&&)      = delete;
+
+        Lease Acquire();
+
+    private:
+        struct State {
+            std::mutex                          mutex;
+            std::vector<std::unique_ptr<Arena>> idle;
+        };
+
+        std::shared_ptr<State> state_{ std::make_shared<State>() };
+        std::jthread           recycle_thread_;
+    };
 } // namespace glsld
 
 #include "Arena.inl"

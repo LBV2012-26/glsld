@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <algorithm>
 #include <bit>
+#include <chrono>
+#include <condition_variable>
 #include <limits>
-#include <memory>
 #include <stdexcept>
+#include <stop_token>
 #include <utility>
 
 #ifdef _WIN64
@@ -15,6 +17,8 @@
 #include <csignal>
 #include <sys/mman.h>
 #endif
+
+#include "Base/Logger.hpp"
 
 namespace glsld {
     Arena::Arena() noexcept {
@@ -30,6 +34,7 @@ namespace glsld {
     {}
 
     Arena::~Arena() {
+        GLSLD_LOG(info, "Arena::~Arena()");
         FreeMemory();
     }
 
@@ -60,6 +65,22 @@ namespace glsld {
         auto* memory = reinterpret_cast<char*>(Allocate(text.size(), alignof(char)));
         std::ranges::copy(text, memory);
         return std::string_view(memory, text.size());
+    }
+
+    std::size_t Arena::size() const noexcept {
+        if (blocks_.empty()) {
+            return 0;
+        }
+
+        auto total_size = 0uz;
+        for (auto i = 0uz; i != current_; ++i) {
+            total_size += blocks_[i].size;
+        }
+
+        const auto& current_block = blocks_[current_];
+        total_size += static_cast<std::size_t>(memory_ - current_block.memory);
+
+        return total_size;
     }
 
     std::byte* Arena::Allocate(std::size_t size, std::size_t alignment) {
@@ -151,5 +172,77 @@ namespace glsld {
             .memory = static_cast<std::byte*>(memory),
             .size   = size
         };
+    }
+
+    namespace {
+        void InterruptibleSleep(std::stop_token stop_token, std::chrono::milliseconds duration) {
+            std::mutex mutex;
+            std::condition_variable_any condition;
+            std::unique_lock lock(mutex);
+            condition.wait_for(lock, stop_token, duration, []() -> bool { return false; });
+        }
+    }
+
+    ArenaPool::ArenaPool()
+        : recycle_thread_{
+            [state = state_](std::stop_token stop_token) -> void {
+                while (!stop_token.stop_requested()) {
+                    InterruptibleSleep(stop_token, std::chrono::seconds(10));
+                    std::lock_guard lock(state->mutex);
+
+                    if (state->idle.empty()) {
+                        continue;
+                    }
+
+                    std::erase_if(state->idle, [](const auto& arena) -> bool {
+                        static constexpr auto kMaxIdleCapacity = 4uz * 1024 * 1024; // 4MiB
+                        const auto capacity = arena->capacity();
+                        if (capacity > kMaxIdleCapacity) {
+                            GLSLD_LOG(info, "ArenaPool::recycle_thread_: recycling arena with capacity {} MiB", capacity / (1024 * 1024));
+                            return true;
+                        }
+
+                        return false;
+                    });
+
+                    if (state->idle.size() > 3) {
+                        GLSLD_LOG(info, "ArenaPool::recycle_thread_: reducing idle arenas from {} to 3", state->idle.size());
+                        state->idle.resize(3);
+                    }
+
+                    for (const auto& arena : state->idle) {
+                        GLSLD_LOG(info, "ArenaPool::recycle_thread_: remaining idle arena capacity: {} MiB", arena->capacity() / (1024 * 1024));
+                    }
+                }
+            }
+        }
+    {
+    }
+
+    ArenaPool::~ArenaPool() {
+        recycle_thread_.request_stop();
+    }
+
+    ArenaPool::Lease ArenaPool::Acquire() {
+        std::unique_ptr<Arena> arena;
+        {
+            std::lock_guard lock(state_->mutex);
+            if (!state_->idle.empty()) {
+                arena = std::move(state_->idle.back());
+                state_->idle.pop_back();
+            }
+        }
+
+        if (arena == nullptr) {
+            arena = std::make_unique<Arena>();
+        }
+
+        auto Recycle = [state = state_](Arena* arena) -> void {
+            arena->Reset();
+            std::lock_guard lock(state->mutex);
+            state->idle.emplace_back(arena);
+        };
+
+        return Lease(arena.release(), Recycle);
     }
 }

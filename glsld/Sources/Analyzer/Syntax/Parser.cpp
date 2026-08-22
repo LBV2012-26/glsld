@@ -128,7 +128,7 @@ namespace glsld {
 
     template <typename NodeType, typename... Types>
     NodeType* Parser::MakeNode(Types&&... args) {
-        auto& arena = document_.arena;
+        auto& arena = *document_.arena;
         return arena.Construct<NodeType>(&arena, std::forward<Types>(args)...);
     }
 
@@ -153,7 +153,7 @@ namespace glsld {
     }
 
     StatementNode* Parser::ParseStatement() {
-        ArenaVector<AttributeNode*> attributes{ ArenaAllocator<AttributeNode*>(document_.arena) };
+        ArenaVector<AttributeNode*> attributes{ ArenaAllocator<AttributeNode*>(*document_.arena) };
         if (current_token().type == TokenType::kOpenBracket && PeekToken().type == TokenType::kOpenBracket) {
             attributes = ParseAttributeList();
         }
@@ -280,7 +280,7 @@ namespace glsld {
         std::span<const Token> body_tokens,
         const SymbolInfo* host_symbol)
     {
-        ArenaVector<StatementNode*> statements{ ArenaAllocator<StatementNode*>(document_.arena) };
+        ArenaVector<StatementNode*> statements{ ArenaAllocator<StatementNode*>(*document_.arena) };
         if (body_tokens.empty()) {
             return statements;
         }
@@ -352,7 +352,7 @@ namespace glsld {
     }
 
     ArenaVector<AttributeNode*> Parser::ParseAttributeList() {
-        ArenaVector<AttributeNode*> attributes{ ArenaAllocator<AttributeNode*>(document_.arena) };
+        ArenaVector<AttributeNode*> attributes{ ArenaAllocator<AttributeNode*>(*document_.arena) };
 
         if (current_token().type != TokenType::kOpenBracket || PeekToken().type != TokenType::kOpenBracket) {
             return attributes;
@@ -555,7 +555,7 @@ namespace glsld {
 
     ArenaVector<VariableDeclarationNode*> Parser::ParseParameterList() {
         // current token is first parameter or "void"
-        ArenaVector<VariableDeclarationNode*> param_list{ ArenaAllocator<VariableDeclarationNode*>(document_.arena) };
+        ArenaVector<VariableDeclarationNode*> param_list{ ArenaAllocator<VariableDeclarationNode*>(*document_.arena) };
         param_list.reserve(6);
 
         // Function(void)
@@ -638,7 +638,7 @@ namespace glsld {
 
     TypeSpec Parser::ParseTypeSpec() {
         // current token is specifier such as: Func("const int" input)
-        TypeSpec type_spec(&document_.arena);
+        TypeSpec type_spec(document_.arena.get());
 
         while (true) {
             const auto& token = current_token();
@@ -723,7 +723,7 @@ namespace glsld {
     }
 
     ArenaVector<Token> Parser::CaptureBalancedTokens(TokenType open, TokenType close) {
-        ArenaVector<Token> captured{ ArenaAllocator<Token>(document_.arena) };
+        ArenaVector<Token> captured{ ArenaAllocator<Token>(*document_.arena) };
         if (!MatchAndConsume(open)) {
             return captured;
         }
@@ -1991,7 +1991,7 @@ namespace glsld {
     }
 
     ArenaVector<Token> Parser::CaptureDirectiveTokens(std::string_view target_file, std::uint32_t directive_physical_line) {
-        ArenaVector<Token> collected{ ArenaAllocator<Token>(document_.arena) };
+        ArenaVector<Token> collected{ ArenaAllocator<Token>(*document_.arena) };
         if (current_token().type == TokenType::kEndOfFile) {
             return collected;
         }
@@ -2028,7 +2028,7 @@ namespace glsld {
 
     template <typename Ty>
     ArenaVector<Ty*> Parser::ParseSequence(TokenType terminator, auto parse_func, bool consume_terminator) {
-        ArenaVector<Ty*> nodes{ ArenaAllocator<Ty*>(document_.arena) };
+        ArenaVector<Ty*> nodes{ ArenaAllocator<Ty*>(*document_.arena) };
 
         while (current_token().type != TokenType::kEndOfFile && current_token().type != terminator) {
             auto result = parse_func();

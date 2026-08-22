@@ -143,7 +143,7 @@ namespace glsld {
         const SourceFile*                       source_file_;
         std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
-        ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(document_.arena) };
+        ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(*document_.arena) };
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
         std::size_t                             anonymous_block_index_{};

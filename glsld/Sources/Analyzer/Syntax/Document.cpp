@@ -2,10 +2,16 @@
 #include "Document.hpp"
 
 #include <utility>
+#include "Base/Logger.hpp"
 
 namespace glsld {
-    std::string_view Document::StoreTokenText(std::string_view text) {
-        return arena.CopyString(text);
+    Document::~Document() {
+        GLSLD_LOG(info, "Document::~Document at uri: {}",
+                  raw_tokens.empty() ? "empty document" : raw_tokens.front().location.filename());
+    }
+
+    std::string_view Document::StoreTokenText(std::string_view text) const {
+        return arena->CopyString(text);
     }
 
     void Document::StoreIncludeSource(IncludeSnapshot snapshot) {
@@ -60,7 +66,7 @@ namespace glsld {
         SourceLocation location(source_file, 0, 0);
 
         for (const auto& [name, definition] : pending_macros_) {
-            auto* node = arena.Construct<PreprocessorNode>(&arena, root);
+            auto* node = arena->Construct<PreprocessorNode>(arena.get(), root);
 
             node->directive = "define";
             node->begin     = location;

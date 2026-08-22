@@ -49,7 +49,7 @@ namespace glsld {
     public:
         using Builtin = std::shared_ptr<const Document>;
 
-        Arena                    arena;
+        ArenaPool::Lease         arena;
         std::vector<std::string> dependencies; // [URI]
         std::vector<Builtin>     builtins;
         DocumentSymbols          symbols;
@@ -68,12 +68,12 @@ namespace glsld {
         Document()                = default;
         Document(const Document&) = delete;
         Document(Document&&)      = delete;
-        ~Document()               = default;
+        ~Document();
 
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&&)      = delete;
 
-        std::string_view StoreTokenText(std::string_view text);
+        std::string_view StoreTokenText(std::string_view text) const;
         void StoreIncludeSource(IncludeSnapshot snapshot);
 
         void PrepareInjectedMacros(const SourceFile* source_file);

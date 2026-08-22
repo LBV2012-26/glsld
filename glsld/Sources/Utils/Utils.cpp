@@ -137,7 +137,7 @@ namespace glsld::Utils {
         }
 
         const auto& symbols = std::get<SymbolList>(reference);
-        return document.arena.CopySpan<const SymbolInfo*>(symbols);
+        return document.arena->CopySpan<const SymbolInfo*>(symbols);
     }
 
     std::string_view UnmangleFunctionName(std::string_view mangled_name) {

@@ -372,7 +372,7 @@ namespace glsld {
 
         if (changed) {
             variable_symbol->type_info.array_sizes =
-                document_.arena.CopySpan<std::optional<std::uint64_t>>(resolved_sizes);
+                document_.arena->CopySpan<std::optional<std::uint64_t>>(resolved_sizes);
         }
     }
 
@@ -449,7 +449,7 @@ namespace glsld {
             new_sizes.push_back(node->elements.size());
             new_sizes.append_range(old_sizes);
 
-            node->evaluated_type.array_sizes = document_.arena.CopySpan<std::optional<std::uint64_t>>(new_sizes);
+            node->evaluated_type.array_sizes = document_.arena->CopySpan<std::optional<std::uint64_t>>(new_sizes);
         }
     }
 
@@ -796,7 +796,7 @@ namespace glsld {
                         }
                     }
 
-                    array_type.array_sizes = document_.arena.CopySpan<std::optional<std::uint64_t>>(dimensions);
+                    array_type.array_sizes = document_.arena->CopySpan<std::optional<std::uint64_t>>(dimensions);
 
                     node->evaluated_type         = array_type;
                     node->callee->evaluated_type = array_type;
@@ -1210,9 +1210,9 @@ namespace glsld {
             extension_views.push_back(document_.StoreTokenText(extension));
         }
 
-        signature.extensions   = document_.arena.CopySpan<std::string_view>(extension_views);
-        signature.capabilities = document_.arena.CopySpan<std::int64_t>(signature_capabilities);
-        signature.operands     = document_.arena.CopySpan<SpirvOperandSignature>(signature_operands);
+        signature.extensions   = document_.arena->CopySpan<std::string_view>(extension_views);
+        signature.capabilities = document_.arena->CopySpan<std::int64_t>(signature_capabilities);
+        signature.operands     = document_.arena->CopySpan<SpirvOperandSignature>(signature_operands);
 
         return signature;
     }
@@ -1237,7 +1237,7 @@ namespace glsld {
             qualifiers.assign_range(type_spec.specifiers | std::views::take(type_spec.specifiers.size() - 1));
         }
 
-        info.qualifiers = document_.arena.CopySpan<Token>(qualifiers);
+        info.qualifiers = document_.arena->CopySpan<Token>(qualifiers);
 
         std::vector<std::optional<std::size_t>> array_sizes;
         for (const auto& size : type_spec.array_sizes) {
@@ -1250,7 +1250,7 @@ namespace glsld {
             array_sizes.push_back(evaluator.EvaluateAs<std::uint64_t>(size));
         }
 
-        info.array_sizes = document_.arena.CopySpan<std::optional<std::size_t>>(array_sizes);
+        info.array_sizes = document_.arena->CopySpan<std::optional<std::size_t>>(array_sizes);
 
         // spirv_type
         if (!type_spec.spirv_intrinsics.empty() && type_spec.spirv_type != nullptr &&
@@ -1317,7 +1317,7 @@ namespace glsld {
             template_arg_views.push_back(document_.StoreTokenText(arg));
         }
 
-        info.template_args = document_.arena.CopySpan<std::string_view>(template_arg_views);
+        info.template_args = document_.arena->CopySpan<std::string_view>(template_arg_views);
         info.type_desc     = ParseTypeDescriptor(typename_token.text);
 
         return info;
