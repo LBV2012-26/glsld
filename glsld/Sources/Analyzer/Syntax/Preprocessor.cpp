@@ -124,8 +124,7 @@ namespace glsld {
                     token.type == TokenType::kPrimitive       ||
                     token.type == TokenType::kKeyword         ||
                     token.type == TokenType::kBuiltInFunction ||
-                    token.type == TokenType::kBuiltInType     ||
-                    token.type == TokenType::kBuiltInVariable)
+                    token.type == TokenType::kBuiltInType)
                 {
                     ConsumeToken();
                     return 0;
@@ -1157,7 +1156,6 @@ namespace glsld {
                 || token.type == TokenType::kKeyword
                 || token.type == TokenType::kPreprocessor
                 || token.type == TokenType::kBuiltInFunction
-                || token.type == TokenType::kBuiltInVariable
                 || token.type == TokenType::kBuiltInType;
         };
 

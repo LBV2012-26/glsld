@@ -480,10 +480,6 @@ namespace glsld {
         }
 
         TokenType ResolveTokenType(std::string_view relative_path) {
-            if (relative_path == "Builtins/Functions.txt")
-                return TokenType::kBuiltInFunction;
-            if (relative_path == "Builtins/Variables.txt")
-                return TokenType::kBuiltInVariable;
             if (relative_path == "Builtins/Types.txt")
                 return TokenType::kBuiltInType;
             if (relative_path == "Keywords/Meta.txt")

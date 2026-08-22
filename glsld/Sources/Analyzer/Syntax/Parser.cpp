@@ -163,7 +163,6 @@ namespace glsld {
         case TokenType::kPrimitive:
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
-        case TokenType::kBuiltInVariable:
         case TokenType::kIdentifier:
         case TokenType::kSpirvIntrinsic:
             node = ParseCodeStatement();
@@ -771,7 +770,6 @@ namespace glsld {
                 token.type == TokenType::kPrimitive       ||
                 token.type == TokenType::kBuiltInType     ||
                 token.type == TokenType::kBuiltInFunction ||
-                token.type == TokenType::kBuiltInVariable ||
                 token.type == TokenType::kSpirvIntrinsic)
             {
                 return QualifierArgumentKind::kIdentifier;
@@ -1350,7 +1348,7 @@ namespace glsld {
         case TokenType::kStringLiteral:
             return ParseLiteral();
 
-        // 标识符/内置类型/内置函数/Primitive/SpirvIntrinsics (函数本来应该算标识符，但问题是内置函数无需声明)
+        // 标识符/内置类型/内置函数（.length）/Primitive/SpirvIntrinsics (函数本来应该算标识符，但内置函数无需声明)
         case TokenType::kIdentifier:
         case TokenType::kBuiltInType:
         case TokenType::kBuiltInFunction:
