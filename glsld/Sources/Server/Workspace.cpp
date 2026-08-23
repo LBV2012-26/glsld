@@ -53,7 +53,7 @@ namespace glsld {
         {
             std::lock_guard lock(index_mutex_);
 
-            global_index_.IndexDocument(uri, *next);
+            //global_index_.IndexDocument(uri, *next);
             type_member_index_.RemoveDocument(uri);
             type_member_index_.IndexDocument(uri, next->symbols);
         }
@@ -179,6 +179,7 @@ namespace glsld {
         std::filesystem::path cache_path,
         std::string cache_key)
     {
+        return; // temp
         StopBackgroundIndex();
 
         {
@@ -219,6 +220,8 @@ namespace glsld {
 
         {
             std::lock_guard lock(document_mutex_);
+            auto& document = documents_.at(uri);
+            MetadataManager::GetInstance().InvalidateMetadata(*document);
             documents_.erase(uri);
         }
 
@@ -232,6 +235,7 @@ namespace glsld {
     }
 
     void Workspace::ScheduleDiskIndex(const std::filesystem::path& filename) {
+        return; // temp
         auto normalized = Utils::NormalizePath(filename);
         auto uri        = Utils::PathToUri(normalized);
 

@@ -82,15 +82,23 @@ namespace glsld {
         const auto normalized = Utils::NormalizePath(*resolved_path);
         const auto filename   = normalized.generic_string();
 
+        std::error_code ec;
+        const auto latest = std::filesystem::last_write_time(normalized, ec);
+        if (ec) {
+            auto failed = std::make_shared<IncludeData>();
+            failed->error = "Failed to query file timestamp";
+            return MakeReadyFuture(std::move(failed));
+        }
+
         {
             std::shared_lock lock(mutex_);
 
             auto cache_it = cache_.find(filename);
             if (cache_it != cache_.end()) {
-                std::error_code ec;
-                auto latest = std::filesystem::last_write_time(normalized, ec);
-                if (!ec && latest == cache_it->second->write_time) {
-                    return MakeReadyFuture(cache_it->second);
+                if (auto snapshot = cache_it->second.lock();
+                    snapshot != nullptr && latest == snapshot->write_time)
+                {
+                    return MakeReadyFuture(std::move(snapshot));
                 }
             }
 
@@ -105,10 +113,10 @@ namespace glsld {
 
             auto cache_it = cache_.find(filename);
             if (cache_it != cache_.end()) {
-                std::error_code ec;
-                auto latest = std::filesystem::last_write_time(normalized, ec);
-                if (!ec && latest == cache_it->second->write_time) {
-                    return MakeReadyFuture(cache_it->second);
+                if (auto snapshot = cache_it->second.lock();
+                    snapshot != nullptr && latest == snapshot->write_time)
+                {
+                    return MakeReadyFuture(std::move(snapshot));
                 }
 
                 cache_.erase(cache_it);
@@ -125,7 +133,7 @@ namespace glsld {
         {
             auto loaded = LoadIncludeFile(normalized, include_dirs);
             {
-                std::unique_lock lock(mutex_);
+                std::lock_guard lock(mutex_);
                 inflight_.erase(filename);
 
                 if (loaded != nullptr && loaded->valid()) {
@@ -136,14 +144,22 @@ namespace glsld {
             return loaded;
         };
 
-        IncludeSnapshotFuture future;
-        if (thread_pool_.max_thread_count() == 0) {
-            future = MakeReadyFuture(Task());
-        } else {
-            future = thread_pool_.Submit(std::move(Task)).share();
+        auto task   = std::make_shared<std::packaged_task<IncludeSnapshot()>>(std::move(Task));
+        auto future = task->get_future().share();
+
+        {
+            std::lock_guard lock(mutex_);
+            inflight_[filename] = future;
         }
 
-        inflight_[filename] = future;
+        if (thread_pool_.max_thread_count() == 0) {
+            (*task)();
+        } else {
+            thread_pool_.Submit([task]() -> void {
+                (*task)();
+            });
+        }
+
         return future;
     }
 

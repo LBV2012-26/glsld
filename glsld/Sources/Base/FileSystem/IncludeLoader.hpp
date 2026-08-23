@@ -30,6 +30,7 @@ namespace glsld {
     };
 
     using IncludeSnapshot       = std::shared_ptr<const IncludeData>;
+    using WeakIncludeSnapshot   = std::weak_ptr<const IncludeData>;
     using IncludeSnapshotFuture = std::shared_future<IncludeSnapshot>;
 
     class IncludeLoader {
@@ -83,7 +84,7 @@ namespace glsld {
         SourceTable&                               source_table_;
         ThreadPool&                                thread_pool_;
         std::shared_mutex                          mutex_;
-        StringHeteroHashMap<IncludeSnapshot>       cache_;
+        StringHeteroHashMap<WeakIncludeSnapshot>   cache_;
         StringHeteroHashMap<IncludeSnapshotFuture> inflight_;
     };
 }

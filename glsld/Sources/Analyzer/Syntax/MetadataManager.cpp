@@ -1,9 +1,11 @@
 #include "pch.hpp"
 #include "MetadataManager.hpp"
 
+#include <cassert>
 #include <cstddef>
 #include <algorithm>
 #include <format>
+#include <mutex>
 #include <ranges>
 #include <stdexcept>
 #include <system_error>
@@ -326,20 +328,52 @@ namespace glsld {
         }
 
         for (const auto& path : required_files) {
-            auto source = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
-            if (source == nullptr) {
+            auto result = EnsureBuiltinDocumentLoaded(path, include_dirs, &injected_macros);
+            // use dot operator to suppress IntelliSense error static analysis
+            if (result.document == nullptr) {
                 continue;
             }
 
-            for (const auto& [_, definition] : source->macro_table) {
+            for (const auto& [_, definition] : result.document->macro_table) {
                 target.InjectMacro(definition);
             }
 
+            target.metadata_attachments.push_back({
+                .filename   = std::move(result.filename),
+                .cached_key = std::move(result.cached_key)
+            });
+
             auto* target_root = target.symbols.root_scope();
-            target_root->AddBuiltinScope(source->symbols.root_scope());
-            target.symbols.AttachBuiltinSymbols(&source->symbols);
-            target.builtins.push_back(source);
+            target_root->AddBuiltinScope(result.document->symbols.root_scope());
+            target.symbols.AttachBuiltinSymbols(&result.document->symbols);
+            target.builtins.push_back(result.document);
         }
+    }
+
+    void MetadataManager::InvalidateMetadata(Document& document) {
+        std::lock_guard lock(builtin_mutex_);
+
+        for (const auto& attachment : document.metadata_attachments) {
+            auto file_it = builtin_documents_.find(attachment.filename);
+            if (file_it == builtin_documents_.end()) {
+                continue;
+            }
+
+            auto variant_it = file_it->second.find(attachment.cached_key);
+            if (variant_it == file_it->second.end()) {
+                continue;
+            }
+
+            auto& variant = variant_it->second;
+            assert(variant.ref_count > 0);
+
+            if (--variant.ref_count == 0)
+                file_it->second.erase(variant_it);
+            if (file_it->second.empty())
+                builtin_documents_.erase(file_it);
+        }
+
+        document.metadata_attachments.clear();
     }
 
     const StringHeteroHashMap<TokenType>* MetadataManager::GetLexicalTable() {
@@ -419,50 +453,57 @@ namespace glsld {
         }
     }
 
-    std::shared_ptr<Document> MetadataManager::EnsureBuiltinDocumentLoaded(
+    MetadataManager::BuiltinDocumentResult MetadataManager::EnsureBuiltinDocumentLoaded(
         const std::filesystem::path& path,
         IncludeDirectoryHandle include_dirs,
         const MacroTable* injected_macros)
     {
         const auto normalized = Utils::NormalizePath(path);
-        const auto filename   = normalized.generic_string();
+        auto       filename   = normalized.generic_string();
 
         std::error_code ec;
         const auto latest = std::filesystem::last_write_time(normalized, ec);
         if (ec) {
-            return nullptr;
+            return {};
         }
 
-        const auto cached_key = injected_macros == nullptr ? "" : MakeMacroFingerprint(*injected_macros);
+        const auto time_epoch = latest.time_since_epoch().count();
+        auto cached_key = std::format(
+            "{}_{}", time_epoch, injected_macros == nullptr ? "NO_MACRO" : MakeMacroFingerprint(*injected_macros));
 
         {
             std::shared_lock lock(builtin_mutex_);
             auto it = builtin_documents_.find(filename);
-            if (it != builtin_documents_.end() &&
-                it->second.write_time == latest)
-            {
-                auto it2 = it->second.variants.find(cached_key);
-                if (it2 != it->second.variants.end() && it2->second != nullptr) {
-                    return it2->second;
+            if (it != builtin_documents_.end()) {
+                auto it2 = it->second.find(cached_key);
+                if (it2 != it->second.end() && it2->second.document != nullptr) {
+                    return {
+                        .document   = it2->second.document,
+                        .filename   = std::move(filename),
+                        .cached_key = std::move(cached_key)
+                    };
                 }
             }
         }
 
         auto parsed = ParseMetadataDocument(normalized, include_dirs, injected_macros);
         if (parsed == nullptr || parsed->ast == nullptr) {
-            return nullptr;
+            return {};
         }
 
-        std::unique_lock lock(builtin_mutex_);
+        std::lock_guard lock(builtin_mutex_);
         auto& cache = builtin_documents_[filename];
 
-        if (cache.write_time != latest) {
-            cache.write_time = latest;
-            cache.variants.clear();
-        }
+        cache.try_emplace(cached_key, BuiltinDocumentVariant{
+            .document  = std::move(parsed),
+            .ref_count = 1
+        });
 
-        cache.variants.insert_or_assign(cached_key, std::move(parsed));
-        return cache.variants[cached_key];
+        return {
+            .document   = cache[cached_key].document,
+            .filename   = std::move(filename),
+            .cached_key = std::move(cached_key)
+        };
     }
 
     namespace {

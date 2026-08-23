@@ -49,21 +49,27 @@ namespace glsld {
     public:
         using Builtin = std::shared_ptr<const Document>;
 
-        ArenaPool::Lease         arena;
-        std::vector<std::string> dependencies; // [URI]
-        std::vector<Builtin>     builtins;
-        DocumentSymbols          symbols;
-        std::string              source;
-        std::vector<Token>       raw_tokens;
-        std::vector<Token>       expanded_tokens;
-        InactiveRegionMap        inactive_regions;
-        TranslationUnitNode*     ast{ nullptr };
-        BindingMap               bindings;
-        MacroTraceMap            macro_traces;
-        MacroArgsTraceMap        macro_args_traces;
-        MacroExpansionMap        macro_expansions;
-        MacroTable               macro_table;
-        int                      version{};
+        struct MetadataAttachment {
+            std::string filename;
+            std::string cached_key;
+        };
+
+        ArenaPool::Lease                arena;
+        std::vector<std::string>        dependencies; // [URI]
+        std::vector<Builtin>            builtins;
+        std::vector<MetadataAttachment> metadata_attachments;
+        DocumentSymbols                 symbols;
+        std::string                     source;
+        std::vector<Token>              raw_tokens;
+        std::vector<Token>              expanded_tokens;
+        InactiveRegionMap               inactive_regions;
+        TranslationUnitNode*            ast{ nullptr };
+        BindingMap                      bindings;
+        MacroTraceMap                   macro_traces;
+        MacroArgsTraceMap               macro_args_traces;
+        MacroExpansionMap               macro_expansions;
+        MacroTable                      macro_table;
+        int                             version{};
 
         Document()                = default;
         Document(const Document&) = delete;

@@ -34,6 +34,8 @@ namespace glsld {
             std::span<const Token> raw_tokens,
             IncludeDirectoryHandle include_dirs);
 
+        void InvalidateMetadata(Document& document);
+
         const StringHeteroHashMap<TokenType>* GetLexicalTable();
         std::optional<std::string_view> GetLexicalSubtype(std::string_view word);
         const std::vector<std::pair<std::string, std::string>>& GetMeta();
@@ -52,7 +54,13 @@ namespace glsld {
 
         void EnsureLexicalLoaded();
 
-        std::shared_ptr<Document> EnsureBuiltinDocumentLoaded(
+        struct BuiltinDocumentResult {
+            std::shared_ptr<Document> document;
+            std::string               filename;
+            std::string               cached_key;
+        };
+
+        BuiltinDocumentResult EnsureBuiltinDocumentLoaded(
             const std::filesystem::path& path,
             IncludeDirectoryHandle include_dirs,
             const MacroTable* injected_macros);
@@ -66,10 +74,12 @@ namespace glsld {
 
         void LoadNoExpandHints();
 
-        struct BuiltinDocumentCache {
-            std::filesystem::file_time_type                write_time{};
-            StringHeteroHashMap<std::shared_ptr<Document>> variants;
+        struct BuiltinDocumentVariant {
+            std::shared_ptr<Document> document;
+            std::size_t               ref_count{};
         };
+
+        using BuiltinDocumentCache = StringHeteroHashMap<BuiltinDocumentVariant>;
 
         ArenaPool                                 arena_pool_;
         StringHeteroHashMap<LexicalEntry>         lexical_entries_;
