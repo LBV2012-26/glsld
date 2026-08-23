@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -47,11 +48,13 @@ namespace glsld::Providers {
         const SymbolInfo*           symbol{ nullptr };
     };
 
+    using ReferenceQuery = std::function<std::vector<SourceLocation>(const SourceLocation& definition)>;
+
     ReferenceResult GetReferences(
         Context& context,
         Snapshot snapshot,
         const SourceLocation& location,
-        const GlobalIndex& global_index);
+        const ReferenceQuery& query);
 
     std::vector<InlayHint> GetInlayHints(Context& context, Snapshot snapshot);
 

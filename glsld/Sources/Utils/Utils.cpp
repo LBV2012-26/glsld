@@ -7,6 +7,7 @@
 #include <charconv>
 #include <chrono>
 #include <format>
+#include <fstream>
 #include <limits>
 #include <system_error>
 #include <variant>
@@ -23,6 +24,7 @@
 #endif
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Base/Unicode.hpp"
 
 namespace glsld::Utils {
     namespace {
@@ -125,6 +127,45 @@ namespace glsld::Utils {
         }
 
         return normalized.lexically_normal();
+    }
+
+    std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename) {
+        std::ifstream stream(filename, std::ios::binary);
+        if (!stream.is_open()) {
+            return std::unexpected(std::format("Failed to open {}: no such file or directory.", filename.generic_string()));
+        }
+
+        std::error_code ec;
+        const auto size = std::filesystem::file_size(filename, ec);
+        if (ec) {
+            return std::unexpected(std::format("Failed to get {} size", filename.generic_string()));
+        }
+
+        std::vector<char> pubsetbuf(64 * 1024);
+        stream.rdbuf()->pubsetbuf(pubsetbuf.data(), pubsetbuf.size());
+
+        std::vector<std::byte> binary(size);
+        stream.read(reinterpret_cast<char*>(binary.data()), size);
+
+        if (!stream) {
+            return std::unexpected(std::format("Failed to read {}", filename.generic_string()));
+        }
+
+        if (const auto gcount = static_cast<std::size_t>(stream.gcount()); gcount != size) {
+            binary.resize(gcount);
+        }
+
+        return binary;
+    }
+
+    std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename) {
+        auto binary = LoadBinary(filename);
+        if (!binary.has_value()) {
+            return binary.error();
+        }
+
+        std::string_view source(reinterpret_cast<const char*>(binary->data()), binary->size());
+        return Unicode::SanitizeUtf8(source);
     }
 
     SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference) {

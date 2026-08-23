@@ -1,11 +1,16 @@
 #include "pch.hpp"
 #include "IndexCache.hpp"
 
+#include <exception>
+#include <format>
 #include <fstream>
+#include <ios>
 #include <system_error>
 
 #include <nlohmann/json.hpp>
+
 #include "Base/FileSystem/Source.hpp"
+#include "Base/Hash.hpp"
 #include "Base/Logger.hpp"
 #include "Utils/Utils.hpp"
 
@@ -82,86 +87,187 @@ namespace glsld::IndexCache {
 
             return record;
         }
+
+        std::filesystem::path RecordDirectory(const std::filesystem::path& cache_path) {
+            auto result = cache_path;
+            result += "Indexes";
+            return result;
+        }
+
+        std::filesystem::path RecordPath(
+            const std::filesystem::path& cache_path,
+            std::string_view owner_uri)
+        {
+            const auto hash = rapidhashMicro(owner_uri.data(), owner_uri.size());
+            return RecordDirectory(cache_path) / std::format("{:016x}.idx", hash);
+        }
     }
 
-    std::optional<DiskIndexSnapshot> Load(const std::filesystem::path& filename, std::string_view expected_cache_key) {
-        const auto binary = LoadBinary(filename);
-        if (!binary.has_value()) {
-            GLSLD_LOG(warn, "Failed to load global index cache {}: {}", filename.generic_string(), binary.error());
-            return std::nullopt;
-        }
-
-        const auto json = nlohmann::json::from_msgpack(*binary);
-
-        DiskIndexSnapshot snapshot{
-            .schema_version = json.at("schemaVersion").get<std::uint32_t>(),
-            .cache_key      = json.at("cacheKey").get<std::string>()
-        };
-
-        if (snapshot.schema_version != kSchemaVersion || snapshot.cache_key != expected_cache_key) {
-            return std::nullopt;
-        }
-
-        for (const auto& record_json : json.at("records")) {
-            snapshot.records.push_back(DeserializeRecord(record_json));
-        }
-
-        return snapshot;
-    }
-
-    bool Save(const std::filesystem::path& filename, const DiskIndexSnapshot& snapshot) {
+    std::optional<StagedRecord> StageRecord(
+        const std::filesystem::path& cache_path,
+        std::string_view cache_key,
+        const DiskIndexRecord& record,
+        std::uint64_t revision)
+    {
         try {
-            nlohmann::json json{
-                { "schemaVersion", snapshot.schema_version },
-                { "cacheKey",      snapshot.cache_key },
-                { "records",       nlohmann::json::array() }
-            };
-
-            for (const auto& record : snapshot.records) {
-                json["records"].push_back(SerializeRecord(record));
-            }
-
-            auto bytes = nlohmann::json::to_msgpack(json);
+            auto target = RecordPath(cache_path, record.owner_uri);
 
             std::error_code ec;
-            std::filesystem::create_directories(filename.parent_path(), ec);
+            std::filesystem::create_directories(target.parent_path(), ec);
+            if (ec) {
+                return std::nullopt;
+            }
 
-            auto temporary = filename;
-            temporary += ".temp";
+            nlohmann::json json{
+                { "schemaVersion", kSchemaVersion },
+                { "cacheKey",      cache_key },
+                { "record",        SerializeRecord(record) }
+            };
+
+            const auto bytes = nlohmann::json::to_msgpack(json);
+
+            auto temporary = target;
+            temporary += std::format(".tmp.{}", revision);
 
             std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
             if (!stream.is_open()) {
-                return false;
+                return std::nullopt;
             }
 
-            stream.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+            stream.write(reinterpret_cast<const char*>(bytes.data()),
+                         static_cast<std::streamsize>(bytes.size()));
             stream.flush();
             stream.close();
 
             if (!stream) {
                 std::filesystem::remove(temporary, ec);
-                return false;
+                return std::nullopt;
             }
 
-            ec.clear();
-            std::filesystem::remove(filename, ec);
-            if (ec) {
-                std::filesystem::remove(temporary, ec);
-                return false;
-            }
-
-            ec.clear();
-            std::filesystem::rename(temporary, filename, ec);
-            if (ec) {
-                std::filesystem::remove(temporary, ec);
-                return false;
-            }
-
-            return true;
+            return StagedRecord{
+                .temporary = std::move(temporary),
+                .target    = std::move(target)
+            };
         } catch (const std::exception& e) {
-            GLSLD_LOG(warn, "Failed to save global index cache {}: {}", filename.generic_string(), e.what());
-            return false;
+            GLSLD_LOG(warn, "Failed to stage index record for {}: {}",
+                      record.owner_uri, e.what());
+            return std::nullopt;
         }
+    }
+
+    bool PublishRecord(const StagedRecord& staged) {
+        std::error_code ec;
+        std::filesystem::rename(staged.temporary, staged.target, ec);
+        return !ec;
+    }
+
+    void DiscardRecord(const StagedRecord& staged) {
+        std::filesystem::remove(staged.temporary);
+    }
+
+    namespace {
+        std::optional<DiskIndexRecord> LoadRecordFile(
+            const std::filesystem::path& filename,
+            std::string_view expected_cache_key)
+        {
+            const auto binary = Utils::LoadBinary(filename);
+            if (!binary.has_value()) {
+                return std::nullopt;
+            }
+
+            try {
+                const auto json = nlohmann::json::from_msgpack(*binary);
+
+                if (json.at("schemaVersion").get<std::uint32_t>() != kSchemaVersion ||
+                    json.at("cacheKey").get<std::string_view>() != expected_cache_key) {
+                    return std::nullopt;
+                }
+
+                return DeserializeRecord(json.at("record"));
+            } catch (const std::exception& e) {
+                GLSLD_LOG(warn, "Failed to load index record from {}: {}",
+                          filename.generic_string(), e.what());
+                return std::nullopt;
+            }
+        }
+    }
+
+    std::optional<DiskIndexRecord> LoadRecord(
+        const std::filesystem::path& cache_path,
+        std::string_view cache_key,
+        std::string_view owner_uri)
+    {
+        auto record = LoadRecordFile(RecordPath(cache_path, owner_uri), cache_key);
+        if (!record.has_value() || record->owner_uri != owner_uri) {
+            return std::nullopt;
+        }
+
+        return record;
+    }
+
+    bool VisitRecords(
+        const std::filesystem::path& cache_path,
+        std::string_view cache_key,
+        const RecordVisitor& visitor)
+    {
+        std::error_code ec;
+        const auto directory = RecordDirectory(cache_path);
+
+        for (std::filesystem::directory_iterator it(directory, ec), end;
+             !ec && it != end; it.increment(ec))
+        {
+            if (!it->is_regular_file(ec) || it->path().extension() != ".idx") {
+                continue;
+            }
+
+            auto record = LoadRecordFile(it->path(), cache_key);
+            if (!record.has_value()) {
+                continue;
+            }
+
+            if (!visitor(*record)) {
+                return false;
+            }
+        }
+
+        return !ec;
+    }
+
+    std::vector<std::string> PruneRecords(
+        const std::filesystem::path& cache_path,
+        std::string_view cache_key,
+        const KeepPredicate& keep)
+    {
+        std::error_code ec;
+        const auto directory = RecordDirectory(cache_path);
+
+        std::vector<std::string> removed;
+        for (std::filesystem::directory_iterator it(directory, ec), end;
+             !ec && it != end; it.increment(ec))
+        {
+            if (!it->is_regular_file(ec) || it->path().extension() != ".idx") {
+                continue;
+            }
+
+            auto record = LoadRecordFile(it->path(), cache_key);
+            if (!record.has_value() || !keep(record->owner_uri)) {
+                std::error_code remove_ec;
+                std::filesystem::remove(it->path(), remove_ec);
+
+                if (!remove_ec && record.has_value()) {
+                    removed.push_back(std::move(record->owner_uri));
+                }
+            }
+        }
+
+        return removed;
+    }
+
+    void RemoveRecord(
+        const std::filesystem::path& cache_path,
+        std::string_view owner_uri)
+    {
+        std::filesystem::remove(RecordPath(cache_path, owner_uri));
     }
 
     std::optional<IndexedFileStamp> CaptureStamp(std::string_view uri) {

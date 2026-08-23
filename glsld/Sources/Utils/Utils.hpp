@@ -1,11 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <concepts>
+#include <expected>
 #include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Syntax/Document.hpp"
@@ -16,6 +19,9 @@ namespace glsld::Utils {
     std::filesystem::path UriToPath(std::string_view uri);
     std::string PathToUri(const std::filesystem::path& path);
     std::filesystem::path NormalizePath(const std::filesystem::path& path);
+
+    std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
+    std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
 
     // Arena helper
     SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference);

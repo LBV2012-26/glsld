@@ -154,16 +154,18 @@ namespace glsld {
         return contributions;
     }
 
-    void GlobalIndex::ApplyContributions(std::string_view uri, std::vector<Contribution> contributions) {
+    void GlobalIndex::NormalizeContributions(std::vector<Contribution>& contributions) {
         std::erase_if(contributions, [](const auto& contribution) -> bool {
             return !IsIndexableContribution(contribution);
         });
 
         std::ranges::sort(contributions, ContributionLess);
-        auto [first, last] = std::ranges::unique(contributions, [](const auto& lhs, const auto& rhs) -> bool {
-            return lhs.definition == rhs.definition && lhs.reference == rhs.reference;
-        });
+        auto [first, last] = std::ranges::unique(contributions, ContributionEqual);
         contributions.erase(first, last);
+    }
+
+    void GlobalIndex::ApplyContributions(std::string_view uri, std::vector<Contribution> contributions) {
+        NormalizeContributions(contributions);
 
         std::lock_guard lock(mutex_);
 

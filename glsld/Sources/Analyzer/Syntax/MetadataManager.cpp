@@ -546,7 +546,7 @@ namespace glsld {
     }
 
     void MetadataManager::LoadLexicalMetadata(const std::filesystem::path& path, std::string_view relative_path) {
-        const auto source = LoadSource(path);
+        const auto source = Utils::LoadSource(path);
         if (!source.has_value()) {
             throw std::runtime_error("Failed to load lexical metadata: " + source.error());
         }
@@ -577,16 +577,14 @@ namespace glsld {
         const auto filename   = normalized.generic_string();
         const auto uri        = Utils::PathToUri(normalized);
 
-        auto source = LoadSource(normalized);
+        auto source = Utils::LoadSource(normalized);
         if (!source.has_value()) {
             throw std::runtime_error("Failed to load metadata: " + source.error());
         }
 
         auto document = std::make_shared<Document>();
         document->source = std::move(*source);
-
-        auto arena = arena_pool_.Acquire();
-        document->arena = std::move(arena);
+        document->arena  = arena_pool_.Acquire();
 
         if (injected_macros != nullptr) {
             for (const auto& [_, definition] : *injected_macros) {
@@ -615,7 +613,7 @@ namespace glsld {
 
     void MetadataManager::LoadNoExpandHints() {
         const auto path   = Utils::GetFilePath("Database/NoExpandHints.txt");
-        const auto source = LoadSource(path);
+        const auto source = Utils::LoadSource(path);
         if (!source.has_value()) {
             throw std::runtime_error("Failed to load no-expand hints: " + source.error());
         }

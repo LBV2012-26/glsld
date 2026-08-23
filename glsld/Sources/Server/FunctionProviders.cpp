@@ -658,7 +658,7 @@ namespace glsld::Providers {
         Context& context,
         Snapshot snapshot,
         const SourceLocation& location,
-        const GlobalIndex& global_index)
+        const ReferenceQuery& query)
     {
         if (snapshot == nullptr) {
             return {};
@@ -690,7 +690,7 @@ namespace glsld::Providers {
         }
 
         ABORT_IF_CANCELLED();
-        auto locations = global_index.GetReferences(symbol->location);
+        auto locations = query(symbol->location);
 
         return {
             .locations = std::move(locations),

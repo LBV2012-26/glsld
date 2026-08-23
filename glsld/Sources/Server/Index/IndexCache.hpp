@@ -3,8 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace glsld {
@@ -41,8 +43,42 @@ namespace glsld {
     namespace IndexCache {
         static constexpr std::uint32_t kSchemaVersion = 1;
 
-        std::optional<DiskIndexSnapshot> Load(const std::filesystem::path& filename, std::string_view expected_cache_key);
-        bool Save(const std::filesystem::path& filename, const DiskIndexSnapshot& snapshot);
+        struct StagedRecord {
+            std::filesystem::path temporary;
+            std::filesystem::path target;
+        };
+
+        std::optional<StagedRecord> StageRecord(
+            const std::filesystem::path& cache_path,
+            std::string_view cache_key,
+            const DiskIndexRecord& record,
+            std::uint64_t revision);
+
+        bool PublishRecord(const StagedRecord& staged);
+        void DiscardRecord(const StagedRecord& staged);
+
+        using RecordVisitor = std::function<bool(const DiskIndexRecord&)>;
+        using KeepPredicate = std::function<bool(std::string_view owner_uri)>;
+
+        std::optional<DiskIndexRecord> LoadRecord(
+            const std::filesystem::path& cache_path,
+            std::string_view cache_key,
+            std::string_view owner_uri);
+
+        bool VisitRecords(
+            const std::filesystem::path& cache_path,
+            std::string_view cache_key,
+            const RecordVisitor& visitor);
+
+        std::vector<std::string> PruneRecords(
+            const std::filesystem::path& cache_path,
+            std::string_view cache_key,
+            const KeepPredicate& keep);
+
+        void RemoveRecord(
+            const std::filesystem::path& cache_path,
+            std::string_view owner_uri);
+
         std::optional<IndexedFileStamp> CaptureStamp(std::string_view uri);
         bool IsLatest(const DiskIndexRecord& record);
     }

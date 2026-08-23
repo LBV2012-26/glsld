@@ -241,7 +241,7 @@ namespace glsld {
             return snapshot;
         }
 
-        auto source = LoadSource(normalized_path);
+        auto source = Utils::LoadSource(normalized_path);
         if (!source.has_value()) {
             snapshot->error = std::move(source.error());
             return snapshot;

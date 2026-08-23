@@ -22,6 +22,7 @@
 #include "Base/ThreadPool.hpp"
 #include "Server/Index/GlobalIndex.hpp"
 #include "Server/Index/IndexCache.hpp"
+#include "Server/Context.hpp"
 
 namespace glsld {
     struct ExtraShaderConfig {
@@ -85,10 +86,13 @@ namespace glsld {
         void ScheduleDiskIndex(const std::filesystem::path& filename);
         void ScheduleDiskIndexByUri(std::string_view uri);
 
+        std::vector<SourceLocation> FindReferences(
+            const SourceLocation& definition,
+            const Context& context);
+
         void set_include_dirs(IncludeDirectoryHandle include_dirs);
         IncludeDirectoryHandle include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
-        const GlobalIndex& global_index() const;
         const TypeMemberIndex& type_member_index() const;
 
     private:
@@ -98,6 +102,13 @@ namespace glsld {
             std::string_view source,
             int version_replica,
             VersionPointer version_pointer);
+
+        void ConfigureVariant(
+            VariantType type,
+            ActiveVariant variant,
+            std::string_view uri,
+            auto shared_pred,
+            auto unique_pred);
 
         void InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro);
 
@@ -114,8 +125,6 @@ namespace glsld {
             std::string_view uri,
             const std::filesystem::path& filename,
             std::uint64_t revision);
-
-        void FlushBackgroundCache();
 
         std::vector<std::filesystem::path> DiscoverIndexCandidates() const;
         bool IsIndexCandidate(const std::filesystem::path& filename) const;
@@ -149,7 +158,6 @@ namespace glsld {
         std::filesystem::path                          index_cache_path_;
         std::string                                    index_cache_key_;
 
-        StringHeteroHashMap<DiskIndexRecord>           disk_index_records_;
         StringHeteroHashMap<std::uint64_t>             index_revisions_;
         StringHeteroHashSet                            open_document_uris_;
         StringHeteroHashSet                            queued_disk_uris_;
@@ -159,7 +167,6 @@ namespace glsld {
         std::mutex                                     background_index_mutex_;
         std::condition_variable_any                    background_index_condition_;
         std::jthread                                   background_index_thread_;
-        bool                                           background_cache_dirty_{ false };
     };
 }
 

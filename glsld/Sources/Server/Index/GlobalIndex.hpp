@@ -30,6 +30,7 @@ namespace glsld {
         void Clear();
 
         static std::vector<Contribution> CollectContributions(const Document& document);
+        static void NormalizeContributions(std::vector<Contribution>& contributions);
 
     private:
         void ApplyContributions(std::string_view uri, std::vector<Contribution> contributions);

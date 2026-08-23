@@ -13,9 +13,6 @@
 #include "Base/Hash.hpp"
 
 namespace glsld {
-    std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
-    std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
-
     enum class SourceKind {
         kWorkspace,
         kMetadata

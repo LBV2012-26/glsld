@@ -29,11 +29,9 @@ namespace glsld {
         auto next = std::make_shared<Document>();
         next->source  = source;
         next->version = version_replica;
+        next->arena   = arena_pool_.Acquire();
 
         const auto* source_file = source_table_.InternByUri(uri);
-
-        auto arena  = arena_pool_.Acquire();
-        next->arena = std::move(arena);
 
         const auto process_start = std::chrono::high_resolution_clock::now();;
         ProcessSource(*next, source_file, next->source, version_replica, version_pointer);
@@ -53,7 +51,7 @@ namespace glsld {
         {
             std::lock_guard lock(index_mutex_);
 
-            //global_index_.IndexDocument(uri, *next);
+            global_index_.IndexDocument(uri, *next);
             type_member_index_.RemoveDocument(uri);
             type_member_index_.IndexDocument(uri, next->symbols);
         }
@@ -101,77 +99,27 @@ namespace glsld {
     }
 
     void Workspace::ChangeVariant(VariantType type, ActiveVariant variant, std::string_view uri) {
-        if (type == VariantType::kShared) {
-            {
-                std::lock_guard lock(variant_mutex_);
-                shared_variant_ = std::move(variant);
-            }
+        auto SharedPred = [this](ActiveVariant variant) -> void {
+            shared_variant_ = std::move(variant);
+        };
 
-            {
-                std::lock_guard lock(background_index_mutex_);
-                disk_index_records_.clear();
-                background_cache_dirty_ = true;
-            }
-
-            for (const auto& filename : DiscoverIndexCandidates()) {
-                ScheduleDiskIndex(filename);
-            }
-
-            return;
-        }
-
-        const auto filename       = Utils::UriToPath(uri);
-        const auto normalized_uri = Utils::PathToUri(filename);
-
-        {
-            std::lock_guard lock(variant_mutex_);
+        auto UniquePred = [this](std::string_view normalized_uri, ActiveVariant variant) -> void {
             active_variants_[normalized_uri] = std::move(variant);
-        }
+        };
 
-        {
-            std::lock_guard lock(background_index_mutex_);
-            disk_index_records_.erase(normalized_uri);
-            background_cache_dirty_ = true;
-        }
-
-        ScheduleDiskIndex(filename);
+        ConfigureVariant(type, std::move(variant), uri, SharedPred, UniquePred);
     }
 
     void Workspace::RemoveVariant(VariantType type, std::string_view uri) {
-        if (type == VariantType::kShared) {
-            {
-                std::lock_guard lock(variant_mutex_);
-                shared_variant_.reset();
-            }
+        auto SharedPred = [this](auto) -> void {
+            shared_variant_.reset();
+        };
 
-            {
-                std::lock_guard lock(background_index_mutex_);
-                disk_index_records_.clear();
-                background_cache_dirty_ = true;
-            }
-
-            for (const auto& filename : DiscoverIndexCandidates()) {
-                ScheduleDiskIndex(filename);
-            }
-
-            return;
-        }
-
-        const auto filename       = Utils::UriToPath(uri);
-        const auto normalized_uri = Utils::PathToUri(filename);
-
-        {
-            std::lock_guard lock(variant_mutex_);
+        auto UniquePred = [this](std::string_view normalized_uri, auto) -> void {
             active_variants_.erase(normalized_uri);
-        }
+        };
 
-        {
-            std::lock_guard lock(background_index_mutex_);
-            disk_index_records_.erase(normalized_uri);
-            background_cache_dirty_ = true;
-        }
-
-        ScheduleDiskIndex(filename);
+        ConfigureVariant(type, {}, uri, SharedPred, UniquePred);
     }
 
     void Workspace::StartBackgroundIndex(
@@ -179,7 +127,6 @@ namespace glsld {
         std::filesystem::path cache_path,
         std::string cache_key)
     {
-        return; // temp
         StopBackgroundIndex();
 
         {
@@ -196,13 +143,17 @@ namespace glsld {
     }
 
     void Workspace::StopBackgroundIndex() {
-        if (!background_index_thread_.joinable()) {
-            return;
+        if (background_index_thread_.joinable()) {
+            background_index_thread_.request_stop();
+            background_index_condition_.notify_all();
+            background_index_thread_.join();
         }
 
-        background_index_thread_.request_stop();
-        background_index_condition_.notify_all();
-        background_index_thread_.join();
+        std::lock_guard lock(background_index_mutex_);
+
+        std::queue<DiskIndexTask> empty;
+        index_task_queue_.swap(empty);
+        queued_disk_uris_.clear();
     }
 
     void Workspace::MarkDocumentOpen(std::string_view uri) {
@@ -215,6 +166,7 @@ namespace glsld {
     void Workspace::CloseDocument(std::string_view uri) {
         {
             std::lock_guard lock(index_mutex_);
+            global_index_.RemoveDocument(uri);
             type_member_index_.RemoveDocument(uri);
         }
 
@@ -235,7 +187,6 @@ namespace glsld {
     }
 
     void Workspace::ScheduleDiskIndex(const std::filesystem::path& filename) {
-        return; // temp
         auto normalized = Utils::NormalizePath(filename);
         auto uri        = Utils::PathToUri(normalized);
 
@@ -257,6 +208,79 @@ namespace glsld {
         }
 
         background_index_condition_.notify_one();
+    }
+
+    namespace {
+        StoredLocation StoreLocation(const SourceLocation& location) {
+            return StoredLocation{
+                .uri    = std::string(location.uri()),
+                .line   = location.line(),
+                .column = location.column()
+            };
+        }
+
+        SourceLocation RestoreLocation(Workspace* workspace, const StoredLocation& location) {
+            return SourceLocation(workspace->InternSource(location.uri), location.line, location.column);
+        }
+
+        bool IsSameLocation(const StoredLocation& lhs, const StoredLocation& rhs) {
+            return lhs.uri    == rhs.uri
+                && lhs.line   == rhs.line
+                && lhs.column == rhs.column;
+        }
+    }
+
+    std::vector<SourceLocation> Workspace::FindReferences(
+        const SourceLocation& definition,
+        const Context& context)
+    {
+        auto result = global_index_.GetReferences(definition);
+        if (context.cancelled()) {
+            return {};
+        }
+
+        std::filesystem::path cache_path;
+        std::string           cache_key;
+        StringHeteroHashSet   open_uris;
+
+        {
+            std::lock_guard lock(background_index_mutex_);
+            cache_path = index_cache_path_;
+            cache_key  = index_cache_key_;
+            open_uris  = open_document_uris_;
+        }
+
+        const auto stored_definition = StoreLocation(definition);
+
+        IndexCache::VisitRecords(cache_path, cache_key, [&](const DiskIndexRecord& record) -> bool {
+            if (context.cancelled()) {
+                return false;
+            }
+
+            if (open_uris.contains(record.owner_uri) || !IndexCache::IsLatest(record)) {
+                return true;
+            }
+
+            for (const auto& contribution : record.contributions) {
+                if (IsSameLocation(contribution.definition, stored_definition)) {
+                    result.push_back(RestoreLocation(this, contribution.reference));
+                }
+            }
+
+            return !context.cancelled();
+        });
+
+        if (context.cancelled()) {
+            return {};
+        }
+
+        std::ranges::sort(result, [](const auto& lhs, const auto& rhs) -> bool {
+            return (lhs <=> rhs) < 0;
+        });
+
+        auto [first, last] = std::ranges::unique(result);
+        result.erase(first, last);
+        return result;
     }
 
     void Workspace::ProcessSource(
@@ -331,6 +355,65 @@ namespace glsld {
 
         if (Cancelled()) return;
         MacroBinder binder(document, version_replica, version_pointer);
+    }
+
+    void Workspace::ConfigureVariant(
+        VariantType type,
+        ActiveVariant variant,
+        std::string_view uri,
+        auto shared_pred,
+        auto unique_pred)
+    {
+        if (type == VariantType::kShared) {
+            const auto candidates = DiscoverIndexCandidates();
+
+            std::filesystem::path cache_path;
+            std::string           cache_key;
+
+            {
+                std::scoped_lock lock(variant_mutex_, background_index_mutex_);
+
+                shared_pred(std::move(variant));
+                cache_path = index_cache_path_;
+                cache_key  = index_cache_key_;
+
+                for (const auto& candidate : candidates) {
+                    const auto normalized = Utils::NormalizePath(candidate);
+                    ++index_revisions_[Utils::PathToUri(normalized)];
+                }
+            }
+
+            if (!cache_path.empty()) {
+                (void)IndexCache::PruneRecords(cache_path, cache_key, [](auto) -> bool {
+                    return false;
+                });
+            }
+
+            for (const auto& candidate : candidates) {
+                ScheduleDiskIndex(candidate);
+            }
+
+            return;
+        }
+
+        const auto filename       = Utils::UriToPath(uri);
+        const auto normalized_uri = Utils::PathToUri(filename);
+        std::filesystem::path cache_path;
+
+        {
+            std::scoped_lock lock(variant_mutex_, background_index_mutex_);
+
+            unique_pred(normalized_uri, std::move(variant));
+            cache_path = index_cache_path_;
+
+            ++index_revisions_[normalized_uri];
+        }
+
+        if (!cache_path.empty()) {
+            IndexCache::RemoveRecord(cache_path, normalized_uri);
+        }
+
+        ScheduleDiskIndex(filename);
     }
 
     void Workspace::InjectVariantMacro(Document& document, const SourceFile* source_file, const ActiveMacro& macro) {
@@ -427,7 +510,8 @@ namespace glsld {
                     queued_disk_uris_.erase(index_task.uri);
 
                     const auto revision = index_revisions_[index_task.uri];
-                    futures.push_back(background_index_pool_.Submit([this, index_task = std::move(index_task), revision]() mutable -> void {
+
+                    auto Task = [this, index_task = std::move(index_task), revision]() mutable -> void {
                         try {
                             ProcessDiskIndexTask(index_task.uri, index_task.filename, revision);
                         } catch (const std::exception& e) {
@@ -437,7 +521,9 @@ namespace glsld {
                             GLSLD_LOG(warn, "Background index task failed for {} with an unknown exception.",
                                       index_task.filename.generic_string());
                         }
-                    }));
+                    };
+
+                    futures.push_back(background_index_pool_.Submit(std::move(Task)));
                 }
             }
 
@@ -453,63 +539,19 @@ namespace glsld {
             if (now >= next_reconcile) {
                 ReconcileWorkspace();
                 next_reconcile = now + 5s;
-                continue;
             }
-
-            bool has_pending_tasks = false;
-            {
-                std::lock_guard lock(background_index_mutex_);
-                has_pending_tasks = !index_task_queue_.empty();
-            }
-
-            if (!has_pending_tasks) {
-                FlushBackgroundCache();
-            }
-        }
-
-        FlushBackgroundCache();
-    }
-
-    namespace {
-        SourceLocation RestoreLocation(Workspace* workspace, const StoredLocation& location) {
-            return SourceLocation(workspace->InternSource(location.uri), location.line, location.column);
         }
     }
 
     void Workspace::LoadBackgroundCache() {
-        auto snapshot = IndexCache::Load(index_cache_path_, index_cache_key_);
-
-        if (!snapshot.has_value()) {
-            return;
-        }
-
-        for (auto& record : snapshot->records) {
-            if (!IndexCache::IsLatest(record)) {
-                continue;
-            }
-
-            std::vector<Contribution> contributions;
-            contributions.reserve(record.contributions.size());
-
-            for (const auto& stored : record.contributions) {
-                contributions.push_back(Contribution{
-                    .definition = RestoreLocation(this, stored.definition),
-                    .reference  = RestoreLocation(this, stored.reference)
-                });
-            }
-
-            {
-                std::lock_guard lock(background_index_mutex_);
-
-                if (open_document_uris_.contains(record.owner_uri)) {
-                    continue;
-                }
-
-                global_index_.RestoreDocument(record.owner_uri, std::move(contributions));
+        auto Visitor = [this](const DiskIndexRecord& record) -> bool {
+            if (IndexCache::IsLatest(record)) {
                 UpdateDependencies(record.owner_uri, record.dependencies);
-                disk_index_records_.insert_or_assign(record.owner_uri, std::move(record));
             }
-        }
+            return true;
+        };
+
+        IndexCache::VisitRecords(index_cache_path_, index_cache_key_, Visitor);
     }
 
     void Workspace::ReconcileWorkspace() {
@@ -519,57 +561,28 @@ namespace glsld {
         candidate_uris.reserve(candidates.size());
 
         for (const auto& filename : candidates) {
-            const auto uri = Utils::PathToUri(filename);
-            candidate_uris.emplace(uri);
+            auto       uri    = Utils::PathToUri(filename);
+            const auto record = IndexCache::LoadRecord(index_cache_path_, index_cache_key_, uri);
 
-            bool need_index = true;
-
-            {
-                std::lock_guard lock(background_index_mutex_);
-                auto it = disk_index_records_.find(uri);
-                if (it != disk_index_records_.end() && IndexCache::IsLatest(it->second)) {
-                    need_index = false;
-                }
-            }
-
-            if (need_index) {
+            if (!record.has_value() || !IndexCache::IsLatest(*record)) {
                 ScheduleDiskIndex(filename);
             }
+
+            candidate_uris.emplace(std::move(uri));
         }
 
-        std::vector<std::string> removed;
+        auto Keep = [&](std::string_view owner_uri) -> bool {
+            if (candidate_uris.contains(owner_uri)) {
+                return true;
+            }
 
-        {
             std::lock_guard lock(background_index_mutex_);
-            for (const auto& [uri, _] : disk_index_records_) {
-                if (!candidate_uris.contains(uri) && !open_document_uris_.contains(uri)) {
-                    removed.push_back(uri);
-                }
-            }
+            return open_document_uris_.contains(owner_uri);
+        };
 
-            for (const auto& uri : removed) {
-                ++index_revisions_[uri];
-                disk_index_records_.erase(uri);
-            }
-
-            if (!removed.empty()) {
-                background_cache_dirty_ = true;
-            }
-        }
-
+        const auto removed = IndexCache::PruneRecords(index_cache_path_, index_cache_key_, Keep);
         for (const auto& uri : removed) {
-            global_index_.RemoveDocument(uri);
             RemoveDependencies(uri);
-        }
-    }
-
-    namespace {
-        StoredLocation StoreLocation(const SourceLocation& location) {
-            return StoredLocation{
-                .uri    = std::string(location.uri()),
-                .line   = location.line(),
-                .column = location.column()
-            };
         }
     }
 
@@ -578,34 +591,44 @@ namespace glsld {
         const std::filesystem::path& filename,
         std::uint64_t revision)
     {
-        auto source = LoadSource(filename);
+        auto source = Utils::LoadSource(filename);
         if (!source.has_value()) {
             GLSLD_LOG(warn, "Failed to load source file for disk index: {}", source.error());
             return;
         }
 
-        auto document = std::make_shared<Document>();
-        document->source  = std::move(*source);
-        document->version = 0;
+        std::filesystem::path cache_path;
+        std::string           cache_key;
+        {
+            std::lock_guard lock(background_index_mutex_);
+            if (open_document_uris_.contains(uri) || index_revisions_[uri] != revision) {
+                return;
+            }
 
-        auto arena = arena_pool_.Acquire();
-        document->arena = std::move(arena);
+            cache_path = index_cache_path_;
+            cache_key  = index_cache_key_;
+        }
+
+        Document document;
+        document.source  = std::move(*source);
+        document.version = 0;
+        document.arena   = arena_pool_.Acquire();
 
         const auto* source_file = source_table_.InternByUri(uri);
-
-        ProcessSource(*document, source_file, document->source, 0, nullptr);
-        if (document->ast == nullptr) {
+        ProcessSource(document, source_file, document.source, 0, nullptr);
+        if (document.ast == nullptr) {
             return;
         }
 
-        auto contributions = GlobalIndex::CollectContributions(*document);
+        auto contributions = GlobalIndex::CollectContributions(document);
+        GlobalIndex::NormalizeContributions(contributions);
 
         DiskIndexRecord record{
             .owner_uri    = std::string(uri),
-            .dependencies = document->dependencies,
+            .dependencies = document.dependencies,
         };
-        record.contributions.reserve(contributions.size());
 
+        record.contributions.reserve(contributions.size());
         for (const auto& contribution : contributions) {
             record.contributions.push_back(StoredContribution{
                 .definition = StoreLocation(contribution.definition),
@@ -632,56 +655,29 @@ namespace glsld {
             record.stamps.push_back(std::move(*stamp));
         }
 
-        {
-            std::lock_guard lock(background_index_mutex_);
-
-            auto it = index_revisions_.find(uri);
-            if (it == index_revisions_.end() ||
-                it->second != revision ||
-                open_document_uris_.contains(uri))
-            {
-                GLSLD_LOG(warn, "Revision mismatch for disk index of {} (expected: {}, current: {}), skipping.",
-                          uri, revision, it != index_revisions_.end() ? it->second : 0);
-                return;
-            }
-
-            global_index_.RestoreDocument(uri, std::move(contributions));
-            UpdateDependencies(uri, record.dependencies);
-
-            if (!record.stamps.empty()) {
-                disk_index_records_.insert_or_assign(uri, std::move(record));
-                background_cache_dirty_ = true;
-            }
-        }
-    }
-
-    void Workspace::FlushBackgroundCache() {
-        DiskIndexSnapshot snapshot;
-
-        {
-            std::lock_guard lock(background_index_mutex_);
-
-            if (!background_cache_dirty_) {
-                return;
-            }
-
-            snapshot.schema_version = IndexCache::kSchemaVersion;
-            snapshot.cache_key      = index_cache_key_;
-            snapshot.records.reserve(disk_index_records_.size());
-
-            for (const auto& [_, record] : disk_index_records_) {
-                snapshot.records.push_back(record);
-            }
-
-            background_cache_dirty_ = false;
-        }
-
-        if (IndexCache::Save(index_cache_path_, snapshot)) {
+        auto staged = IndexCache::StageRecord(cache_path, cache_key, record, revision);
+        if (!staged.has_value()) {
             return;
         }
 
-        std::lock_guard lock(background_index_mutex_);
-        background_cache_dirty_ = true;
+        bool discard = false;
+
+        {
+            std::lock_guard lock(background_index_mutex_);
+
+            if (open_document_uris_.contains(uri) || index_revisions_[uri] != revision) {
+                discard = true;
+            } else if (!IndexCache::PublishRecord(*staged)) {
+                std::filesystem::remove(staged->temporary);
+                return;
+            } else {
+                UpdateDependencies(uri, record.dependencies);
+            }
+        }
+
+        if (discard) {
+            IndexCache::DiscardRecord(*staged);
+        }
     }
 
     std::vector<std::filesystem::path> Workspace::DiscoverIndexCandidates() const {

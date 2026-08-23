@@ -617,7 +617,7 @@ namespace glsld {
                 if (entry.snapshot != nullptr) {
                     entry.mapper = std::make_unique<Unicode::PositionMapper>(entry.snapshot->source);
                 } else {
-                    auto source = LoadSource(Utils::UriToPath(uri));
+                    auto source = Utils::LoadSource(Utils::UriToPath(uri));
                     if (!source.has_value()) {
                         return nullptr;
                     }
@@ -771,8 +771,12 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
 
+        auto Query = [this, &context](const SourceLocation& location) -> std::vector<SourceLocation> {
+            return workspace_.FindReferences(location, context);
+        };
+
         const auto start               = std::chrono::high_resolution_clock::now();
-        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, workspace_.global_index());
+        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, Query);
         const auto end                 = std::chrono::high_resolution_clock::now();
 
         if (symbol == nullptr) {
@@ -822,8 +826,12 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
 
+        auto Query = [this, &context](const SourceLocation& location) -> std::vector<SourceLocation> {
+            return workspace_.FindReferences(location, context);
+        };
+
         const auto new_name = context.params["newName"].get<std::string>();
-        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, workspace_.global_index());
+        const auto [locations, symbol] = Providers::GetReferences(context, snapshot, target, Query);
         if (symbol == nullptr) {
             return {};
         }
@@ -1563,7 +1571,7 @@ namespace glsld {
         if (workspace_roots_.empty()) {
             workspace_.StopBackgroundIndex();
         } else {
-            const auto cache_path = workspace_roots_.front() / ".glsld" / "BlobIndex.idx";
+            const auto cache_path = workspace_roots_.front() / ".glsld/";
             workspace_.StartBackgroundIndex(std::move(index_roots), cache_path, "glsld-global-index-parser-v1");
         }
     }

@@ -33,15 +33,13 @@ namespace {
         using namespace glsld;
 
         const auto normalized = Utils::GetFilePath(filename.generic_string());
-        auto shader_source = *LoadSource(normalized);
+        auto shader_source = *glsld::Utils::LoadSource(normalized);
 
         ThreadPool thread_pool;
         SourceTable source_table;
         IncludeLoader loader(source_table, thread_pool);
         Document document;
-
-        auto arena = arena_pool.Acquire();
-        document.arena = std::move(arena);
+        document.arena = arena_pool.Acquire();;
 
         std::vector includes{
             std::filesystem::path("Z:/Source/Repos/glsld/glsld/Tests")
