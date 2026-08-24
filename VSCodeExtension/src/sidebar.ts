@@ -934,23 +934,6 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 			globalProvider.refresh();
 			fileProvider.refresh();
 		}),
-
-		// When a GLSL file is opened, push macro state to server.
-		// This handles the case where config was loaded before any GLSL
-		// document existed (e.g. right after extension activation).
-		vscode.workspace.onDidOpenTextDocument((doc) => {
-			if (doc.languageId === 'glsl') {
-				pushMacroState(client, doc.uri);
-			}
-		}),
-
-		// When switching GLSL files, push per-file macros
-		vscode.window.onDidChangeActiveTextEditor(() => {
-			const editor = vscode.window.activeTextEditor;
-			if (editor && editor.document.languageId === 'glsl') {
-				pushMacroState(client, editor.document.uri);
-			}
-		}),
 	);
 }
 
@@ -994,22 +977,3 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 
 	export { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates };
 	export type { FileMacrosMap };
-
-	/** Push enabled global and per-file macros to server on startup / file open. */
-	export function pushMacroState(client: LanguageClient, fileUri?: vscode.Uri): void {
-		// Determine which documents to push for
-		const targets = fileUri
-			? [fileUri]
-			: vscode.workspace.textDocuments
-				.filter(d => d.languageId === 'glsl')
-				.map(d => d.uri);
-
-		if (targets.length === 0) { return; }
-
-		sendGlobalMacros(client);
-
-		// Per-file macros
-		for (const uri of targets) {
-			sendFileMacros(client, uri);
-		}
-	}
