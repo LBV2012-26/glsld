@@ -316,6 +316,7 @@ void main() {
     OverloadFunction(1.0f + 1 * 1.0lf);
     OverloadFunction(-1.0f);
     OverloadFunction(float(1 + 2) * 3);
+    OverloadFunction((double)(1 + 2));
 
     // test scalar expression overloads
     float  Scalar1 = 1.0f;
@@ -1109,6 +1110,8 @@ void main() {
     OverloadFunction(CoopMat32, UInt32);
 
     OverloadFunction(OverloadFunction);
+
+    OverloadFunction(intArray1D_2.length());
 
     int  intArray[];
     uint uintArray[];

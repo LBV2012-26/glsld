@@ -1,7 +1,6 @@
 #version 460
 #pragma shader_stage(raygen)
 
-#define MACRO_VALUE 1
 #if defined(SHARED_MACRO) && UNIQUE_MACRO && !defined(INVERSE_MACRO)
 #include "Include.glsl"
 #endif
@@ -25,6 +24,6 @@ void main() {
 
     vec3 origin    = vec3(0.0);
     vec3 direction = vec3(0.0, 0.0, -1.0);
-    traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, origin, 0.001,
-                direction, 10000.0, 0);
+    traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
+                origin, 0.001, direction, 10000.0, 0);
 }
