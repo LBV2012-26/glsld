@@ -12,122 +12,130 @@ const uint gl_RayQueryCandidateIntersectionTriangleEXT  = 0U;
 const uint gl_RayQueryCandidateIntersectionAABBEXT      = 1U;
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4471,4478], id = 4473)
-void rayQueryInitializeEXT(spirv_by_reference rayQueryEXT rayQuery, accelerationStructureEXT topLevel, uint rayFlags, uint cullMask, vec3 origin, float tMin, vec3 direction, float tMax);
+void rayQueryInitializeEXT(
+    spirv_by_reference rayQueryEXT _RayQuery,
+    accelerationStructureEXT       _TopLevel,
+    uint                           _TayFlags,
+    uint                           _CullMask,
+    vec3                           _Origin,
+    float                          _Tmin,
+    vec3                           _Direction,
+    float                          _Tmax);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4477)
-bool rayQueryProceedEXT(spirv_by_reference rayQueryEXT q);
+bool rayQueryProceedEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4474)
-void rayQueryTerminateEXT(spirv_by_reference rayQueryEXT q);
+void rayQueryTerminateEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4475)
-void rayQueryGenerateIntersectionEXT(spirv_by_reference rayQueryEXT q, float tHit);
+void rayQueryGenerateIntersectionEXT(spirv_by_reference rayQueryEXT _RayQuery, float _THit);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4476)
-void rayQueryConfirmIntersectionEXT(spirv_by_reference rayQueryEXT q);
+void rayQueryConfirmIntersectionEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
-uint rayQueryGetIntersectionTypeEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+uint rayQueryGetIntersectionTypeEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4479)
-    uint rayQueryGetIntersectionTypeEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    uint rayQueryGetIntersectionTypeEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionTypeEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionTypeEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6016)
-float rayQueryGetRayTMinEXT(spirv_by_reference rayQueryEXT q);
+float rayQueryGetRayTMinEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6016)
-uint rayQueryGetRayFlagsEXT(spirv_by_reference rayQueryEXT q);
+uint rayQueryGetRayFlagsEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6030)
-vec3 rayQueryGetWorldRayOriginEXT(spirv_by_reference rayQueryEXT q);
+vec3 rayQueryGetWorldRayOriginEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6029)
-vec3 rayQueryGetWorldRayDirectionEXT(spirv_by_reference rayQueryEXT q);
+vec3 rayQueryGetWorldRayDirectionEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
-float rayQueryGetIntersectionTEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+float rayQueryGetIntersectionTEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6018)
-    float rayQueryGetIntersectionTEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    float rayQueryGetIntersectionTEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionTEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionTEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-int rayQueryGetIntersectionInstanceCustomIndexEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+int rayQueryGetIntersectionInstanceCustomIndexEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6019)
-    int rayQueryGetIntersectionInstanceCustomIndexEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    int rayQueryGetIntersectionInstanceCustomIndexEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionInstanceCustomIndexEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionInstanceCustomIndexEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-int rayQueryGetIntersectionInstanceIdEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+int rayQueryGetIntersectionInstanceIdEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6020)
-    int rayQueryGetIntersectionInstanceIdEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    int rayQueryGetIntersectionInstanceIdEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionInstanceIdEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionInstanceIdEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-uint rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+uint rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6021)
-    uint rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    uint rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-int rayQueryGetIntersectionGeometryIndexEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+int rayQueryGetIntersectionGeometryIndexEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6022)
-    int rayQueryGetIntersectionGeometryIndexEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    int rayQueryGetIntersectionGeometryIndexEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionGeometryIndexEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionGeometryIndexEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-int rayQueryGetIntersectionPrimitiveIndexEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+int rayQueryGetIntersectionPrimitiveIndexEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6023)
-    int rayQueryGetIntersectionPrimitiveIndexEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    int rayQueryGetIntersectionPrimitiveIndexEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionPrimitiveIndexEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionPrimitiveIndexEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-vec2 rayQueryGetIntersectionBarycentricsEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+vec2 rayQueryGetIntersectionBarycentricsEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6024)
-    vec2 rayQueryGetIntersectionBarycentricsEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    vec2 rayQueryGetIntersectionBarycentricsEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionBarycentricsEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionBarycentricsEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-bool rayQueryGetIntersectionFrontFaceEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+bool rayQueryGetIntersectionFrontFaceEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6025)
-    bool rayQueryGetIntersectionFrontFaceEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    bool rayQueryGetIntersectionFrontFaceEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionFrontFaceEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionFrontFaceEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6026)
-bool rayQueryGetIntersectionCandidateAABBOpaqueEXT(spirv_by_reference rayQueryEXT q);
+bool rayQueryGetIntersectionCandidateAABBOpaqueEXT(spirv_by_reference rayQueryEXT _RayQuery);
 
-vec3 rayQueryGetIntersectionObjectRayDirectionEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+vec3 rayQueryGetIntersectionObjectRayDirectionEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6027)
-    vec3 rayQueryGetIntersectionObjectRayDirectionEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    vec3 rayQueryGetIntersectionObjectRayDirectionEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionObjectRayDirectionEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionObjectRayDirectionEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-vec3 rayQueryGetIntersectionObjectRayOriginEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+vec3 rayQueryGetIntersectionObjectRayOriginEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6028)
-    vec3 rayQueryGetIntersectionObjectRayOriginEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    vec3 rayQueryGetIntersectionObjectRayOriginEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionObjectRayOriginEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionObjectRayOriginEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-mat4x3 rayQueryGetIntersectionObjectToWorldEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+mat4x3 rayQueryGetIntersectionObjectToWorldEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6031)
-    mat4x3 rayQueryGetIntersectionObjectToWorldEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    mat4x3 rayQueryGetIntersectionObjectToWorldEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionObjectToWorldEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionObjectToWorldEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }
 
-mat4x3 rayQueryGetIntersectionWorldToObjectEXT(spirv_by_reference rayQueryEXT q, bool committed) {
+mat4x3 rayQueryGetIntersectionWorldToObjectEXT(spirv_by_reference rayQueryEXT _RayQuery, bool _Committed) {
     spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 6032)
-    mat4x3 rayQueryGetIntersectionWorldToObjectEXT_internal(spirv_by_reference rayQueryEXT q, uint committed);
+    mat4x3 rayQueryGetIntersectionWorldToObjectEXT_internal(spirv_by_reference rayQueryEXT _RayQuery, uint _Committed);
 
-    return rayQueryGetIntersectionWorldToObjectEXT_internal(q, committed ? 1 : 0);
+    return rayQueryGetIntersectionWorldToObjectEXT_internal(_RayQuery, _Committed ? 1 : 0);
 }

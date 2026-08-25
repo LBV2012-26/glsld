@@ -85,12 +85,23 @@ in mat4x3 gl_WorldToObjectEXT;
 
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT)
 spirv_instruction(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353, 4478], id = 5337)
-void traceRayEXT(accelerationStructureEXT topLevel, uint rayFlags, uint cullMask, uint sbtRecordOffset, uint sbtRecordStride, uint missIndex, vec3 origin, float Tmin, vec3 direction, float Tmax, int payload);
+void traceRayEXT(
+    accelerationStructureEXT _TopLevel,
+    uint                     _RayFlags,
+    uint                     _CullMask,
+    uint                     _SbtRecordOffset,
+    uint                     _SbtRecordStride,
+    uint                     _MissIndex,
+    vec3                     _Origin,
+    float                    _Tmin,
+    vec3                     _Direction,
+    float                    _Tmax,
+    int                      _Payload);
 #endif
 
 #ifdef GL_INTERSECTION_SHADER_EXT
 spirv_instruction(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5334)
-bool reportIntersectionEXT(float hitT, uint hitKind);
+bool reportIntersectionEXT(float _HitT, uint _HitKind);
 #endif
 
 #ifdef GL_ANY_HIT_SHADER_EXT
@@ -103,7 +114,7 @@ void terminateRayEXT();
 
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT) || defined(GL_CALLABLE_SHADER_EXT)
 spirv_instruction(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5344)
-void executeCallableEXT(uint sbtRecordIndex, int callable);
+void executeCallableEXT(uint _SbtRecordIndex, int _Callable);
 #endif
 
 #endif

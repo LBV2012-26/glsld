@@ -3,6 +3,15 @@
 // GL_EXT_shader_explicit_arithmetic_types
 // (also covers: _int8, _int16, _int32, _int64, _float16, _float32, _float64)
 
+#define GL_EXT_shader_explicit_arithmetic_types_int8    1
+#define GL_EXT_shader_explicit_arithmetic_types_int16   1
+#define GL_EXT_shader_explicit_arithmetic_types_int32   1
+#define GL_EXT_shader_explicit_arithmetic_types_int32   1
+#define GL_EXT_shader_explicit_arithmetic_types_int64   1
+#define GL_EXT_shader_explicit_arithmetic_types_float16 1
+#define GL_EXT_shader_explicit_arithmetic_types_float32 1
+#define GL_EXT_shader_explicit_arithmetic_types_float64 1
+
 // Types (keyword additions):
 // float64_t, f64vec2, f64vec3, f64vec4
 // f64mat2, f64mat3, f64mat4
