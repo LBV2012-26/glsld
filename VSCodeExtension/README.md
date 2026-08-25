@@ -88,6 +88,10 @@ References are also tracked across include boundaries.
 
 ![Cross-file references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CrossReference.png)
 
+Also support rename symbols across the workspace.
+
+![Rename symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Rename.gif)
+
 ## Hover information
 
 Hovering over a symbol displays its declaration and relevant type information.
