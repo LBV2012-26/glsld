@@ -48,6 +48,8 @@ namespace glsld {
             std::filesystem::path target;
         };
 
+        std::string RecordFilename(std::string_view owner_uri);
+
         std::optional<StagedRecord> StageRecord(
             const std::filesystem::path& cache_path,
             std::string_view cache_key,
@@ -58,7 +60,7 @@ namespace glsld {
         void DiscardRecord(const StagedRecord& staged);
 
         using RecordVisitor = std::function<bool(const DiskIndexRecord&)>;
-        using KeepPredicate = std::function<bool(std::string_view owner_uri)>;
+        using KeepPredicate = std::function<bool(std::string_view)>;
 
         std::optional<DiskIndexRecord> LoadRecord(
             const std::filesystem::path& cache_path,

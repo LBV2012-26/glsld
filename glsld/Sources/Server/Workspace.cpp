@@ -158,7 +158,6 @@ namespace glsld {
 
     void Workspace::MarkDocumentOpen(std::string_view uri) {
         std::lock_guard lock(background_index_mutex_);
-
         open_document_uris_.emplace(uri);
         ++index_revisions_[uri];
     }
@@ -244,7 +243,7 @@ namespace glsld {
         StringHeteroHashSet   open_uris;
 
         {
-            std::lock_guard lock(background_index_mutex_);
+            std::shared_lock lock(background_index_mutex_);
             cache_path = index_cache_path_;
             cache_key  = index_cache_key_;
             open_uris  = open_document_uris_;
@@ -490,7 +489,9 @@ namespace glsld {
         LoadBackgroundCache();
         ReconcileWorkspace();
 
-        auto next_reconcile = std::chrono::steady_clock::now() + 5s;
+        static constexpr auto kReconcileDuration = 10s;
+
+        auto next_reconcile = std::chrono::steady_clock::now() + kReconcileDuration;
 
         while (!stop_token.stop_requested()) {
             std::vector<std::future<void>> futures;
@@ -538,7 +539,7 @@ namespace glsld {
             const auto now = std::chrono::steady_clock::now();
             if (now >= next_reconcile) {
                 ReconcileWorkspace();
-                next_reconcile = now + 5s;
+                next_reconcile = now + kReconcileDuration;
             }
         }
     }
@@ -557,9 +558,9 @@ namespace glsld {
     void Workspace::ReconcileWorkspace() {
         const auto candidates = DiscoverIndexCandidates();
 
-        StringHeteroHashSet candidate_uris;
-        candidate_uris.reserve(candidates.size());
-
+        StringHeteroHashSet candidate_filenames;
+        candidate_filenames.reserve(candidates.size());
+ 
         for (const auto& filename : candidates) {
             auto       uri    = Utils::PathToUri(filename);
             const auto record = IndexCache::LoadRecord(index_cache_path_, index_cache_key_, uri);
@@ -568,22 +569,27 @@ namespace glsld {
                 ScheduleDiskIndex(filename);
             }
 
-            candidate_uris.emplace(std::move(uri));
+            candidate_filenames.emplace(IndexCache::RecordFilename(uri));
         }
 
-        auto Keep = [&](std::string_view owner_uri) -> bool {
-            if (candidate_uris.contains(owner_uri)) {
-                return true;
+        {
+            std::shared_lock lock(background_index_mutex_);
+            for (const auto& uri : open_document_uris_) {
+                candidate_filenames.emplace(IndexCache::RecordFilename(uri));
             }
+        }
 
-            std::lock_guard lock(background_index_mutex_);
-            return open_document_uris_.contains(owner_uri);
+        auto Keep = [&](std::string_view filename) -> bool {
+            return true;
+            return candidate_filenames.contains(filename);
         };
 
         const auto removed = IndexCache::PruneRecords(index_cache_path_, index_cache_key_, Keep);
         for (const auto& uri : removed) {
             RemoveDependencies(uri);
         }
+
+        mi_collect(true);
     }
 
     void Workspace::ProcessDiskIndexTask(
@@ -609,31 +615,37 @@ namespace glsld {
             cache_key  = index_cache_key_;
         }
 
-        Document document;
-        document.source  = std::move(*source);
-        document.version = 0;
-        document.arena   = arena_pool_.Acquire();
+        DiskIndexRecord record;
 
-        const auto* source_file = source_table_.InternByUri(uri);
-        ProcessSource(document, source_file, document.source, 0, nullptr);
-        if (document.ast == nullptr) {
-            return;
-        }
+        {
+            Document document;
+            document.source  = std::move(*source);
+            document.version = 0;
+            document.arena   = arena_pool_.Acquire();
 
-        auto contributions = GlobalIndex::CollectContributions(document);
-        GlobalIndex::NormalizeContributions(contributions);
+            const auto* source_file = source_table_.InternByUri(uri);
+            ProcessSource(document, source_file, document.source, 0, nullptr);
+            if (document.ast == nullptr) {
+                return;
+            }
 
-        DiskIndexRecord record{
-            .owner_uri    = std::string(uri),
-            .dependencies = document.dependencies,
-        };
+            MetadataManager::GetInstance().InvalidateMetadata(document);
 
-        record.contributions.reserve(contributions.size());
-        for (const auto& contribution : contributions) {
-            record.contributions.push_back(StoredContribution{
-                .definition = StoreLocation(contribution.definition),
-                .reference  = StoreLocation(contribution.reference)
-            });
+            auto contributions = GlobalIndex::CollectContributions(document);
+            GlobalIndex::NormalizeContributions(contributions);
+
+            record = DiskIndexRecord{
+                .owner_uri    = std::string(uri),
+                .dependencies = std::move(document.dependencies),
+            };
+
+            record.contributions.reserve(contributions.size());
+            for (const auto& contribution : contributions) {
+                record.contributions.push_back(StoredContribution{
+                    .definition = StoreLocation(contribution.definition),
+                    .reference  = StoreLocation(contribution.reference)
+                });
+            }
         }
 
         std::vector<std::string> stamped_uris;
@@ -660,6 +672,7 @@ namespace glsld {
             return;
         }
 
+        mi_collect(true);
         bool discard = false;
 
         {

@@ -98,9 +98,13 @@ namespace glsld::IndexCache {
             const std::filesystem::path& cache_path,
             std::string_view owner_uri)
         {
-            const auto hash = rapidhashMicro(owner_uri.data(), owner_uri.size());
-            return RecordDirectory(cache_path) / std::format("{:016x}.idx", hash);
+            return RecordDirectory(cache_path) / RecordFilename(owner_uri);
         }
+    }
+
+    std::string RecordFilename(std::string_view owner_uri) {
+        const auto hash = rapidhashMicro(owner_uri.data(), owner_uri.size());
+        return std::format("{:016x}.idx", hash);
     }
 
     std::optional<StagedRecord> StageRecord(
@@ -249,14 +253,17 @@ namespace glsld::IndexCache {
                 continue;
             }
 
-            auto record = LoadRecordFile(it->path(), cache_key);
-            if (!record.has_value() || !keep(record->owner_uri)) {
-                std::error_code remove_ec;
-                std::filesystem::remove(it->path(), remove_ec);
+            const auto filename = it->path().filename().generic_string();
+            if (keep(filename)) {
+                continue;
+            }
 
-                if (!remove_ec && record.has_value()) {
-                    removed.push_back(std::move(record->owner_uri));
-                }
+            auto record = LoadRecordFile(it->path(), cache_key);
+
+            std::error_code remove_ec;
+            std::filesystem::remove(it->path(), remove_ec);
+            if (!remove_ec && record.has_value()) {
+                removed.push_back(std::move(record->owner_uri));
             }
         }
 

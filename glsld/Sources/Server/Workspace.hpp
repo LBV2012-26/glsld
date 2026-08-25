@@ -164,7 +164,7 @@ namespace glsld {
         std::queue<DiskIndexTask>                      index_task_queue_;
 
         ThreadPool                                     background_index_pool_{ std::jthread::hardware_concurrency() };
-        std::mutex                                     background_index_mutex_;
+        std::shared_mutex                              background_index_mutex_;
         std::condition_variable_any                    background_index_condition_;
         std::jthread                                   background_index_thread_;
     };

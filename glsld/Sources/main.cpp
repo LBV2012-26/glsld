@@ -116,8 +116,8 @@ int main() {
     glsld::ArenaPool arena_pool;
 
     std::println("-----------------------------------------------------------------------");
-    Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl.bak");
-    Benchmark(arena_pool, "Tests/Benchmark/BlackHoleHeavy.glsl.bak");
+    Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl");
+    Benchmark(arena_pool, "Tests/Benchmark/BlackHoleRepeated.glsl");
     Benchmark(arena_pool, "Tests/OverloadTest.glsl");
     Benchmark(arena_pool, "Tests/HoverTest.glsl");
     Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
