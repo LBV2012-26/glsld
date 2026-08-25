@@ -34,7 +34,6 @@ namespace glsld {
     {}
 
     Arena::~Arena() {
-        GLSLD_LOG(info, "Arena::~Arena()");
         FreeMemory();
     }
 

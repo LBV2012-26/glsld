@@ -580,7 +580,6 @@ namespace glsld {
         }
 
         auto Keep = [&](std::string_view filename) -> bool {
-            return true;
             return candidate_filenames.contains(filename);
         };
 

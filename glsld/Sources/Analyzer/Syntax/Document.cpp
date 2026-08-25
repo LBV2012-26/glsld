@@ -5,11 +5,6 @@
 #include "Base/Logger.hpp"
 
 namespace glsld {
-    Document::~Document() {
-        GLSLD_LOG(info, "Document::~Document at uri: {}",
-                  raw_tokens.empty() ? "empty document" : raw_tokens.front().location.filename());
-    }
-
     std::string_view Document::StoreTokenText(std::string_view text) const {
         return arena->CopyString(text);
     }
