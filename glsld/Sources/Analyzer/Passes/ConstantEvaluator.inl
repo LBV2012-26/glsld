@@ -3,6 +3,7 @@
 #include <format>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 namespace glsld {
     template<typename Ty>
@@ -67,5 +68,9 @@ namespace glsld {
 
             return std::nullopt;
         }
+    }
+
+    inline void ConstantEvaluator::Register(std::string_view name, EvaluatorFunc func) {
+        registry_[name] = std::move(func);
     }
 }

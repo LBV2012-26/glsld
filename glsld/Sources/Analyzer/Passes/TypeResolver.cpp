@@ -938,9 +938,89 @@ namespace glsld {
         }
     }
 
+    namespace {
+        bool SupportsLengthMethod(const TypeInfo& type) {
+            if (type.is_array()) {
+                return true;
+            }
+
+            if (!type.is_valid() || type.block_symbol != nullptr ||
+                type.type_desc.family == BaseFamily::kUnknown ||
+                type.type_desc.family == BaseFamily::kVoid ||
+                type.type_desc.family == BaseFamily::kOpaque)
+            {
+                return false;
+            }
+
+            using enum TypeDescriptor::ArithmeticStructure;
+
+            const auto structure = type.type_desc.arithmetic_structure();
+            return structure == kVector || structure == kMatrix;
+        }
+
+        TypeInfo BuildLengthResultType(const SourceLocation& location) {
+            return TypeInfo{
+                .typename_token = Token{
+                    .text     = "int",
+                    .location = location,
+                    .type     = TokenType::kPrimitive
+                },
+                .type_desc = TypeDescriptor{
+                    .family        = BaseFamily::kInt,
+                    .bits          = 32,
+                    .vector_count  = 1,
+                    .vector_length = 1
+                }
+            };
+        }
+
+        TypeInfo BuildUnknownType(const SourceLocation& location) {
+            return TypeInfo{
+                .typename_token = Token{
+                    .text     = "unknown",
+                    .location = location,
+                    .type     = TokenType::kUnknown
+                },
+                .type_desc = TypeDescriptor{
+                    .family = BaseFamily::kUnknown
+                }
+            };
+        }
+    }
+
     void TypeResolver::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
+        if (node->object == nullptr) {
+            node->evaluated_type = BuildUnknownType(node->begin);
+            return;
+        }
+
         Traverse(node->object);
         // Traverse(node->member); SymbolLinker 不知道结构体内部作用域，遍历了也鸡毛用没有
+
+        if (node->member != nullptr && node->member->kind() == AstNodeKind::kCallExpression) {
+            auto* length_call = FindLengthCall(node);
+            if (length_call == nullptr || !SupportsLengthMethod(node->object->evaluated_type)) {
+                auto unknown_type = BuildUnknownType(node->begin);
+                node->evaluated_type = unknown_type;
+
+                auto* member_call = static_cast<CallExpressionNode*>(node->member);
+                member_call->evaluated_type = unknown_type;
+
+                if (member_call->callee != nullptr) {
+                    member_call->callee->evaluated_type = std::move(unknown_type);
+                }
+
+                return;
+            }
+
+            auto* callee = static_cast<VariableExpressionNode*>(length_call->callee);
+            const auto result_type = BuildLengthResultType(callee->original_token.location);
+
+            callee->evaluated_type      = result_type;
+            length_call->evaluated_type = result_type;
+            node->evaluated_type        = result_type;
+            return;
+        }
 
         const auto& object_type  = node->object->evaluated_type;
         const auto* block_symbol = object_type.block_symbol;
