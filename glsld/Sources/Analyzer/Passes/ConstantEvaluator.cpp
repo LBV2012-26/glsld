@@ -127,6 +127,96 @@ namespace glsld {
 #define REGISTER_OVERLOADS_INTEGER_ONLY(name, func) Register(name, MakeOverloader(func<std::int64_t>, func<std::uint64_t>))
 
     void ConstantEvaluator::RegisterBuiltins() {
+        Register("radians", WrapSingleSignature(+[](double degrees) -> double {
+            return MathMeta::Radians(degrees);
+        }));
+
+        Register("degrees", WrapSingleSignature(+[](double radians) -> double {
+            return MathMeta::Degrees(radians);
+        }));
+
+        Register("sin", WrapSingleSignature(+[](double angle) -> double {
+            return MathMeta::Sin(angle);
+        }));
+
+        Register("cos", WrapSingleSignature(+[](double angle) -> double {
+            return MathMeta::Cos(angle);
+        }));
+
+        Register("tan", WrapSingleSignature(+[](double angle) -> double {
+            return MathMeta::Tan(angle);
+        }));
+
+        Register("asin", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Asin(value);
+        }));
+
+        Register("acos", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Acos(value);
+        }));
+
+        // atan 包含两个标准重载: atan(y, x) 和 atan(y_over_x)
+        Register("atan", MakeOverloader(
+            +[](double numerator_y, double denominator_x) -> double {
+                return MathMeta::Atan2(numerator_y, denominator_x);
+            },
+            +[](double slope_y_over_x) -> double {
+                return MathMeta::Atan(slope_y_over_x);
+            }
+        ));
+
+        Register("sinh", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Sinh(value);
+        }));
+
+        Register("cosh", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Cosh(value);
+        }));
+
+        Register("tanh", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Tanh(value);
+        }));
+
+        Register("asinh", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Asinh(value);
+        }));
+
+        Register("acosh", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Acosh(value);
+        }));
+
+        Register("atanh", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Atanh(value);
+        }));
+
+        Register("pow", WrapSingleSignature(+[](double base_value, double exponent_value) -> std::optional<double> {
+            return MathMeta::Pow(base_value, exponent_value);
+        }));
+
+        Register("exp", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Exp(value);
+        }));
+
+        Register("exp2", WrapSingleSignature(+[](double value) -> double {
+            return MathMeta::Exp2(value);
+        }));
+
+        Register("log", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Log(value);
+        }));
+
+        Register("log2", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Log2(value);
+        }));
+
+        Register("sqrt", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::Sqrt(value);
+        }));
+
+        Register("inversesqrt", WrapSingleSignature(+[](double value) -> std::optional<double> {
+            return MathMeta::InverseSqrt(value);
+        }));
+
         REGISTER_OVERLOADS("abs", MathMeta::Abs);
         REGISTER_OVERLOADS("sign", MathMeta::Sign);
         REGISTER_OVERLOADS("min", MathMeta::Min);
