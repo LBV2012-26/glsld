@@ -49,12 +49,13 @@ namespace glsld {
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         ankerl::unordered_dense::set<const SymbolInfo*> visited_symbols_;
+        ValueType current_value_{};
+        bool      is_valid_{ true };
 
         using Registry = ankerl::unordered_dense::map<std::string_view, EvaluatorFunc>;
         inline static Registry registry_;
 
-        ValueType current_value_{};
-        bool      is_valid_{ true };
+        inline static bool builtins_registered_{ false };
     };
 }
 

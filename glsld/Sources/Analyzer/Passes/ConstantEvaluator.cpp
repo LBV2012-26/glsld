@@ -46,7 +46,10 @@ namespace glsld {
     ConstantEvaluator::ConstantEvaluator()
         : AstVisitor(0, nullptr)
     {
-        RegisterBuiltins();
+        if (!builtins_registered_) {
+            builtins_registered_ = true;
+            RegisterBuiltins();
+        }
     }
 
     namespace {
