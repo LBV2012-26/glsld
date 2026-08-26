@@ -336,7 +336,11 @@ namespace glsld {
             return;
         }
 
-        for (auto& template_arg : node->type_spec.template_args) {
+        for (auto* array_size : node->type_spec.array_sizes) {
+            Traverse(array_size);
+        }
+
+        for (auto* template_arg : node->type_spec.template_args) {
             Traverse(template_arg);
         }
 
