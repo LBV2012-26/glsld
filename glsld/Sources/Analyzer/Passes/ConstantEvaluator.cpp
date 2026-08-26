@@ -97,7 +97,7 @@ namespace glsld {
                     auto result = std::apply(func, *extracted);
                     if constexpr (requires { result.has_value(); }) {
                         if (!result.has_value()) {
-                            return false;
+                            return std::nullopt;
                         }
 
                         return Type{ *result };
