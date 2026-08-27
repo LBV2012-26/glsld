@@ -1838,6 +1838,36 @@ namespace glsld::Providers {
                 return std::string(node->name);
             }
 
+            case AstNodeKind::kCastExpression: {
+                auto* cast = static_cast<const CastExpressionNode*>(expr);
+                if (cast->operand == nullptr) {
+                    return {};
+                }
+
+                const auto type_name = cast->target_type.typename_token().text;
+                if (type_name.empty()) {
+                    return {};
+                }
+
+                auto operand = SerializeInitializer(cast->operand);
+                if (operand.empty()) {
+                    return {};
+                }
+
+                // 防止 (int)(a + b) 被序列化成 (int)a + b
+                switch (cast->operand->kind()) {
+                case AstNodeKind::kBinaryExpression:
+                case AstNodeKind::kTernaryExpression:
+                    operand = "(" + operand + ")";
+                    break;
+
+                default:
+                    break;
+                }
+
+                return "(" + std::string(type_name) + ")" + operand;
+            }
+
             case AstNodeKind::kUnaryExpression: {
                 auto* unary = static_cast<const UnaryExpressionNode*>(expr);
 

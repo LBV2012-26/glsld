@@ -97,16 +97,7 @@ namespace glsld {
                     std::apply(func, *extracted);
                     return std::nullopt;
                 } else {
-                    auto result = std::apply(func, *extracted);
-                    if constexpr (requires { result.has_value(); }) {
-                        if (!result.has_value()) {
-                            return std::nullopt;
-                        }
-
-                        return Type{ *result };
-                    } else {
-                        return Type{ result };
-                    }
+                    return std::apply(func, *extracted);
                 }
             };
         }
@@ -192,8 +183,8 @@ namespace glsld {
             return MathMeta::Atanh(value);
         }));
 
-        Register("pow", WrapSingleSignature(+[](double base_value, double exponent_value) -> std::optional<double> {
-            return MathMeta::Pow(base_value, exponent_value);
+        Register("pow", WrapSingleSignature(+[](double base, double exponent) -> std::optional<double> {
+            return MathMeta::Pow(base, exponent);
         }));
 
         Register("exp", WrapSingleSignature(+[](double value) -> double {
@@ -298,8 +289,8 @@ namespace glsld {
             return MathMeta::Length(value);
         }));
 
-        Register("distance", WrapSingleSignature(+[](double point_a, double point_b) -> double {
-            return MathMeta::Distance(point_a, point_b);
+        Register("distance", WrapSingleSignature(+[](double x, double y) -> double {
+            return MathMeta::Distance(x, y);
         }));
 
         REGISTER_OVERLOADS("dot", MathMeta::Dot);
@@ -428,6 +419,87 @@ namespace glsld {
         return std::nullopt;
     }
 
+    std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::ConvertConstructorToType(
+        const ValueType& value,
+        const TypeInfo& target_type) const
+    {
+        if (!target_type.is_valid()                 ||
+            target_type.is_array()                  ||
+            target_type.block_symbol != nullptr     ||
+            target_type.type_desc.vector_count != 1 ||
+            target_type.type_desc.vector_length != 1)
+        {
+            return std::nullopt;
+        }
+
+        if (auto converted = ConvertValueToType(value, target_type)) {
+            return converted;
+        }
+
+        switch (target_type.type_desc.family) {
+        case BaseFamily::kBool:
+            if (const auto* source = std::get_if<std::int64_t>(&value))
+                return *source != 0;
+            if (const auto* source = std::get_if<std::uint64_t>(&value))
+                return *source != 0;
+            if (const auto* source = std::get_if<double>(&value))
+                return *source != 0.0;
+            break;
+        case BaseFamily::kInt:
+            if (const auto* source = std::get_if<std::uint64_t>(&value)) {
+                if (*source <= static_cast<std::uint64_t>(
+                    std::numeric_limits<std::int64_t>::max())) {
+                    return static_cast<std::int64_t>(*source);
+                }
+            }
+
+            if (const auto* source = std::get_if<double>(&value)) {
+                // 使用半开区间，避免 INT64_MAX 转成 double 后向上舍入。
+                constexpr double kMin          = -9223372036854775808.0; // -2^63
+                constexpr double kMaxExclusive =  9223372036854775808.0; //  2^63
+
+                if (std::isfinite(*source) &&
+                    *source >= kMin &&
+                    *source < kMaxExclusive)
+                {
+                    return static_cast<std::int64_t>(*source);
+                }
+            }
+
+            if (const auto* source = std::get_if<bool>(&value)) {
+                return static_cast<std::int64_t>(*source);
+            }
+
+            break;
+        case BaseFamily::kUint:
+            if (const auto* source = std::get_if<double>(&value)) {
+                constexpr double kMaxExclusive = 18446744073709551616.0;
+
+                if (std::isfinite(*source) &&
+                    *source >= 0.0 &&
+                    *source < kMaxExclusive)
+                {
+                    return static_cast<std::uint64_t>(*source);
+                }
+            }
+
+            if (const auto* source = std::get_if<bool>(&value)) {
+                return static_cast<std::uint64_t>(*source);
+            }
+
+            break;
+        case BaseFamily::kFloat:
+            if (const auto* source = std::get_if<bool>(&value)) {
+                return *source ? 1.0 : 0.0;
+            }
+            break;
+        default:
+            break;
+        }
+
+        return std::nullopt;
+    }
+
     std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::EvaluateBuiltinFunction(
         std::string_view name,
         std::span<const ValueType> args)
@@ -480,6 +552,30 @@ namespace glsld {
         }
 
         visited_symbols_.erase(symbol);
+    }
+
+    void ConstantEvaluator::VisitCastExpression(CastExpressionNode* node) {
+        if (node == nullptr || node->operand == nullptr ||
+            !node->evaluated_type.is_valid())
+        {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto operand = Evaluate(node->operand);
+        if (!operand.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto converted = ConvertConstructorToType(*operand, node->evaluated_type);
+
+        if (!converted.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        current_value_ = *converted;
     }
 
     void ConstantEvaluator::VisitBinaryExpression(BinaryExpressionNode* node) {
@@ -707,7 +803,34 @@ namespace glsld {
             return;
         }
 
-        auto* callee      = static_cast<VariableExpressionNode*>(node->callee);
+
+        auto* callee = static_cast<VariableExpressionNode*>(node->callee);
+
+        if (callee->original_token.type == TokenType::kPrimitive ||
+            callee->original_token.type == TokenType::kBuiltInType)
+        {
+            if (node->args.size() != 1 || node->args.front() == nullptr) {
+                is_valid_ = false;
+                return;
+            }
+
+            const auto argument = Evaluate(node->args.front());
+            if (!argument.has_value()) {
+                is_valid_ = false;
+                return;
+            }
+
+            const auto converted = ConvertConstructorToType(*argument, node->evaluated_type);
+
+            if (!converted.has_value()) {
+                is_valid_ = false;
+                return;
+            }
+
+            current_value_ = *converted;
+            return;
+        }
+
         auto* symbol_slot = std::get_if<const SymbolInfo*>(&callee->linked_symbols);
 
         if (symbol_slot == nullptr || *symbol_slot == nullptr) {

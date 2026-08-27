@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <bit>
 #include <numeric>
-#include <optional>
 #include <type_traits>
 
 namespace glsld::MathMeta {
@@ -36,18 +35,12 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> Asin(Ty x) {
-        if (x < static_cast<Ty>(-1.0) || x > static_cast<Ty>(1.0)) {
-            return std::nullopt;
-        }
+    Ty Asin(Ty x) {
         return std::asin(x);
     }
 
     template <typename Ty>
-    std::optional<Ty> Acos(Ty x) {
-        if (x < static_cast<Ty>(-1.0) || x > static_cast<Ty>(1.0)) {
-            return std::nullopt; // 超出定义域
-        }
+    Ty Acos(Ty x) {
         return std::acos(x);
     }
 
@@ -82,31 +75,19 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> Acosh(Ty x) {
-        if (x < static_cast<Ty>(1.0)) {
-            return std::nullopt; // acosh 定义域为 [1, +inf)
-        }
+    Ty Acosh(Ty x) {
         return std::acosh(x);
     }
 
     template <typename Ty>
-    std::optional<Ty> Atanh(Ty x) {
-        if (x <= static_cast<Ty>(-1.0) || x >= static_cast<Ty>(1.0)) {
-            return std::nullopt; // atanh 定义域为 (-1, 1)
-        }
+    Ty Atanh(Ty x) {
         return std::atanh(x);
     }
 #pragma endregion
 
 #pragma region Section 8.2
     template <typename Ty>
-    std::optional<Ty> Pow(Ty x, Ty y) {
-        if (x < static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
-        if (x == static_cast<Ty>(0.0) && y <= static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
+    Ty Pow(Ty x, Ty y) {
         return std::pow(x, y);
     }
 
@@ -121,34 +102,22 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> Log(Ty x) {
-        if (x <= static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
+    Ty Log(Ty x) {
         return std::log(x);
     }
 
     template <typename Ty>
-    std::optional<Ty> Log2(Ty x) {
-        if (x <= static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
+    Ty Log2(Ty x) {
         return std::log2(x);
     }
 
     template <typename Ty>
-    std::optional<Ty> Sqrt(Ty x) {
-        if (x < static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
+    Ty Sqrt(Ty x) {
         return std::sqrt(x);
     }
 
     template <typename Ty>
-    std::optional<Ty> InverseSqrt(Ty x) {
-        if (x <= static_cast<Ty>(0.0)) {
-            return std::nullopt;
-        }
+    Ty InverseSqrt(Ty x) {
         return static_cast<Ty>(1.0) / std::sqrt(x);
     }
 #pragma endregion
@@ -467,10 +436,7 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> Normalize(Ty value) {
-        if (value == static_cast<Ty>(0)) {
-            return std::nullopt;
-        }
+    Ty Normalize(Ty value) {
         return (value > static_cast<Ty>(0)) ? static_cast<Ty>(1) : static_cast<Ty>(-1);
     }
 
@@ -486,8 +452,8 @@ namespace glsld::MathMeta {
 
     template <typename Ty>
     Ty Refract(Ty incident, Ty normal, Ty eta) {
-        const Ty dot_product = normal * incident;
-        const Ty discriminant = static_cast<Ty>(1.0) - eta * eta * (static_cast<Ty>(1.0) - dot_product * dot_product);
+        const Ty dot_product  = normal * incident;
+        const Ty discriminant = static_cast<Ty>(1.0) - std::pow(eta, static_cast<Ty>(2)) * (static_cast<Ty>(1.0) - std::pow(dot_product, static_cast<Ty>(2)));
         if (discriminant < static_cast<Ty>(0.0)) {
             return static_cast<Ty>(0.0);
         }
@@ -588,12 +554,7 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> BitfieldExtract(Ty value, std::int64_t offset, std::int64_t bits) {
-        if (bits < 0 || offset < 0 || offset + bits > 32)
-            return std::nullopt;
-        if (bits == 0)
-            return static_cast<Ty>(0);
-
+    Ty BitfieldExtract(Ty value, std::int64_t offset, std::int64_t bits) {
         if constexpr (std::is_signed_v<Ty>) {
             auto int_value = static_cast<std::int32_t>(value);
             int_value = (int_value << (32 - (offset + bits))) >> (32 - bits);
@@ -606,12 +567,7 @@ namespace glsld::MathMeta {
     }
 
     template <typename Ty>
-    std::optional<Ty> BitfieldInsert(Ty base, Ty insert, std::int64_t offset, std::int64_t bits) {
-        if (bits < 0 || offset < 0 || offset + bits > 32)
-            return std::nullopt; // 越界防护
-        if (bits == 0)
-            return base;
-
+    Ty BitfieldInsert(Ty base, Ty insert, std::int64_t offset, std::int64_t bits) {
         const std::uint32_t mask        = (bits == 32) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
         const std::uint32_t base_bits   = static_cast<std::uint32_t>(base);
         const std::uint32_t insert_bits = static_cast<std::uint32_t>(insert) & mask;

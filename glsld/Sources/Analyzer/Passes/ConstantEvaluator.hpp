@@ -39,9 +39,11 @@ namespace glsld {
 
         std::optional<ValueType> Evaluate(ExpressionNode* node);
         std::optional<ValueType> ConvertValueToType(const ValueType& value, const TypeInfo& target_type) const;
+        std::optional<ValueType> ConvertConstructorToType(const ValueType& value, const TypeInfo& target_type) const;
         std::optional<ValueType> EvaluateBuiltinFunction(std::string_view name, std::span<const ValueType> args);
 
         void VisitVariableExpression(VariableExpressionNode* node) override;
+        void VisitCastExpression(CastExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;

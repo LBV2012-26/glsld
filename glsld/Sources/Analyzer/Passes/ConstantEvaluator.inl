@@ -1,5 +1,6 @@
 #include "ConstantEvaluator.hpp"
 
+#include <cmath>
 #include <format>
 #include <limits>
 #include <type_traits>
@@ -26,7 +27,12 @@ namespace glsld {
                 } else if constexpr (std::same_as<Decayed, std::uint64_t>) {
                     return std::to_string(arg);
                 } else if constexpr (std::same_as<Decayed, double>) {
-                    return std::format("{:g}", arg);
+                    auto text = std::format("{}", arg);
+                    if (std::isfinite(arg) && text.find_first_of(".eE") == std::string::npos) {
+                        text += ".0";
+                    }
+
+                    return text;
                 } else if constexpr (std::same_as<Decayed, bool>) {
                     return arg ? "true" : "false";
                 }
