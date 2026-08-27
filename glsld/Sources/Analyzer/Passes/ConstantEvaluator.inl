@@ -20,30 +20,19 @@ namespace glsld {
         }
 
         if constexpr (std::same_as<Ty, std::string>) {
-            return std::visit([](auto&& arg) -> std::string {
-                using Decayed = std::decay_t<decltype(arg)>;
-                if constexpr (std::same_as<Decayed, std::int64_t>) {
-                    return std::to_string(arg);
-                } else if constexpr (std::same_as<Decayed, std::uint64_t>) {
-                    return std::to_string(arg);
-                } else if constexpr (std::same_as<Decayed, double>) {
-                    auto text = std::format("{}", arg);
-                    if (std::isfinite(arg) && text.find_first_of(".eE") == std::string::npos) {
-                        text += ".0";
-                    }
-
-                    return text;
-                } else if constexpr (std::same_as<Decayed, bool>) {
-                    return arg ? "true" : "false";
-                }
-            }, *result);
+            return FormatValue(*result);
         } else {
-            if (const auto* value = std::get_if<Ty>(&*result)) {
+            const auto* scalar = std::get_if<ScalarValue>(&*result);
+            if (scalar == nullptr) {
+                return std::nullopt;
+            }
+
+            if (const auto* value = std::get_if<Ty>(scalar)) {
                 return *value;
             }
 
             if constexpr (std::same_as<Ty, std::uint64_t>) {
-                if (const auto* value = std::get_if<std::int64_t>(&*result)) {
+                if (const auto* value = std::get_if<std::int64_t>(scalar)) {
                     if (*value >= 0) {
                         return static_cast<std::uint64_t>(*value);
                     }
@@ -51,7 +40,7 @@ namespace glsld {
             }
 
             if constexpr (std::same_as<Ty, std::int64_t>) {
-                if (const auto* value = std::get_if<std::uint64_t>(&*result)) {
+                if (const auto* value = std::get_if<std::uint64_t>(scalar)) {
                     if (*value <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
                         return static_cast<std::int64_t>(*value);
                     }
@@ -59,16 +48,16 @@ namespace glsld {
             }
 
             if constexpr (std::same_as<Ty, double>) {
-                if (const auto* value = std::get_if<std::int64_t>(&*result))
+                if (const auto* value = std::get_if<std::int64_t>(scalar))
                     return static_cast<double>(*value);
-                if (const auto* value = std::get_if<std::uint64_t>(&*result))
+                if (const auto* value = std::get_if<std::uint64_t>(scalar))
                     return static_cast<double>(*value);
             }
 
             if constexpr (std::same_as<Ty, bool>) {
-                if (const auto* value = std::get_if<std::int64_t>(&*result))
+                if (const auto* value = std::get_if<std::int64_t>(scalar))
                     return static_cast<bool>(*value);
-                if (const auto* value = std::get_if<std::uint64_t>(&*result))
+                if (const auto* value = std::get_if<std::uint64_t>(scalar))
                     return static_cast<bool>(*value);
             }
 

@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 #include <ankerl/unordered_dense.h>
 #include "Analyzer/Ast/Ast.hpp"
@@ -20,7 +21,14 @@ namespace glsld {
 
     class ConstantEvaluator final : public AstVisitor {
     public:
-        using ValueType = std::variant<std::int64_t, std::uint64_t, double, bool>;
+        using ScalarValue = std::variant<std::int64_t, std::uint64_t, double, bool>;
+
+        struct AggregateValue {
+            TypeDescriptor           type_desc;
+            std::vector<ScalarValue> components;
+        };
+
+        using ValueType = std::variant<ScalarValue, AggregateValue>;
 
         ConstantEvaluator();
 
@@ -32,15 +40,30 @@ namespace glsld {
               || std::same_as<Ty, std::string>
         std::optional<Ty> EvaluateAs(ExpressionNode* node);
     private:
-        using EvaluatorFunc = std::function<std::optional<ValueType>(std::span<const ValueType>)>;
+        using EvaluatorFunc = std::function<std::optional<ValueType>(std::span<const ValueType>, const TypeInfo&)>;
 
         void RegisterBuiltins();
         void Register(std::string_view name, EvaluatorFunc func);
 
         std::optional<ValueType> Evaluate(ExpressionNode* node);
-        std::optional<ValueType> ConvertValueToType(const ValueType& value, const TypeInfo& target_type) const;
-        std::optional<ValueType> ConvertConstructorToType(const ValueType& value, const TypeInfo& target_type) const;
-        std::optional<ValueType> EvaluateBuiltinFunction(std::string_view name, std::span<const ValueType> args);
+
+        enum class ConversionMode {
+            kExplicit,
+            kImplicit
+        };
+
+        std::optional<ValueType> ConvertValueToType(
+            const ValueType& value,
+            const TypeInfo& target_type,
+            ConversionMode mode) const;
+
+        std::optional<ValueType> EvaluateBuiltinFunction(
+            std::string_view name,
+            std::span<const ValueType> args,
+            const TypeInfo& result_type);
+
+        std::optional<ValueType> EvaluateConstructor(CallExpressionNode* node, const TypeInfo& target_type);
+        std::optional<std::string> FormatValue(const ValueType& value) const;
 
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitCastExpression(CastExpressionNode* node) override;

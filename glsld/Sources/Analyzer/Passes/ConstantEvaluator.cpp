@@ -12,7 +12,6 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "Analyzer/Syntax/Token.hpp"
 #include "Base/FileSystem/Source.hpp"
@@ -53,24 +52,70 @@ namespace glsld {
     }
 
     namespace {
-        using Type = ConstantEvaluator::ValueType;
+        using Scalar    = ConstantEvaluator::ScalarValue;
+        using Aggregate = ConstantEvaluator::AggregateValue;
+        using Value     = ConstantEvaluator::ValueType;
+
+        const Scalar* GetScalar(const Value& value) {
+            return std::get_if<Scalar>(&value);
+        }
+
+        template<typename Ty>
+        const Ty* GetScalarIf(const Value& value) {
+            const auto* scalar = GetScalar(value);
+            if (scalar == nullptr) {
+                return nullptr;
+            }
+            return std::get_if<Ty>(scalar);
+        }
+
+        template <typename Ty>
+        inline constexpr bool is_optional_v = false;
+
+        template <typename Ty>
+        inline constexpr bool is_optional_v<std::optional<Ty>> = true;
+
+        template <typename Ty>
+        concept IsOptional = is_optional_v<std::remove_cvref_t<Ty>>;
+
+        template <typename Ty>
+        std::optional<Value> WrapReturnValue(Ty&& value) {
+            using Decayed = std::decay_t<Ty>;
+
+            if constexpr (IsOptional<Decayed>) {
+                if (!value.has_value()) {
+                    return std::nullopt;
+                }
+
+                return WrapReturnValue(*std::forward<Ty>(value));
+            } else {
+                return Value{
+                    std::forward<Ty>(value)
+                };
+            }
+        }
 
         template <typename Tuple, std::size_t... Is>
-        std::optional<Tuple> ExtractArgs(std::span<const Type> args, std::index_sequence<Is...>) {
+        std::optional<Tuple> ExtractArgs(std::span<const Value> args, std::index_sequence<Is...>) {
             if (args.size() < sizeof...(Is)) {
                 return std::nullopt;
             }
 
             Tuple result{};
             bool ok = (... && ([&]() -> bool {
-                using TargetType = std::tuple_element_t<Is, Tuple>;
-
-                if (const auto* value = std::get_if<std::decay_t<TargetType>>(&args[Is])) {
-                    std::get<Is>(result) = *value;
-                    return true;
+                const auto* scalar = GetScalar(args[Is]);
+                if (scalar == nullptr) {
+                    return false;
                 }
 
-                return false;
+                using TargetType = std::decay_t<std::tuple_element_t<Is, Tuple>>;
+                const auto* value = std::get_if<TargetType>(scalar);
+                if (value == nullptr) {
+                    return false;
+                }
+
+                std::get<Is>(result) = *value;
+                return true;
             }()));
 
             if (ok) {
@@ -82,13 +127,13 @@ namespace glsld {
 
         template <typename Return, typename... Args>
         auto WrapSingleSignature(Return(*func)(Args...)) {
-            return [func](std::span<const Type> args) -> std::optional<Type> {
+            return [func](std::span<const Value> args, const TypeInfo&) -> std::optional<Value> {
                 if (args.size() != sizeof...(Args)) {
                     return std::nullopt;
                 }
 
-                const auto extracted =
-                    ExtractArgs<std::tuple<std::decay_t<Args>...>>(args, std::index_sequence_for<Args...>{});
+                using ArgumentTuple = std::tuple<std::decay_t<Args>...>;
+                const auto extracted = ExtractArgs<ArgumentTuple>(args, std::index_sequence_for<Args...>{});
                 if (!extracted.has_value()) {
                     return std::nullopt;
                 }
@@ -97,28 +142,117 @@ namespace glsld {
                     std::apply(func, *extracted);
                     return std::nullopt;
                 } else {
-                    return std::apply(func, *extracted);
+                    auto result = std::apply(func, *extracted);
+                    return WrapReturnValue(std::move(result));
                 }
             };
         }
 
-        template <typename... Funcs>
-        auto MakeOverloader(Funcs... funcs) {
-            return [wrappers = std::make_tuple(WrapSingleSignature(funcs)...)](
-                std::span<const Type> args
-            ) -> std::optional<Type> {
-                std::optional<Type> result = std::nullopt;
-                std::apply([&](const auto&... wrapper) -> void {
-                    (... || (result = wrapper(args), result.has_value()));
-                }, wrappers);
+        template <typename... Evaluators>
+        auto MakeOverloader(Evaluators... funcs) {
+            return [overloads = std::make_tuple(std::move(funcs)...)](
+                std::span<const Value> args,
+                const TypeInfo& result_type
+            ) -> std::optional<Value> {
+                std::optional<Value> result;
+                std::apply([&](const auto&... evaluator) {
+                    (... || ([&]() -> bool {
+                        result = evaluator(args, result_type);
+                        return result.has_value();
+                    }()));
+                }, overloads);
 
                 return result;
             };
         }
+
+        std::size_t ComponentCount(const TypeDescriptor& type_desc) {
+            if (type_desc.vector_count <= 0 || type_desc.vector_length <= 0) {
+                return 0;
+            }
+
+            return static_cast<std::size_t>(type_desc.vector_count * type_desc.vector_length);
+        }
+
+        bool IsAggregateType(const TypeDescriptor& type_desc) {
+            return type_desc.vector_count > 1 || type_desc.vector_length > 1;
+        }
+
+        template <typename ScalarEvaluator>
+        auto MakeComponentWise(ScalarEvaluator func) {
+            return [func = std::move(func)](
+                std::span<const Value> args,
+                const TypeInfo& result_type
+            ) -> std::optional<Value> {
+                const bool all_scalar = std::ranges::all_of(args, [](const auto& argv) -> bool {
+                    return std::holds_alternative<Scalar>(argv);
+                });
+
+                if (all_scalar)
+                    return func(args, result_type);
+                if (!IsAggregateType(result_type.type_desc))
+                    return std::nullopt;
+
+                const auto component_count = ComponentCount(result_type.type_desc);
+                if (component_count == 0) {
+                    return std::nullopt;
+                }
+
+                Aggregate result{
+                    .type_desc  = result_type.type_desc,
+                    .components = {}
+                };
+
+                result.components.reserve(component_count);
+
+                std::vector<Value> component_args;
+                component_args.reserve(args.size());
+
+                for (auto i = 0uz; i != component_count; ++i) {
+                    component_args.clear();
+
+                    for (const auto& argv : args) {
+                        if (const auto* scalar = std::get_if<Scalar>(&argv)) {
+                            component_args.emplace_back(*scalar);
+                            continue;
+                        }
+
+                        const auto* aggregate = std::get_if<Aggregate>(&argv);
+                        if (aggregate == nullptr || aggregate->components.size() != component_count) {
+                            return std::nullopt;
+                        }
+
+                        component_args.emplace_back(Scalar{
+                            aggregate->components[i]
+                        });
+                    }
+
+                    const auto component_result = func(component_args, result_type);
+                    if (!component_result.has_value()) {
+                        return std::nullopt;
+                    }
+
+                    const auto* scalar_result = std::get_if<Scalar>(&*component_result);
+                    if (scalar_result == nullptr) {
+                        return std::nullopt;
+                    }
+
+                    result.components.push_back(*scalar_result);
+                }
+
+                return Value{ std::move(result) };
+            };
+        }
     }
 
-#define REGISTER_OVERLOADS(name, func) Register(name, MakeOverloader(func<std::int64_t>, func<std::uint64_t>, func<double>))
-#define REGISTER_OVERLOADS_INTEGER_ONLY(name, func) Register(name, MakeOverloader(func<std::int64_t>, func<std::uint64_t>))
+#define REGISTER_OVERLOADS(name, func) \
+    Register(name, MakeOverloader(WrapSingleSignature(func<std::int64_t>), WrapSingleSignature(func<std::uint64_t>), WrapSingleSignature(func<double>)))
+
+#define REGISTER_OVERLOADS_INTEGER_ONLY(name, func) \
+    Register(name, MakeOverloader(WrapSingleSignature(func<std::int64_t>), WrapSingleSignature(func<std::uint64_t>)))
+
+#define REGISTER_COMPONENT_WISE_OVERLOADS(name, func) \
+    Register(name, MakeComponentWise(MakeOverloader(WrapSingleSignature(func<std::int64_t>), WrapSingleSignature(func<std::uint64_t>), WrapSingleSignature(func<double>))))
 
     void ConstantEvaluator::RegisterBuiltins() {
         Register("radians", WrapSingleSignature(+[](double degrees) -> double {
@@ -149,14 +283,13 @@ namespace glsld {
             return MathMeta::Acos(value);
         }));
 
-        // atan 包含两个标准重载: atan(y, x) 和 atan(y_over_x)
         Register("atan", MakeOverloader(
-            +[](double numerator_y, double denominator_x) -> double {
+            WrapSingleSignature(+[](double numerator_y, double denominator_x) -> double {
                 return MathMeta::Atan2(numerator_y, denominator_x);
-            },
-            +[](double slope_y_over_x) -> double {
+            }),
+            WrapSingleSignature(+[](double slope_y_over_x) -> double {
                 return MathMeta::Atan(slope_y_over_x);
-            }
+            })
         ));
 
         Register("sinh", WrapSingleSignature(+[](double value) -> double {
@@ -232,18 +365,18 @@ namespace glsld {
         }));
 
         Register("mix", MakeOverloader(
-            +[](double lhs, double rhs, double factor) -> double {
+            WrapSingleSignature(+[](double lhs, double rhs, double factor) -> double {
                 return MathMeta::Mix(lhs, rhs, factor);
-            },
-            +[](double lhs, double rhs, bool condition) -> double {
+            }),
+            WrapSingleSignature(+[](double lhs, double rhs, bool condition) -> double {
                 return MathMeta::MixBool(lhs, rhs, condition);
-            },
-            +[](std::int64_t lhs, std::int64_t rhs, bool condition) -> std::int64_t {
+            }),
+            WrapSingleSignature(+[](std::int64_t lhs, std::int64_t rhs, bool condition) -> std::int64_t {
                 return MathMeta::MixBool(lhs, rhs, condition);
-            },
-            +[](std::uint64_t lhs, std::uint64_t rhs, bool condition) -> std::uint64_t {
+            }),
+            WrapSingleSignature(+[](std::uint64_t lhs, std::uint64_t rhs, bool condition) -> std::uint64_t {
                 return MathMeta::MixBool(lhs, rhs, condition);
-            }
+            })
         ));
 
         Register("isnan", WrapSingleSignature(+[](double value) -> bool { return MathMeta::IsNan(value); }));
@@ -368,148 +501,441 @@ namespace glsld {
         return std::nullopt;
     }
 
-    std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::ConvertValueToType(
-        const ValueType& value,
-        const TypeInfo& target_type) const
-    {
-        if (!target_type.is_valid()                 ||
-            target_type.is_array()                  ||
-            target_type.block_symbol != nullptr     ||
-            target_type.type_desc.vector_count != 1 ||
-            target_type.type_desc.vector_length != 1)
-        {
-            return std::nullopt;
-        }
+    namespace {
+        std::optional<Scalar> ConvertScalarValue(const Scalar& scalar, BaseFamily target_family, bool explicit_conversion) {
+            switch (target_family) {
+            case BaseFamily::kBool:
+                if (const auto* source = std::get_if<bool>(&scalar))
+                    return *source;
+                if (!explicit_conversion)
+                    return std::nullopt;
+                if (const auto* source = std::get_if<std::int64_t>(&scalar))
+                    return *source != 0;
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar))
+                    return *source != 0;
+                if (const auto* source = std::get_if<double>(&scalar))
+                    return *source != 0.0;
+                break;
+            case BaseFamily::kInt:
+                if (const auto* source = std::get_if<std::int64_t>(&scalar)) {
+                    return *source;
+                }
 
-        switch (target_type.type_desc.family) {
-        case BaseFamily::kBool:
-            if (const auto* result = std::get_if<bool>(&value)) {
-                return *result;
-            }
-            break;
-        case BaseFamily::kInt:
-            if (const auto* result = std::get_if<std::int64_t>(&value)) {
-                return *result;
-            }
-            break;
-        case BaseFamily::kUint:
-            if (const auto* result = std::get_if<std::uint64_t>(&value)) {
-                return *result;
-            }
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar)) {
+                    if (*source <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+                        return static_cast<std::int64_t>(*source);
+                    }
+                }
 
-            if (const auto* result = std::get_if<std::int64_t>(&value);
-                result != nullptr && *result >= 0)
-            {
-                return static_cast<std::uint64_t>(*result);
-            }
+                if (!explicit_conversion) {
+                    return std::nullopt;
+                }
 
-            break;
-        case BaseFamily::kFloat:
-            if (const auto* result = std::get_if<double>(&value))
-                return *result;
-            if (const auto* result = std::get_if<std::int64_t>(&value))
-                return static_cast<double>(*result);
-            if (const auto* result = std::get_if<std::uint64_t>(&value))
-                return static_cast<double>(*result);
-            break;
-        default:
-            break;
-        }
+                if (const auto* source = std::get_if<double>(&scalar)) {
+                    constexpr double kMin          = -9223372036854775808.0; // -2^63
+                    constexpr double kMaxExclusive =  9223372036854775808.0; //  2^63
 
-        return std::nullopt;
-    }
+                    if (std::isfinite(*source) &&
+                        *source >= kMin &&
+                        *source < kMaxExclusive)
+                    {
+                        return static_cast<std::int64_t>(*source);
+                    }
+                }
 
-    std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::ConvertConstructorToType(
-        const ValueType& value,
-        const TypeInfo& target_type) const
-    {
-        if (!target_type.is_valid()                 ||
-            target_type.is_array()                  ||
-            target_type.block_symbol != nullptr     ||
-            target_type.type_desc.vector_count != 1 ||
-            target_type.type_desc.vector_length != 1)
-        {
-            return std::nullopt;
-        }
-
-        if (auto converted = ConvertValueToType(value, target_type)) {
-            return converted;
-        }
-
-        switch (target_type.type_desc.family) {
-        case BaseFamily::kBool:
-            if (const auto* source = std::get_if<std::int64_t>(&value))
-                return *source != 0;
-            if (const auto* source = std::get_if<std::uint64_t>(&value))
-                return *source != 0;
-            if (const auto* source = std::get_if<double>(&value))
-                return *source != 0.0;
-            break;
-        case BaseFamily::kInt:
-            if (const auto* source = std::get_if<std::uint64_t>(&value)) {
-                if (*source <= static_cast<std::uint64_t>(
-                    std::numeric_limits<std::int64_t>::max())) {
+                if (const auto* source = std::get_if<bool>(&scalar)) {
                     return static_cast<std::int64_t>(*source);
                 }
-            }
 
-            if (const auto* source = std::get_if<double>(&value)) {
-                // 使用半开区间，避免 INT64_MAX 转成 double 后向上舍入。
-                constexpr double kMin          = -9223372036854775808.0; // -2^63
-                constexpr double kMaxExclusive =  9223372036854775808.0; //  2^63
-
-                if (std::isfinite(*source) &&
-                    *source >= kMin &&
-                    *source < kMaxExclusive)
-                {
-                    return static_cast<std::int64_t>(*source);
+                break;
+            case BaseFamily::kUint:
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar)) {
+                    return *source;
                 }
-            }
 
-            if (const auto* source = std::get_if<bool>(&value)) {
-                return static_cast<std::int64_t>(*source);
-            }
+                if (const auto* source = std::get_if<std::int64_t>(&scalar)) {
+                    if (source != nullptr && *source >= 0) {
+                        return static_cast<std::uint64_t>(*source);
+                    }
+                }
 
-            break;
-        case BaseFamily::kUint:
-            if (const auto* source = std::get_if<double>(&value)) {
-                constexpr double kMaxExclusive = 18446744073709551616.0;
+                if (!explicit_conversion) {
+                    return std::nullopt;
+                }
 
-                if (std::isfinite(*source) &&
-                    *source >= 0.0 &&
-                    *source < kMaxExclusive)
-                {
+                if (const auto* source = std::get_if<double>(&scalar)) {
+                    constexpr double kMaxExclusive = 18446744073709551616.0;
+
+                    if (std::isfinite(*source) &&
+                        *source >= 0.0 &&
+                        *source < kMaxExclusive)
+                    {
+                        return static_cast<std::uint64_t>(*source);
+                    }
+                }
+
+                if (const auto* source = std::get_if<bool>(&scalar)) {
                     return static_cast<std::uint64_t>(*source);
                 }
+
+                break;
+            case BaseFamily::kFloat:
+                if (const auto* source = std::get_if<double>(&scalar))
+                    return *source;
+                if (const auto* source = std::get_if<std::int64_t>(&scalar))
+                    return static_cast<double>(*source);
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar))
+                    return static_cast<double>(*source);
+
+                if (explicit_conversion) {
+                    if (const auto* source = std::get_if<bool>(&scalar)) {
+                        return *source ? 1.0 : 0.0;
+                    }
+                }
+                break;
+            default:
+                break;
             }
 
-            if (const auto* source = std::get_if<bool>(&value)) {
-                return static_cast<std::uint64_t>(*source);
-            }
+            return std::nullopt;
+        }
+    }
 
-            break;
-        case BaseFamily::kFloat:
-            if (const auto* source = std::get_if<bool>(&value)) {
-                return *source ? 1.0 : 0.0;
-            }
-            break;
-        default:
-            break;
+    std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::ConvertValueToType(
+        const ValueType& value,
+        const TypeInfo& target_type,
+        ConversionMode mode) const
+    {
+        if (!target_type.is_valid() ||
+            target_type.is_array()  ||
+            target_type.block_symbol != nullptr)
+        {
+            return std::nullopt;
         }
 
-        return std::nullopt;
+        bool explicit_conversion = mode == ConversionMode::kExplicit;
+
+        const auto& target_desc = target_type.type_desc;
+        if (!IsAggregateType(target_desc)) {
+            const auto* scalar = GetScalar(value);
+            if (scalar == nullptr) {
+                return std::nullopt;
+            }
+
+            return ConvertScalarValue(*scalar, target_desc.family, explicit_conversion);
+        }
+
+        const auto* aggregate = std::get_if<Aggregate>(&value);
+        if (aggregate == nullptr ||
+            aggregate->type_desc.vector_count  != target_desc.vector_count ||
+            aggregate->type_desc.vector_length != target_desc.vector_length)
+        {
+            return std::nullopt;
+        }
+
+        Aggregate result{
+            .type_desc  = target_desc,
+            .components = {}
+        };
+
+        result.components.reserve(aggregate->components.size());
+
+        for (const auto& component : aggregate->components) {
+            const auto converted = ConvertScalarValue(component, target_desc.family, explicit_conversion);
+            if (!converted.has_value()) {
+                return std::nullopt;
+            }
+
+            result.components.push_back(*converted);
+        }
+
+        return result;
     }
 
     std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::EvaluateBuiltinFunction(
         std::string_view name,
-        std::span<const ValueType> args)
+        std::span<const ValueType> args,
+        const TypeInfo& result_type)
     {
         auto it = registry_.find(name);
         if (it != registry_.end()) {
-            return it->second(args);
+            return it->second(args, result_type);
         }
 
         return std::nullopt;
+    }
+
+    std::optional<ConstantEvaluator::ValueType> ConstantEvaluator::EvaluateConstructor(
+        CallExpressionNode* node,
+        const TypeInfo& target_type)
+    {
+        if (node == nullptr ||
+            !target_type.is_valid() ||
+            target_type.is_array() ||
+            target_type.block_symbol != nullptr)
+        {
+            return std::nullopt;
+        }
+
+        std::vector<ValueType> args;
+        args.reserve(node->args.size());
+
+        for (auto* arg_node : node->args) {
+            if (arg_node == nullptr) {
+                return std::nullopt;
+            }
+
+            auto argv = Evaluate(arg_node);
+            if (!argv.has_value()) {
+                return std::nullopt;
+            }
+
+            args.push_back(std::move(*argv));
+        }
+
+        const auto& target_desc = target_type.type_desc;
+        // int(...), float(...)
+        if (!IsAggregateType(target_desc)) {
+            if (args.size() != 1) {
+                return std::nullopt;
+            }
+
+            return ConvertValueToType(args.front(), target_type, ConversionMode::kExplicit);
+        }
+
+        const bool is_vector = target_desc.vector_count == 1 && target_desc.vector_length > 1;
+        const bool is_matrix = target_desc.vector_count  > 1 && target_desc.vector_length > 1;
+        if (!is_vector && !is_matrix) {
+            return std::nullopt;
+        }
+
+        const auto target_count = ComponentCount(target_desc);
+        if (target_count == 0) {
+            return std::nullopt;
+        }
+
+        // vec4(1.0)
+        if (is_vector && args.size() == 1) {
+            if (const auto* scalar = GetScalar(args.front())) {
+                const auto converted = ConvertScalarValue(*scalar, target_desc.family, true);
+                if (!converted.has_value()) {
+                    return std::nullopt;
+                }
+
+                return Aggregate{
+                    .type_desc  = target_desc,
+                    .components = std::vector<Scalar>(target_count, *converted)
+                };
+            }
+        }
+
+        // mat4(1.0)
+        if (is_matrix && args.size() == 1) {
+            if (const auto* scalar = GetScalar(args.front())) {
+                const auto converted = ConvertScalarValue(*scalar, target_desc.family, true);
+                if (!converted.has_value()) {
+                    return std::nullopt;
+                }
+
+                Aggregate result{
+                    .type_desc  = target_desc,
+                    .components = std::vector<Scalar>(target_count, Scalar{ 0.0 })
+                };
+
+                const auto diagonal_size = std::min(target_desc.vector_count, target_desc.vector_length);
+                for (int i = 0; i != diagonal_size; ++i) {
+                    const auto index = static_cast<std::size_t>(i * target_desc.vector_length + i);
+                    result.components[index] = *converted;
+                }
+
+                return result;
+            }
+        }
+
+        // mat3(mat2(...)), mat2(mat3(...))
+        if (is_matrix && args.size() == 1) {
+            const auto* source = std::get_if<Aggregate>(&args.front());
+            if (source != nullptr &&
+                source->type_desc.vector_count  > 1 &&
+                source->type_desc.vector_length > 1)
+            {
+                Aggregate result{
+                    .type_desc  = target_desc,
+                    .components = std::vector<Scalar>(target_count, Scalar{ 0.0 })
+                };
+
+                // 扩展矩阵时，新增的对角线分量为 1
+                const auto diagonal_size = std::min(target_desc.vector_count, target_desc.vector_length);
+                for (int i = 0; i != diagonal_size; ++i) {
+                    const auto index = static_cast<std::size_t>(i * target_desc.vector_length + i);
+                    result.components[index] = Scalar{ 1.0 };
+                }
+
+                const auto copy_columns = std::min(target_desc.vector_count,  source->type_desc.vector_count);
+                const auto copy_rows    = std::min(target_desc.vector_length, source->type_desc.vector_length);
+
+                for (int column = 0; column != copy_columns; ++column) {
+                    for (int row = 0; row != copy_rows; ++row) {
+                        const auto source_index = static_cast<std::size_t>(column * source->type_desc.vector_length + row);
+                        const auto target_index = static_cast<std::size_t>(column * target_desc.vector_length + row);
+                        const auto converted    = ConvertScalarValue(source->components[source_index], target_desc.family, true);
+
+                        if (!converted.has_value()) {
+                            return std::nullopt;
+                        }
+
+                        result.components[target_index] = *converted;
+                    }
+                }
+
+                return result;
+            }
+        }
+
+        // 收集 vec4(1, vec2(2, 3), 4) 或 mat2(vec2(...), vec2(...)) 的分量
+        std::vector<Scalar> flattened;
+        flattened.reserve(target_count);
+
+        for (auto arg_index = 0uz; arg_index != args.size(); ++arg_index) {
+            const auto& argv = args[arg_index];
+            if (const auto* scalar = GetScalar(argv)) {
+                flattened.push_back(*scalar);
+                continue;
+            }
+
+            const auto* aggregate = std::get_if<Aggregate>(&argv);
+
+            // 普通分量列表中只允许向量，不展开矩阵
+            if (aggregate == nullptr ||
+                aggregate->type_desc.vector_count  != 1 ||
+                aggregate->type_desc.vector_length <= 1)
+            {
+                return std::nullopt;
+            }
+
+            flattened.append_range(aggregate->components);
+        }
+
+        if (flattened.size() < target_count) {
+            return std::nullopt;
+        }
+
+        if (flattened.size() > target_count) {
+            // 仅允许最后一个向量提供多余分量，如 vec3(vec4(...))
+            const auto* last = std::get_if<Aggregate>(&args.back());
+
+            if (last == nullptr || last->type_desc.vector_count != 1) {
+                return std::nullopt;
+            }
+
+            const auto count_before_last = flattened.size() - last->components.size();
+            if (count_before_last >= target_count) {
+                return std::nullopt;
+            }
+
+            flattened.resize(target_count);
+        }
+
+        Aggregate result{
+            .type_desc  = target_desc,
+            .components = {}
+        };
+
+        result.components.reserve(target_count);
+
+        for (const auto& component : flattened) {
+            const auto converted = ConvertScalarValue(component, target_desc.family, true);
+            if (!converted.has_value()) {
+                return std::nullopt;
+            }
+
+            result.components.push_back(*converted);
+        }
+
+        return result;
+    }
+
+    namespace {
+        std::string FormatScalar(const Scalar& value) {
+            return std::visit([](const auto& current) -> std::string {
+                using Ty = std::decay_t<decltype(current)>;
+
+                if constexpr (std::same_as<Ty, std::int64_t> || std::same_as<Ty, std::uint64_t>) {
+                    return std::to_string(current);
+                } else if constexpr (std::same_as<Ty, double>) {
+                    auto text = std::format("{}", current);
+                    if (std::isfinite(current) && text.find_first_of(".eE") == std::string::npos) {
+                        text += ".0";
+                    }
+
+                    return text;
+                } else {
+                    return current ? "true" : "false";
+                }
+            }, value);
+        }
+
+        std::string AggregateTypename(const TypeDescriptor& type) {
+            std::string prefix;
+
+            switch (type.family) {
+            case BaseFamily::kBool:
+                prefix = "b";
+                break;
+            case BaseFamily::kInt:
+                prefix = type.bits == 32 ? "i" : std::format("i{}", type.bits);
+                break;
+            case BaseFamily::kUint:
+                prefix = type.bits == 32 ? "u" : std::format("u{}", type.bits);
+                break;
+            case BaseFamily::kFloat:
+                if (type.bits == 64) {
+                    prefix = "d";
+                } else if (type.bits == 16) {
+                    prefix = "h";
+                } else if (type.bits != 32) {
+                    prefix = std::format("f{}", type.bits);
+                }
+                break;
+            default:
+                return {};
+            }
+
+            if (type.vector_count == 1 && type.vector_length > 1)
+                return std::format("{}vec{}", prefix, type.vector_length);
+            if (type.vector_count > 1 && type.vector_length > 1)
+                return std::format("{}mat{}x{}", prefix, type.vector_count, type.vector_length);
+            return {};
+        }
+    }
+
+    std::optional<std::string> ConstantEvaluator::FormatValue(const ValueType& value) const {
+        if (const auto* scalar = std::get_if<ScalarValue>(&value)) {
+            return FormatScalar(*scalar);
+        }
+
+        const auto* aggregate = std::get_if<AggregateValue>(&value);
+        if (aggregate == nullptr || aggregate->components.size() != ComponentCount(aggregate->type_desc)) {
+            return std::nullopt;
+        }
+
+        auto type_name = AggregateTypename(aggregate->type_desc);
+        if (type_name.empty()) {
+            return std::nullopt;
+        }
+
+        auto result = std::move(type_name) + "(";
+
+        for (auto i = 0uz; i != aggregate->components.size(); ++i) {
+            if (i != 0) {
+                result += ", ";
+            }
+
+            result += FormatScalar(aggregate->components[i]);
+        }
+
+        result += ")";
+        return result;
     }
 
     void ConstantEvaluator::VisitVariableExpression(VariableExpressionNode* node) {
@@ -536,7 +962,6 @@ namespace glsld {
         }
 
         auto* var_decl = static_cast<const VariableDeclarationNode*>(symbol->node);
-
         if (!var_decl->type_spec.has_keyword("const") || var_decl->init == nullptr) {
             is_valid_ = false;
             return;
@@ -544,7 +969,6 @@ namespace glsld {
 
         visited_symbols_.emplace(symbol);
         const auto result = Evaluate(var_decl->init);
-
         if (result.has_value()) {
             current_value_ = *result;
         } else {
@@ -568,8 +992,7 @@ namespace glsld {
             return;
         }
 
-        const auto converted = ConvertConstructorToType(*operand, node->evaluated_type);
-
+        const auto converted = ConvertValueToType(*operand, node->evaluated_type, ConversionMode::kExplicit);
         if (!converted.has_value()) {
             is_valid_ = false;
             return;
@@ -584,16 +1007,24 @@ namespace glsld {
             return;
         }
 
-        const auto left_result  = Evaluate(node->left);
-        const auto right_result = Evaluate(node->right);
+        const auto left_value  = Evaluate(node->left);
+        const auto right_value = Evaluate(node->right);
 
-        if (!left_result || !right_result) {
+        if (!left_value.has_value() || !right_value.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto* left_result  = GetScalar(*left_value);
+        const auto* right_result = GetScalar(*right_value);
+
+        if (left_result == nullptr || right_result == nullptr) {
             is_valid_ = false;
             return;
         }
 
         auto PromoteArithmetic = [](const auto& lhs, const auto& rhs)
-            -> std::optional<std::pair<ValueType, ValueType>>
+            -> std::optional<std::pair<ScalarValue, ScalarValue>>
         {
             if (std::holds_alternative<bool>(lhs) || std::holds_alternative<bool>(rhs)) {
                 return std::nullopt;
@@ -603,10 +1034,10 @@ namespace glsld {
                 return std::make_pair(lhs, rhs);
             }
 
-            auto ToDouble = [](const auto& value) -> double {
-                return std::visit([](auto&& arg) -> double {
-                    return static_cast<double>(arg);
-                }, value);
+            auto ToDouble = [](const auto& scalar) -> double {
+                return std::visit([](auto&& argv) -> double {
+                    return static_cast<double>(argv);
+                }, scalar);
             };
 
             if (std::holds_alternative<double>(lhs) || std::holds_alternative<double>(rhs)) {
@@ -740,8 +1171,14 @@ namespace glsld {
             return;
         }
 
-        const auto result = Evaluate(node->operand);
-        if (!result.has_value()) {
+        const auto value = Evaluate(node->operand);
+        if (!value.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto* result = GetScalar(*value);
+        if (!result) {
             is_valid_ = false;
             return;
         }
@@ -809,19 +1246,7 @@ namespace glsld {
         if (callee->original_token.type == TokenType::kPrimitive ||
             callee->original_token.type == TokenType::kBuiltInType)
         {
-            if (node->args.size() != 1 || node->args.front() == nullptr) {
-                is_valid_ = false;
-                return;
-            }
-
-            const auto argument = Evaluate(node->args.front());
-            if (!argument.has_value()) {
-                is_valid_ = false;
-                return;
-            }
-
-            const auto converted = ConvertConstructorToType(*argument, node->evaluated_type);
-
+            const auto converted = EvaluateConstructor(node, node->evaluated_type);
             if (!converted.has_value()) {
                 is_valid_ = false;
                 return;
@@ -867,7 +1292,7 @@ namespace glsld {
                 return;
             }
 
-            const auto converted = ConvertValueToType(*evaluated, symbol->param_typeinfos[i]);
+            const auto converted = ConvertValueToType(*evaluated, symbol->param_typeinfos[i], ConversionMode::kImplicit);
             if (!converted.has_value()) {
                 is_valid_ = false;
                 return;
@@ -876,13 +1301,13 @@ namespace glsld {
             arguments.push_back(*converted);
         }
 
-        const auto result = EvaluateBuiltinFunction(callee->name, arguments);
+        const auto result = EvaluateBuiltinFunction(callee->name, arguments, symbol->type_info);
         if (!result.has_value()) {
             is_valid_ = false;
             return;
         }
 
-        const auto converted_result = ConvertValueToType(*result, symbol->type_info);
+        const auto converted_result = ConvertValueToType(*result, symbol->type_info, ConversionMode::kImplicit);
         if (!converted_result.has_value()) {
             is_valid_ = false;
             return;
