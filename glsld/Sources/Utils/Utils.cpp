@@ -2,6 +2,7 @@
 #include "Utils.hpp"
 
 #include <cctype>
+#include <cmath>
 #include <algorithm>
 #include <array>
 #include <charconv>
@@ -168,19 +169,6 @@ namespace glsld::Utils {
         return Unicode::SanitizeUtf8(source);
     }
 
-    SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference) {
-        if (std::holds_alternative<std::monostate>(reference)) {
-            return std::monostate{};
-        }
-
-        if (std::holds_alternative<const SymbolInfo*>(reference)) {
-            return std::get<const SymbolInfo*>(reference);
-        }
-
-        const auto& symbols = std::get<SymbolList>(reference);
-        return document.arena->CopySpan<const SymbolInfo*>(symbols);
-    }
-
     std::string_view UnmangleFunctionName(std::string_view mangled_name) {
         auto raw_name = mangled_name;
         // __Impl_main(void) -> main
@@ -277,48 +265,169 @@ namespace glsld::Utils {
         return std::string(text);
     }
 
-    std::int64_t ParseNumberLiteralToInteger(std::string_view text) {
-        auto IsSuffix = [](char ch) -> bool {
-            return ch == 'u' || ch == 'U'
-                || ch == 'l' || ch == 'L'
-                || ch == 's' || ch == 'S'
-                || ch == 'f' || ch == 'F';
+    NumberLiteralInfo::operator bool() const {
+        return kind != NumberLiteralKind::kInvalid;
+    }
+
+    NumberLiteralInfo AnalyzeNumberLiteral(std::string_view text) {
+        if (text.empty()) {
+            return {};
+        }
+
+        auto EndsWithInsensitive = [text](std::string_view suffix) -> bool {
+            if (text.size() < suffix.size()) {
+                return false;
+            }
+
+            const auto actual = text.substr(text.size() - suffix.size());
+            for (auto i = 0uz; i != suffix.size(); ++i) {
+                const auto lhs = static_cast<unsigned char>(actual[i]);
+                const auto rhs = static_cast<unsigned char>(suffix[i]);
+                if (std::tolower(lhs) != std::tolower(rhs)) {
+                    return false;
+                }
+            }
+
+            return true;
         };
 
-        auto end = text.size();
-        while (end > 0 && IsSuffix(text[end - 1])) {
-            --end;
+        const bool is_hex = text.size() >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
+        const bool has_float_syntax =
+            text.find('.') != std::string_view::npos ||
+            text.find_first_of(is_hex ? "pP" : "eE") != std::string_view::npos;
+
+        if (EndsWithInsensitive("lf") && (has_float_syntax || !is_hex)) {
+            return {
+                .kind = NumberLiteralKind::kFloatingPoint,
+                .core = text.substr(0, text.size() - 2),
+                .base = is_hex ? 16 : 10,
+                .bits = 64
+            };
         }
 
-        auto core = text.substr(0, end);
-        if (core.empty()) {
-            return 0;
+        if (EndsWithInsensitive("hf") && (has_float_syntax || !is_hex)) {
+            return {
+                .kind = NumberLiteralKind::kFloatingPoint,
+                .core = text.substr(0, text.size() - 2),
+                .base = is_hex ? 16 : 10,
+                .bits = 16
+            };
         }
 
-        bool maybe_float = core.find('.') != std::string_view::npos
-                        || core.find('e') != std::string_view::npos
-                        || core.find('E') != std::string_view::npos
-                        || core.find('p') != std::string_view::npos
-                        || core.find('P') != std::string_view::npos;
+        if (EndsWithInsensitive("f") && (has_float_syntax || !is_hex)) {
+            return {
+                .kind = NumberLiteralKind::kFloatingPoint,
+                .core = text.substr(0, text.size() - 1),
+                .base = is_hex ? 16 : 10,
+                .bits = 32
+            };
+        }
 
-        if (maybe_float) {
-            double float_value = 0.0;
-            const auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), float_value);
-            if (ec == std::errc{} && ptr == core.data() + core.size() && std::isfinite(float_value)) {
-                if (float_value >= static_cast<double>(std::numeric_limits<std::int64_t>::max()))
-                    return std::numeric_limits<std::int64_t>::max();
-                if (float_value <= static_cast<double>(std::numeric_limits<std::int64_t>::min()))
-                    return std::numeric_limits<std::int64_t>::min();
-                return static_cast<std::int64_t>(float_value);
-            } else {
-                return 0;
+        if (has_float_syntax) {
+            return {
+                .kind = NumberLiteralKind::kFloatingPoint,
+                .core = text,
+                .base = is_hex ? 16 : 10,
+                .bits = 32
+            };
+        }
+
+        struct IntegerSuffix {
+            std::string_view  text;
+            NumberLiteralKind kind;
+            int               bits;
+        };
+
+        static constexpr std::array<IntegerSuffix, 5> kIntegerSuffixes = {
+            IntegerSuffix{ "ul", NumberLiteralKind::kUnsignedInteger, 64 },
+            IntegerSuffix{ "us", NumberLiteralKind::kUnsignedInteger, 16 },
+            IntegerSuffix{ "u",  NumberLiteralKind::kUnsignedInteger, 32 },
+            IntegerSuffix{ "l",  NumberLiteralKind::kSignedInteger,   64 },
+            IntegerSuffix{ "s",  NumberLiteralKind::kSignedInteger,   16 }
+        };
+
+        auto core = text;
+        auto kind = NumberLiteralKind::kSignedInteger;
+        int  bits = 32;
+
+        for (const auto& suffix : kIntegerSuffixes) {
+            if (EndsWithInsensitive(suffix.text)) {
+                core = text.substr(0, text.size() - suffix.text.size());
+                kind = suffix.kind;
+                bits = suffix.bits;
+                break;
             }
         }
 
+        if (core.empty()) {
+            return {};
+        }
+
+        int base = 10;
+
+        if (core.size() >= 2 && core[0] == '0' && (core[1] == 'x' || core[1] == 'X')) {
+            base = 16;
+            core.remove_prefix(2);
+        } else if (core.size() > 1 && core[0] == '0') {
+            base = 8;
+        }
+
+        if (core.empty()) {
+            return {};
+        }
+
+        return {
+            .kind = kind,
+            .core = core,
+            .base = base,
+            .bits = bits
+        };
+    }
+
+    std::int64_t ParseNumberLiteralToInteger(std::string_view text) {
+        const auto literal = AnalyzeNumberLiteral(text);
+        if (!literal) {
+            return 0;
+        }
+
+        if (literal.kind == NumberLiteralKind::kFloatingPoint) {
+            auto core   = literal.core;
+            auto format = std::chars_format::general;
+
+            if (literal.base == 16) {
+                if (core.size() >= 2 && core[0] == '0' && (core[1] == 'x' || core[1] == 'X')) {
+                    core.remove_prefix(2);
+                }
+                format = std::chars_format::hex;
+            }
+
+            if (core.empty()) {
+                return 0;
+            }
+
+            double      value = 0.0;
+            const auto* begin = core.data();
+            const auto* end   = begin + core.size();
+
+            const auto [ptr, ec] = std::from_chars(begin, end, value, format);
+            if (ec != std::errc{} || ptr != end || !std::isfinite(value)) {
+                return 0;
+            }
+
+            constexpr auto kInt64Min          = static_cast<double>(std::numeric_limits<std::int64_t>::min());
+            constexpr auto kInt64MaxExclusive = static_cast<double>(std::numeric_limits<std::int64_t>::max());
+
+            if (value <= kInt64Min)
+                return std::numeric_limits<std::int64_t>::min();
+            if (value >= kInt64MaxExclusive)
+                return std::numeric_limits<std::int64_t>::max();
+            return static_cast<std::int64_t>(value);
+        }
+
+        auto core     = literal.core;
         bool negative = false;
         if (!core.empty() && (core.front() == '+' || core.front() == '-')) {
-            // from_chars doesn't support leading +/- in integer
-            negative = (core.front() == '-');
+            negative = core.front() == '-';
             core.remove_prefix(1);
         }
 
@@ -326,35 +435,26 @@ namespace glsld::Utils {
             return 0;
         }
 
-        int base = 10;
-        if (core.size() >= 2 && core[0] == '0' && (core[1] == 'x' || core[1] == 'X')) {
-            base = 16;
-            core.remove_prefix(2);
-        } else if (core.size() > 1 && core[0] == '0') {
-            base = 8;
-            // 八进制保留前导 0，from_chars(base=8) 可正常处理
-        }
+        auto magnitude = 0uz;
+        const auto* begin = core.data();
+        const auto* end   = begin + core.size();
 
-        if (core.empty()) {
+        const auto [ptr, ec] = std::from_chars(begin, end, magnitude, literal.base);
+        if (ec != std::errc{} || ptr != end) {
             return 0;
         }
 
-        std::uint64_t magnitude = 0;
-        const auto [ptr, ec] = std::from_chars(core.data(), core.data() + core.size(), magnitude, base);
-        if (ec != std::errc{} || ptr != core.data() + core.size()) {
-            return 0;
-        }
+        constexpr auto kInt64Max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+        constexpr auto kInt64MinMagnitude = kInt64Max + 1;
 
         if (!negative) {
-            if (magnitude > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+            if (magnitude > kInt64Max) {
                 return std::numeric_limits<std::int64_t>::max();
-            };
-
+            }
             return static_cast<std::int64_t>(magnitude);
         }
 
-        constexpr auto kMinAbsolute = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) + 1ull;
-        if (magnitude > kMinAbsolute) {
+        if (magnitude >= kInt64MinMagnitude) {
             return std::numeric_limits<std::int64_t>::min();
         }
 

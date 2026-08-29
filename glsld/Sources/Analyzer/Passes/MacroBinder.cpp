@@ -6,8 +6,6 @@
 #include <utility>
 #include <variant>
 
-#include "Utils/Utils.hpp"
-
 namespace glsld {
     MacroBinder::MacroBinder(Document& document, int version_replica, VersionPointer version_pointer)
         : document_{ document }
@@ -67,7 +65,7 @@ namespace glsld {
 
             const auto functions = document_.symbols.FindFunctionsByOriginalName(trace.token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(location, Utils::ReferenceSymbol(document_, functions));
+                document_.bindings.try_emplace(location, document_.ReferenceSymbol(functions));
             }
         }
     }
@@ -115,7 +113,7 @@ namespace glsld {
 
             const auto functions = document_.symbols.FindFunctionsByOriginalName(token.text);
             if (!std::holds_alternative<std::monostate>(functions)) {
-                document_.bindings.try_emplace(token.location, Utils::ReferenceSymbol(document_, functions));
+                document_.bindings.try_emplace(token.location, document_.ReferenceSymbol(functions));
             }
         };
 

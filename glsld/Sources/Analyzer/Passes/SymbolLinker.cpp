@@ -4,8 +4,6 @@
 #include <utility>
 #include <variant>
 
-#include "Utils/Utils.hpp"
-
 namespace glsld {
     SymbolLinker::SymbolLinker(Document& document, int version_replica, VersionPointer vesion_pointer)
         : AstVisitor(version_replica, vesion_pointer)
@@ -48,7 +46,7 @@ namespace glsld {
             if (nothing_linked || linked_nullptr) {
                 const auto functions = document_.symbols.FindFunctionsByOriginalName(node->name);
                 if (!std::holds_alternative<std::monostate>(functions)) {
-                    node->linked_symbols = Utils::ReferenceSymbol(document_, functions);
+                    node->linked_symbols = document_.ReferenceSymbol(functions);
                     node->node_type      = VariableExpressionNode::NodeType::kFunctionCallee;
                 }
             }
@@ -66,7 +64,7 @@ namespace glsld {
                 if (std::holds_alternative<std::monostate>(it->second)) {
                     FindConstructor();
                 } else {
-                    node->linked_symbols = Utils::ReferenceSymbol(document_, it->second);
+                    node->linked_symbols = document_.ReferenceSymbol(it->second);
                 }
 
                 break;
@@ -81,7 +79,7 @@ namespace glsld {
                 break;
             }
 
-            node->linked_symbols = Utils::ReferenceSymbol(document_, inserted_it->second);
+            node->linked_symbols = document_.ReferenceSymbol(inserted_it->second);
             break;
         }
         default:

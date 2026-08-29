@@ -553,8 +553,8 @@ namespace glsld {
             const auto src_structure = source.type_desc.arithmetic_structure();
             const auto dst_structure = target.type_desc.arithmetic_structure();
 
-            using enum TypeDescriptor::ArithmeticStructure;
             switch (src_structure) {
+                using enum TypeDescriptor::ArithmeticStructure;
             case kScalar:
                 // scalar -> scalar/vector/matrix
                 return true;
@@ -843,7 +843,7 @@ namespace glsld {
                         return best_match;
                     },
                     [&](const SymbolList&) -> SymbolReferenceView {
-                        return std::get<SymbolListView>(Utils::ReferenceSymbol(document_, resolved));
+                        return std::get<SymbolListView>(document_.ReferenceSymbol(resolved));
                     },
                     [](std::monostate) -> SymbolReferenceView {
                         return std::monostate{};
@@ -1563,53 +1563,33 @@ namespace glsld {
         };
 
         if (token.type == TokenType::kNumberLiteral) {
-            std::string_view text = token.text;
-            if (text.empty()) {
-                return TypeInfo{
-                    .typename_token = Token{
-                        .text = "unknown",
-                        .type = TokenType::kUnknown
-                    }
-                };
-            }
+            const auto literal = Utils::AnalyzeNumberLiteral(token.text);
 
-            auto EndsWith = [text](std::string_view suffix) -> bool {
-                if (text.length() < suffix.length()) {
-                    return false;
-                }
+            switch (literal.kind) {
+            case Utils::NumberLiteralKind::kSignedInteger:
+                if (literal.bits == 64)
+                    return BuildType("int64_t", BaseFamily::kInt, 64);
+                if (literal.bits == 16)
+                    return BuildType("int16_t", BaseFamily::kInt, 16);
+                return BuildType("int", BaseFamily::kInt, 32);
 
-                auto actual_suffix = text.substr(text.length() - suffix.length());
-                for (auto i = 0uz; i != suffix.length(); ++i) {
-                    if (std::tolower(actual_suffix[i]) != std::tolower(suffix[i])) {
-                        return false;
-                    }
-                }
-
-                return true;
-            };
-
-            if (EndsWith("lf"))
-                return BuildType("double", BaseFamily::kFloat, 64);
-            if (EndsWith("hf"))
-                return BuildType("float16_t", BaseFamily::kFloat, 16);
-            if (EndsWith("ul"))
-                return BuildType("uint64_t", BaseFamily::kUint, 64);
-            if (EndsWith("us"))
-                return BuildType("uint16_t", BaseFamily::kUint, 16);
-            if (EndsWith("f"))
-                return BuildType("float", BaseFamily::kFloat, 32);
-            if (EndsWith("u"))
+            case Utils::NumberLiteralKind::kUnsignedInteger:
+                if (literal.bits == 64)
+                    return BuildType("uint64_t", BaseFamily::kUint, 64);
+                if (literal.bits == 16)
+                    return BuildType("uint16_t", BaseFamily::kUint, 16);
                 return BuildType("uint", BaseFamily::kUint, 32);
-            if (EndsWith("l"))
-                return BuildType("int64_t", BaseFamily::kInt, 64);
-            if (EndsWith("s"))
-                return BuildType("int16_t", BaseFamily::kInt, 16);
 
-            if (text.find_first_of(".eE") != std::string_view::npos) {
+            case Utils::NumberLiteralKind::kFloatingPoint:
+                if (literal.bits == 64)
+                    return BuildType("double", BaseFamily::kFloat, 64);
+                if (literal.bits == 16)
+                    return BuildType("float16_t", BaseFamily::kFloat, 16);
                 return BuildType("float", BaseFamily::kFloat, 32);
-            }
 
-            return BuildType("int", BaseFamily::kInt, 32);
+            default:
+                return BuildType("unknown", BaseFamily::kUnknown, 0);
+            }
         }
 
         if (token.type == TokenType::kPrimitive) {

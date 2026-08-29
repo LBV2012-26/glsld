@@ -79,6 +79,8 @@ namespace glsld {
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&&)      = delete;
 
+        SymbolReferenceView ReferenceSymbol(const SymbolReference& reference) const;
+
         std::string_view StoreTokenText(std::string_view text) const;
         void StoreIncludeSource(IncludeSnapshot snapshot);
 

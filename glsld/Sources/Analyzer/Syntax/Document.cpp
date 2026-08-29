@@ -2,9 +2,23 @@
 #include "Document.hpp"
 
 #include <utility>
+#include <variant>
 #include "Base/Logger.hpp"
 
 namespace glsld {
+    SymbolReferenceView Document::ReferenceSymbol(const SymbolReference& reference) const {
+        if (std::holds_alternative<std::monostate>(reference)) {
+            return std::monostate{};
+        }
+
+        if (std::holds_alternative<const SymbolInfo*>(reference)) {
+            return std::get<const SymbolInfo*>(reference);
+        }
+
+        const auto& symbol_list = std::get<SymbolList>(reference);
+        return arena->CopySpan<const SymbolInfo*>(symbol_list);
+    }
+
     std::string_view Document::StoreTokenText(std::string_view text) const {
         return arena->CopyString(text);
     }

@@ -11,8 +11,6 @@
 #include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
-#include "Analyzer/Syntax/Document.hpp"
-
 namespace glsld::Utils {
     // FileSystem
     std::string GetFilePath(std::string_view filename);
@@ -22,9 +20,6 @@ namespace glsld::Utils {
 
     std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
     std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
-
-    // Arena helper
-    SymbolReferenceView ReferenceSymbol(Document& document, const SymbolReference& reference);
 
     // String manipulation
     std::string_view UnmangleFunctionName(std::string_view mangled_name);
@@ -40,6 +35,25 @@ namespace glsld::Utils {
 
     // Parsing helper
     std::string UnquoteStringLiteral(std::string_view text);
+
+    enum class NumberLiteralKind {
+        kInvalid,
+        kSignedInteger,
+        kUnsignedInteger,
+        kFloatingPoint
+    };
+
+    struct NumberLiteralInfo {
+        NumberLiteralKind kind{ NumberLiteralKind::kInvalid };
+        std::string_view  core;
+        int               base{ 10 };
+        int               bits{};
+
+        explicit operator bool() const;
+    };
+
+    NumberLiteralInfo AnalyzeNumberLiteral(std::string_view text);
+
     std::int64_t ParseNumberLiteralToInteger(std::string_view text);
 
     template <typename Ty>
