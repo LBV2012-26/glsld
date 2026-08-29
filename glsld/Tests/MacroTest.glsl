@@ -114,3 +114,21 @@ F11(a, b);
 // 25) 调用中嵌套不完整
 #define F12(x, y) (x + y)
 F12(G1(a, b), c
+
+#define ENUMERATE_GLM_VECTOR(prefix) \
+    glm::prefix##vec2, glm::prefix##vec3, glm::prefix##vec4
+
+#define ENUMERATE_GLM_MATRIX(prefix) \
+    glm::prefix##mat2x2, glm::prefix##mat2x3, glm::prefix##mat2x4, \
+    glm::prefix##mat3x2, glm::prefix##mat3x3, glm::prefix##mat3x4, \
+    glm::prefix##mat4x2, glm::prefix##mat4x3, glm::prefix##mat4x4
+
+        using GlmAggregate = std::variant<
+            ENUMERATE_GLM_VECTOR(i64),
+            ENUMERATE_GLM_VECTOR(u64),
+            ENUMERATE_GLM_VECTOR(d),
+            ENUMERATE_GLM_VECTOR(b),
+            ENUMERATE_GLM_MATRIX(i64),
+            ENUMERATE_GLM_MATRIX(u64),
+            ENUMERATE_GLM_MATRIX(d)
+        >;

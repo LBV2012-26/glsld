@@ -1073,7 +1073,7 @@ void main() {
 
     OverloadFunction(MyStruct.Outer.Middle[0].Inner.mat2Array1D_2[0][0].xxxx);
     OverloadFunction(mat3x4(MyStruct.Outer.Middle[1].Vec4Array2D_2));
-    OverloadFunction(MyStruct.Outer.Middle[1].Inner.intArray2D_2x3[2][1] * MyStruct.Outer.double2.zz);
+    OverloadFunction(MyStruct.Outer.Middle[1].Inner.intArray2D_2x3[2][1] * MyStruct.Outer.double2.xx);
     OverloadFunction(MyStruct.Outer.Middle[0].Inner.float3 * MyStruct.Outer.Middle[1].Inner.float3);
 
     MySpirvTypeX typex;
