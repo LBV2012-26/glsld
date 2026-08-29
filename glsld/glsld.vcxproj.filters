@@ -73,6 +73,7 @@
     <ClInclude Include="Sources\Server\Index\IndexCache.hpp" />
     <ClInclude Include="Sources\Server\ExternalEngine\Formatter.hpp" />
     <ClInclude Include="Sources\Base\Unicode.hpp" />
+    <ClInclude Include="Sources\Base\MathMeta.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\ThreadPool.inl" />

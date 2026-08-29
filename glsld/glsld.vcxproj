@@ -121,7 +121,7 @@
       <LanguageStandard_C>stdclatest</LanguageStandard_C>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/Zc:__cplusplus /bigobj %(AdditionalOptions)</AdditionalOptions>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <AdditionalIncludeDirectories>$(ProjectDir)Sources;$(SolutionDir)mimalloc\mimalloc\include</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
@@ -218,6 +218,7 @@
     <ClInclude Include="Sources\Base\Arena.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
     <ClInclude Include="Sources\Base\Logger.hpp" />
+    <ClInclude Include="Sources\Base\MathMeta.hpp" />
     <ClInclude Include="Sources\Base\ThreadPool.hpp" />
     <ClInclude Include="Sources\Base\Unicode.hpp" />
     <ClInclude Include="Sources\Server\ExternalEngine\DiagnosticEngine.hpp" />

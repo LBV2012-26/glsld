@@ -1,14 +1,7 @@
 {
-	"glsld.systemIncludeDirectories": [
-		"Tests"
-	],
-	"glsld.mimalloc.largePages.enabled": true,
-	"glsld.mimalloc.largePages.reserveMiB": 256,
 	"glsld.mimalloc.verbose": true,
-	"glsld.capabilities.inlayHints": true,
+	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe",
 	"glsld.backgroundIndex.roots": [
-		"Tests"
-	],
-	"glsld.diagnostics.enabled": true,
-	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe"
+		"${workspaceFolder}/Tests"
+	]
 }
