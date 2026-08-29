@@ -6,7 +6,6 @@
 #define GL_EXT_shader_explicit_arithmetic_types_int8    1
 #define GL_EXT_shader_explicit_arithmetic_types_int16   1
 #define GL_EXT_shader_explicit_arithmetic_types_int32   1
-#define GL_EXT_shader_explicit_arithmetic_types_int32   1
 #define GL_EXT_shader_explicit_arithmetic_types_int64   1
 #define GL_EXT_shader_explicit_arithmetic_types_float16 1
 #define GL_EXT_shader_explicit_arithmetic_types_float32 1
@@ -80,7 +79,7 @@ i16vec4 unpackInt4x16(int64_t _V);
 u16vec2 unpackUint2x16(uint32_t _V);
 u16vec4 unpackUint4x16(uint64_t _V);
 
-// 8.3 Common Functions (bitcast additions)
+// 8.3 Common Functions (16-bit / 64-bit bitcast additions only)
 int16_t halfBitsToInt16(float16_t _Value);
 i16vec2 halfBitsToInt16(f16vec2 _Value);
 i16vec3 halfBitsToInt16(f16vec3 _Value);
@@ -90,16 +89,6 @@ uint16_t halfBitsToUint16(float16_t _Value);
 u16vec2 halfBitsToUint16(f16vec2 _Value);
 u16vec3 halfBitsToUint16(f16vec3 _Value);
 u16vec4 halfBitsToUint16(f16vec4 _Value);
-
-int32_t floatBitsToInt(float32_t _Value);
-i32vec2 floatBitsToInt(f32vec2 _Value);
-i32vec3 floatBitsToInt(f32vec3 _Value);
-i32vec4 floatBitsToInt(f32vec4 _Value);
-
-uint32_t floatBitsToUint(float32_t _Value);
-u32vec2 floatBitsToUint(f32vec2 _Value);
-u32vec3 floatBitsToUint(f32vec3 _Value);
-u32vec4 floatBitsToUint(f32vec4 _Value);
 
 int64_t doubleBitsToInt64(double _Value);
 i64vec2 doubleBitsToInt64(dvec2 _Value);
@@ -131,16 +120,6 @@ f16vec2 uint16BitsToHalf(u16vec2 _Value);
 f16vec3 uint16BitsToHalf(u16vec3 _Value);
 f16vec4 uint16BitsToHalf(u16vec4 _Value);
 
-float32_t intBitsToFloat(int32_t _Value);
-f32vec2 intBitsToFloat(i32vec2 _Value);
-f32vec3 intBitsToFloat(i32vec3 _Value);
-f32vec4 intBitsToFloat(i32vec4 _Value);
-
-float32_t uintBitsToFloat(uint32_t _Value);
-f32vec2 uintBitsToFloat(u32vec2 _Value);
-f32vec3 uintBitsToFloat(u32vec3 _Value);
-f32vec4 uintBitsToFloat(u32vec4 _Value);
-
 double int64BitsToDouble(int64_t _Value);
 dvec2 int64BitsToDouble(i64vec2 _Value);
 dvec3 int64BitsToDouble(i64vec3 _Value);
@@ -160,14 +139,3 @@ float16_t uint16BitsToFloat16(uint16_t _Value);
 f16vec2 uint16BitsToFloat16(u16vec2 _Value);
 f16vec3 uint16BitsToFloat16(u16vec3 _Value);
 f16vec4 uint16BitsToFloat16(u16vec4 _Value);
-
-// 8.3 Common Functions (frexp/ldexp with explicit type)
-float frexp(float _X, out int32_t _Exp);
-vec2 frexp(vec2 _X, out i32vec2 _Exp);
-vec3 frexp(vec3 _X, out i32vec3 _Exp);
-vec4 frexp(vec4 _X, out i32vec4 _Exp);
-
-float ldexp(float _X, in int32_t _Exp);
-vec2 ldexp(vec2 _X, in i32vec2 _Exp);
-vec3 ldexp(vec3 _X, in i32vec3 _Exp);
-vec4 ldexp(vec4 _X, in i32vec4 _Exp);

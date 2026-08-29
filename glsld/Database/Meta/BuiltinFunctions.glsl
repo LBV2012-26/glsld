@@ -72,6 +72,11 @@ float atan(float _Y, float _X);
 vec2 atan(vec2 _Y, vec2 _X);
 vec3 atan(vec3 _Y, vec3 _X);
 vec4 atan(vec4 _Y, vec4 _X);
+// [Generic] genFType atan(genFType y);
+float atan(float _Y_over_X);
+vec2 atan(vec2 _Y_over_X);
+vec3 atan(vec3 _Y_over_X);
+vec4 atan(vec4 _Y_over_X);
 
 // Sinh
 // Returns the hyperbolic sine function (e^x^ - e^-x^) / 2.
@@ -504,6 +509,33 @@ dvec2 mix(dvec2 _X, dvec2 _Y, double _A);
 dvec3 mix(dvec3 _X, dvec3 _Y, double _A);
 dvec4 mix(dvec4 _X, dvec4 _Y, double _A);
 
+// Mix (Boolean Selection: Returns x if a is false, and y if a is true)
+// [Generic] genFType mix(genFType x, genFType y, genBType a);
+float mix(float _X, float _Y, bool _A);
+vec2 mix(vec2 _X, vec2 _Y, bvec2 _A);
+vec3 mix(vec3 _X, vec3 _Y, bvec3 _A);
+vec4 mix(vec4 _X, vec4 _Y, bvec4 _A);
+// [Generic] genDType mix(genDType x, genDType y, genBType a);
+double mix(double _X, double _Y, bool _A);
+dvec2 mix(dvec2 _X, dvec2 _Y, bvec2 _A);
+dvec3 mix(dvec3 _X, dvec3 _Y, bvec3 _A);
+dvec4 mix(dvec4 _X, dvec4 _Y, bvec4 _A);
+// [Generic] genIType mix(genIType x, genIType y, genBType a);
+int mix(int _X, int _Y, bool _A);
+ivec2 mix(ivec2 _X, ivec2 _Y, bvec2 _A);
+ivec3 mix(ivec3 _X, ivec3 _Y, bvec3 _A);
+ivec4 mix(ivec4 _X, ivec4 _Y, bvec4 _A);
+// [Generic] genUType mix(genUType x, genUType y, genBType a);
+uint mix(uint _X, uint _Y, bool _A);
+uvec2 mix(uvec2 _X, uvec2 _Y, bvec2 _A);
+uvec3 mix(uvec3 _X, uvec3 _Y, bvec3 _A);
+uvec4 mix(uvec4 _X, uvec4 _Y, bvec4 _A);
+// [Generic] genBType mix(genBType x, genBType y, genBType a);
+bool mix(bool _X, bool _Y, bool _A);
+bvec2 mix(bvec2 _X, bvec2 _Y, bvec2 _A);
+bvec3 mix(bvec3 _X, bvec3 _Y, bvec3 _A);
+bvec4 mix(bvec4 _X, bvec4 _Y, bvec4 _A);
+
 // Step
 // Returns 0.0 if x < edge; otherwise it returns 1.0.
 // [Generic] genFType step(genFType edge, genFType x);
@@ -723,7 +755,7 @@ vec4 unpackSnorm4x8(highp uint _P);
 // the result; the second component specifies the 16 most-significant
 // bits.
 // [Generic] uint packHalf2x16(vec2 v);
-uint packHalf2x16(vec2 _V);
+// uint packHalf2x16(vec2 _V);
 // [Generic] highp uint packHalf2x16(mediump vec2 v);
 highp uint packHalf2x16(mediump vec2 _V);
 
@@ -737,7 +769,7 @@ highp uint packHalf2x16(mediump vec2 _V);
 // least-significant bits of v; the second component is obtained from
 // the 16 most-significant bits of v.
 // [Generic] vec2 unpackHalf2x16(uint v);
-vec2 unpackHalf2x16(uint _V);
+// vec2 unpackHalf2x16(uint _V);
 // [Generic] mediump vec2 unpackHalf2x16(highp uint v);
 mediump vec2 unpackHalf2x16(highp uint _V);
 
@@ -877,9 +909,6 @@ dvec4 refract(dvec4 _I, dvec4 _N, double _Eta);
 // is the scalar product of x[i][j] and y[i][j].
 // Note: To get linear algebraic matrix multiplication, use the multiply operator (*).
 // [Generic] mat matrixCompMult(mat x, mat y);
-mat2 matrixCompMult(mat2 _X, mat2 _Y);
-mat3 matrixCompMult(mat3 _X, mat3 _Y);
-mat4 matrixCompMult(mat4 _X, mat4 _Y);
 mat2x2 matrixCompMult(mat2x2 _X, mat2x2 _Y);
 mat2x3 matrixCompMult(mat2x3 _X, mat2x3 _Y);
 mat2x4 matrixCompMult(mat2x4 _X, mat2x4 _Y);
@@ -889,6 +918,15 @@ mat3x4 matrixCompMult(mat3x4 _X, mat3x4 _Y);
 mat4x2 matrixCompMult(mat4x2 _X, mat4x2 _Y);
 mat4x3 matrixCompMult(mat4x3 _X, mat4x3 _Y);
 mat4x4 matrixCompMult(mat4x4 _X, mat4x4 _Y);
+dmat2x2 matrixCompMult(dmat2x2 _X, dmat2x2 _Y);
+dmat2x3 matrixCompMult(dmat2x3 _X, dmat2x3 _Y);
+dmat2x4 matrixCompMult(dmat2x4 _X, dmat2x4 _Y);
+dmat3x2 matrixCompMult(dmat3x2 _X, dmat3x2 _Y);
+dmat3x3 matrixCompMult(dmat3x3 _X, dmat3x3 _Y);
+dmat3x4 matrixCompMult(dmat3x4 _X, dmat3x4 _Y);
+dmat4x2 matrixCompMult(dmat4x2 _X, dmat4x2 _Y);
+dmat4x3 matrixCompMult(dmat4x3 _X, dmat4x3 _Y);
+dmat4x4 matrixCompMult(dmat4x4 _X, dmat4x4 _Y);
 
 // OuterProduct
 // Treats the first parameter c as a column vector (matrix with one
@@ -914,6 +952,24 @@ mat4x2 outerProduct(vec2 _C, vec4 _R);
 mat3x4 outerProduct(vec4 _C, vec3 _R);
 // [Generic] mat4x3 outerProduct(vec3 c, vec4 r);
 mat4x3 outerProduct(vec3 _C, vec4 _R);
+// [Generic] dmat outerProduct(dvec c, dvec r);
+dmat2 outerProduct(dvec2 _C, dvec2 _R);
+// [Generic] dmat3 outerProduct(dvec3 c, dvec3 r);
+dmat3 outerProduct(dvec3 _C, dvec3 _R);
+// [Generic] dmat4 outerProduct(dvec4 c, dvec4 r);
+dmat4 outerProduct(dvec4 _C, dvec4 _R);
+// [Generic] dmat2x3 outerProduct(dvec3 c, dvec2 r);
+dmat2x3 outerProduct(dvec3 _C, dvec2 _R);
+// [Generic] dmat3x2 outerProduct(dvec2 c, dvec3 r);
+dmat3x2 outerProduct(dvec2 _C, dvec3 _R);
+// [Generic] dmat2x4 outerProduct(dvec4 c, dvec2 r);
+dmat2x4 outerProduct(dvec4 _C, dvec2 _R);
+// [Generic] dmat4x2 outerProduct(dvec2 c, dvec4 r);
+dmat4x2 outerProduct(dvec2 _C, dvec4 _R);
+// [Generic] dmat3x4 outerProduct(dvec4 c, dvec3 r);
+dmat3x4 outerProduct(dvec4 _C, dvec3 _R);
+// [Generic] dmat4x3 outerProduct(dvec3 c, dvec4 r);
+dmat4x3 outerProduct(dvec3 _C, dvec4 _R);
 
 // Transpose
 // Returns a matrix that is the transpose of m.
@@ -936,6 +992,24 @@ mat4x2 transpose(mat2x4 _M);
 mat3x4 transpose(mat4x3 _M);
 // [Generic] mat4x3 transpose(mat3x4 m);
 mat4x3 transpose(mat3x4 _M);
+// [Generic] dmat2 transpose(dmat2 m);
+dmat2 transpose(dmat2 _M);
+// [Generic] dmat3 transpose(dmat3 m);
+dmat3 transpose(dmat3 _M);
+// [Generic] dmat4 transpose(dmat4 m);
+dmat4 transpose(dmat4 _M);
+// [Generic] dmat2x3 transpose(dmat3x2 m);
+dmat2x3 transpose(dmat3x2 _M);
+// [Generic] dmat3x2 transpose(dmat2x3 m);
+dmat3x2 transpose(dmat2x3 _M);
+// [Generic] dmat2x4 transpose(dmat4x2 m);
+dmat2x4 transpose(dmat4x2 _M);
+// [Generic] dmat4x2 transpose(dmat2x4 m);
+dmat4x2 transpose(dmat2x4 _M);
+// [Generic] dmat3x4 transpose(dmat4x3 m);
+dmat3x4 transpose(dmat4x3 _M);
+// [Generic] dmat4x3 transpose(dmat3x4 m);
+dmat4x3 transpose(dmat3x4 _M);
 
 // Determinant
 // Returns the determinant of m.
@@ -945,6 +1019,12 @@ float determinant(mat2 _M);
 float determinant(mat3 _M);
 // [Generic] float determinant(mat4 m);
 float determinant(mat4 _M);
+// [Generic] double determinant(dmat m);
+double determinant(dmat2 _M);
+// [Generic] double determinant(dmat2x2 m);
+double determinant(dmat3 _M);
+// [Generic] double determinant(dmat3x3 m);
+double determinant(dmat4 _M);
 
 // Inverse
 // Returns a matrix that is the inverse of m.
@@ -957,6 +1037,12 @@ mat2 inverse(mat2 _M);
 mat3 inverse(mat3 _M);
 // [Generic] mat4 inverse(mat4 m);
 mat4 inverse(mat4 _M);
+// [Generic] dmat2 inverse(dmat2 m);
+dmat2 inverse(dmat2 _M);
+// [Generic] dmat3 inverse(dmat3 m);
+dmat3 inverse(dmat3 _M);
+// [Generic] dmat4 inverse(dmat4 m);
+dmat4 inverse(dmat4 _M);
 
 // LessThan
 // Returns the component-wise compare of x < y.
