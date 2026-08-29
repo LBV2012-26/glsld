@@ -103,6 +103,7 @@ namespace {
 }
 
 // #define BENCHMARK
+// #define DEBUG_AST
 
 int main() {
 #ifdef _WIN64
@@ -124,6 +125,10 @@ int main() {
     Benchmark(arena_pool, "Tests/MacroTest.glsl");
     std::println("-----------------------------------------------------------------------");
 
+    return 0;
+#elifdef DEBUG_AST
+    glsld::ArenaPool arena_pool;
+    Benchmark(arena_pool, "Tests/Debugger.glsl", true);
     return 0;
 #endif
 
