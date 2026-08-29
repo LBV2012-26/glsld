@@ -277,6 +277,415 @@ float array_dim_test[
 
 const int kFinalArraySize = array_dim_test.length(); // 期望: 24
 
+// ============================================================================
+// 11. const 数组构造、索引与复合求值
+// ============================================================================
+// [初始化列表与数组整体 Hover]
+const int kScalarArray[4] = { 10, 20, 30, 40 };                // 期望: int[4](10, 20, 30, 40)
+const int kScalarArrayElement = kScalarArray[2];               // 期望: 30
+const int kScalarArrayComputedIndex =
+    kScalarArray[bitCount(3) - 1];                             // bitCount(3)=2，期望: 20
+
+// [显式尺寸与推导尺寸数组构造器]
+const int kExplicitArray[3] = int[3](7, 8, 9);                 // 期望: int[3](7, 8, 9)
+const int kExplicitArrayElement = kExplicitArray[2];           // 期望: 9
+const int kDeducedArray[] = int[](11, 22, 33, 44);             // 期望: int[4](11, 22, 33, 44)
+const int kDeducedArrayLength = kDeducedArray.length();        // 期望: 4
+
+// [元素隐式转换]
+const float kConvertedArray[3] = { 1, 2, 3 };                  // 期望: float[3](1.0, 2.0, 3.0)
+const float kConvertedArrayElement = kConvertedArray[1];       // 期望: 2.0
+
+// [向量数组、索引后 Swizzle 与函数参数]
+const vec4 kVectorArray[2] = {
+    vec4(1.0, 2.0, 3.0, 4.0),
+    vec4(5.0, 6.0, 7.0, 8.0)
+};
+const vec2 kVectorArraySwizzle = kVectorArray[1].wz;           // 期望: vec2(8.0, 7.0)
+const float kVectorArrayDot = dot(
+    kVectorArray[0].xyz,
+    kVectorArray[1].zyx
+);                                                              // 期望: 34.0
+const vec3 kVectorArrayNestedCall = max(
+    abs(kVectorArray[0].wzy - vec3(5.0)),
+    kVectorArray[1].xyz.yzx
+);                                                              // max((1,2,3),(6,7,5)) => vec3(6.0, 7.0, 5.0)
+
+// [矩阵数组、数组索引 + 矩阵列索引 + Swizzle]
+const mat2 kMatrixArray[2] = {
+    mat2(1.0, 2.0, 3.0, 4.0),
+    mat2(5.0, 6.0, 7.0, 8.0)
+};
+const vec2 kMatrixArrayColumnSwizzle =
+    kMatrixArray[1][0].yx;                                     // 第0列 (5,6) => vec2(6.0, 5.0)
+const float kMatrixArrayDeterminant =
+    determinant(kMatrixArray[1]);                              // 5*8 - 6*7 = -2.0
+
+// [多维数组与各层 length()]
+const int kNestedArray[2][3] = {
+    { 1, 2, 3 },
+    { 4, 5, 6 }
+};
+const int kNestedArrayElement = kNestedArray[1][2];             // 期望: 6
+const int kNestedArrayOuterLength = kNestedArray.length();      // 期望: 2
+const int kNestedArrayInnerLength = kNestedArray[0].length();   // 期望: 3
+
+// [多维向量数组的链式索引与 Swizzle]
+const vec3 kNestedVectorArray[2][2] = {
+    { vec3(1.0, 2.0, 3.0), vec3(4.0, 5.0, 6.0) },
+    { vec3(7.0, 8.0, 9.0), vec3(10.0, 11.0, 12.0) }
+};
+const vec3 kNestedVectorArraySwizzle =
+    kNestedVectorArray[1][0].zyx;                              // 期望: vec3(9.0, 8.0, 7.0)
+
+// ============================================================================
+// 12. 复杂数组构造器（参考 OverloadTest.glsl）
+// ============================================================================
+// [临时数组构造器立即索引]
+const int kTemporaryScalarArrayIndex =
+    int[](10, 20, 30, 40)[bitCount(3)];                       // bitCount(3)=2，期望: 30
+
+const vec3 kTemporaryVectorArrayIndex =
+    vec3[](
+        vec3(1.0, 2.0, 3.0),
+        vec3(vec2(4.0, 5.0), 6.0),
+        vec3(7.0)
+    )[1].zxy;                                                  // (4,5,6).zxy => vec3(6.0, 4.0, 5.0)
+
+// [向量构造器参数展开 + 数组元素]
+const vec4 kConstructorSourceArray[3] = vec4[](
+    vec4(vec2(1.0, 2.0), vec2(3.0, 4.0)),
+    vec4(ivec2(5, 6), 7.0, 8.0),
+    vec4(vec3(9.0, 10.0, 11.0), 12.0)
+);
+
+const vec4 kArrayElementReconstructed = vec4(
+    kConstructorSourceArray[2].w,
+    kConstructorSourceArray[0].yx,
+    kConstructorSourceArray[1].z
+);                                                              // 期望: vec4(12.0, 2.0, 1.0, 7.0)
+
+const vec3 kArrayElementBuiltinChain = normalize(vec3(
+    kConstructorSourceArray[0].xy,
+    length(kConstructorSourceArray[1].zw)
+));                                                              // 期望: normalize(vec3(1.0, 2.0, sqrt(113.0)))
+
+// [显式尺寸二维数组构造器]
+const int kConstructedInt2D[2][3] = int[2][3](
+    int[3](1, 2, 3),
+    int[](4, 5, 6)
+);
+const int kConstructedInt2DValue =
+    kConstructedInt2D[kConstructedInt2D.length() - 1]
+                     [kConstructedInt2D[0].length() - 2];       // [1][1]，期望: 5
+
+// [所有维度均由构造参数推导]
+const float kDeducedFloat3D[][][] = float[][][](
+    float[][](
+        float[](1.0, 2.0, 3.0),
+        float[](4.0, 5.0, 6.0)
+    ),
+    float[][](
+        float[](7.0, 8.0, 9.0),
+        float[](10.0, 11.0, 12.0)
+    )
+);
+const float kDeducedFloat3DValue =
+    kDeducedFloat3D[1][0][bitCount(7) - 1];                    // bitCount(7)=3，[1][0][2]，期望: 9.0
+const int kDeducedFloat3DOuterLength = kDeducedFloat3D.length();
+const int kDeducedFloat3DMiddleLength = kDeducedFloat3D[0].length();
+const int kDeducedFloat3DInnerLength = kDeducedFloat3D[0][0].length(); // 均期望: 2, 2, 3
+
+// [多维向量数组构造器 + 临时结果索引 + Swizzle]
+const vec2 kConstructedVector3D[2][2][2] = vec2[2][2][2](
+    vec2[2][2](
+        vec2[2](vec2(1.0, 2.0), vec2(3.0, 4.0)),
+        vec2[](vec2(5.0, 6.0), vec2(7.0, 8.0))
+    ),
+    vec2[][](
+        vec2[](vec2(9.0, 10.0), vec2(11.0, 12.0)),
+        vec2[2](vec2(13.0, 14.0), vec2(15.0, 16.0))
+    )
+);
+const vec4 kConstructedVector3DMix = vec4(
+    kConstructedVector3D[1][1][0].yx,
+    vec2[][](vec2[](vec2(17.0), vec2(18.0)))[0][1].xy
+);                                                              // 期望: vec4(14.0, 13.0, 18.0, 18.0)
+
+// [矩阵构造器嵌入数组构造器]
+const mat2x3 kConstructedMatrixArray[2] = mat2x3[](
+    mat2x3(
+        vec3(1.0, 2.0, 3.0),
+        vec3(vec2(4.0, 5.0), 6.0)
+    ),
+    mat2x3(
+        vec3(7.0, 8.0, 9.0),
+        vec3(10.0, 11.0, 12.0)
+    )
+);
+const vec3 kConstructedMatrixColumn =
+    kConstructedMatrixArray[1][bitCount(1)].zxy;                // bitCount(1)=1，第1列 => vec3(12,10,11)
+const float kConstructedMatrixDot = dot(
+    kConstructedMatrixArray[0][0].zyx,
+    kConstructedMatrixArray[1][1].xyz
+);                                                              // (3,2,1) dot (10,11,12)，期望: 64.0
+
+// [数组元素参与矩阵、向量和内置函数的深层复合调用]
+const vec3 kDeepArrayConstructorExpression = max(
+    transpose(mat3(
+        kConstructorSourceArray[0].xyz,
+        kConstructorSourceArray[1].xyz,
+        kConstructorSourceArray[2].xyz
+    ))[bitCount(1)].zyx,
+    vec3[](
+        abs(kConstructorSourceArray[0].wzy),
+        sqrt(kConstructorSourceArray[2].zyx)
+    )[1]
+);                                                              // 期望: max(vec3(10,6,2), sqrt(vec3(11,10,9))) = vec3(10,6,3)
+
+// ============================================================================
+// 13. 结构体常量求值
+// ============================================================================
+struct ConstInner {
+    int  v;
+    vec3 data;
+};
+
+struct ConstOuter {
+    ConstInner inner;
+    float      scale;
+    int        indices[3];
+};
+
+const ConstInner kStructInner = ConstInner(
+    42,
+    vec3(1.0, 2.0, 3.0)
+);
+
+const ConstOuter kStructOuter = ConstOuter(
+    kStructInner,
+    1.5,
+    int[3](10, 20, 30)
+);
+
+const int kStructNestedScalar =
+    kStructOuter.inner.v;                                      // 期望: 42
+
+const vec2 kStructNestedSwizzle =
+    kStructOuter.inner.data.zy;                                // 期望: vec2(3.0, 2.0)
+
+const int kStructArrayField =
+    kStructOuter.indices[bitCount(3) - 1];                     // 期望: 20
+
+const float kStructBuiltinExpression = dot(
+    kStructOuter.inner.data,
+    vec3(kStructOuter.scale)
+);                                                              // 期望: 9.0
+
+const ConstInner kStructArray[2] = ConstInner[](
+    ConstInner(10, vec3(2.0)),
+    ConstInner(20, vec3(4.0))
+);
+
+const int kStructArrayNestedField =
+    kStructArray[1].v;                                         // 期望: 20
+
+const vec3 kStructArrayBuiltin =
+    max(
+        kStructArray[0].data,
+        kStructArray[1].data
+    );                                                          // 期望: vec3(4.0)
+
+// ============================================================================
+// 14. OverloadTest 风格的结构体大杂烩
+// ============================================================================
+struct InnerData {
+    float Float;
+    int   Int;
+    vec3  float3;
+    mat2  mat2Array1D_2[2];
+    int   intArray2D_2x3[2][3];
+};
+
+struct MiddleData {
+    InnerData Inner;
+    vec4      vec4Array1D_3[3];
+    mat4      float4x4;
+};
+
+struct OuterData {
+    MiddleData Middle[2];
+    dvec2      double2;
+};
+
+const InnerData kInnerDataA = InnerData(
+    1.25,
+    7,
+    vec3(1.0, 2.0, 3.0),
+    mat2[](
+        mat2(1.0, 2.0, 3.0, 4.0),
+        mat2(2.0, 0.0, 0.0, 3.0)
+    ),
+    int[2][3](
+        int[3](1, 2, 3),
+        int[3](4, 5, 6)
+    )
+);
+
+const InnerData kInnerDataB = InnerData(
+    -2.5,
+    11,
+    vec3(4.0, 5.0, 6.0),
+    mat2[2](
+        mat2(4.0),
+        mat2(5.0, 6.0, 7.0, 8.0)
+    ),
+    int[][](
+        int[](7, 8, 9),
+        int[](10, 11, 12)
+    )
+);
+
+const MiddleData kMiddleDataA = MiddleData(
+    kInnerDataA,
+    vec4[](
+        vec4(1.0, 2.0, 3.0, 4.0),
+        vec4(5.0, 6.0, 7.0, 8.0),
+        vec4(9.0, 10.0, 11.0, 12.0)
+    ),
+    mat4(
+        vec4(1.0, 2.0, 3.0, 4.0),
+        vec4(5.0, 6.0, 7.0, 8.0),
+        vec4(9.0, 10.0, 11.0, 12.0),
+        vec4(13.0, 14.0, 15.0, 16.0)
+    )
+);
+
+const MiddleData kMiddleDataB = MiddleData(
+    kInnerDataB,
+    vec4[3](
+        vec4(16.0, 15.0, 14.0, 13.0),
+        vec4(12.0, 11.0, 10.0, 9.0),
+        vec4(8.0, 7.0, 6.0, 5.0)
+    ),
+    mat4(
+        vec4(2.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 3.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 4.0, 0.0),
+        vec4(0.0, 0.0, 0.0, 5.0)
+    )
+);
+
+const OuterData kOuterData = OuterData(
+    MiddleData[](kMiddleDataA, kMiddleDataB),
+    dvec2(0.5, 1.5)
+);
+
+// [连续结构体成员访问]
+const int kDeepStructInt =
+    kOuterData.Middle[1].Inner.Int;                            // 期望: 11
+const float kDeepStructFloat =
+    kOuterData.Middle[0].Inner.Float;                          // 期望: 1.25
+const vec3 kDeepStructVector =
+    kOuterData.Middle[1].Inner.float3;                         // 期望: vec3(4.0, 5.0, 6.0)
+
+// [结构体字段数组的各层 length()]
+const int kStructMiddleLength =
+    kOuterData.Middle.length();                                // 期望: 2
+const int kStructMatrixArrayLength =
+    kOuterData.Middle[0].Inner.mat2Array1D_2.length();         // 期望: 2
+const int kStructIntArrayOuterLength =
+    kOuterData.Middle[1].Inner.intArray2D_2x3.length();        // 期望: 2
+const int kStructIntArrayInnerLength =
+    kOuterData.Middle[1].Inner.intArray2D_2x3[0].length();     // 期望: 3
+
+// [结构体 → 数组 → 数组 → 标量]
+const int kDeepStructArrayScalar =
+    kOuterData.Middle[1].Inner.intArray2D_2x3[bitCount(3) - 1][bitCount(7) - 1];              // [1][2]，期望: 12
+
+// [结构体 → 数组 → 向量 → Swizzle]
+const vec3 kDeepStructArraySwizzle =
+    kOuterData.Middle[0].vec4Array1D_3[2].wzx;                 // 期望: vec3(12.0, 11.0, 9.0)
+
+// [结构体 → 矩阵数组 → 矩阵列 → Swizzle]
+const vec2 kDeepStructMatrixArrayColumn =
+    kOuterData.Middle[0].Inner.mat2Array1D_2[0][1].yx;         // 第1列 (3,4)，期望: vec2(4.0, 3.0)
+
+const vec3 kDeepStructMatrixColumn =
+    kOuterData.Middle[0].float4x4[2].wzx;                      // 第2列 (9,10,11,12)，期望: vec3(12,11,9)
+
+// [取出字段后继续调用内置函数]
+const float kDeepStructDot = dot(
+    kOuterData.Middle[0].Inner.float3,
+    kOuterData.Middle[1].Inner.float3.zyx
+);                                                              // (1,2,3) dot (6,5,4)，期望: 28.0
+
+const float kDeepStructDeterminant = determinant(
+    kOuterData.Middle[0].Inner.mat2Array1D_2[1]
+);                                                              // determinant(mat2(2,0,0,3))，期望: 6.0
+
+const vec4 kDeepStructBuiltinMix = max(
+    abs(kOuterData.Middle[1].vec4Array1D_3[2].wzyx - vec4(7.0)),
+    sqrt(kOuterData.Middle[0].vec4Array1D_3[2].wzyx)
+);                                                              // max((2,1,0,1), sqrt(12,11,10,9))
+
+// [结构体字段参与新的结构体构造]
+const InnerData kReconstructedInnerData = InnerData(
+    abs(kOuterData.Middle[1].Inner.Float),
+    kOuterData.Middle[0].Inner.Int + kOuterData.Middle[1].Inner.Int,
+    max(
+        kOuterData.Middle[0].Inner.float3,
+        kOuterData.Middle[1].Inner.float3.zyx
+    ),
+    mat2[](
+        transpose(kOuterData.Middle[0].Inner.mat2Array1D_2[0]),
+        inverse(kOuterData.Middle[0].Inner.mat2Array1D_2[1])
+    ),
+    int[2][3](
+        kOuterData.Middle[0].Inner.intArray2D_2x3[1],
+        kOuterData.Middle[1].Inner.intArray2D_2x3[0]
+    )
+);
+
+const int kReconstructedStructInt =
+    kReconstructedInnerData.Int;                               // 期望: 18
+const vec3 kReconstructedStructVector =
+    kReconstructedInnerData.float3;                            // max((1,2,3),(6,5,4)) => vec3(6,5,4)
+const int kReconstructedStructArrayValue =
+    kReconstructedInnerData.intArray2D_2x3[1][2];              // 期望: 9
+
+// [临时结构体构造结果立即进行成员、数组和 Swizzle 访问]
+const int kTemporaryStructMember = InnerData(
+    3.5,
+    99,
+    vec3(7.0, 8.0, 9.0),
+    mat2[](mat2(1.0), mat2(2.0)),
+    int[][](int[](1, 2, 3), int[](4, 5, 6))
+).intArray2D_2x3[1][0];                                       // 期望: 4
+
+const vec2 kTemporaryNestedStructSwizzle = MiddleData(
+    kInnerDataA,
+    vec4[](vec4(1.0), vec4(2.0), vec4(3.0, 4.0, 5.0, 6.0)),
+    mat4(1.0)
+).vec4Array1D_3[2].wz;                                        // 期望: vec2(6.0, 5.0)
+
+// [结构体数组构造结果立即索引并访问深层字段]
+const float kTemporaryStructArrayField = OuterData[](
+    kOuterData,
+    OuterData(
+        MiddleData[](kMiddleDataB, kMiddleDataA),
+        dvec2(2.5, 3.5)
+    )
+)[1].Middle[0].Inner.Float;                                   // 期望: -2.5
+
+const dvec2 kTemporaryStructArrayDouble = OuterData[](
+    kOuterData,
+    OuterData(
+        MiddleData[](kMiddleDataB, kMiddleDataA),
+        dvec2(2.5, 3.5)
+    )
+)[1].double2.yx;                                               // 期望: dvec2(3.5, 2.5)
+
 void main() {
     return;
 }

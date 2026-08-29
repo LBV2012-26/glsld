@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <concepts>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -21,14 +22,35 @@ namespace glsld {
 
     class ConstantEvaluator final : public AstVisitor {
     public:
-        using ScalarValue = std::variant<std::int64_t, std::uint64_t, double, bool>;
+        using Scalar = std::variant<std::int64_t, std::uint64_t, double, bool>;
 
-        struct AggregateValue {
-            TypeDescriptor           type_desc;
-            std::vector<ScalarValue> components;
+        struct Aggregate {
+            TypeDescriptor      type_desc;
+            std::vector<Scalar> components;
         };
 
-        using ValueType = std::variant<ScalarValue, AggregateValue>;
+        struct Array;
+        using ArrayPtr = std::shared_ptr<const Array>;
+
+        struct Struct;
+        using StructPtr = std::shared_ptr<const Struct>;
+
+        using Value = std::variant<Scalar, Aggregate, ArrayPtr, StructPtr>;
+
+        struct Array {
+            TypeInfo           type_info;
+            std::vector<Value> elements;
+        };
+
+        struct StructField {
+            const SymbolInfo* symbol{ nullptr };
+            Value             value;
+        };
+
+        struct Struct {
+            TypeInfo                 type_info;
+            std::vector<StructField> fields;
+        };
 
         ConstantEvaluator();
 
@@ -39,33 +61,57 @@ namespace glsld {
               || std::same_as<Ty, bool>
               || std::same_as<Ty, std::string>
         std::optional<Ty> EvaluateAs(ExpressionNode* node);
+
     private:
-        using EvaluatorFunc = std::function<std::optional<ValueType>(std::span<const ValueType>, const TypeInfo&)>;
+        using EvaluatorFunc = std::function<std::optional<Value>(std::span<const Value>, const TypeInfo&)>;
 
         void RegisterBuiltins();
         void Register(std::string_view name, EvaluatorFunc func);
 
-        std::optional<ValueType> Evaluate(ExpressionNode* node);
+        std::optional<Value> Evaluate(ExpressionNode* node);
 
         enum class ConversionMode {
             kExplicit,
             kImplicit
         };
 
-        std::optional<ValueType> ConvertValueToType(
-            const ValueType& value,
+        std::optional<Value> ConvertValueToType(
+            const Value& value,
             const TypeInfo& target_type,
             ConversionMode mode) const;
 
-        std::optional<ValueType> EvaluateBuiltinFunction(
+        std::optional<Value> ConvertArrayToType(
+            const Value& value,
+            const TypeInfo& target_type,
+            ConversionMode mode) const;
+
+        std::optional<Value> ConvertStructToType(
+            const Value& value,
+            const TypeInfo& target_type,
+            ConversionMode mode) const;
+
+        std::optional<Value> EvaluateBuiltinFunction(
             std::string_view name,
-            std::span<const ValueType> args,
+            std::span<const Value> args,
             const TypeInfo& result_type);
 
-        std::optional<ValueType> EvaluateConstructor(CallExpressionNode* node, const TypeInfo& target_type);
-        std::optional<std::string> FormatValue(const ValueType& value) const;
+        std::optional<Value> EvaluateArrayElements(
+            std::span<ExpressionNode* const> elements,
+            const TypeInfo& target_type);
+
+        std::optional<Value> EvaluateConstructor(
+            CallExpressionNode* node,
+            const TypeInfo& target_type);
+
+        std::optional<Value> EvaluateStructConstructor(
+            CallExpressionNode* node,
+            const TypeInfo& target_type,
+            const SymbolInfo* struct_symbol);
+
+        std::optional<std::string> FormatValue(const Value& value) const;
 
         void VisitVariableExpression(VariableExpressionNode* node) override;
+        void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitCastExpression(CastExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
@@ -75,8 +121,8 @@ namespace glsld {
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 
         ankerl::unordered_dense::set<const SymbolInfo*> visited_symbols_;
-        ValueType current_value_{};
-        bool      is_valid_{ true };
+        Value current_value_{};
+        bool  is_valid_{ true };
 
         using Registry = ankerl::unordered_dense::map<std::string_view, EvaluatorFunc>;
         inline static Registry registry_;

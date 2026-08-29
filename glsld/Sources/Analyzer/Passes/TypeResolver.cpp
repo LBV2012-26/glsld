@@ -761,6 +761,7 @@ namespace glsld {
             if (current_base->kind() == AstNodeKind::kVariableExpression) {
                 bool is_constructor = false;
                 TypeDescriptor base_desc;
+                const SymbolInfo* block_symbol = nullptr;
 
                 const auto* base_varexpr = static_cast<VariableExpressionNode*>(current_base);
                 if (base_varexpr->original_token.type == TokenType::kPrimitive ||
@@ -772,7 +773,8 @@ namespace glsld {
                     if (*symbol != nullptr) {
                         if ((*symbol)->kind == SymbolKind::kInterface || (*symbol)->kind == SymbolKind::kStruct) {
                             is_constructor = true;
-                            base_desc = (*symbol)->type_info.type_desc;
+                            base_desc      = (*symbol)->type_info.type_desc;
+                            block_symbol   = *symbol;
                         }
                     }
                 }
@@ -783,7 +785,8 @@ namespace glsld {
                             .text = base_varexpr->name,
                             .type = base_varexpr->original_token.type
                         },
-                        .type_desc = base_desc
+                        .type_desc    = base_desc,
+                        .block_symbol = block_symbol
                     };
 
                     std::ranges::reverse(dimensions);

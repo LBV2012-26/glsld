@@ -22,7 +22,7 @@ namespace glsld {
         if constexpr (std::same_as<Ty, std::string>) {
             return FormatValue(*result);
         } else {
-            const auto* scalar = std::get_if<ScalarValue>(&*result);
+            const auto* scalar = std::get_if<Scalar>(&*result);
             if (scalar == nullptr) {
                 return std::nullopt;
             }
