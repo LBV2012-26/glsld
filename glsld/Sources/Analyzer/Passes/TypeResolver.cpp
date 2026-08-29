@@ -1610,19 +1610,25 @@ namespace glsld {
         if (base_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector ||
             base_type.type_desc.family == BaseFamily::kUnknown)
         {
-            return base_type;
+            return GetCanonicalTypeInfo(TypeDescriptor{
+                .family = BaseFamily::kUnknown
+            });
+        }
+
+        const auto parsed = Utils::ParseVectorSwizzle(
+            swizzle, static_cast<std::size_t>(base_type.type_desc.vector_length));
+
+        if (!parsed.has_value()) {
+            return GetCanonicalTypeInfo(TypeDescriptor{
+                .family = BaseFamily::kUnknown
+            });
         }
 
         TypeInfo result = base_type;
         result.type_desc.vector_count  = 1;
-        result.type_desc.vector_length = static_cast<int>(swizzle.size());
+        result.type_desc.vector_length = static_cast<int>(parsed->count);
 
-        if (result.type_desc.vector_length > 1) {
-            SeparateType(result, true);
-        } else {
-            SeparateType(result, false);
-        }
-        
+        SeparateType(result, parsed->count > 1);
         return result;
     }
 

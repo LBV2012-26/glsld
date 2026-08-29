@@ -70,6 +70,7 @@ namespace glsld {
         void VisitBinaryExpression(BinaryExpressionNode* node) override;
         void VisitUnaryExpression(UnaryExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;
+        void VisitIndexExpression(IndexExpressionNode* node) override;
         void VisitRawExpression(RawExpressionNode* node) override;
         void VisitMemberAccessExpression(MemberAccessExpressionNode* node) override;
 

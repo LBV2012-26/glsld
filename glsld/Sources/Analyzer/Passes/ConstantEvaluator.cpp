@@ -1991,6 +1991,97 @@ namespace glsld {
         current_value_ = *converted_result;
     }
 
+    void ConstantEvaluator::VisitIndexExpression(IndexExpressionNode* node) {
+        if (node == nullptr || node->base == nullptr || node->index == nullptr) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto base_value = Evaluate(node->base);
+        if (!base_value.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto index_value = Evaluate(node->index);
+        if (!index_value.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto* index_scalar = GetScalar(*index_value);
+        if (index_scalar == nullptr) {
+            is_valid_ = false;
+            return;
+        }
+
+        std::optional<std::size_t> index;
+        if (const auto* signed_index = std::get_if<std::int64_t>(index_scalar)) {
+            if (*signed_index >= 0) {
+                index = static_cast<std::size_t>(*signed_index);
+            }
+        } else if (const auto* unsigned_index = std::get_if<std::uint64_t>(index_scalar)) {
+            if (*unsigned_index <= static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+                index = static_cast<std::size_t>(*unsigned_index);
+            }
+        }
+
+        if (!index.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto* aggregate = std::get_if<Aggregate>(&*base_value);
+        if (aggregate == nullptr || aggregate->components.size() != ComponentCount(aggregate->type_desc)) {
+            // 当前 ValueType 尚未保存数组内容，所以这里只处理向量和矩阵。
+            is_valid_ = false;
+            return;
+        }
+
+        const auto& source_desc = aggregate->type_desc;
+
+        // vector[index] -> scalar
+        if (source_desc.vector_count == 1 && source_desc.vector_length > 1) {
+            const auto vector_length = static_cast<std::size_t>(source_desc.vector_length);
+            if (*index >= vector_length) {
+                is_valid_ = false;
+                return;
+            }
+
+            current_value_ = aggregate->components[*index];
+            return;
+        }
+
+        // matrix[column] -> column vector
+        if (source_desc.vector_count > 1 && source_desc.vector_length > 1) {
+            const auto column_count = static_cast<std::size_t>(source_desc.vector_count);
+            const auto row_count    = static_cast<std::size_t>(source_desc.vector_length);
+
+            if (*index >= column_count) {
+                is_valid_ = false;
+                return;
+            }
+
+            const auto component_begin = *index * row_count;
+
+            Aggregate result{
+                .type_desc  = node->evaluated_type.type_desc,
+                .components = {}
+            };
+
+            result.components.reserve(row_count);
+
+            for (auto row = 0uz; row != row_count; ++row) {
+                result.components.push_back(aggregate->components[component_begin + row]);
+            }
+
+            current_value_ = std::move(result);
+            return;
+        }
+
+        is_valid_ = false;
+    }
+
     void ConstantEvaluator::VisitRawExpression(RawExpressionNode* node) {
         if (node == nullptr || node->tokens.size() != 1 || node->tokens.front().type != TokenType::kNumberLiteral) {
             is_valid_ = false;
@@ -2107,17 +2198,75 @@ namespace glsld {
     }
 
     void ConstantEvaluator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
-        if (FindLengthCall(node) == nullptr || node->object == nullptr) {
+        if (node == nullptr || node->object == nullptr) {
             is_valid_ = false;
             return;
         }
 
-        const auto length = GetStaticLength(node->object->evaluated_type);
-        if (!length.has_value()) {
+        // array.length(), vector.length(), matrix.length()
+        if (FindLengthCall(node) != nullptr) {
+            const auto length = GetStaticLength(node->object->evaluated_type);
+            if (!length.has_value()) {
+                is_valid_ = false;
+                return;
+            }
+
+            current_value_ = *length;
+            return;
+        }
+
+        if (node->member == nullptr || node->member->kind() != AstNodeKind::kVariableExpression) {
             is_valid_ = false;
             return;
         }
 
-        current_value_ = *length;
+        const auto& object_type = node->object->evaluated_type;
+        if (object_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector) {
+            is_valid_ = false;
+            return;
+        }
+
+        auto* member = static_cast<const VariableExpressionNode*>(node->member);
+        const auto swizzle = Utils::ParseVectorSwizzle(
+            member->name, static_cast<std::size_t>(object_type.type_desc.vector_length));
+
+        if (!swizzle.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto object_value = Evaluate(node->object);
+        if (!object_value.has_value()) {
+            is_valid_ = false;
+            return;
+        }
+
+        const auto* source = std::get_if<Aggregate>(&*object_value);
+
+        if (source == nullptr ||
+            source->type_desc.vector_count != 1 ||
+            source->components.size() != static_cast<std::size_t>(source->type_desc.vector_length))
+        {
+            is_valid_ = false;
+            return;
+        }
+
+        if (swizzle->count == 1) {
+            current_value_ = source->components[swizzle->indices[0]];
+            return;
+        }
+
+        Aggregate result{
+            .type_desc  = node->evaluated_type.type_desc,
+            .components = {}
+        };
+
+        result.components.reserve(swizzle->count);
+
+        for (std::size_t i = 0; i != swizzle->count; ++i) {
+            result.components.push_back(source->components[swizzle->indices[i]]);
+        }
+
+        current_value_ = std::move(result);
     }
 }

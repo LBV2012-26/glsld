@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <concepts>
 #include <expected>
 #include <filesystem>
@@ -55,6 +56,13 @@ namespace glsld::Utils {
     NumberLiteralInfo AnalyzeNumberLiteral(std::string_view text);
 
     std::int64_t ParseNumberLiteralToInteger(std::string_view text);
+
+    struct VectorSwizzle {
+        std::array<std::size_t, 4> indices{};
+        std::size_t                count{};
+    };
+
+    std::optional<VectorSwizzle> ParseVectorSwizzle(std::string_view text, std::size_t length);
 
     template <typename Ty>
     std::optional<std::vector<Ty>> CollectArgumentArray(

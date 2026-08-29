@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cmath>
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <chrono>
 #include <format>
@@ -459,6 +458,72 @@ namespace glsld::Utils {
         }
 
         return -static_cast<std::int64_t>(magnitude);
+    }
+
+    std::optional<VectorSwizzle> ParseVectorSwizzle(std::string_view text, std::size_t length) {
+        if (text.empty() || text.size() > 4 || length < 2 || length > 4) {
+            return std::nullopt;
+        }
+
+        enum class SwizzleSet {
+            kUnknown,
+            kPosition, // xyzw
+            kColor,    // rgba
+            kTexture   // stpq
+        };
+
+        auto DecodeComponent = [](char ch) -> std::optional<std::pair<SwizzleSet, std::size_t>> {
+            switch (ch) {
+            case 'x': return std::pair{ SwizzleSet::kPosition, 0uz };
+            case 'y': return std::pair{ SwizzleSet::kPosition, 1uz };
+            case 'z': return std::pair{ SwizzleSet::kPosition, 2uz };
+            case 'w': return std::pair{ SwizzleSet::kPosition, 3uz };
+
+            case 'r': return std::pair{ SwizzleSet::kColor, 0uz };
+            case 'g': return std::pair{ SwizzleSet::kColor, 1uz };
+            case 'b': return std::pair{ SwizzleSet::kColor, 2uz };
+            case 'a': return std::pair{ SwizzleSet::kColor, 3uz };
+
+            case 's': return std::pair{ SwizzleSet::kTexture, 0uz };
+            case 't': return std::pair{ SwizzleSet::kTexture, 1uz };
+            case 'p': return std::pair{ SwizzleSet::kTexture, 2uz };
+            case 'q': return std::pair{ SwizzleSet::kTexture, 3uz };
+
+            default:
+                return std::nullopt;
+            }
+        };
+
+        VectorSwizzle result{
+            .indices = {},
+            .count   = text.size()
+        };
+
+        auto selected_set = SwizzleSet::kUnknown;
+
+        for (auto i = 0uz; i != text.size(); ++i) {
+            const auto decoded = DecodeComponent(text[i]);
+            if (!decoded.has_value()) {
+                return std::nullopt;
+            }
+
+            const auto [set, index] = *decoded;
+
+            // GLSL 不允许在一次 swizzle 中混用 xyzw/rgba/stpq
+            if (selected_set == SwizzleSet::kUnknown) {
+                selected_set = set;
+            } else if (selected_set != set) {
+                return std::nullopt;
+            }
+
+            if (index >= length) {
+                return std::nullopt;
+            }
+
+            result.indices[i] = index;
+        }
+
+        return result;
     }
 
 #ifndef _WIN64
