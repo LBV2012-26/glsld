@@ -4,10 +4,12 @@
 #include <algorithm>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <variant>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
 #include "Utils/Utils.hpp"
 
 namespace glsld {
@@ -37,14 +39,27 @@ namespace glsld {
     }
 
     void InlayHintCollector::VisitInitializerListExpression(InitializerListExpressionNode* node) {
+        std::optional<SymbolList> fields;
+
+        if (!node->evaluated_type.is_array() && node->evaluated_type.block_symbol != nullptr) {
+            fields = Utils::CollectStructFieldsOrdered(node->evaluated_type.block_symbol);
+        }
+
         for (auto i = 0uz; i != node->elements.size(); ++i) {
             if (node->elements[i] == nullptr) {
                 continue;
             }
 
+            std::string label;
+            if (fields.has_value() && i < fields->size()) {
+                label = std::format(".{}=", (*fields)[i]->name);
+            } else {
+                label = std::format("[{}]=", i);
+            }
+
             hints_.push_back({
                 .location = &node->elements[i]->begin,
-                .label    = std::format("[{}]=", i)
+                .label    = std::move(label)
             });
         }
 
