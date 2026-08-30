@@ -89,9 +89,9 @@ namespace glsld {
 
             for (auto i = 0uz; i != std::min(num_params, num_args); ++i) {
                 const auto& param = func_decl->params[i];
-                const auto& arg   = node->args[i];
+                const auto& argv  = node->args[i];
 
-                if (arg == nullptr) {
+                if (argv == nullptr) {
                     continue;
                 }
 
@@ -114,7 +114,7 @@ namespace glsld {
                     }
 
                     hints_.push_back({
-                        .location = &arg->begin,
+                        .location = &argv->begin,
                         .label    = label + ":"
                     });
                 }
