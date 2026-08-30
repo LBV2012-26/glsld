@@ -59,7 +59,7 @@ namespace glsld::Providers {
     std::vector<InlayHint> GetInlayHints(Context& context, Snapshot snapshot);
 
     struct SignatureHelpResult {
-        SymbolList candidates;
+        std::vector<std::string> signatures;
         int active_signature_index{};
         int active_param_index{};
     };
@@ -100,6 +100,7 @@ namespace glsld::Providers {
     };
 
     FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, Snapshot snapshot);
+    FunctionFormatResult FormatStructConstructor(const SymbolInfo* symbol, Snapshot snapshot);
 
     std::string BuildHoverMarkdown(
         const SymbolInfo* symbol,

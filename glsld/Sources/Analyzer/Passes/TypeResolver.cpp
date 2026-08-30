@@ -530,26 +530,11 @@ namespace glsld {
         }
 
         bool IsBufferReferenceType(const TypeInfo& type) {
-            const auto* symbol = type.block_symbol;
-            if (symbol == nullptr || symbol->kind != SymbolKind::kInterface) {
+            if (type.is_array()) {
                 return false;
             }
 
-            if (symbol->node->kind() != AstNodeKind::kInterfaceDeclaration) {
-                return false;
-            }
-
-            auto declaration = static_cast<const InterfaceDeclarationNode*>(symbol->node);
-
-            return std::ranges::any_of(declaration->type_spec.layouts, [](const auto* layout) -> bool {
-                if (layout == nullptr) {
-                    return false;
-                }
-
-                return std::ranges::any_of(layout->raw_tokens, [](const auto& token) -> bool {
-                    return token.text == "buffer_reference";
-                });
-            });
+            return Utils::HasInterfaceLayoutQualifier(type.block_symbol, "buffer_reference");
         }
 
         bool CanExplicitlyCast(const TypeInfo& source, const TypeInfo& target) {
@@ -802,7 +787,9 @@ namespace glsld {
                     base_desc = ParseTypeDescriptor(base_varexpr->name);
                 } else if (auto* symbol = std::get_if<const SymbolInfo*>(&base_varexpr->linked_symbols)) {
                     if (*symbol != nullptr) {
-                        if ((*symbol)->kind == SymbolKind::kInterface || (*symbol)->kind == SymbolKind::kStruct) {
+                        if ((*symbol)->kind == SymbolKind::kStruct ||
+                            Utils::HasInterfaceLayoutQualifier(*symbol, "buffer_reference"))
+                        { // 只有 buffer_reference 才能通过构造函数或者强制转换
                             is_constructor = true;
                             base_desc      = (*symbol)->type_info.type_desc;
                             block_symbol   = *symbol;
@@ -890,7 +877,23 @@ namespace glsld {
                 }
 
                 TypeInfo result_type = symbol->type_info;
-                if (symbol->kind == SymbolKind::kInterface || symbol->kind == SymbolKind::kStruct) {
+
+                if (symbol->kind == SymbolKind::kInterface) {
+                    if (!Utils::HasInterfaceLayoutQualifier(symbol, "buffer_reference")) {
+                        return symbol;
+                    }
+
+                    result_type.block_symbol   = symbol;
+                    result_type.typename_token = Token{
+                        .text     = symbol->name,
+                        .location = symbol->location,
+                        .type     = TokenType::kIdentifier
+                    };
+
+                    if (call_arg_types.size() != 1 || !CanExplicitlyCast(call_arg_types.front(), result_type)) {
+                        return symbol;
+                    }
+                } else if (symbol->kind == SymbolKind::kStruct) {
                     result_type.block_symbol   = symbol;
                     result_type.typename_token = Token{
                         .text     = symbol->name,

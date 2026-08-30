@@ -55,8 +55,7 @@ namespace glsld {
         }
         case kFunctionCallee: {
             auto FindConstructor = [node, scope]() -> void {
-                const auto* symbol_result = scope->FindSymbol(node->name);
-                node->linked_symbols = symbol_result;
+                node->linked_symbols = scope->FindVisibleType(node->name);
             };
 
             auto it = function_cache_.find(node->name);

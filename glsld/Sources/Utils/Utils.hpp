@@ -74,6 +74,8 @@ namespace glsld::Utils {
 
     std::optional<SymbolList> CollectStructFieldsOrdered(const SymbolInfo* struct_symbol);
 
+    bool HasInterfaceLayoutQualifier(const SymbolInfo* symbol, std::string_view qualifier);
+
     // External process execution
     std::string ExecuteCommand(
         std::string_view command,

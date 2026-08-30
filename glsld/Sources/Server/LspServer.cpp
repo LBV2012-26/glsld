@@ -1014,11 +1014,10 @@ namespace glsld {
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
-        for (const auto* symbol : signature_help->candidates) {
+        for (const auto& label : signature_help->signatures) {
             ABORT_IF_CANCELLED();
 
-            auto label   = Providers::FormatFunctionSymbol(symbol, snapshot).full_spec;
-            auto offsets = ExtractParameterOffsets(label);
+            const auto offsets = ExtractParameterOffsets(label);
 
             nlohmann::json params = nlohmann::json::array();
             for (const auto& offset : offsets) {

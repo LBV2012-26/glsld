@@ -563,6 +563,23 @@ namespace glsld::Utils {
         return result;
     }
 
+    bool HasInterfaceLayoutQualifier(const SymbolInfo* symbol, std::string_view qualifier) {
+        if (symbol == nullptr                      ||
+            symbol->kind != SymbolKind::kInterface ||
+            symbol->node == nullptr                ||
+            symbol->node->kind() != AstNodeKind::kInterfaceDeclaration)
+        {
+            return false;
+        }
+
+        auto* decl_node= static_cast<const InterfaceDeclarationNode*>(symbol->node);
+        return std::ranges::any_of(decl_node->type_spec.layouts, [qualifier](const auto* layout) -> bool {
+            return layout != nullptr && std::ranges::any_of(layout->raw_tokens, [qualifier](const Token& token) -> bool {
+                return token.text == qualifier;
+            });
+        });
+    }
+
 #ifndef _WIN64
     namespace {
         std::vector<std::string> ParseCommand(std::string_view command) {

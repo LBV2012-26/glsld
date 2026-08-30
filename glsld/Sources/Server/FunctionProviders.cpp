@@ -731,6 +731,68 @@ namespace glsld::Providers {
                 index = std::min(index, static_cast<int>(func->params.size() - 1));
             }
         }
+
+        std::pair<std::vector<std::string>, int> BuildBufferReferenceSignatures(
+            const CallExpressionNode* call,
+            const VariableExpressionNode* callee,
+            const SymbolInfo* target)
+        {
+            std::vector<std::string> signatures;
+            int active_signature = 0;
+
+            const TypeInfo* argument_type = nullptr;
+            if (!call->args.empty() && call->args.front() != nullptr) {
+                argument_type = &call->args.front()->evaluated_type;
+            }
+
+            auto AddReferenceSignature = [&](const SymbolInfo* source) -> void {
+                const int index = static_cast<int>(signatures.size());
+                signatures.push_back(std::format("{}({} _Ref)", target->name, source->name));
+
+                if (argument_type != nullptr && argument_type->block_symbol == source) {
+                    active_signature = index;
+                }
+            };
+
+            AddReferenceSignature(target);
+
+            SymbolList visible_symbols;
+            callee->located_scope->GetVisibleSymbols(visible_symbols);
+
+            for (const auto* symbol : visible_symbols) {
+                if (symbol != target && Utils::HasInterfaceLayoutQualifier(symbol, "buffer_reference")) {
+                    AddReferenceSignature(symbol);
+                }
+            }
+
+            int index = static_cast<int>(signatures.size());
+            signatures.push_back(std::format("{}(uint64_t _Address)", target->name));
+
+            if (argument_type != nullptr &&
+                argument_type->block_symbol == nullptr &&
+                argument_type->type_desc.family == BaseFamily::kUint &&
+                argument_type->type_desc.bits == 64 &&
+                argument_type->type_desc.vector_count == 1 &&
+                argument_type->type_desc.vector_length == 1)
+            {
+                active_signature = index;
+            }
+
+            index = static_cast<int>(signatures.size());
+            signatures.push_back(std::format("{}(uvec2 _Address)", target->name));
+
+            if (argument_type != nullptr &&
+                argument_type->block_symbol == nullptr &&
+                argument_type->type_desc.family == BaseFamily::kUint &&
+                argument_type->type_desc.bits == 32 &&
+                argument_type->type_desc.vector_count == 1 &&
+                argument_type->type_desc.vector_length == 2)
+            {
+                active_signature = index;
+            }
+
+            return { std::move(signatures), active_signature };
+        }
     }
 
     std::optional<SignatureHelpResult> GetSignatureHelp(
@@ -753,10 +815,6 @@ namespace glsld::Providers {
         }
 
         auto* callee = static_cast<const VariableExpressionNode*>(node->callee);
-        const auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
-        if (std::holds_alternative<std::monostate>(candidates)) {
-            return std::nullopt;
-        }
 
         const auto open_paren_loc = callee->end;
         auto it = std::ranges::lower_bound(snapshot->raw_tokens, open_paren_loc, std::ranges::less{}, &Token::location);
@@ -794,11 +852,46 @@ namespace glsld::Providers {
         }
 
         ABORT_IF_CANCELLED();
+
+        if (auto* linked = std::get_if<const SymbolInfo*>(&callee->linked_symbols);
+            linked != nullptr && *linked != nullptr)
+        {
+            const auto* symbol = *linked;
+
+            if (symbol->kind == SymbolKind::kStruct) {
+                return SignatureHelpResult{
+                    .signatures             = { FormatStructConstructor(symbol, snapshot).full_spec },
+                    .active_signature_index = 0,
+                    .active_param_index     = active_param_index
+                };
+            }
+
+            if (Utils::HasInterfaceLayoutQualifier(symbol, "buffer_reference")) {
+                auto [signatures, active_signature] = BuildBufferReferenceSignatures(node, callee, symbol);
+
+                return SignatureHelpResult{
+                    .signatures             = std::move(signatures),
+                    .active_signature_index = active_signature,
+                    .active_param_index     = active_param_index
+                };
+            }
+
+            if (symbol->kind == SymbolKind::kInterface) {
+                return std::nullopt;
+            }
+        }
+
+        const auto candidates = snapshot->symbols.FindFunctionsByOriginalName(callee->name);
+        if (std::holds_alternative<std::monostate>(candidates)) {
+            return std::nullopt;
+        }
+
         if (auto* symbol = std::get_if<const SymbolInfo*>(&candidates)) {
             ClampToVariadic(active_param_index, *symbol);
+            auto format_result = FormatFunctionSymbol(*symbol, snapshot);
 
             return SignatureHelpResult{
-                .candidates             = { *symbol },
+                .signatures             = { std::move(format_result.full_spec) },
                 .active_signature_index = 0,
                 .active_param_index     = active_param_index
             };
@@ -808,8 +901,13 @@ namespace glsld::Providers {
         const int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
         ClampToVariadic(active_param_index, unique_candidates[active_signature_index]);
 
+        std::vector<std::string> signatures;
+        for (const auto* symbol : unique_candidates) {
+            signatures.push_back(FormatFunctionSymbol(symbol, snapshot).full_spec);
+        }
+
         return SignatureHelpResult{
-            .candidates             = std::move(unique_candidates),
+            .signatures             = std::move(signatures),
             .active_signature_index = active_signature_index,
             .active_param_index     = active_param_index
         };
@@ -1732,6 +1830,27 @@ namespace glsld::Providers {
 
             return result;
         }
+
+        std::string FormatNamedDeclaration(const VariableDeclarationNode* node, const Document* snapshot) {
+            auto result = BuildHoverSpecifierLine(node, snapshot);
+            const auto* symbol = node->declared_symbol;
+            if (symbol == nullptr) {
+                return result;
+            }
+
+            const auto last_close_paren = result.find(')');
+            const auto open_bracket = last_close_paren != std::string::npos
+                                    ? result.find('[', last_close_paren)
+                                    : result.find('[');
+
+            if (open_bracket != std::string::npos) {
+                result.insert(open_bracket, " " + symbol->name);
+            } else {
+                result += " " + symbol->name;
+            }
+
+            return result;
+        }
     }
 
     FunctionFormatResult FormatFunctionSymbol(const SymbolInfo* symbol, Snapshot snapshot) {
@@ -1779,24 +1898,7 @@ namespace glsld::Providers {
                 continue;
             }
 
-            auto        param_line   = BuildHoverSpecifierLine(param, snapshot.get());
-            const auto* param_symbol = param->declared_symbol;
-
-            if (param_symbol == nullptr) {
-                // param_line auto assigned "void" from BuildHoverSpecifierLine function
-                result += param_line;
-                params.push_back(std::move(param_line));
-                continue;
-            }
-
-            const auto last_close_paren = param_line.find(')');
-            const auto open_bracket = (last_close_paren != std::string::npos) ? param_line.find('[', last_close_paren) : param_line.find('[');
-
-            if (open_bracket != std::string::npos) {
-                param_line.insert(open_bracket, " " + param_symbol->name);
-            } else {
-                param_line += " " + param_symbol->name;
-            }
+            auto param_line = FormatNamedDeclaration(param, snapshot.get());
 
             result += param_line;
             params.push_back(std::move(param_line));
@@ -1811,6 +1913,37 @@ namespace glsld::Providers {
         return {
             .return_typename = std::move(return_typename),
             .base_name       = std::string(raw_name),
+            .full_spec       = std::move(result),
+            .params          = std::move(params)
+        };
+    }
+
+    FunctionFormatResult FormatStructConstructor(const SymbolInfo* symbol, Snapshot snapshot) {
+        const auto fields = Utils::CollectStructFieldsOrdered(symbol);
+        if (!fields.has_value()) {
+            return {};
+        }
+
+        auto result = symbol->name + "(";
+        std::vector<std::string> params;
+
+        for (const auto& [i, field] : *fields | std::views::enumerate) {
+            auto* field_node = static_cast<const VariableDeclarationNode*>(field->node);
+            auto  field_line = FormatNamedDeclaration(field_node, snapshot.get());
+
+            result += field_line;
+            params.push_back(std::move(field_line));
+
+            if (!std::cmp_equal(i + 1, fields->size())) {
+                result += ", ";
+            }
+        }
+
+        result += ")";
+
+        return {
+            .return_typename = symbol->name,
+            .base_name       = symbol->name,
             .full_spec       = std::move(result),
             .params          = std::move(params)
         };
