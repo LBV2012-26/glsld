@@ -2588,7 +2588,7 @@ namespace glsld {
 
         result.components.reserve(swizzle->count);
 
-        for (std::size_t i = 0; i != swizzle->count; ++i) {
+        for (auto i = 0uz; i != swizzle->count; ++i) {
             result.components.push_back(source->components[swizzle->indices[i]]);
         }
 
