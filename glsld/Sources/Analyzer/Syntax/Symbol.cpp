@@ -248,6 +248,16 @@ namespace glsld {
         return nullptr;
     }
 
+    const SymbolInfo* Scope::closest_host() const {
+        for (auto* scope = this; scope != nullptr; scope = scope->parent_) {
+            if (scope->host_symbol_ != nullptr) {
+                return scope->host_symbol_;
+            }
+        }
+
+        return nullptr;
+    }
+
     void Scope::GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const {
         CollectLocalSymbols(symbols);
 

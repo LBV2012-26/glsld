@@ -2180,7 +2180,7 @@ namespace glsld::Providers {
         };
 
         auto BuildDefinedDeclare = [&declare](const SymbolInfo* symbol, std::string_view type_spec) mutable -> void {
-            const auto* host_symbol = symbol->located_scope->host_symbol();
+            const auto* host_symbol = symbol->located_scope->closest_host();
 
             std::string host_name;
             if (host_symbol != nullptr) {

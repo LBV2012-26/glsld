@@ -140,7 +140,8 @@ namespace glsld {
         const SymbolInfo* FindVisibleType(std::string_view name) const;
         void GetVisibleSymbols(std::vector<const SymbolInfo*>& symbols) const;
 
-        const auto& host_symbol() const;
+        const SymbolInfo* closest_host() const;
+        const SymbolInfo* host_symbol() const;
         const auto& interval() const;
         const auto& children() const;
         const auto& symbols() const;

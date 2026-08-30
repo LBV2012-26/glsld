@@ -49,7 +49,7 @@ namespace glsld {
         builtin_parents_.push_back(builtin_scope);
     }
 
-    inline const auto& Scope::host_symbol() const {
+    inline const SymbolInfo* Scope::host_symbol() const {
         return host_symbol_;
     }
 
