@@ -119,6 +119,22 @@ namespace glsld {
                     });
                 }
             }
+        } else if (symbol != nullptr && symbol->kind == SymbolKind::kStruct) {
+            const auto fields = Utils::CollectStructFieldsOrdered(symbol);
+
+            for (auto i = 0uz; i != std::min(fields->size(), node->args.size()); ++i) {
+                const auto* field = (*fields)[i];
+                const auto* argv  = node->args[i];
+
+                if (field == nullptr || argv == nullptr || field->name.empty()) {
+                    continue;
+                }
+
+                hints_.push_back({
+                    .location = &argv->begin,
+                    .label    = field->name + ":"
+                });
+            }
         }
 
         AstVisitor::VisitCallExpression(node);
