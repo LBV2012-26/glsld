@@ -1,0 +1,5 @@
+CompileFlags:
+  Add:
+    - "-I./glsld/vcpkg_installed/x64-windows/x64-windows/include"    
+    - "-I./mimalloc/mimalloc/include"
+    - "-I./glsld/Sources"
