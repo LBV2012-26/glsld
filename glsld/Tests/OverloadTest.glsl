@@ -158,6 +158,12 @@ struct OuterData {
 void OverloadFunction(InnerData InnerData) {}
 void OverloadFunction(MiddleData MiddleData) {}
 void OverloadFunction(OuterData OuterData) {}
+void OverloadFunction(InnerData InnerData, MiddleData MiddleData, OuterData OuterData) {}
+void OverloadFunction(OuterData OuterData, MiddleData MiddleData, InnerData InnerData) {}
+void OverloadFunction(InnerData InnerData, OuterData OuterData, MiddleData MiddleData) {}
+void OverloadFunction(OuterData OuterData, InnerData InnerData, MiddleData MiddleData) {}
+void OverloadFunction(MiddleData MiddleData, InnerData InnerData) {}
+void OverloadFunction(OuterData OuterData, MiddleData MiddleData) {}
 
 layout(buffer_reference, scalar) buffer _Buffer {
     uint data[];
@@ -1053,6 +1059,11 @@ void main() {
     OverloadFunction(LocalOuter.Middle[0].Inner.float3 + vec3(1.0));                          // 匹配 vec3
     OverloadFunction(LocalOuter.Middle[1].float4x4 * LocalOuter.Middle[0].Inner.float3.xyzz); // 匹配 vec4
     OverloadFunction(dot(LocalOuter.Middle[0].Inner.vec3_field, vec3(0.5)));                  // 匹配 float32_t
+
+    OverloadFunction(OuterData(), MiddleData());
+    OverloadFunction(InnerData(), MiddleData(), OuterData());
+    OverloadFunction(MiddleData(), InnerData());
+    OverloadFunction(OuterData(), MiddleData(), InnerData());
 
     struct {
         int       Int;
