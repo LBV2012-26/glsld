@@ -15,7 +15,6 @@
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Ast/AstVisitor.hpp"
 #include "Analyzer/Syntax/Symbol.hpp"
-#include "Base/Hash.hpp"
 
 namespace glsld {
     CallExpressionNode* FindLengthCall(MemberAccessExpressionNode* node);
@@ -80,33 +79,29 @@ namespace glsld {
             const TypeInfo& target_type,
             ConversionMode mode) const;
 
-        std::optional<Value> ConvertArrayToType(
-            const Value& value,
-            const TypeInfo& target_type,
-            ConversionMode mode) const;
-
-        std::optional<Value> ConvertStructToType(
-            const Value& value,
-            const TypeInfo& target_type,
-            ConversionMode mode) const;
+        std::optional<Value> ForwardArrayChecked(const Value& value, const TypeInfo& target_type) const;
+        std::optional<Value> ForwardStructChecked(const Value& value, const TypeInfo& target_type) const;
 
         std::optional<Value> EvaluateBuiltinFunction(
             std::string_view name,
             std::span<const Value> args,
             const TypeInfo& result_type);
 
+        std::optional<Value> EvaluateAggregateElements(
+            std::span<ExpressionNode* const> elements,
+            const TypeInfo& target_type);
+
         std::optional<Value> EvaluateArrayElements(
+            std::span<ExpressionNode* const> elements,
+            const TypeInfo& target_type);
+
+        std::optional<Value> EvaluateStructElements(
             std::span<ExpressionNode* const> elements,
             const TypeInfo& target_type);
 
         std::optional<Value> EvaluateConstructor(
             CallExpressionNode* node,
             const TypeInfo& target_type);
-
-        std::optional<Value> EvaluateStructConstructor(
-            CallExpressionNode* node,
-            const TypeInfo& target_type,
-            const SymbolInfo* struct_symbol);
 
         std::optional<std::string> FormatValue(const Value& value) const;
 

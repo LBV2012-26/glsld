@@ -64,13 +64,8 @@ namespace glsld {
             return std::get_if<Scalar>(&value);
         }
 
-        template<typename Ty>
-        const Ty* GetScalarIf(const Value& value) {
-            const auto* scalar = GetScalar(value);
-            if (scalar == nullptr) {
-                return nullptr;
-            }
-            return std::get_if<Ty>(scalar);
+        const Aggregate* GetAggregate(const Value& value) {
+            return std::get_if<Aggregate>(&value);
         }
 
         std::optional<Scalar> ConvertScalarValue(const Scalar& scalar, BaseFamily target_family, bool explicit_conversion) {
@@ -89,30 +84,25 @@ namespace glsld {
                 break;
 
             case BaseFamily::kInt:
-                if (const auto* source = std::get_if<std::int64_t>(&scalar)) {
+                if (const auto* source = std::get_if<std::int64_t>(&scalar))
                     return *source;
-                }
-
-                if (const auto* source = std::get_if<std::uint64_t>(&scalar)) {
-                    if (*source <= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-                        return static_cast<std::int64_t>(*source);
-                    }
-                }
-
-                if (!explicit_conversion) {
+                if (!explicit_conversion)
                     return std::nullopt;
-                }
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar))
+                    return static_cast<std::int64_t>(*source);
 
                 if (const auto* source = std::get_if<double>(&scalar)) {
-                    constexpr double kMin          = -9223372036854775808.0; // -2^63
-                    constexpr double kMaxExclusive =  9223372036854775808.0; //  2^63
+                    constexpr auto kMin = std::numeric_limits<std::int64_t>::min();
+                    constexpr auto kMax = std::numeric_limits<std::int64_t>::max();
 
-                    if (std::isfinite(*source) &&
-                        *source >= kMin &&
-                        *source < kMaxExclusive)
+                    if (!std::isfinite(*source) ||
+                        *source < static_cast<double>(kMin) ||
+                        *source > static_cast<double>(kMax))
                     {
-                        return static_cast<std::int64_t>(*source);
+                        return std::nullopt;
                     }
+
+                    return static_cast<std::int64_t>(*source);
                 }
 
                 if (const auto* source = std::get_if<bool>(&scalar)) {
@@ -122,29 +112,23 @@ namespace glsld {
                 break;
 
             case BaseFamily::kUint:
-                if (const auto* source = std::get_if<std::uint64_t>(&scalar)) {
+                if (const auto* source = std::get_if<std::uint64_t>(&scalar))
                     return *source;
-                }
-
-                if (const auto* source = std::get_if<std::int64_t>(&scalar)) {
-                    if (source != nullptr && *source >= 0) {
-                        return static_cast<std::uint64_t>(*source);
-                    }
-                }
-
-                if (!explicit_conversion) {
+                if (const auto* source = std::get_if<std::int64_t>(&scalar))
+                    return static_cast<std::uint64_t>(*source);
+                if (!explicit_conversion)
                     return std::nullopt;
-                }
 
                 if (const auto* source = std::get_if<double>(&scalar)) {
-                    constexpr double kMaxExclusive = 18446744073709551616.0;
-
-                    if (std::isfinite(*source) &&
-                        *source >= 0.0 &&
-                        *source < kMaxExclusive)
+                    constexpr auto kMax = std::numeric_limits<std::uint64_t>::max();
+                    if (!std::isfinite(*source) ||
+                        *source < 0.0 ||
+                        *source > static_cast<double>(kMax))
                     {
-                        return static_cast<std::uint64_t>(*source);
+                        return std::nullopt;
                     }
+
+                    return static_cast<std::uint64_t>(*source);
                 }
 
                 if (const auto* source = std::get_if<bool>(&scalar)) {
@@ -160,12 +144,10 @@ namespace glsld {
                     return static_cast<double>(*source);
                 if (const auto* source = std::get_if<std::uint64_t>(&scalar))
                     return static_cast<double>(*source);
-
-                if (explicit_conversion) {
-                    if (const auto* source = std::get_if<bool>(&scalar)) {
-                        return *source ? 1.0 : 0.0;
-                    }
-                }
+                if (!explicit_conversion)
+                    return std::nullopt;
+                if (const auto* source = std::get_if<bool>(&scalar))
+                    return *source ? 1.0 : 0.0;
                 break;
 
             default:
@@ -240,15 +222,11 @@ namespace glsld {
         }
 
         template <IsGlmVector Ty>
-        std::optional<GlmAggregate> ToGlmVector(const Aggregate& source) {
+        std::optional<Ty> ToGlmVector(std::span<const Scalar> components) {
             constexpr auto kLength = GlmShape<std::remove_cvref_t<Ty>>::rows;
             constexpr auto kFamily = GetGlmBaseFamily<Ty>();
 
-            if (kFamily == BaseFamily::kUnknown ||
-                source.type_desc.vector_count != 1 ||
-                source.type_desc.vector_length != kLength ||
-                source.components.size() != static_cast<std::size_t>(kLength))
-            {
+            if (kFamily == BaseFamily::kUnknown || components.size() != static_cast<std::size_t>(kLength)) {
                 return std::nullopt;
             }
 
@@ -256,55 +234,55 @@ namespace glsld {
 
             for (glm::length_t i = 0; i != kLength; ++i) {
                 const auto index     = static_cast<std::size_t>(i);
-                const auto converted = ConvertScalarValue(source.components[index], kFamily, false);
+                const auto converted = ConvertScalarValue(components[index], kFamily, false);
 
                 if (!converted.has_value()) {
                     return std::nullopt;
                 }
 
-                const auto* component = std::get_if<typename Ty::value_type>(&*converted);
-                if (component == nullptr) {
-                    return std::nullopt;
-                }
-
-                result[i] = *component;
+                result[i] = std::get<typename Ty::value_type>(*converted);
             }
 
             return result;
+        }
+
+        template <IsGlmVector Ty>
+        std::optional<GlmAggregate> ToGlmVector(const Aggregate& source) {
+            constexpr auto kLength = GlmShape<std::remove_cvref_t<Ty>>::rows;
+            if (source.type_desc.vector_count != 1 || source.type_desc.vector_length != kLength) {
+                return std::nullopt;
+            }
+
+            auto result = ToGlmVector<Ty>(source.components);
+            if (!result.has_value()) {
+                return std::nullopt;
+            }
+
+            return GlmAggregate{ std::move(*result) };
         }
 
         template <IsGlmMatrix Ty>
         std::optional<GlmAggregate> ToGlmMatrix(const Aggregate& source) {
             constexpr auto kColumns = GlmShape<std::remove_cvref_t<Ty>>::columns;
             constexpr auto kRows    = GlmShape<std::remove_cvref_t<Ty>>::rows;
-            constexpr auto kFamily  = GetGlmBaseFamily<Ty>();
-
-            if (kFamily == BaseFamily::kUnknown ||
-                source.type_desc.vector_count != kColumns ||
-                source.type_desc.vector_length != kRows ||
-                source.components.size() != static_cast<std::size_t>(kColumns * kRows))
-            {
+            if (source.type_desc.vector_count != kColumns || source.type_desc.vector_length != kRows) {
                 return std::nullopt;
             }
 
             Ty result{};
 
             for (glm::length_t column = 0; column != kColumns; ++column) {
-                for (glm::length_t row = 0; row != kRows; ++row) {
-                    const auto index     = static_cast<std::size_t>(column * kRows + row);
-                    const auto converted = ConvertScalarValue(source.components[index], kFamily, false);
+                const auto offset = static_cast<std::size_t>(column * kRows);
+                const auto size   = static_cast<std::size_t>(kRows);
 
-                    if (!converted.has_value()) {
-                        return std::nullopt;
-                    }
+                auto component_span = std::span(source.components);
+                auto column_value   = ToGlmVector<typename Ty::col_type>(component_span.subspan(offset, size));
 
-                    const auto* component = std::get_if<typename Ty::value_type>(&*converted);
-                    if (component == nullptr) {
-                        return std::nullopt;
-                    }
-
-                    result[column][row] = *component;
+                if (!column_value.has_value()) {
+                    return std::nullopt;
                 }
+
+                result[column] = std::move(*column_value);
             }
 
             return result;
@@ -420,6 +398,7 @@ namespace glsld {
                     };
 
                     result.components.reserve(static_cast<std::size_t>(Shape::rows));
+
                     for (glm::length_t i = 0; i != Shape::rows; ++i) {
                         const auto component = FromGlmComponent(glm_value[i], result_type.family);
                         if (!component.has_value()) {
@@ -431,9 +410,7 @@ namespace glsld {
 
                     return result;
                 } else {
-                    if (result_type.vector_count  != Shape::columns ||
-                        result_type.vector_length != Shape::rows)
-                    {
+                    if (result_type.vector_count != Shape::columns || result_type.vector_length != Shape::rows) {
                         return std::nullopt;
                     }
 
@@ -471,13 +448,9 @@ namespace glsld {
         }
 
         template <typename Ty>
-        inline constexpr bool is_optional_v = false;
-
-        template <typename Ty>
-        inline constexpr bool is_optional_v<std::optional<Ty>> = true;
-
-        template <typename Ty>
-        concept IsOptional = is_optional_v<std::remove_cvref_t<Ty>>;
+        concept IsOptional = requires {
+            [] <typename Uy> (std::optional<Uy>*) -> void {}(static_cast<std::remove_cvref_t<Ty>*>(nullptr));
+        };
 
         template <typename Ty>
         std::optional<Value> WrapReturnValue(Ty&& value, const TypeInfo& result_type) {
@@ -506,7 +479,7 @@ namespace glsld {
         std::optional<Ty> ExtractArgument(const Value& value) {
             using TargetType = std::remove_cvref_t<Ty>;
             if constexpr (IsGlmVector<TargetType> || IsGlmMatrix<TargetType>) {
-                const auto* aggregate = std::get_if<Aggregate>(&value);
+                const auto* aggregate = GetAggregate(value);
                 if (aggregate == nullptr) {
                     return std::nullopt;
                 }
@@ -650,12 +623,12 @@ namespace glsld {
                     component_args.clear();
 
                     for (const auto& argv : args) {
-                        if (const auto* scalar = std::get_if<Scalar>(&argv)) {
+                        if (const auto* scalar = GetScalar(argv)) {
                             component_args.emplace_back(*scalar);
                             continue;
                         }
 
-                        const auto* aggregate = std::get_if<Aggregate>(&argv);
+                        const auto* aggregate = GetAggregate(argv);
                         if (aggregate == nullptr || aggregate->components.size() != component_count) {
                             return std::nullopt;
                         }
@@ -670,7 +643,7 @@ namespace glsld {
                         return std::nullopt;
                     }
 
-                    const auto* scalar_result = std::get_if<Scalar>(&*component_result);
+                    const auto* scalar_result = GetScalar(*component_result);
                     if (scalar_result == nullptr) {
                         return std::nullopt;
                     }
@@ -984,25 +957,17 @@ namespace glsld {
         const TypeInfo& target_type,
         ConversionMode mode) const
     {
-        if (!target_type.is_valid()) {
+        if (!target_type.is_valid())
             return std::nullopt;
-        }
-
-        if (target_type.is_array()) {
-            return ConvertArrayToType(value, target_type, mode);
-        }
-
-        if (target_type.block_symbol != nullptr) {
-            return ConvertStructToType(value, target_type, mode);
-        }
-
-        if (std::holds_alternative<ArrayPtr>(value) || std::holds_alternative<StructPtr>(value)) {
-            return std::nullopt;
-        }
+        if (target_type.is_array())
+            return ForwardArrayChecked(value, target_type);
+        if (target_type.block_symbol != nullptr)
+            return ForwardStructChecked(value, target_type);
 
         bool explicit_conversion = mode == ConversionMode::kExplicit;
-
         const auto& target_desc = target_type.type_desc;
+
+        // scalar
         if (!IsAggregateType(target_desc)) {
             const auto* scalar = GetScalar(value);
             if (scalar == nullptr) {
@@ -1012,7 +977,8 @@ namespace glsld {
             return ConvertScalarValue(*scalar, target_desc.family, explicit_conversion);
         }
 
-        const auto* aggregate = std::get_if<Aggregate>(&value);
+        // vector and matrix
+        const auto* aggregate = GetAggregate(value);
         if (aggregate == nullptr ||
             aggregate->type_desc.vector_count  != target_desc.vector_count ||
             aggregate->type_desc.vector_length != target_desc.vector_length)
@@ -1063,51 +1029,11 @@ namespace glsld {
 
             return result;
         }
-
-        std::optional<SymbolList> CollectStructFields(const SymbolInfo* struct_symbol) {
-            if (struct_symbol == nullptr ||
-                struct_symbol->kind != SymbolKind::kStruct ||
-                struct_symbol->node == nullptr ||
-                struct_symbol->node->kind() != AstNodeKind::kStructDeclaration)
-            {
-                return std::nullopt;
-            }
-
-            auto* struct_decl = static_cast<const StructDeclarationNode*>(struct_symbol->node);
-            if (struct_decl->body == nullptr) {
-                return std::nullopt;
-            }
-
-            SymbolList result;
-
-            for (const auto* child : struct_decl->body->children) {
-                if (child == nullptr ||
-                    child->kind() != AstNodeKind::kDeclarationGroup)
-                {
-                    return std::nullopt;
-                }
-
-                auto* decl_group = static_cast<const DeclarationGroupNode*>(child);
-                for (const auto* decl : decl_group->declarations) {
-                    if (decl == nullptr ||
-                        decl->declared_symbol == nullptr ||
-                        decl->declared_symbol->kind != SymbolKind::kVariable)
-                    {
-                        return std::nullopt;
-                    }
-
-                    result.push_back(decl->declared_symbol);
-                }
-            }
-
-            return result;
-        }
     }
 
-    std::optional<Value> ConstantEvaluator::ConvertArrayToType(
+    std::optional<Value> ConstantEvaluator::ForwardArrayChecked(
         const Value& value,
-        const TypeInfo& target_type,
-        ConversionMode mode) const
+        const TypeInfo& target_type) const
     {
         const auto* source = GetArray(value);
         if (source == nullptr ||
@@ -1117,39 +1043,18 @@ namespace glsld {
             return std::nullopt;
         }
 
-        const auto expected_size = *target_type.array_sizes.front();
-        if (source->elements.size() != expected_size) {
+        if (!source->type_info.CompareWithoutQualifiers(target_type)) {
             return std::nullopt;
         }
 
-        const auto element_type = StripOuterArrayDimension(target_type);
-
-        auto result = std::make_shared<Array>();
-        result->type_info = target_type;
-        result->elements.reserve(source->elements.size());
-
-        for (const auto& element : source->elements) {
-            auto converted = ConvertValueToType(element, element_type, mode);
-            if (!converted.has_value()) {
-                return std::nullopt;
-            }
-
-            result->elements.push_back(std::move(*converted));
-        }
-
-        return ArrayPtr{ std::move(result) };
+        return value;
     }
 
-    std::optional<Value> ConstantEvaluator::ConvertStructToType(
+    std::optional<Value> ConstantEvaluator::ForwardStructChecked(
         const Value& value,
-        const TypeInfo& target_type,
-        ConversionMode mode) const
+        const TypeInfo& target_type) const
     {
-        if (!target_type.is_valid() ||
-            target_type.is_array() ||
-            target_type.block_symbol == nullptr ||
-            target_type.block_symbol->kind != SymbolKind::kStruct)
-        {
+        if (target_type.block_symbol->kind != SymbolKind::kStruct) {
             return std::nullopt;
         }
 
@@ -1160,35 +1065,7 @@ namespace glsld {
             return std::nullopt;
         }
 
-        const auto target_fields = CollectStructFields(target_type.block_symbol);
-        if (!target_fields.has_value() || source->fields.size() != target_fields->size()) {
-            return std::nullopt;
-        }
-
-        auto result = std::make_shared<Struct>();
-        result->type_info = target_type;
-        result->fields.reserve(target_fields->size());
-
-        for (auto i = 0uz; i != target_fields->size(); ++i) {
-            const auto* target_field = (*target_fields)[i];
-            const auto& source_field = source->fields[i];
-
-            if (target_field == nullptr || source_field.symbol != target_field) {
-                return std::nullopt;
-            }
-
-            auto converted = ConvertValueToType(source_field.value, target_field->type_info, mode);
-            if (!converted.has_value()) {
-                return std::nullopt;
-            }
-
-            result->fields.push_back(StructField{
-                .symbol = target_field,
-                .value  = std::move(*converted)
-            });
-        }
-
-        return StructPtr{ std::move(result) };
+        return value;
     }
 
     std::optional<ConstantEvaluator::Value> ConstantEvaluator::EvaluateBuiltinFunction(
@@ -1202,6 +1079,64 @@ namespace glsld {
         }
 
         return std::nullopt;
+    }
+
+    std::optional<Value> ConstantEvaluator::EvaluateAggregateElements(
+        std::span<ExpressionNode* const> elements,
+        const TypeInfo& target_type)
+    {
+        const auto& target_desc = target_type.type_desc;
+        const bool  is_matrix   = target_desc.vector_count > 1;
+
+        const auto expected_size = static_cast<std::size_t>(
+            is_matrix ? target_desc.vector_count : target_desc.vector_length);
+
+        if (elements.size() != expected_size) {
+            return std::nullopt;
+        }
+
+        auto element_type = target_type;
+        element_type.type_desc.vector_count = 1;
+        if (!is_matrix) {
+            element_type.type_desc.vector_length = 1;
+        }
+
+        Aggregate result{
+            .type_desc  = target_desc,
+            .components = {}
+        };
+
+        result.components.reserve(ComponentCount(target_desc));
+
+        for (auto* element : elements) {
+            const auto evaluated = Evaluate(element);
+            if (!evaluated) {
+                return std::nullopt;
+            }
+
+            auto converted = ConvertValueToType(*evaluated, element_type, ConversionMode::kImplicit);
+            if (!converted.has_value()) {
+                return std::nullopt;
+            }
+
+            if (is_matrix) {
+                auto* column = GetAggregate(*converted);
+                if (column == nullptr) {
+                    return std::nullopt;
+                }
+
+                result.components.append_range(column->components | std::views::as_rvalue);
+            } else {
+                const auto* component = GetScalar(*converted);
+                if (component == nullptr) {
+                    return std::nullopt;
+                }
+
+                result.components.push_back(*component);
+            }
+        }
+
+        return result;
     }
 
     std::optional<Value> ConstantEvaluator::EvaluateArrayElements(
@@ -1248,18 +1183,56 @@ namespace glsld {
         return ArrayPtr{ std::move(result) };
     }
 
+    std::optional<Value> ConstantEvaluator::EvaluateStructElements(
+        std::span<ExpressionNode* const> elements,
+        const TypeInfo& target_type)
+    {
+        const auto fields = Utils::CollectStructFieldsOrdered(target_type.block_symbol);
+        if (!fields.has_value() || elements.size() != fields->size()) {
+            return std::nullopt;
+        }
+
+        auto result = std::make_shared<Struct>();
+        result->type_info = target_type;
+        result->fields.reserve(fields->size());
+
+        for (auto i = 0uz; i != fields->size(); ++i) {
+            // recursively evaluate each field
+            const auto evaluated = Evaluate(elements[i]);
+            if (!evaluated.has_value()) {
+                return std::nullopt;
+            }
+
+            const auto* field = (*fields)[i];
+
+            auto converted = ConvertValueToType(*evaluated, field->type_info, ConversionMode::kImplicit);
+            if (!converted.has_value()) {
+                return std::nullopt;
+            }
+
+            result->fields.emplace_back(field, std::move(*converted));
+        }
+
+        return StructPtr{ std::move(result) };
+    }
+
     std::optional<ConstantEvaluator::Value> ConstantEvaluator::EvaluateConstructor(
         CallExpressionNode* node,
         const TypeInfo& target_type)
     {
         if (node == nullptr ||
             !target_type.is_valid() ||
-            target_type.is_array() ||
-            target_type.block_symbol != nullptr)
+            target_type.is_array())
         {
             return std::nullopt;
         }
 
+        // struct constructor
+        if (target_type.block_symbol != nullptr) {
+            return EvaluateStructElements(node->args, target_type);
+        }
+
+        // builtin constructor
         std::vector<Value> args;
         args.reserve(node->args.size());
 
@@ -1277,7 +1250,7 @@ namespace glsld {
         }
 
         const auto& target_desc = target_type.type_desc;
-        // int(...), float(...)
+        // int(...), float(...), etc.
         if (!IsAggregateType(target_desc)) {
             if (args.size() != 1) {
                 return std::nullopt;
@@ -1286,6 +1259,7 @@ namespace glsld {
             return ConvertValueToType(args.front(), target_type, ConversionMode::kExplicit);
         }
 
+        // vector and matrix
         const bool is_vector = target_desc.vector_count == 1 && target_desc.vector_length > 1;
         const bool is_matrix = target_desc.vector_count  > 1 && target_desc.vector_length > 1;
         if (!is_vector && !is_matrix) {
@@ -1312,7 +1286,7 @@ namespace glsld {
             }
         }
 
-        // mat4(1.0)
+        // mat4(1.0), 初始化对角线元素
         if (is_matrix && args.size() == 1) {
             if (const auto* scalar = GetScalar(args.front())) {
                 const auto converted = ConvertScalarValue(*scalar, target_desc.family, true);
@@ -1337,7 +1311,7 @@ namespace glsld {
 
         // mat3(mat2(...)), mat2(mat3(...))
         if (is_matrix && args.size() == 1) {
-            const auto* source = std::get_if<Aggregate>(&args.front());
+            const auto* source = GetAggregate(args.front());
             if (source != nullptr &&
                 source->type_desc.vector_count  > 1 &&
                 source->type_desc.vector_length > 1)
@@ -1347,7 +1321,7 @@ namespace glsld {
                     .components = std::vector<Scalar>(target_count, Scalar{ 0.0 })
                 };
 
-                // 扩展矩阵时，新增的对角线分量为 1
+                // 扩展矩阵时，新增的对角线分量为 1.0。原矩阵放在左上角
                 const auto diagonal_size = std::min(target_desc.vector_count, target_desc.vector_length);
                 for (int i = 0; i != diagonal_size; ++i) {
                     const auto index = static_cast<std::size_t>(i * target_desc.vector_length + i);
@@ -1375,19 +1349,19 @@ namespace glsld {
             }
         }
 
-        // 收集 vec4(1, vec2(2, 3), 4) 或 mat2(vec2(...), vec2(...)) 的分量
+        // 收集 vec4(1, vec2(2, 3), 4) 或 mat4(vec4(...), vec4(...)) 的分量
         std::vector<Scalar> flattened;
         flattened.reserve(target_count);
 
-        for (auto arg_index = 0uz; arg_index != args.size(); ++arg_index) {
-            const auto& argv = args[arg_index];
+        for (auto i = 0uz; i != args.size(); ++i) {
+            const auto& argv = args[i];
             if (const auto* scalar = GetScalar(argv)) {
                 flattened.push_back(*scalar);
                 continue;
             }
 
-            const auto* aggregate = std::get_if<Aggregate>(&argv);
-            // 普通分量列表中只允许向量，不展开矩阵
+            const auto* aggregate = GetAggregate(argv);
+            // 矩阵构造函数不允许嵌套多个矩阵构造
             if (aggregate == nullptr ||
                 aggregate->type_desc.vector_count  != 1 ||
                 aggregate->type_desc.vector_length <= 1)
@@ -1403,8 +1377,8 @@ namespace glsld {
         }
 
         if (flattened.size() > target_count) {
-            // 仅允许最后一个向量提供多余分量，如 vec3(vec4(...))
-            const auto* last = std::get_if<Aggregate>(&args.back());
+            // 仅允许最后一个向量提供多余分量，如 vec3(float, vec4(...))，不允许 vec3(vec4(...), float)
+            const auto* last = GetAggregate(args.back());
             if (last == nullptr || last->type_desc.vector_count != 1) {
                 return std::nullopt;
             }
@@ -1434,57 +1408,6 @@ namespace glsld {
         }
 
         return result;
-    }
-
-    std::optional<Value> ConstantEvaluator::EvaluateStructConstructor(
-        CallExpressionNode* node,
-        const TypeInfo& target_type,
-        const SymbolInfo* struct_symbol)
-    {
-        if (node == nullptr ||
-            !target_type.is_valid() ||
-            target_type.is_array() ||
-            struct_symbol == nullptr ||
-            struct_symbol->kind != SymbolKind::kStruct ||
-            target_type.block_symbol != struct_symbol)
-        {
-            return std::nullopt;
-        }
-
-        const auto fields = CollectStructFields(struct_symbol);
-        if (!fields.has_value() || node->args.size() != fields->size()) {
-            return std::nullopt;
-        }
-
-        auto result = std::make_shared<Struct>();
-        result->type_info = target_type;
-        result->fields.reserve(fields->size());
-
-        for (auto i = 0uz; i != fields->size(); ++i) {
-            auto* argument = node->args[i];
-            const auto* field = (*fields)[i];
-
-            if (argument == nullptr || field == nullptr) {
-                return std::nullopt;
-            }
-
-            auto argv = Evaluate(argument);
-            if (!argv.has_value()) {
-                return std::nullopt;
-            }
-
-            auto converted = ConvertValueToType(*argv, field->type_info, ConversionMode::kImplicit);
-            if (!converted.has_value()) {
-                return std::nullopt;
-            }
-
-            result->fields.push_back(StructField{
-                .symbol = field,
-                .value  = std::move(*converted)
-            });
-        }
-
-        return StructPtr{ std::move(result) };
     }
 
     namespace {
@@ -1541,7 +1464,7 @@ namespace glsld {
     }
 
     std::optional<std::string> ConstantEvaluator::FormatValue(const Value& value) const {
-        if (const auto* scalar = std::get_if<Scalar>(&value)) {
+        if (const auto* scalar = GetScalar(value)) {
             return FormatScalar(*scalar);
         }
 
@@ -1585,7 +1508,7 @@ namespace glsld {
                 return std::nullopt;
             }
 
-            const auto declared_fields = CollectStructFields(struct_symbol);
+            const auto declared_fields = Utils::CollectStructFieldsOrdered(struct_symbol);
             if (!declared_fields.has_value() || declared_fields->size() != object->fields.size()) {
                 return std::nullopt;
             }
@@ -1614,7 +1537,7 @@ namespace glsld {
             return result;
         }
 
-        const auto* aggregate = std::get_if<Aggregate>(&value);
+        const auto* aggregate = GetAggregate(value);
         if (aggregate == nullptr || aggregate->components.size() != ComponentCount(aggregate->type_desc)) {
             return std::nullopt;
         }
@@ -1642,7 +1565,6 @@ namespace glsld {
         if (node->name == "true") {
             current_value_ = true;
             return;
-
         } else if (node->name == "false") {
             current_value_ = false;
             return;
@@ -1688,18 +1610,27 @@ namespace glsld {
     }
 
     void ConstantEvaluator::VisitInitializerListExpression(InitializerListExpressionNode* node) {
-        if (node == nullptr || !node->evaluated_type.is_array()) {
+        if (node == nullptr) {
             is_valid_ = false;
             return;
         }
 
-        auto result = EvaluateArrayElements(node->elements, node->evaluated_type);
+        std::optional<Value> result;
+
+        if (node->evaluated_type.is_array()) {
+            result = EvaluateArrayElements(node->elements, node->evaluated_type);
+        } else if (node->evaluated_type.block_symbol != nullptr) {
+            result = EvaluateStructElements(node->elements, node->evaluated_type);
+        } else if (IsAggregateType(node->evaluated_type.type_desc)) {
+            result = EvaluateAggregateElements(node->elements, node->evaluated_type);
+        }
+
         if (!result.has_value()) {
             is_valid_ = false;
             return;
         }
 
-        current_value_ = *result;
+        current_value_ = std::move(*result);
     }
 
     void ConstantEvaluator::VisitCastExpression(CastExpressionNode* node) {
@@ -1835,7 +1766,7 @@ namespace glsld {
 
                     break;
 
-                case TokenType::kSlash:
+                case TokenType::kSlash: // GLSL 矩阵除法是逐分量计算，而 GLM 是 A * glm::inverse(B)
                     if constexpr (IsValidGlmComponentWiseOperation<LeftType, RightType>()) {
                         if constexpr (IsGlmMatrix<LeftType> && IsGlmMatrix<RightType> && std::same_as<LeftType, RightType>) {
                             LeftType result{};
@@ -1846,7 +1777,6 @@ namespace glsld {
                             return WrapGlmResult(std::move(result));
                         } else if constexpr (std::is_arithmetic_v<LeftType> && IsGlmMatrix<RightType>) {
                             RightType result{};
-
                             for (glm::length_t column = 0; column != GlmShape<RightType>::columns; ++column) {
                                 result[column] = lhs / rhs[column];
                             }
@@ -1854,7 +1784,6 @@ namespace glsld {
                             return WrapGlmResult(std::move(result));
                         } else if constexpr (IsGlmMatrix<LeftType> && std::is_arithmetic_v<RightType>) {
                             LeftType result{};
-
                             for (glm::length_t column = 0; column != GlmShape<LeftType>::columns; ++column) {
                                 result[column] = lhs[column] / rhs;
                             }
@@ -1876,9 +1805,10 @@ namespace glsld {
         }
 
         std::optional<GlmAggregate> EvaluateGlmBinary(const Value& lhs, const Value& rhs, TokenType op, BaseFamily result_family) {
-            const auto* lhs_aggregate = std::get_if<Aggregate>(&lhs);
-            const auto* rhs_aggregate = std::get_if<Aggregate>(&rhs);
+            const auto* lhs_aggregate = GetAggregate(lhs);
+            const auto* rhs_aggregate = GetAggregate(rhs);
 
+            // 向量/矩阵混合二元运算
             if (lhs_aggregate != nullptr && rhs_aggregate != nullptr) {
                 const auto glm_lhs = ToGlmAggregate(*lhs_aggregate, result_family);
                 const auto glm_rhs = ToGlmAggregate(*rhs_aggregate, result_family);
@@ -1895,6 +1825,7 @@ namespace glsld {
             const auto* lhs_scalar = GetScalar(lhs);
             const auto* rhs_scalar = GetScalar(rhs);
 
+            // 向量/矩阵与标量混合二元运算
             if (lhs_aggregate != nullptr && rhs_scalar != nullptr) {
                 const auto glm_lhs = ToGlmAggregate(*lhs_aggregate, result_family);
                 if (!glm_lhs.has_value()) {
@@ -1920,6 +1851,7 @@ namespace glsld {
                 }, *glm_lhs);
             }
 
+            // 标量与向量/矩阵混合二元运算
             if (lhs_scalar != nullptr && rhs_aggregate != nullptr) {
                 const auto glm_rhs = ToGlmAggregate(*rhs_aggregate, result_family);
                 if (!glm_rhs.has_value()) {
@@ -1963,10 +1895,11 @@ namespace glsld {
             return;
         }
 
-        const auto* left_result  = GetScalar(*left_value);
-        const auto* right_result = GetScalar(*right_value);
+        const auto* left_scalar  = GetScalar(*left_value);
+        const auto* right_scalar = GetScalar(*right_value);
 
-        if (left_result == nullptr || right_result == nullptr) {
+        // 双聚合类型或者有任意一个不是标量
+        if (left_scalar == nullptr || right_scalar == nullptr) {
             const auto glm_result =
                 EvaluateGlmBinary(*left_value, *right_value, node->op, node->evaluated_type.type_desc.family);
 
@@ -2014,7 +1947,7 @@ namespace glsld {
         case TokenType::kMinus:
         case TokenType::kStar:
         case TokenType::kSlash: {
-            const auto promoted = PromoteArithmetic(*left_result, *right_result);
+            const auto promoted = PromoteArithmetic(*left_scalar, *right_scalar);
             if (!promoted.has_value()) {
                 is_valid_ = false;
                 return;
@@ -2053,9 +1986,9 @@ namespace glsld {
         }
 
         case TokenType::kPercent:
-            if (left_result->index() != right_result->index() ||
-                std::holds_alternative<bool>(*left_result) ||
-                std::holds_alternative<double>(*left_result))
+            if (left_scalar->index() != right_scalar->index() ||
+                std::holds_alternative<bool>(*left_scalar) ||
+                std::holds_alternative<double>(*left_scalar))
             {
                 is_valid_ = false;
                 return;
@@ -2073,7 +2006,7 @@ namespace glsld {
                 } else {
                     is_valid_ = false;
                 }
-            }, *left_result, *right_result);
+            }, *left_scalar, *right_scalar);
 
             break;
 
@@ -2082,9 +2015,9 @@ namespace glsld {
         case TokenType::kCaret:
         case TokenType::kLeftShift:
         case TokenType::kRightShift: {
-            if (left_result->index() != right_result->index() ||
-                std::holds_alternative<bool>(*left_result) ||
-                std::holds_alternative<double>(*left_result))
+            if (left_scalar->index() != right_scalar->index() ||
+                std::holds_alternative<bool>(*left_scalar) ||
+                std::holds_alternative<double>(*left_scalar))
             {
                 is_valid_ = false;
                 return;
@@ -2117,7 +2050,7 @@ namespace glsld {
                 } else {
                     is_valid_ = false;
                 }
-            }, * left_result, * right_result);
+            }, * left_scalar, * right_scalar);
 
             break;
         }
@@ -2142,12 +2075,10 @@ namespace glsld {
                     return WrapGlmResult(value);
 
                 case TokenType::kMinus:
-                    if constexpr ((std::is_integral_v<ComponentType> && std::is_signed_v<ComponentType>) ||
-                                  std::is_floating_point_v<ComponentType>)
-                    {
+                    if constexpr ((std::is_integral_v<ComponentType> && std::is_signed_v<ComponentType>) || std::is_floating_point_v<ComponentType>) {
                         return WrapGlmResult(-value);
                     } else {
-                        // u64vec/u64mat 不允许进入 GLM 的一元负号。
+                        // u64vec/u64mat 不允许进入 GLM 的一元负号
                         return std::nullopt;
                     }
 
@@ -2181,9 +2112,9 @@ namespace glsld {
             return;
         }
 
-        const auto* result = GetScalar(*value);
-        if (result == nullptr) {
-            const auto* aggregate = std::get_if<Aggregate>(&*value);
+        const auto* scalar = GetScalar(*value);
+        if (scalar == nullptr) { // 聚合类型
+            const auto* aggregate = GetAggregate(*value);
             if (aggregate == nullptr) {
                 is_valid_ = false;
                 return;
@@ -2207,7 +2138,7 @@ namespace glsld {
 
         switch (node->op) {
         case TokenType::kMinus:
-            if (std::holds_alternative<bool>(*result)) {
+            if (std::holds_alternative<bool>(*scalar)) {
                 is_valid_ = false;
             } else {
                 std::visit([this](auto&& value) -> void {
@@ -2217,26 +2148,26 @@ namespace glsld {
                     } else {
                         is_valid_ = false;
                     }
-                }, *result);
+                }, *scalar);
             }
 
             break;
 
         case TokenType::kPlus:
-            current_value_ = *result;
+            current_value_ = *scalar;
             break;
 
         case TokenType::kExclamation:
-            if (!std::holds_alternative<bool>(*result)) {
+            if (!std::holds_alternative<bool>(*scalar)) {
                 is_valid_ = false;
             } else {
-                current_value_ = !std::get<bool>(*result);
+                current_value_ = !std::get<bool>(*scalar);
             }
 
             break;
 
         case TokenType::kTilde:
-            if (std::holds_alternative<bool>(*result) || std::holds_alternative<double>(*result)) {
+            if (std::holds_alternative<bool>(*scalar) || std::holds_alternative<double>(*scalar)) {
                 is_valid_ = false;
             } else {
                 std::visit([this](auto&& value) -> void {
@@ -2246,7 +2177,7 @@ namespace glsld {
                     } else {
                         is_valid_ = false;
                     }
-                }, *result);
+                }, *scalar);
             }
 
             break;
@@ -2263,6 +2194,7 @@ namespace glsld {
             return;
         }
 
+        // array constructor like float array = float[3](1.0, 2.0, 3.0)
         if (node->evaluated_type.is_array() &&
             node->callee->kind() == AstNodeKind::kIndexExpression)
         {
@@ -2283,9 +2215,16 @@ namespace glsld {
 
         auto* callee = static_cast<VariableExpressionNode*>(node->callee);
 
-        if (callee->original_token.type == TokenType::kPrimitive ||
-            callee->original_token.type == TokenType::kBuiltInType)
-        {
+        const bool builtin_construct =
+            callee->original_token.type == TokenType::kPrimitive ||
+            callee->original_token.type == TokenType::kBuiltInType;
+
+        auto* symbol_slot = std::get_if<const SymbolInfo*>(&callee->linked_symbols);
+
+        const bool struct_construct =
+            symbol_slot != nullptr && *symbol_slot != nullptr && (*symbol_slot)->kind == SymbolKind::kStruct;
+
+        if (builtin_construct || struct_construct) {
             auto converted = EvaluateConstructor(node, node->evaluated_type);
             if (!converted.has_value()) {
                 is_valid_ = false;
@@ -2296,29 +2235,13 @@ namespace glsld {
             return;
         }
 
-        auto* symbol_slot = std::get_if<const SymbolInfo*>(&callee->linked_symbols);
-
         if (symbol_slot == nullptr || *symbol_slot == nullptr) {
             is_valid_ = false;
             return;
         }
 
         const auto* symbol = *symbol_slot;
-
-        if (symbol->kind == SymbolKind::kStruct) {
-            auto result = EvaluateStructConstructor(node, node->evaluated_type, symbol);
-            if (!result.has_value()) {
-                is_valid_ = false;
-                return;
-            }
-
-            current_value_ = std::move(*result);
-            return;
-        }
-
-        if (symbol->kind != SymbolKind::kFunctionDecl &&
-            symbol->kind != SymbolKind::kFunctionImpl)
-        {
+        if (symbol->kind != SymbolKind::kFunctionDecl && symbol->kind != SymbolKind::kFunctionImpl) {
             is_valid_ = false;
             return;
         }
@@ -2329,6 +2252,7 @@ namespace glsld {
             return;
         }
 
+        // collect arguments and evaluate them
         std::vector<Value> args;
         args.reserve(node->args.size());
 
@@ -2368,6 +2292,23 @@ namespace glsld {
         current_value_ = std::move(*converted_result);
     }
 
+    namespace {
+        std::optional<std::size_t> GetIndex(const Scalar* index_scalar) {
+            std::optional<std::size_t> index;
+            if (const auto* signed_index = std::get_if<std::int64_t>(index_scalar)) {
+                if (*signed_index >= 0) {
+                    index = static_cast<std::size_t>(*signed_index);
+                }
+            } else if (const auto* unsigned_index = std::get_if<std::uint64_t>(index_scalar)) {
+                if (*unsigned_index <= static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+                    index = static_cast<std::size_t>(*unsigned_index);
+                }
+            }
+
+            return index;
+        }
+    }
+
     void ConstantEvaluator::VisitIndexExpression(IndexExpressionNode* node) {
         if (node == nullptr || node->base == nullptr || node->index == nullptr) {
             is_valid_ = false;
@@ -2392,17 +2333,7 @@ namespace glsld {
             return;
         }
 
-        std::optional<std::size_t> index;
-        if (const auto* signed_index = std::get_if<std::int64_t>(index_scalar)) {
-            if (*signed_index >= 0) {
-                index = static_cast<std::size_t>(*signed_index);
-            }
-        } else if (const auto* unsigned_index = std::get_if<std::uint64_t>(index_scalar)) {
-            if (*unsigned_index <= static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
-                index = static_cast<std::size_t>(*unsigned_index);
-            }
-        }
-
+        const auto index = GetIndex(index_scalar);
         if (!index.has_value()) {
             is_valid_ = false;
             return;
@@ -2418,7 +2349,7 @@ namespace glsld {
             return;
         }
 
-        const auto* aggregate = std::get_if<Aggregate>(&*base_value);
+        const auto* aggregate = GetAggregate(*base_value);
         if (aggregate == nullptr || aggregate->components.size() != ComponentCount(aggregate->type_desc)) {
             is_valid_ = false;
             return;
@@ -2480,64 +2411,39 @@ namespace glsld {
             return;
         }
 
+        auto TransformLiteral = [this, &literal] <typename Ty> (std::type_identity<Ty>) -> void {
+            Ty value{};
+            std::from_chars_result result;
+            if constexpr (std::is_floating_point_v<Ty>) {
+                result = std::from_chars(literal.core.data(), literal.core.data() + literal.core.size(), value);
+            } else {
+                result = std::from_chars(literal.core.data(), literal.core.data() + literal.core.size(), value, literal.base);
+            }
+
+            if (result.ec == std::errc{}) {
+                current_value_ = value;
+                return;
+            }
+
+            is_valid_ = false;
+        };
+
         switch (literal.kind) {
             using enum Utils::NumberLiteralKind;
-        case kSignedInteger: {
-            std::int64_t value = 0;
-            const auto [ptr, ec] = std::from_chars(
-                literal.core.data(),
-                literal.core.data() + literal.core.size(),
-                value,
-                literal.base
-            );
-
-            if (ec == std::errc{}) {
-                current_value_ = value;
-                return;
-            }
-
+        case kSignedInteger:
+            TransformLiteral(std::type_identity<std::int64_t>{});
             break;
-        }
-
-        case kUnsignedInteger: {
-            std::uint64_t value = 0;
-            const auto [ptr, ec] = std::from_chars(
-                literal.core.data(),
-                literal.core.data() + literal.core.size(),
-                value,
-                literal.base
-            );
-
-            if (ec == std::errc{}) {
-                current_value_ = value;
-                return;
-            }
-
+        case kUnsignedInteger:
+            TransformLiteral(std::type_identity<std::uint64_t>{});
             break;
-        }
-
-        case kFloatingPoint: {
-            double value = 0.0;
-            const auto [ptr, ec] = std::from_chars(
-                literal.core.data(),
-                literal.core.data() + literal.core.size(),
-                value
-            );
-
-            if (ec == std::errc{}) {
-                current_value_ = value;
-                return;
-            }
-
+        case kFloatingPoint:
+            TransformLiteral(std::type_identity<double>{});
             break;
-        }
-
         case kInvalid:
         default:
+            is_valid_ = false;
             break;
         }
-
-        is_valid_ = false;
     }
 
     namespace {
@@ -2601,6 +2507,7 @@ namespace glsld {
             return;
         }
 
+        // common object.member
         if (node->member == nullptr || node->member->kind() != AstNodeKind::kVariableExpression) {
             is_valid_ = false;
             return;
@@ -2629,17 +2536,17 @@ namespace glsld {
             }
 
             const auto* member_symbol = *member_slot;
-            for (const auto& field : object->fields) {
-                if (field.symbol == member_symbol) {
-                    current_value_ = field.value;
-                    return;
-                }
+            auto it = std::ranges::find(object->fields, member_symbol, &StructField::symbol);
+            if (it == object->fields.end()) {
+                is_valid_ = false;
+                return;
             }
 
-            is_valid_ = false;
+            current_value_ = it->value;
             return;
         }
 
+        // vector swizzle
         if (object_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector) {
             is_valid_ = false;
             return;
@@ -2659,7 +2566,7 @@ namespace glsld {
             return;
         }
 
-        const auto* source = std::get_if<Aggregate>(&*object_value);
+        const auto* source = GetAggregate(*object_value);
 
         if (source == nullptr ||
             source->type_desc.vector_count != 1 ||

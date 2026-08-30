@@ -6,7 +6,6 @@
 #include <format>
 #include <optional>
 #include <ranges>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
@@ -76,41 +75,41 @@ namespace glsld {
             return inserted_it->second;
         }
 
-        MatchGrade TryImplicityConvert(const TypeInfo& from, const TypeInfo& to) {
-            if (from.typename_token.text == "" || to.typename_token.text == "")
+        MatchGrade TryImplicityConvert(const TypeInfo& src, const TypeInfo& dst) {
+            if (src.typename_token.text == "" || dst.typename_token.text == "")
                 return MatchGrade::kFailed;
-            if (from.typename_token.type == TokenType::kUnknown || to.typename_token.type == TokenType::kUnknown)
+            if (src.typename_token.type == TokenType::kUnknown || dst.typename_token.type == TokenType::kUnknown)
                 return MatchGrade::kWildcard;
-            if (from == to)
-                throw std::logic_error("This path should not be reached since exact matches are handled separately.");
-            if (from.is_array() || to.is_array())
+            if (src == dst)
+                return MatchGrade::kExactMatch;
+            if (src.is_array() || dst.is_array())
                 return MatchGrade::kFailed;
 
-            const auto& from_desc = from.type_desc;
-            const auto& to_desc   = to.type_desc;
+            const auto& src_desc = src.type_desc;
+            const auto& dst_desc = dst.type_desc;
 
-            if (from_desc.family == BaseFamily::kOpaque  || to_desc.family == BaseFamily::kOpaque  ||
-                from_desc.family == BaseFamily::kUnknown || to_desc.family == BaseFamily::kUnknown ||
-                from_desc.family == BaseFamily::kBool    || to_desc.family == BaseFamily::kBool)
+            if (src_desc.family == BaseFamily::kOpaque  || dst_desc.family == BaseFamily::kOpaque  ||
+                src_desc.family == BaseFamily::kUnknown || dst_desc.family == BaseFamily::kUnknown ||
+                src_desc.family == BaseFamily::kBool    || dst_desc.family == BaseFamily::kBool)
             {
                 return MatchGrade::kFailed;
             }
 
-            if (from_desc.vector_count           != to_desc.vector_count  ||
-                from_desc.vector_length          != to_desc.vector_length ||
-                from_desc.arithmetic_structure() != to_desc.arithmetic_structure())
+            if (src_desc.vector_count           != dst_desc.vector_count  ||
+                src_desc.vector_length          != dst_desc.vector_length ||
+                src_desc.arithmetic_structure() != dst_desc.arithmetic_structure())
             {
                 return MatchGrade::kFailed;
             }
 
-            if (from_desc == to_desc) {
+            if (src_desc == dst_desc) {
                 return MatchGrade::kExactMatch;
             }
 
             // 类型提升
             // 相同 Family，允许位宽提升
-            if (from_desc.family == to_desc.family) {
-                if (from_desc.bits <= to_desc.bits) {
+            if (src_desc.family == dst_desc.family) {
+                if (src_desc.bits <= dst_desc.bits) {
                     return MatchGrade::kImplicitly;
                 } else {
                     return MatchGrade::kFailed;
@@ -118,9 +117,9 @@ namespace glsld {
             }
 
             // int -> uint/float/double
-            if (from_desc.family == BaseFamily::kInt) {
-                if (to_desc.family == BaseFamily::kUint || to_desc.family == BaseFamily::kFloat) {
-                    if (from_desc.bits <= to_desc.bits) {
+            if (src_desc.family == BaseFamily::kInt) {
+                if (dst_desc.family == BaseFamily::kUint || dst_desc.family == BaseFamily::kFloat) {
+                    if (src_desc.bits <= dst_desc.bits) {
                         return MatchGrade::kImplicitly;
                     } else {
                         return MatchGrade::kFailed;
@@ -131,9 +130,9 @@ namespace glsld {
             }
 
             // uint -> float/double
-            if (from_desc.family == BaseFamily::kUint) {
-                if (to_desc.family == BaseFamily::kFloat) {
-                    if (from_desc.bits <= to_desc.bits) {
+            if (src_desc.family == BaseFamily::kUint) {
+                if (dst_desc.family == BaseFamily::kFloat) {
+                    if (src_desc.bits <= dst_desc.bits) {
                         return MatchGrade::kImplicitly;
                     } else {
                         return MatchGrade::kFailed;
@@ -143,7 +142,7 @@ namespace glsld {
                 }
             }
 
-            if (from_desc.family == BaseFamily::kFloat) {
+            if (src_desc.family == BaseFamily::kFloat) {
                 return MatchGrade::kFailed; // float -> double 的情况已经在位宽提升中判断
             }
 
@@ -352,6 +351,10 @@ namespace glsld {
             return;
         }
 
+        if (node->init->kind() == AstNodeKind::kInitializerListExpression) {
+            node->init->evaluated_type = variable_symbol->type_info;
+        }
+
         Traverse(node->init);
 
         const auto& init_type  = node->init->evaluated_type;
@@ -362,10 +365,9 @@ namespace glsld {
             return;
         }
 
-        std::vector<std::optional<std::uint64_t>> resolved_sizes(decl_sizes.begin(), decl_sizes.end());
-
+        auto resolved_sizes = std::vector(decl_sizes.begin(), decl_sizes.end());
         const auto min_size = std::min(resolved_sizes.size(), init_sizes.size());
-        bool changed = false;
+        bool       changed  = false;
 
         for (auto i = 0uz; i != min_size; ++i) {
             if (!resolved_sizes[i].has_value()) {
@@ -397,63 +399,92 @@ namespace glsld {
     }
 
     void TypeResolver::VisitInitializerListExpression(InitializerListExpressionNode* node) {
-        if (node->elements.empty()) {
-            node->evaluated_type = {
-                .typename_token{
-                    .text = "unknown",
-                    .type = TokenType::kUnknown
+        auto target_type = node->evaluated_type;
+
+        auto ApplyTypeInfo = [this](ExpressionNode* element, const TypeInfo& element_target) -> bool {
+            if (element == nullptr || !element_target.is_valid()) {
+                return false;
+            }
+
+            if (element->kind() == AstNodeKind::kInitializerListExpression) {
+                element->evaluated_type = element_target;
+            }
+
+            Traverse(element);
+
+            bool compared = element->evaluated_type.CompareWithoutQualifiers(element_target);
+            bool implicity_converted = TryImplicityConvert(element->evaluated_type, element_target) != MatchGrade::kFailed;
+            return compared || implicity_converted;
+        };
+
+        if (target_type.is_array()) {
+            if (target_type.array_sizes.front().has_value()) { // int array[x] = { ... }
+                if (*target_type.array_sizes.front() != node->elements.size()) {
+                    node->evaluated_type = {};
+                    return;
                 }
-            };
+            } else { // int array[] = { ... }
+                auto evaluated_sizes = std::vector(
+                    target_type.array_sizes.begin(),
+                    target_type.array_sizes.end()
+                );
+
+                evaluated_sizes.front() = static_cast<std::uint64_t>(node->elements.size());
+                target_type.array_sizes = document_.arena->CopySpan<std::optional<std::uint64_t>>(evaluated_sizes);
+            }
+
+            auto element_type = target_type;
+            element_type.array_sizes = element_type.array_sizes.subspan(1);
+            for (auto* element : node->elements) {
+                if (!ApplyTypeInfo(element, element_type)) {
+                    node->evaluated_type = {};
+                    return;
+                }
+            }
+
+            node->evaluated_type = std::move(target_type);
+            return;
+        }
+
+        if (target_type.block_symbol != nullptr) {
+            const auto fields = Utils::CollectStructFieldsOrdered(target_type.block_symbol);
+            if (!fields.has_value() || fields->size() != node->elements.size()) {
+                node->evaluated_type = {};
+                return;
+            }
+
+            for (auto i = 0uz; i != fields->size(); ++i) {
+                if (!ApplyTypeInfo(node->elements[i], (*fields)[i]->type_info)) {
+                    node->evaluated_type = {};
+                    return;
+                }
+            }
 
             return;
         }
 
-        TypeInfo common_type;
-        bool is_first   = true;
-        bool type_error = false;
+        using enum TypeDescriptor::ArithmeticStructure;
 
-        for (const auto& element : node->elements) {
-            if (element == nullptr) {
-                continue;
-            }
-
-            Traverse(element);
-            const auto& element_type = element->evaluated_type;
-
-            if (is_first) {
-                common_type = element_type;
-                is_first = false;
-            } else {
-                if (common_type.CompareWithoutQualifiers(element_type)) {
-                    continue; // 类型相同，继续检查下一个元素
-                } else if (TryImplicityConvert(element_type, common_type) != MatchGrade::kFailed) {
-                    continue; // 元素类型可以隐式转换为当前公共类型，继续检查下一个元素
-                } else if (TryImplicityConvert(common_type, element_type) != MatchGrade::kFailed) {
-                    common_type = element_type; // 有一个高级类型，必须提升 common_type
-                } else {
-                    type_error = true; // 类型不兼容，标记错误
-                    break;
-                }
-            }
+        const auto structure = target_type.type_desc.arithmetic_structure();
+        if (structure != kVector && structure != kMatrix) {
+            node->evaluated_type = {};
+            return;
         }
 
-        if (type_error || common_type.typename_token.type == TokenType::kUnknown) {
-            node->evaluated_type = {
-                .typename_token{
-                    .text = "unknown",
-                    .type = TokenType::kUnknown
-                }
-            };
-        } else {
-            node->evaluated_type = common_type;
+        const auto expected_size = static_cast<std::size_t>(
+            structure == kVector ? target_type.type_desc.vector_length : target_type.type_desc.vector_count);
 
-            auto old_sizes = node->evaluated_type.array_sizes;
-            std::vector<std::optional<std::uint64_t>> new_sizes;
-            new_sizes.reserve(old_sizes.size() + 1);
-            new_sizes.push_back(node->elements.size());
-            new_sizes.append_range(old_sizes);
+        if (node->elements.size() != expected_size) {
+            node->evaluated_type = {};
+            return;
+        }
 
-            node->evaluated_type.array_sizes = document_.arena->CopySpan<std::optional<std::uint64_t>>(new_sizes);
+        const auto element_type = SplitCanonicalTypeInfo(target_type);
+        for (auto* element : node->elements) {
+            if (!ApplyTypeInfo(element, element_type)) {
+                node->evaluated_type = {};
+                return;
+            }
         }
     }
 

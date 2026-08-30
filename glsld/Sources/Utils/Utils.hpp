@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "Analyzer/Ast/Ast.hpp"
+#include "Analyzer/Syntax/Symbol.hpp"
+
 namespace glsld::Utils {
     // FileSystem
     std::string GetFilePath(std::string_view filename);
@@ -69,6 +71,8 @@ namespace glsld::Utils {
         const QualifierArgumentNode* rhs,
         QualifierArgumentKind required_kind,
         auto&& pred);
+
+    std::optional<SymbolList> CollectStructFieldsOrdered(const SymbolInfo* struct_symbol);
 
     // External process execution
     std::string ExecuteCommand(

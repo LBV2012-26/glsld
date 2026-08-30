@@ -526,6 +526,43 @@ namespace glsld::Utils {
         return result;
     }
 
+    std::optional<SymbolList> CollectStructFieldsOrdered(const SymbolInfo* struct_symbol) {
+        if (struct_symbol == nullptr ||
+            struct_symbol->kind != SymbolKind::kStruct ||
+            struct_symbol->node == nullptr ||
+            struct_symbol->node->kind() != AstNodeKind::kStructDeclaration)
+        {
+            return std::nullopt;
+        }
+
+        auto* struct_decl = static_cast<const StructDeclarationNode*>(struct_symbol->node);
+        if (struct_decl->body == nullptr) {
+            return std::nullopt;
+        }
+
+        SymbolList result;
+
+        for (const auto* child : struct_decl->body->children) {
+            if (child == nullptr || child->kind() != AstNodeKind::kDeclarationGroup) {
+                return std::nullopt;
+            }
+
+            auto* decl_group = static_cast<const DeclarationGroupNode*>(child);
+            for (const auto* decl : decl_group->declarations) {
+                if (decl == nullptr ||
+                    decl->declared_symbol == nullptr ||
+                    decl->declared_symbol->kind != SymbolKind::kVariable)
+                {
+                    return std::nullopt;
+                }
+
+                result.push_back(decl->declared_symbol);
+            }
+        }
+
+        return result;
+    }
+
 #ifndef _WIN64
     namespace {
         std::vector<std::string> ParseCommand(std::string_view command) {

@@ -19,9 +19,7 @@ void ffffffffffffffffffffffffff(int ppppppppppp) {
     int a[5] = {0, 0, 0, 0, 0};
 
     if (true)
-    {
         int b, c, d, e, f;
-    }
 }
 
 // 2. 结构体定义
