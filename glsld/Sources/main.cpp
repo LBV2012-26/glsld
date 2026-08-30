@@ -101,10 +101,7 @@ namespace {
     }
 }
 
-// #define BENCHMARK
-// #define DEBUG_AST
-
-int main() {
+int main(int argc, char** argv) { // --benchmark or --debug-ast
 #ifdef _WIN64
     (void)_setmode(_fileno(stdin), _O_BINARY);
     (void)_setmode(_fileno(stdout), _O_BINARY);
@@ -112,24 +109,26 @@ int main() {
 
     glsld::Logger::GetInstance();
 
-#ifdef BENCHMARK
-    glsld::ArenaPool arena_pool;
+    if (argc > 1 && std::string_view(argv[1]) == "--benchmark") {
+        glsld::ArenaPool arena_pool;
 
-    std::println("-----------------------------------------------------------------------");
-    Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl");
-    Benchmark(arena_pool, "Tests/Benchmark/BlackHoleRepeated.glsl");
-    Benchmark(arena_pool, "Tests/OverloadTest.glsl");
-    Benchmark(arena_pool, "Tests/HoverTest.glsl");
-    Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
-    Benchmark(arena_pool, "Tests/MacroTest.glsl");
-    std::println("-----------------------------------------------------------------------");
+        std::println("-----------------------------------------------------------------------");
+        Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl");
+        Benchmark(arena_pool, "Tests/Benchmark/BlackHoleRepeated.glsl");
+        Benchmark(arena_pool, "Tests/OverloadTest.glsl");
+        Benchmark(arena_pool, "Tests/HoverTest.glsl");
+        Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
+        Benchmark(arena_pool, "Tests/MacroTest.glsl");
+        std::println("-----------------------------------------------------------------------");
 
-    return 0;
-#elifdef DEBUG_AST
-    glsld::ArenaPool arena_pool;
-    Benchmark(arena_pool, "Tests/Debugger.glsl", true);
-    return 0;
-#endif
+        return 0;
+    }
+
+    if (argc > 1 && std::string_view(argv[1]) == "--debug-ast") {
+        glsld::ArenaPool arena_pool;
+        Benchmark(arena_pool, "Tests/Debugger.glsl", true);
+        return 0;
+    }
 
     glsld::LspServer server;
     server.Run();
