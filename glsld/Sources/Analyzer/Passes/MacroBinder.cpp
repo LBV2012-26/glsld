@@ -47,7 +47,7 @@ namespace glsld {
             if (trace.definition.has_value()) {
                 const auto* macro_symbol = document_.symbols.FindMacroSymbol(*trace.definition);
                 if (macro_symbol != nullptr) {
-                    document_.bindings.try_emplace(location, macro_symbol);
+                    document_.bindings.insert_or_assign(location, macro_symbol);
                 }
                 continue;
             }
@@ -96,7 +96,7 @@ namespace glsld {
                 return false;
             }
 
-            document_.bindings.try_emplace(token.location, it->second);
+            document_.bindings.insert_or_assign(token.location, it->second);
             return true;
         };
 

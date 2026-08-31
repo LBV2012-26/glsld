@@ -16,6 +16,8 @@ namespace glsld {
         void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitCallExpression(CallExpressionNode* node) override;
 
+        void CollectMacroArgumentHints(const Document& document);
+
         std::vector<InlayHint> hints_;
     };
 }

@@ -194,6 +194,7 @@ namespace glsld {
         , params{ other.params }
         , body{ CloneVector<StatementNode>(*arena, other.body) }
         , symbol{ other.symbol }
+        , is_function{ other.is_function }
     {}
 
     PreprocessorNode& PreprocessorNode::operator=(const PreprocessorNode& other) {

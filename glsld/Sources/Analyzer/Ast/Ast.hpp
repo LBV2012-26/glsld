@@ -219,6 +219,7 @@ namespace glsld {
         ArenaVector<std::string_view> params{ ArenaAllocator<std::string_view>(arena) };
         ArenaVector<StatementNode*>   body{ ArenaAllocator<StatementNode*>(arena) };
         const SymbolInfo*             symbol{ nullptr };
+        bool                          is_function{ false };
 
         using StatementNode::StatementNode;
         PreprocessorNode(const PreprocessorNode& other);

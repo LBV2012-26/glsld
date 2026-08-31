@@ -598,20 +598,20 @@ namespace glsld {
     std::vector<Token> Preprocessor::ExpandTokenSequence(
         std::span<const Token> input,
         StringHeteroHashSet& active_macros,
-        const SourceLocation& call_site)
+        const SourceLocation& call_site,
+        bool preserve_input_locations)
     {
         std::vector<Token> result;
 
-        auto PushAtCallSite = [&](Token token) -> void {
-            token.location = call_site;
-            result.push_back(std::move(token));
-        };
-
-        auto AppendRangeAtCallSite = [&](std::span<Token> tokens) -> void {
-            for (auto& token : tokens) {
+        auto PushToken = [&](Token token) -> void {
+            if (!preserve_input_locations) {
                 token.location = call_site;
             }
 
+            result.push_back(std::move(token));
+        };
+
+        auto AppendTokens = [&](std::span<Token> tokens) -> void {
             result.append_range(tokens | std::views::as_rvalue);
         };
 
@@ -619,29 +619,31 @@ namespace glsld {
             const auto& token = input[i];
 
             if (token.type != TokenType::kIdentifier) {
-                PushAtCallSite(token);
+                PushToken(token);
                 continue;
             }
 
             auto it = document_.macro_table.find(token.text);
             if (it == document_.macro_table.end() || active_macros.contains(token.text)) {
-                PushAtCallSite(token);
+                PushToken(token);
                 continue;
             }
 
             const auto& definition = it->second;
             const auto& macro_name = token.text;
+            const auto nested_call_site = preserve_input_locations ? token.location : call_site;
+
             active_macros.insert(macro_name);
 
             if (!definition.is_function) {
-                auto nested = ExpandTokenSequence(definition.replacement_list, active_macros, call_site);
-                AppendRangeAtCallSite(nested);
+                auto nested = ExpandTokenSequence(definition.replacement_list, active_macros, nested_call_site);
+                AppendTokens(nested);
                 active_macros.erase(macro_name);
                 continue;
             }
 
             if (i + 1 >= input.size() || input[i + 1].type != TokenType::kOpenParen) {
-                PushAtCallSite(token);
+                PushToken(token);
                 active_macros.erase(macro_name);
                 continue;
             }
@@ -649,13 +651,22 @@ namespace glsld {
             auto close_paren_index = 0uz;
             std::vector<std::vector<Token>> arguments;
             if (!ParseFunctionMacroInvocationInSequence(input, i + 1, close_paren_index, arguments)) {
-                PushAtCallSite(token);
+                PushToken(token);
                 active_macros.erase(macro_name);
                 continue;
             }
 
-            auto replaced = SubstituteFunctionMacro(definition, arguments, active_macros, call_site);
-            AppendRangeAtCallSite(replaced);
+            if (!preserve_input_locations) {
+                for (auto& argument : arguments) {
+                    for (auto& argument_token : argument) {
+                        argument_token.location = call_site;
+                    }
+                }
+            }
+
+            auto replaced = SubstituteFunctionMacro(definition, arguments, active_macros, nested_call_site);
+
+            AppendTokens(replaced);
             i = close_paren_index;
             active_macros.erase(macro_name);
         }
@@ -679,17 +690,11 @@ namespace glsld {
 
         std::vector<std::vector<Token>> expanded_args(arguments.size());
         for (auto i = 0uz; i != arguments.size(); ++i) {
-            expanded_args[i] = ExpandTokenSequence(arguments[i], arguments_active_macros, call_site);
-            for (auto& token : expanded_args[i]) {
-                token.location = call_site;
-            }
+            expanded_args[i] = ExpandTokenSequence(arguments[i], arguments_active_macros, call_site, true);
         }
 
-        auto AppendWithCallSiteWithoutMove = [&](std::vector<Token>& target, std::span<const Token> source) -> void {
-            for (auto token : source) {
-                token.location = call_site;
-                target.push_back(std::move(token));
-            }
+        auto AppendWithoutMove = [&](std::vector<Token>& target, std::span<const Token> source) -> void {
+            target.append_range(source);
         };
 
         auto IsAdjacentToTokenPaste = [&](std::size_t replace_index) -> bool {
@@ -716,9 +721,9 @@ namespace glsld {
                     const auto& arg_index = it->second;
                     if (arg_index < arguments.size()) {
                         if (IsAdjacentToTokenPaste(i)) {
-                            AppendWithCallSiteWithoutMove(replaced, arguments[arg_index]);
+                            AppendWithoutMove(replaced, arguments[arg_index]);
                         } else {
-                            AppendWithCallSiteWithoutMove(replaced, expanded_args[arg_index]);
+                            AppendWithoutMove(replaced, expanded_args[arg_index]);
                         }
                     }
 
@@ -732,12 +737,7 @@ namespace glsld {
         }
 
         const auto pasted = ApplyTokenPasting(replaced);
-        auto rescanned = ExpandTokenSequence(pasted, active_macros, call_site);
-        for (auto& token : rescanned) {
-            token.location = call_site;
-        }
-
-        return rescanned;
+        return ExpandTokenSequence(pasted, active_macros, call_site, true);
     }
 
     bool Preprocessor::ParseFunctionMacroInvocationFromStream(std::vector<std::vector<Token>>& arguments) {

@@ -254,7 +254,9 @@ namespace glsld {
 
         // macro function like #define MACRO(x)
         if (current_token().type == TokenType::kOpenParen && IsAdjacent(macro_token, current_token())) {
+            node->is_function = true;
             ConsumeToken();
+
             while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen) {
                 if (current_token().type == TokenType::kIdentifier) {
                     node->params.push_back(current_token().text);

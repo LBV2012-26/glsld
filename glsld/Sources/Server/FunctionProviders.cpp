@@ -565,38 +565,53 @@ namespace glsld::Providers {
 
         void GetDefinitionSymbolsFromCursor(Snapshot snapshot, const Token* cursor_token, bool toggle_function, SymbolList& results) {
             auto it = snapshot->bindings.find(cursor_token->location);
-            if (it == snapshot->bindings.end() || !std::holds_alternative<const SymbolInfo*>(it->second)) {
+            if (it == snapshot->bindings.end()) {
                 return;
             }
 
-            auto* linked_symbol = std::get<const SymbolInfo*>(it->second);
-            if (linked_symbol == nullptr) {
-                return;
-            }
-
-            if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
-                linked_symbol->kind == SymbolKind::kFunctionImpl)
-            {
-                if (!toggle_function) {
-                    results.push_back(linked_symbol);
+            auto AddSymbol = [&](const SymbolInfo* linked_symbol) -> void {
+                if (linked_symbol == nullptr) {
                     return;
                 }
 
-                const bool clicked_on_definition = (cursor_token->location == linked_symbol->location);
-                if (clicked_on_definition) {
-                    const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
-                    results.push_back(toggled != nullptr ? toggled : linked_symbol);
-                } else {
-                    if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
-                        const auto* impl = ResolveFunctionJump(snapshot.get(), linked_symbol);
-                        results.push_back(impl != nullptr ? impl : linked_symbol);
-                    } else {
+                if (linked_symbol->kind == SymbolKind::kFunctionDecl ||
+                    linked_symbol->kind == SymbolKind::kFunctionImpl)
+                {
+                    if (!toggle_function) {
                         results.push_back(linked_symbol);
+                        return;
                     }
+
+                    const bool clicked_on_definition = (cursor_token->location == linked_symbol->location);
+                    if (clicked_on_definition) {
+                        const auto* toggled = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                        results.push_back(toggled != nullptr ? toggled : linked_symbol);
+                    } else {
+                        if (linked_symbol->kind == SymbolKind::kFunctionDecl) {
+                            const auto* impl = ResolveFunctionJump(snapshot.get(), linked_symbol);
+                            results.push_back(impl != nullptr ? impl : linked_symbol);
+                        } else {
+                            results.push_back(linked_symbol);
+                        }
+                    }
+
+                    return;
                 }
-            } else {
+
                 results.push_back(linked_symbol);
-            }
+            };
+
+            std::visit(Overloaded{
+                [&](const SymbolInfo* symbol) -> void {
+                    AddSymbol(symbol);
+                },
+                [&](SymbolListView list) -> void {
+                    for (const auto* symbol : list) {
+                        AddSymbol(symbol);
+                    }
+                },
+                [](std::monostate) -> void {}
+            }, it->second);
         }
     }
 
@@ -793,6 +808,120 @@ namespace glsld::Providers {
 
             return { std::move(signatures), active_signature };
         }
+
+        struct MacroSignatureContext {
+            const PreprocessorNode* definition{ nullptr };
+            int active_param_index{};
+        };
+
+        std::optional<MacroSignatureContext> FindMacroSignatureContext(
+            const Document& document,
+            const SourceLocation& location)
+        {
+            struct DelimiterFrame {
+                TokenType    open{};
+                const Token* callee{};
+                int          active_param_index{};
+            };
+
+            std::vector<DelimiterFrame> stack;
+            const auto& tokens = document.raw_tokens;
+
+            for (auto i = 0uz; i != tokens.size() && tokens[i].location < location; ++i) {
+                const auto& token = tokens[i];
+
+                if (token.type == TokenType::kOpenParen) {
+                    stack.push_back(DelimiterFrame{
+                        .open               = token.type,
+                        .callee             = i > 0 ? &tokens[i - 1] : nullptr,
+                        .active_param_index = 0
+                    });
+                    continue;
+                }
+
+                if (token.type == TokenType::kOpenBracket || token.type == TokenType::kOpenBrace) {
+                    stack.push_back(DelimiterFrame{
+                        .open = token.type
+                    });
+                    continue;
+                }
+
+                if (token.type == TokenType::kCloseParen ||
+                    token.type == TokenType::kCloseBracket ||
+                    token.type == TokenType::kCloseBrace)
+                {
+                    if (!stack.empty()) {
+                        stack.pop_back();
+                    }
+                    continue;
+                }
+
+                if (token.type == TokenType::kComma && !stack.empty() &&
+                    stack.back().open == TokenType::kOpenParen)
+                {
+                    ++stack.back().active_param_index;
+                }
+            }
+
+            for (const auto& frame : stack | std::views::reverse) {
+                if (frame.callee == nullptr) {
+                    continue;
+                }
+
+                const Token* definition_token = nullptr;
+
+                if (const auto trace = document.macro_traces.find(frame.callee->location);
+                    trace != document.macro_traces.end())
+                {
+                    definition_token = &trace->second;
+                }
+                else if (const auto arg_trace = document.macro_args_traces.find(frame.callee->location);
+                         arg_trace != document.macro_args_traces.end() &&
+                         arg_trace->second.definition.has_value())
+                {
+                    definition_token = &*arg_trace->second.definition;
+                }
+
+                if (definition_token == nullptr) {
+                    return std::nullopt;
+                }
+
+                const auto* symbol = document.symbols.FindMacroSymbol(*definition_token);
+                if (symbol == nullptr || symbol->node == nullptr ||
+                    symbol->node->kind() != AstNodeKind::kPreprocessor)
+                {
+                    return std::nullopt;
+                }
+
+                auto* definition = static_cast<const PreprocessorNode*>(symbol->node);
+                if (!definition->is_function) {
+                    return std::nullopt;
+                }
+
+                return MacroSignatureContext{
+                    .definition         = definition,
+                    .active_param_index = frame.active_param_index
+                };
+            }
+
+            return std::nullopt;
+        }
+
+        std::string FormatMacroSignature(const PreprocessorNode* node) {
+            auto signature = node->symbol->name;
+            signature += "(";
+
+            for (const auto [i, param] : node->params | std::views::enumerate) {
+                signature += param;
+
+                if (!std::cmp_equal(i + 1, node->params.size())) {
+                    signature += ", ";
+                }
+            }
+
+            signature += ")";
+            return signature;
+        }
     }
 
     std::optional<SignatureHelpResult> GetSignatureHelp(
@@ -802,6 +931,14 @@ namespace glsld::Providers {
     {
         if (snapshot == nullptr) {
             return std::nullopt;
+        }
+
+        if (const auto macro = FindMacroSignatureContext(*snapshot, location)) {
+            return SignatureHelpResult{
+                .signatures             = { FormatMacroSignature(macro->definition) },
+                .active_signature_index = 0,
+                .active_param_index     = macro->active_param_index
+            };
         }
 
         ABORT_IF_CANCELLED();
@@ -2383,7 +2520,7 @@ namespace glsld::Providers {
             details.clear();
 
             declare = std::format("#define {}", node->symbol->name);
-            if (!node->params.empty()) {
+            if (node->is_function) {
                 declare += "(";
                 for (auto i = 0uz; i != node->params.size(); ++i) {
                     declare += node->params[i];

@@ -43,7 +43,8 @@ namespace glsld {
         std::vector<Token> ExpandTokenSequence(
             std::span<const Token> input,
             StringHeteroHashSet& active_macros,
-            const SourceLocation& call_site);
+            const SourceLocation& call_site,
+            bool preserve_input_locations = false);
 
         std::vector<Token> SubstituteFunctionMacro(
             const MacroDefinition& definition,

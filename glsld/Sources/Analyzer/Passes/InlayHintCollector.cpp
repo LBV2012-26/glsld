@@ -17,6 +17,12 @@ namespace glsld {
         : AstVisitor(0, nullptr)
     {
         Traverse(document.ast);
+
+        std::erase_if(hints_, [&](const InlayHint& hint) -> bool {
+            return document.macro_expansions.contains(*hint.location);
+        });
+
+        CollectMacroArgumentHints(document);
     }
 
     const std::vector<InlayHint>& InlayHintCollector::hints() const {
@@ -138,5 +144,105 @@ namespace glsld {
         }
 
         AstVisitor::VisitCallExpression(node);
+    }
+
+    void InlayHintCollector::CollectMacroArgumentHints(const Document& document) {
+        const auto& tokens = document.raw_tokens;
+
+        for (auto i = 0uz; i < tokens.size(); ++i) {
+            const Token* definition_token = nullptr;
+
+            if (const auto trace = document.macro_traces.find(tokens[i].location);
+                trace != document.macro_traces.end())
+            {
+                definition_token = &trace->second;
+            }
+            else if (const auto arg_trace = document.macro_args_traces.find(tokens[i].location);
+                     arg_trace != document.macro_args_traces.end() && arg_trace->second.definition.has_value())
+            {
+                definition_token = &*arg_trace->second.definition;
+            }
+
+            if (definition_token == nullptr) {
+                continue;
+            }
+
+            const auto* symbol = document.symbols.FindMacroSymbol(*definition_token);
+            if (symbol == nullptr || symbol->node == nullptr ||
+                symbol->node->kind() != AstNodeKind::kPreprocessor)
+            {
+                continue;
+            }
+
+            const auto* definition = static_cast<const PreprocessorNode*>(symbol->node);
+            if (definition->params.empty() ||
+                i + 1 >= tokens.size() ||
+                tokens[i + 1].type != TokenType::kOpenParen)
+            {
+                continue;
+            }
+
+            auto param_index    = 0uz;
+            auto paren_level    = 0uz;
+            auto bracket_level  = 0uz;
+            auto brace_level    = 0uz;
+            bool argument_begin = true;
+
+            for (auto j = i + 2; j < tokens.size(); ++j) {
+                const auto& token = tokens[j];
+
+                if (token.type == TokenType::kCloseParen &&
+                    paren_level == 0 &&
+                    bracket_level == 0 &&
+                    brace_level == 0)
+                {
+                    break;
+                }
+
+                if (token.type == TokenType::kComma &&
+                    paren_level == 0 &&
+                    bracket_level == 0 &&
+                    brace_level == 0)
+                {
+                    ++param_index;
+                    argument_begin = true;
+                    continue;
+                }
+
+                if (argument_begin) {
+                    if (param_index < definition->params.size()) {
+                        hints_.push_back({
+                            .location = &token.location,
+                            .label    = std::string(definition->params[param_index]) + ":"
+                        });
+                    }
+
+                    argument_begin = false;
+                }
+
+                switch (token.type) {
+                case TokenType::kOpenParen:
+                    ++paren_level;
+                    break;
+                case TokenType::kCloseParen:
+                    --paren_level;
+                    break;
+                case TokenType::kOpenBracket:
+                    ++bracket_level;
+                    break;
+                case TokenType::kCloseBracket:
+                    --bracket_level;
+                    break;
+                case TokenType::kOpenBrace:
+                    ++brace_level;
+                    break;
+                case TokenType::kCloseBrace:
+                    --brace_level;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
     }
 }
