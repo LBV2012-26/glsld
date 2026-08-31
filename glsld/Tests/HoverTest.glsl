@@ -87,7 +87,7 @@ LightData ReturnLightData(int index) {
 [[subgroup_uniform_control_flow]]
 #endif
 void ApplyParameters(const in float input_value, out float output_value, inout float accumulated_value) {
-    output_value = input_value + SQUARE(accumulated_value);
+    output_value = input_value + SQUARE(sin(accumulated_value));
     accumulated_value += output_value;
 
     texture(sampler2D(my_texture, my_sampler), vec2(0.5));
@@ -98,6 +98,12 @@ coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> CreateCooperativeMat
     coopmat<float16_t, /* template argument comment */ gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> result;
     return result;
 }
+
+#define CLAMP_VALUE(value, low, high) clamp(value, low, high)
+#define FORWARD(expr) expr
+#define WRAP(value) FORWARD(value)
+
+const float kX = WRAP(CLAMP_VALUE(sin(1.2), 0.0, 1.0));
 
 void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix = CreateCooperativeMatrix();
@@ -120,7 +126,7 @@ void main() {
 
     float output_value;
     float accumulated_value = 1.0;
-    ApplyParameters(1.0, output_value, accumulated_value);
+    ApplyParameters((float)ReturnArray(source_array)[0], output_value, accumulated_value);
 
     vec3 direct_light = normalize(lights[0].position - InPosition), ambient_light = vec3(gl_FragCoord.xyz);
 

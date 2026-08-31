@@ -132,3 +132,150 @@ F12(G1(a, b), c
             ENUMERATE_GLM_MATRIX(u64),
             ENUMERATE_GLM_MATRIX(d)
         >;
+
+#define WRAP_TYPED_OVERLOAD(func, type) WrapSingleSignature(func<type>)
+
+#define WRAP_GLM_VECTOR_OVERLOADS(func, prefix)            \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##vec2),          \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##vec3),          \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##vec4)
+
+#define WRAP_GLM_MATRIX_OVERLOADS(func, prefix)            \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat2x2),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat2x3),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat2x4),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat3x2),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat3x3),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat3x4),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat4x2),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat4x3),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat4x4)
+
+#define WRAP_GLM_SQUARE_MATRIX_OVERLOADS(func, prefix)     \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat2x2),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat3x3),        \
+    WRAP_TYPED_OVERLOAD(func, glm::prefix##mat4x4)
+
+#define REGISTER_FLOAT_OVERLOADS(name, func)               \
+    Register(name, MakeOverloader(                         \
+        WRAP_TYPED_OVERLOAD(func, double),                 \
+        WRAP_GLM_VECTOR_OVERLOADS(func, d)                 \
+    ))
+
+#define REGISTER_NUMERIC_OVERLOADS(name, func)             \
+    Register(name, MakeOverloader(                         \
+        WRAP_TYPED_OVERLOAD(func, std::int64_t),           \
+        WRAP_GLM_VECTOR_OVERLOADS(func, i64),              \
+        WRAP_TYPED_OVERLOAD(func, std::uint64_t),          \
+        WRAP_GLM_VECTOR_OVERLOADS(func, u64),              \
+        WRAP_TYPED_OVERLOAD(func, double),                 \
+        WRAP_GLM_VECTOR_OVERLOADS(func, d)                 \
+    ))
+
+#define REGISTER_INTEGER_OVERLOADS(name, func)             \
+    Register(name, MakeOverloader(                         \
+        WRAP_TYPED_OVERLOAD(func, std::int64_t),           \
+        WRAP_GLM_VECTOR_OVERLOADS(func, i64),              \
+        WRAP_TYPED_OVERLOAD(func, std::uint64_t),          \
+        WRAP_GLM_VECTOR_OVERLOADS(func, u64)               \
+    ))
+
+#define REGISTER_FLOAT_VECTOR_OVERLOADS(name, func)        \
+    Register(name, MakeOverloader(                         \
+        WRAP_GLM_VECTOR_OVERLOADS(func, d)                 \
+    ))
+
+#define REGISTER_NUMERIC_VECTOR_OVERLOADS(name, func)      \
+    Register(name, MakeOverloader(                         \
+        WRAP_GLM_VECTOR_OVERLOADS(func, i64),              \
+        WRAP_GLM_VECTOR_OVERLOADS(func, u64),              \
+        WRAP_GLM_VECTOR_OVERLOADS(func, d)                 \
+    ))
+
+#define REGISTER_BOOLEAN_OVERLOADS(name, func)             \
+    Register(name, MakeOverloader(                         \
+        WRAP_TYPED_OVERLOAD(func, bool),                   \
+        WRAP_GLM_VECTOR_OVERLOADS(func, b)                 \
+    ))
+
+#define REGISTER_BOOLEAN_VECTOR_OVERLOADS(name, func)      \
+    Register(name, MakeOverloader(                         \
+        WRAP_GLM_VECTOR_OVERLOADS(func, b)                 \
+    ))
+
+#define REGISTER_FLOAT_MATRIX_OVERLOADS(name, func)        \
+    Register(name, MakeOverloader(                         \
+        WRAP_GLM_MATRIX_OVERLOADS(func, d)                 \
+    ))
+
+#define REGISTER_FLOAT_SQUARE_MATRIX_OVERLOADS(name, func) \
+    Register(name, MakeOverloader(                         \
+        WRAP_GLM_SQUARE_MATRIX_OVERLOADS(func, d)          \
+    ))
+
+        REGISTER_FLOAT_OVERLOADS("radians", MathMeta::Radians);
+        REGISTER_FLOAT_OVERLOADS("degrees", MathMeta::Degrees);
+        REGISTER_FLOAT_OVERLOADS("sin", MathMeta::Sin);
+        REGISTER_FLOAT_OVERLOADS("cos", MathMeta::Cos);
+        REGISTER_FLOAT_OVERLOADS("tan", MathMeta::Tan);
+        REGISTER_FLOAT_OVERLOADS("asin", MathMeta::Asin);
+        REGISTER_FLOAT_OVERLOADS("acos", MathMeta::Acos);
+        REGISTER_FLOAT_OVERLOADS("sinh", MathMeta::Sinh);
+        REGISTER_FLOAT_OVERLOADS("cosh", MathMeta::Cosh);
+        REGISTER_FLOAT_OVERLOADS("tanh", MathMeta::Tanh);
+        REGISTER_FLOAT_OVERLOADS("asinh", MathMeta::Asinh);
+        REGISTER_FLOAT_OVERLOADS("acosh", MathMeta::Acosh);
+        REGISTER_FLOAT_OVERLOADS("atanh", MathMeta::Atanh);
+
+        REGISTER_FLOAT_OVERLOADS("pow", MathMeta::Pow);
+        REGISTER_FLOAT_OVERLOADS("exp", MathMeta::Exp);
+        REGISTER_FLOAT_OVERLOADS("exp2", MathMeta::Exp2);
+        REGISTER_FLOAT_OVERLOADS("log", MathMeta::Log);
+        REGISTER_FLOAT_OVERLOADS("log2", MathMeta::Log2);
+        REGISTER_FLOAT_OVERLOADS("sqrt", MathMeta::Sqrt);
+        REGISTER_FLOAT_OVERLOADS("inversesqrt", MathMeta::InverseSqrt);
+
+        REGISTER_NUMERIC_OVERLOADS("abs", MathMeta::Abs);
+        REGISTER_NUMERIC_OVERLOADS("sign", MathMeta::Sign);
+        REGISTER_FLOAT_OVERLOADS("floor", MathMeta::Floor);
+        REGISTER_FLOAT_OVERLOADS("trunc", MathMeta::Trunc);
+        REGISTER_FLOAT_OVERLOADS("round", MathMeta::Round);
+        REGISTER_FLOAT_OVERLOADS("roundEven", MathMeta::RoundEven);
+        REGISTER_FLOAT_OVERLOADS("ceil", MathMeta::Ceil);
+        REGISTER_FLOAT_OVERLOADS("fract", MathMeta::Fract);
+        REGISTER_FLOAT_OVERLOADS("mod", MathMeta::Mod);
+        REGISTER_NUMERIC_OVERLOADS("min", MathMeta::Min);
+        REGISTER_NUMERIC_OVERLOADS("max", MathMeta::Max);
+        REGISTER_NUMERIC_OVERLOADS("clamp", MathMeta::Clamp);
+        REGISTER_FLOAT_OVERLOADS("step", MathMeta::Step);
+        REGISTER_FLOAT_OVERLOADS("smoothstep", MathMeta::SmoothStep);
+        REGISTER_FLOAT_OVERLOADS("isnan", MathMeta::IsNan);
+        REGISTER_FLOAT_OVERLOADS("isinf", MathMeta::IsInf);
+        REGISTER_FLOAT_OVERLOADS("fma", MathMeta::Fma);
+        REGISTER_FLOAT_OVERLOADS("length", MathMeta::Length);
+        REGISTER_FLOAT_OVERLOADS("distance", MathMeta::Distance);
+        REGISTER_FLOAT_OVERLOADS("dot", MathMeta::Dot);
+        REGISTER_FLOAT_OVERLOADS("normalize", MathMeta::Normalize);
+        REGISTER_FLOAT_OVERLOADS("faceforward", MathMeta::FaceForward);
+        REGISTER_FLOAT_OVERLOADS("reflect", MathMeta::Reflect);
+        REGISTER_FLOAT_MATRIX_OVERLOADS("matrixCompMult", MathMeta::MatrixCompMult);
+        REGISTER_FLOAT_MATRIX_OVERLOADS("transpose", MathMeta::Transpose);
+        REGISTER_FLOAT_SQUARE_MATRIX_OVERLOADS("determinant", MathMeta::Determinant);
+        REGISTER_FLOAT_SQUARE_MATRIX_OVERLOADS("inverse", MathMeta::Inverse);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("lessThan", MathMeta::LessThan);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("lessThanEqual", MathMeta::LessThanEqual);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("greaterThan", MathMeta::GreaterThan);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("greaterThanEqual", MathMeta::GreaterThanEqual);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("equal", MathMeta::Equal);
+        REGISTER_NUMERIC_VECTOR_OVERLOADS("notEqual", MathMeta::NotEqual);
+
+        REGISTER_BOOLEAN_OVERLOADS("any", MathMeta::Any);
+        REGISTER_BOOLEAN_OVERLOADS("all", MathMeta::All);
+        REGISTER_BOOLEAN_OVERLOADS("not", MathMeta::Not);
+
+        REGISTER_INTEGER_OVERLOADS("bitCount", MathMeta::BitCount);
+        REGISTER_INTEGER_OVERLOADS("findLSB", MathMeta::FindLsb);
+        REGISTER_INTEGER_OVERLOADS("findMSB", MathMeta::FindMsb);
+        REGISTER_INTEGER_OVERLOADS("bitfieldReverse", MathMeta::BitfieldReverse);
+        REGISTER_INTEGER_OVERLOADS("bitfieldExtract", MathMeta::BitfieldExtract);
+        REGISTER_INTEGER_OVERLOADS("bitfieldInsert", MathMeta::BitfieldInsert);
