@@ -908,10 +908,6 @@ namespace glsld {
     }
 
     nlohmann::json LspServer::HandleInlayHints(Context& context) {
-        if (!inlay_hints_enabled_.load(std::memory_order::relaxed)) {
-            return {};
-        }
-
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
@@ -1002,9 +998,9 @@ namespace glsld {
 
         ABORT_IF_CANCELLED();
 
-        const auto start          = std::chrono::high_resolution_clock::now();
-        const auto signature_help = Providers::GetSignatureHelp(context, snapshot, target);
-        const auto end            = std::chrono::high_resolution_clock::now();
+        const auto start    = std::chrono::high_resolution_clock::now();
+        auto signature_help = Providers::GetSignatureHelp(context, snapshot, target);
+        const auto end      = std::chrono::high_resolution_clock::now();
 
         if (!signature_help.has_value()) {
             return {};
@@ -1014,7 +1010,7 @@ namespace glsld {
                   uri, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
         nlohmann::json response = nlohmann::json::array();
-        for (const auto& label : signature_help->signatures) {
+        for (auto& label : signature_help->signatures) {
             ABORT_IF_CANCELLED();
 
             const auto offsets = ExtractParameterOffsets(label);
@@ -1391,24 +1387,8 @@ namespace glsld {
     }
 
     void LspServer::ApplyCapabilityConfigs(const nlohmann::json& glsld) {
-        bool inlay_hints_enabled = true;
-
-        if (glsld.contains("capabilities") &&
-            glsld["capabilities"].is_object())
-        {
-            inlay_hints_enabled = glsld["capabilities"].value("inlayHints", true);
-        }
-
-        if (inlay_hints_enabled_.exchange(inlay_hints_enabled, std::memory_order::relaxed) == inlay_hints_enabled) {
-            return;
-        }
-
-        LspSubmitItem item{
-            .id            = server_request_id_.fetch_add(1, std::memory_order::release),
-            .notify_method = "workspace/inlayHint/refresh",
-            .kind          = LspSubmitItem::Kind::kServerRequest
-        };
-        EnqueueSubmit(std::move(item));
+        (void)glsld;
+        return; // 也许以后有用（？）
     }
 
     void LspServer::ApplyDiagnosticConfigs(const nlohmann::json& glsld) {

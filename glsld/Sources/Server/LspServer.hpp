@@ -165,10 +165,9 @@ namespace glsld {
         CancellationTokenTable                     cancellation_tokens_; // [Request ID, Token]
         std::mutex                                 cancellation_mutex_;
 
-        std::atomic<bool>                          inlay_hints_enabled_{ true };
+        DiagnosticEngine                           diagnostic_engine_;
         std::atomic<bool>                          diagnostics_enabled_{ true };
 
-        DiagnosticEngine                           diagnostic_engine_;
         Formatter                                  formatter_;
 
         ThreadPool                                 thread_pool_{ std::jthread::hardware_concurrency() };

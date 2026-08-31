@@ -426,7 +426,6 @@ export async function pushConfiguration(): Promise<void> {
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 	const glslcPath = config.get<string>('glslc.path', '').trim();
 	const clangFormatPath = config.get<string>('clangFormat.path', 'clang-format.exe').trim() || 'clang-format.exe';
-	const inlayHints = config.get<boolean>('capabilities.inlayHints', true);
 	const backgroundIndexRoots = getBackgroundIndexRoots(config.get<string[]>('backgroundIndex.roots', []));
 	const systemIncludeDirectories = getSystemIncludeDirectories();
 	const activeVariants = getActiveVariants();
@@ -449,7 +448,6 @@ export async function pushConfiguration(): Promise<void> {
 				diagnosticsEnabled,
 				glslcPath,
 				clangFormatPath,
-				capabilities: { inlayHints },
 				backgroundIndex: { roots: backgroundIndexRoots },
 				systemIncludeDirectories
 			}
