@@ -126,11 +126,6 @@
 					"default": true,
 					"description": "Enable diagnostic errors and warnings via glslc compilation."
 				},
-				"glsld.capabilities.inlayHints": {
-					"type": "boolean",
-					"default": true,
-					"description": "Enable inlay hints provided by glsld."
-				},
 				"glsld.backgroundIndex.roots": {
 					"type": "array",
 					"default": [],

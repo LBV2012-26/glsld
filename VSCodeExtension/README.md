@@ -107,7 +107,7 @@ Hovering over a symbol displays its declaration and relevant type information.
 
 ## Inlay hints
 
-Inlay hints expose parameter names and other information that makes shader code easier to read. They can be toggled with `glsld.capabilities.inlayHints`.
+Inlay hints expose parameter names and other information that makes shader code easier to read. They are controlled by VS Code's editor inlay-hint settings.
 
 ![Inlay hints](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/InlayHints.png)
 
@@ -136,7 +136,6 @@ User-controlled settings belong in `.vscode/settings.json`:
 ```json
 {
     "glsld.backgroundIndex.roots": ["${workspaceFolder}/Shaders", "${workspaceFolder}/Include"],
-    "glsld.capabilities.inlayHints": true,
     "glsld.diagnostics.enabled": true
 }
 ```
