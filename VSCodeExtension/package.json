@@ -141,7 +141,7 @@
 					"items": {
 						"type": "string"
 					},
-					"description": "Directories searched for #include <...>. Relative paths are resolved against each workspace folder."
+					"description": "Directories searched for #include <...>. Relative paths and ${workspaceFolder} are resolved against each workspace folder."
 				},
 				"glsld.compileMaxConcurrency": {
 					"type": "number",

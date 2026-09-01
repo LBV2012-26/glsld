@@ -204,15 +204,26 @@ namespace glsld {
         const IncludeTarget& target,
         IncludeDirectoryHandle include_dirs) const
     {
+        auto include_path = std::string_view(target.relative_path);
+        while (!include_path.empty() &&
+               (include_path.front() == '/' || include_path.front() == '\\'))
+        {
+            include_path.remove_prefix(1);
+        }
+
+        if (include_path.empty()) {
+            return std::nullopt;
+        }
+
         std::vector<std::filesystem::path> candidates;
         candidates.reserve(include_dirs->size() + 1);
 
         if (!target.system_include) { // system include only find in -I paths
-            candidates.push_back(includer_path.parent_path() / target.relative_path);
+            candidates.push_back(includer_path.parent_path() / include_path);
         }
 
         for (const auto& dir : *include_dirs) {
-            candidates.push_back(dir / target.relative_path);
+            candidates.push_back(dir / include_path);
         }
 
         for (const auto& candidate : candidates) {

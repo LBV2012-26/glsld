@@ -3,5 +3,8 @@
 	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe",
 	"glsld.backgroundIndex.roots": [
 		"${workspaceFolder}/Tests"
+	],
+	"glsld.systemIncludeDirectories": [
+		"${workspaceFolder}/Tests"
 	]
 }

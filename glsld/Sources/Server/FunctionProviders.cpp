@@ -399,6 +399,16 @@ namespace glsld::Providers {
             return it->begin_line <= line && line <= it->end_line;
         };
 
+        auto IsReadonlySymbol = [](const SymbolInfo* symbol) -> bool {
+            if (symbol->type_info.is_const()) {
+                return true;
+            }
+
+            return std::ranges::any_of(symbol->type_info.qualifiers, [](const Token& qualifier) -> bool {
+                return qualifier.text == "readonly";
+            });
+        };
+
         for (const auto& token : snapshot->raw_tokens) {
             ABORT_IF_CANCELLED();
 
@@ -438,6 +448,13 @@ namespace glsld::Providers {
 
             type_index = GetSymbolSemanticHighlight(symbol->kind);
 
+            if ((symbol->kind == SymbolKind::kVariable ||
+                 symbol->kind == SymbolKind::kParameter) &&
+                IsReadonlySymbol(symbol))
+            {
+                modifiers |= (1 << 2); // readonly
+            }
+
             if (token.location.line()   == symbol->location.line() &&
                 token.location.column() == symbol->location.column())
             {
@@ -457,6 +474,14 @@ namespace glsld::Providers {
     }
 
     namespace {
+        std::string_view TrimIncludeRootSeparators(std::string_view path) {
+            while (!path.empty() && (path.front() == '/' || path.front() == '\\')) {
+                path.remove_prefix(1);
+            }
+
+            return path;
+        }
+
         std::optional<std::string_view> ExtractIncludeExpr(const PreprocessorNode* node, const SourceLocation& location) {
             if (node == nullptr || node->directive != "include") {
                 return std::nullopt;
@@ -484,8 +509,13 @@ namespace glsld::Providers {
             std::string_view include_expr,
             IncludeDirectoryHandle include_dirs)
         {
+            // #include "/path/to/include.glsl"
+            const auto filename = TrimIncludeRootSeparators(include_expr.substr(1, include_expr.length() - 2));
+            if (filename.empty()) {
+                return std::nullopt;
+            }
+
             if (!include_expr.starts_with('<')) {
-                const auto filename = include_expr.substr(1, include_expr.length() - 2);
                 const auto includer = Utils::UriToPath(includer_uri);
 
                 auto result = Utils::NormalizePath(includer.parent_path() / filename);
@@ -495,7 +525,6 @@ namespace glsld::Providers {
             }
 
             for (const auto& dir : *include_dirs) {
-                const auto filename = include_expr.substr(1, include_expr.length() - 2);
                 auto result = Utils::NormalizePath(dir / filename);
                 if (std::filesystem::exists(result)) {
                     return result;
@@ -1179,6 +1208,7 @@ namespace glsld::Providers {
         }
 
         const auto [dir_prefix, file_prefix] = SplitPrefix(include_context->prefix);
+        const auto search_dir_prefix         = TrimIncludeRootSeparators(dir_prefix);
 
         StringHeteroHashSet unique_labels;
         nlohmann::json items = nlohmann::json::array();
@@ -1186,7 +1216,7 @@ namespace glsld::Providers {
         for (const auto& root : roots) {
             ABORT_IF_CANCELLED();
 
-            const auto base = Utils::NormalizePath(root / dir_prefix);
+            const auto base = Utils::NormalizePath(root / search_dir_prefix);
             if (!std::filesystem::exists(base) || !std::filesystem::is_directory(base)) {
                 continue;
             }

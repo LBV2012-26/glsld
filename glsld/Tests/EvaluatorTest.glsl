@@ -149,6 +149,10 @@ const mat2x3 kMatrixOuterFromSwizzles = outerProduct(kMatrixSwizzleSource.wzy, k
 const vec2 kMatrixColumnSwizzle    = kMatrixOuterFromSwizzles[1].zy;            // 第1列 (4,3,2) => vec2(2.0, 3.0)
 const vec2 kTransposeColumnSwizzle = transpose(kMatrixOuterFromSwizzles)[2].yx; // 第2列 (4,2)   => vec2(2.0, 4.0)
 
+const mat2 kMatrix = mat2(2.0, 4.0, 6.0, 8.0);
+const mat2 kZero   = mat2(0.0);
+const mat2 kResult = kMatrix / kZero;
+
 // ============================================================================
 // 7. 向量关系判断函数 (Section 8.7)
 // ============================================================================

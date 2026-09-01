@@ -494,8 +494,9 @@ function getBackgroundIndexRoots(configuredRoots: string[]): string[] {
 }
 
 function getSystemIncludeDirectories(): string[] {
-	const directories = new Set<string>();
-	const folders = workspace.workspaceFolders;
+        const directories = new Set<string>();
+        const folders = workspace.workspaceFolders;
+        const workspaceFolderVariable = '${workspaceFolder}';
 
 	if (!folders || folders.length === 0) {
 		for (const directory of workspace.getConfiguration('glsld').get<string[]>('systemIncludeDirectories', [])) {
@@ -514,12 +515,23 @@ function getSystemIncludeDirectories(): string[] {
 		for (const directory of configuredDirectories) {
 			if (typeof directory !== 'string' || directory.trim().length === 0) {
 				continue;
-			}
+                        }
 
-			const trimmed = directory.trim();
-			directories.add(path.isAbsolute(trimmed)
-				? path.normalize(trimmed)
-				: path.resolve(folder.uri.fsPath, trimmed));
+                        const trimmed = directory.trim();
+
+                        if (trimmed === workspaceFolderVariable ||
+                            trimmed.startsWith(`${workspaceFolderVariable}/`) ||
+                            trimmed.startsWith(`${workspaceFolderVariable}\\`)) {
+                                const relativePath = trimmed
+                                        .slice(workspaceFolderVariable.length)
+                                        .replace(/^[/\\]+/, '');
+                                directories.add(path.resolve(folder.uri.fsPath, relativePath));
+                                continue;
+                        }
+
+                        directories.add(path.isAbsolute(trimmed)
+                                ? path.normalize(trimmed)
+                                : path.resolve(folder.uri.fsPath, trimmed));
 		}
 	}
 
