@@ -134,7 +134,7 @@ void OverloadFunction(COOPMAT_TYPE_32 CoopMat32);
 void OverloadFunction(coopmat Matrix, int Int);
 void OverloadFunction(coopmat Matrix, uint Uint);
 
-void OverloadFunction(__Function Func);
+void OverloadFunction(_Func Func);
 
 struct InnerData {
     float Float;

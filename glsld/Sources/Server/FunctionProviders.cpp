@@ -1850,7 +1850,9 @@ namespace glsld::Providers {
                 return {};
             }
 
-            if (!node->type_spec.template_args.empty()) {
+            if (!node->type_spec.function_signature.empty()) {
+                type_name += std::format("<{}>", node->type_spec.function_signature);
+            } else if (!node->type_spec.template_args.empty()) {
                 type_name += "<";
                 for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
                     if (node->type_spec.template_args[i]->kind() == AstNodeKind::kVariableExpression) {
@@ -1928,36 +1930,39 @@ namespace glsld::Providers {
             }
 
             std::string result;
-            auto Append = [&result](std::string_view sv) -> void {
-                if (sv.empty()) {
+            auto Append = [&result](std::string_view text, bool abbreviate_arguments) -> void {
+                if (text.empty()) {
                     return;
                 }
 
-                std::string temp;
-                if (sv.contains('(')) {
-                    temp = std::string(sv.substr(0, sv.find_first_of('('))) + "(...)";
+                std::string rendered;
+                if (abbreviate_arguments) {
+                    const auto open_paren = text.find('(');
+                    rendered = open_paren == std::string_view::npos
+                             ? std::string(text)
+                             : std::string(text.substr(0, open_paren)) + "(...)";
                 } else {
-                    temp = sv;
+                    rendered = text;
                 }
 
-                if (result.empty()) {
-                    result = temp;
-                } else {
-                    result += " " + temp;
+                if (!result.empty()) {
+                    result += " ";
                 }
+
+                result += rendered;
             };
 
             for (const auto& layer : layer_exec_env)
-                Append(layer);
+                Append(layer, true);
 
-            Append(layer_layout);
+            Append(layer_layout, true);
 
             for (const auto& layer : layer_decorate)
-                Append(layer);
+                Append(layer, true);
             for (const auto& layer : layer_storage)
-                Append(layer);
+                Append(layer, true);
 
-            Append(BuildTypeText(node, snapshot));
+            Append(BuildTypeText(node, snapshot), false);
 
             if (result.contains("layout") && !result.contains("set")) {
                 if (auto pos = result.find("binding"); pos != std::string::npos) {

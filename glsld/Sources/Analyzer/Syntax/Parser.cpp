@@ -659,6 +659,44 @@ namespace glsld {
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
 
+                if (token.text == "_Func" && MatchAndConsume(TokenType::kLessThan)) {
+                    std::string signature;
+                    int level = 1;
+
+                    while (current_token().type != TokenType::kEndOfFile && level > 0) {
+                        const auto& part = current_token();
+
+                        if (part.type == TokenType::kLessThan) {
+                            ++level;
+                            signature += part.text;
+                            ConsumeToken();
+                            continue;
+                        }
+
+                        if (part.type == TokenType::kGreaterThan) {
+                            --level;
+                            if (level == 0) {
+                                ConsumeToken();
+                                break;
+                            }
+
+                            signature += part.text;
+                            ConsumeToken();
+                            continue;
+                        }
+
+                        signature += part.text;
+                        if (part.text == ",") {
+                            signature += ' ';
+                        }
+
+                        ConsumeToken();
+                    }
+
+                    type_spec.function_signature = document_.StoreTokenText(signature);
+                    continue;
+                }
+
                 if (MatchAndConsume(TokenType::kLessThan)) { // coopmat<float16_t, gl_ScopeSubgroup, M, N, gl_MatrixUseA>;
                     int level = 1;
                     while (current_token().type != TokenType::kEndOfFile && level > 0) {
@@ -2093,7 +2131,9 @@ namespace glsld {
                 }
             }
 
-            if (!param->type_spec.template_args.empty()) {
+            if (!param->type_spec.function_signature.empty()) {
+                param_typename += std::format("<{}>", param->type_spec.function_signature);
+            } else if (!param->type_spec.template_args.empty()) {
                 param_typename += "<";
                 for (auto i = 0uz; i != param->type_spec.template_args.size(); ++i) {
                     if (param->type_spec.template_args[i]->kind() == AstNodeKind::kVariableExpression) {
@@ -2146,9 +2186,9 @@ namespace glsld {
         mangled_name += "(";
 
         const auto typename_size = param_typenames.size();
-        for (auto i = 0uz; i != typename_size; ++i) {
-            mangled_name += param_typenames[i];
-            mangled_name += i == typename_size - 1 ? ")" : ", ";
+        for (const auto& [i, param_typename] : param_typenames | std::views::enumerate) {
+            mangled_name += param_typename;
+            mangled_name += std::cmp_equal(i, typename_size - 1) ? ")" : ", ";
         }
 
         return mangled_name;

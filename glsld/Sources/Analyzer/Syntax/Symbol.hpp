@@ -91,6 +91,7 @@ namespace glsld {
         std::span<const std::string_view>             template_args;
         std::string_view                              spirv_type;
         std::optional<SpirvTypeSignature>             spirv_signature;
+        std::span<const std::string_view>             function_signatures;
         bool                                          is_func_ref{ false };
 
         bool operator==(const TypeInfo& other) const;

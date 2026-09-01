@@ -2,6 +2,7 @@
 #include "TypeResolver.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <format>
 #include <optional>
@@ -76,6 +77,8 @@ namespace glsld {
         }
 
         MatchGrade TryImplicityConvert(const TypeInfo& src, const TypeInfo& dst) {
+            if (src.is_func_ref || dst.is_func_ref)
+                return MatchGrade::kFailed;
             if (src.typename_token.text == "" || dst.typename_token.text == "")
                 return MatchGrade::kFailed;
             if (src.typename_token.type == TokenType::kUnknown || dst.typename_token.type == TokenType::kUnknown)
@@ -952,16 +955,40 @@ namespace glsld {
 
         std::visit(Overloaded{
             [&](const SymbolInfo* symbol) -> void {
-                if (symbol != nullptr)
-                    node->evaluated_type = symbol->type_info; // 根据指向的符号类型推导当前符号类型
-                if (symbol && (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl))
-                    node->evaluated_type.is_func_ref = true;
-            },
-            [&](SymbolListView list) -> void {
-                if (!list.empty() && (list.front()->kind == SymbolKind::kFunctionDecl ||
-                                      list.front()->kind == SymbolKind::kFunctionImpl))
+                if (symbol == nullptr) {
+                    return;
+                }
+
+                node->evaluated_type = symbol->type_info;
+
+                if (symbol->kind == SymbolKind::kFunctionDecl ||
+                    symbol->kind == SymbolKind::kFunctionImpl)
                 {
                     node->evaluated_type.is_func_ref = true;
+                    const std::array signatures{
+                        BuildFunctionSignature(symbol)
+                    };
+
+                    node->evaluated_type.function_signatures =
+                        document_.arena->CopySpan<std::string_view>(signatures);
+                }
+            },
+            [&](SymbolListView list) -> void {
+                if (list.empty()) {
+                    return;
+                }
+
+                if (list.front()->kind == SymbolKind::kFunctionDecl ||
+                    list.front()->kind == SymbolKind::kFunctionImpl)
+                {
+                    node->evaluated_type = {};
+                    node->evaluated_type.typename_token = Token{
+                        .text     = "_Func",
+                        .location = node->original_token.location,
+                        .type     = TokenType::kPrimitive
+                    };
+                    node->evaluated_type.is_func_ref = true;
+                    node->evaluated_type.function_signatures = BuildFunctionSignatures(list);
                 }
             },
             [](std::monostate) -> void {}
@@ -1185,6 +1212,65 @@ namespace glsld {
     }
 
     namespace {
+        std::string BuildFunctionTypename(const TypeInfo& type_info) {
+            std::string result(type_info.typename_token.text);
+            if (!type_info.template_args.empty()) {
+                result += "<";
+                for (const auto& [i, argv] : type_info.template_args | std::views::enumerate) {
+                    if (i != 0) {
+                        result += ", ";
+                    }
+
+                    result += argv;
+                }
+
+                result += ">";
+            }
+
+            for (const auto& size : type_info.array_sizes) {
+                result += "[";
+                if (size.has_value()) {
+                    result += std::to_string(*size);
+                }
+
+                result += "]";
+            }
+
+            return result;
+        }
+    }
+
+    std::string_view TypeResolver::BuildFunctionSignature(const SymbolInfo* symbol) {
+        auto signature = BuildFunctionTypename(symbol->type_info);
+        signature += "(";
+
+        for (const auto& [i, typeinfo] : symbol->param_typeinfos | std::views::enumerate) {
+            if (i != 0) {
+                signature += ", ";
+            }
+
+            signature += BuildFunctionTypename(typeinfo);
+        }
+
+        signature += ")";
+        return document_.StoreTokenText(signature);
+    }
+
+    std::span<const std::string_view> TypeResolver::BuildFunctionSignatures(SymbolListView symbols) {
+        std::vector<std::string_view> signatures;
+
+        for (const auto* symbol : symbols) {
+            if (symbol->kind == SymbolKind::kFunctionDecl ||
+                symbol->kind == SymbolKind::kFunctionImpl)
+            {
+                signatures.push_back(BuildFunctionSignature(symbol));
+            }
+        }
+
+        return document_.arena->CopySpan<std::string_view>(signatures);
+    }
+
+    namespace {
         std::pair<const QualifierArgumentNode*, std::string_view> ExtractAssignment(const QualifierArgumentNode* node) {
             if (node == nullptr || node->arg_kind != QualifierArgumentKind::kAssignment || node->children.size() != 2) {
                 return { nullptr, "" };
@@ -1345,8 +1431,16 @@ namespace glsld {
 
         TypeInfo info;
 
-        if (type_spec.typename_token().text == "__Function") {
+        if (type_spec.typename_token().text == "_Func") {
             info.is_func_ref = true;
+
+            if (!type_spec.function_signature.empty()) {
+                const std::array signatures{
+                    type_spec.function_signature
+                };
+
+                info.function_signatures = document_.arena->CopySpan<std::string_view>(signatures);
+            }
         }
 
         const auto& typename_token = type_spec.typename_token();

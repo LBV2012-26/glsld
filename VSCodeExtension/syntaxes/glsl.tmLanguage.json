@@ -653,7 +653,7 @@
 			"patterns": [
 				{
 					"name": "storage.type.glsl",
-					"match": "\\b(?:__Function|atomic_uint|bool|double|fixed|float|half|int|long|short|superp|uint|unsigned|void)\\b"
+					"match": "\\b(?:_Func|atomic_uint|bool|double|fixed|float|half|int|long|short|superp|uint|unsigned|void)\\b"
 				},
 				{
 					"name": "entity.name.type.glsl",

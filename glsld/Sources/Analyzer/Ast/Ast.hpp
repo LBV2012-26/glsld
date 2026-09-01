@@ -21,6 +21,7 @@ namespace glsld {
         ArenaVector<ExpressionNode*>      array_sizes{ ArenaAllocator<ExpressionNode*>(arena) };
         ArenaVector<LayoutQualifierNode*> layouts{ ArenaAllocator<LayoutQualifierNode*>(arena) };
         ArenaVector<SpirvIntrinsicNode*>  spirv_intrinsics{ ArenaAllocator<SpirvIntrinsicNode*>(arena) };
+        std::string_view                  function_signature;
         const SpirvIntrinsicNode*         spirv_type{ nullptr };
 
         TypeSpec(Arena* arena);

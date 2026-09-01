@@ -39,6 +39,7 @@ namespace glsld {
         , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
         , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
         , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
+        , function_signature{ other.function_signature }
     {
         if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
             return;

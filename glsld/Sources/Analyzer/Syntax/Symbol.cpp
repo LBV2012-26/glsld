@@ -73,8 +73,24 @@ namespace glsld {
     }
 
     bool TypeInfo::CompareWithoutQualifiers(const TypeInfo& other) const {
-        if ((is_func_ref && other.is_func_ref)) {
-            return true;
+        if (is_func_ref || other.is_func_ref) {
+            if (!is_func_ref || !other.is_func_ref) {
+                return false;
+            }
+
+            if (function_signatures.empty() || other.function_signatures.empty()) {
+                return true;
+            }
+
+            for (const auto lhs : function_signatures) {
+                for (const auto rhs : other.function_signatures) {
+                    if (lhs == rhs) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         if (typename_token.type != other.typename_token.type) {

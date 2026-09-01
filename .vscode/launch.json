@@ -12,7 +12,7 @@
 				"${workspaceRoot}/VSCodeExtension/out/**/*.js"
 			],
 			"autoAttachChildProcesses": true,
-			"preLaunchTask": "npm: compile - VSCodeExtension"
+			// "preLaunchTask": "npm: compile - VSCodeExtension"
 		}
 	]
 }

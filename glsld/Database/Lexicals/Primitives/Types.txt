@@ -2,4 +2,4 @@ atomic_uint
 bool int uint float double
 long short half fixed unsigned superp
 void
-__Function
+_Func
