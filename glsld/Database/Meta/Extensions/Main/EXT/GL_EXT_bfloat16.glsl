@@ -10,10 +10,10 @@
 // genI16Type = int16_t, i16vec2, i16vec3, i16vec4
 // genU16Type = uint16_t, u16vec2, u16vec3, u16vec4
 
-bfloat16_t dot(bfloat16_t _X, bfloat16_t _Y);
-bfloat16_t dot(bf16vec2 _X, bf16vec2 _Y);
-bfloat16_t dot(bf16vec3 _X, bf16vec3 _Y);
-bfloat16_t dot(bf16vec4 _X, bf16vec4 _Y);
+bfloat16_t dot(bfloat16_t x, bfloat16_t y);
+bfloat16_t dot(bf16vec2 x, bf16vec2 y);
+bfloat16_t dot(bf16vec3 x, bf16vec3 y);
+bfloat16_t dot(bf16vec4 x, bf16vec4 y);
 
 int16_t bfloat16BitsToIntEXT(bfloat16_t _Value);
 i16vec2 bfloat16BitsToIntEXT(bf16vec2 _Value);
@@ -36,10 +36,10 @@ bf16vec3 uintBitsToBFloat16EXT(u16vec3 _Value);
 bf16vec4 uintBitsToBFloat16EXT(u16vec4 _Value);
 
 // Cooperative matrix load/store overloads for bfloat16 types
-void coopMatLoad(out coopmat _M, volatile coherent bfloat16_t[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
-void coopMatLoad(out coopmat _M, volatile coherent bf16vec2[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
-void coopMatLoad(out coopmat _M, volatile coherent bf16vec4[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatLoad(out coopmat _Matrix, volatile coherent bfloat16_t[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatLoad(out coopmat _Matrix, volatile coherent bf16vec2[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatLoad(out coopmat _Matrix, volatile coherent bf16vec4[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 
-void coopMatStore(coopmat _M, volatile coherent out bfloat16_t[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
-void coopMatStore(coopmat _M, volatile coherent out bf16vec2[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
-void coopMatStore(coopmat _M, volatile coherent out bf16vec4[] _Buf, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatStore(coopmat _Matrix, volatile coherent out bfloat16_t[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatStore(coopmat _Matrix, volatile coherent out bf16vec2[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+void coopMatStore(coopmat _Matrix, volatile coherent out bf16vec4[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);

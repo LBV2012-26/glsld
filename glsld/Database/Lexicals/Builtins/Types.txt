@@ -136,9 +136,6 @@ usubpassInput usubpassInputMS
 
 accelerationStructureNV
 
-texture1D texture2D texture3D textureCube
-sampler3DRect
-
 sampler1D sampler2D sampler3D samplerCube
 sampler1DShadow sampler2DShadow samplerCubeShadow
 sampler1DArray sampler2DArray
@@ -186,32 +183,16 @@ u64image2DRect u64imageBuffer
 u64image2DMS u64image2DMSArray
 
 texture1D texture2D texture3D textureCube textureCubeArray
-texture1DProj texture2DProj texture3DProj textureRectProj
-texture1DLod texture2DLod texture3DLod textureCubeLod texture1DArrayLod texture2DArrayLod textureCubeArrayLod
-texture1DArray texture2DArray textureRect textureBuffer
-texture1DProjLod texture2DProjLod texture3DProjLod textureRectProjLod
+texture1DArray texture2DArray textureBuffer
 texture2DMS texture2DMSArray texture2DRect
 
-itexture1D itexture2D itexture3D itextureCube itextureCubeArray itextureRect itextureBuffer
+itexture1D itexture2D itexture3D itextureCube itextureCubeArray itextureBuffer
 itexture1DArray itexture2DArray
-itexture1DProj itexture2DProj itexture3DProj itextureRectProj
-itexture1DLod itexture2DLod itexture3DLod itextureCubeLod
 itexture2DMS itexture2DMSArray itexture2DRect
 
-utexture1D utexture2D utexture3D utextureCube utextureCubeArray utextureRect utextureBuffer
+utexture1D utexture2D utexture3D utextureCube utextureCubeArray utextureBuffer
 utexture1DArray utexture2DArray
-utexture1DProj utexture2DProj utexture3DProj utextureRectProj
-utexture1DLod utexture2DLod utexture3DLod utextureCubeLod
 utexture2DMS utexture2DMSArray utexture2DRect
-
-texture1DShadow texture2DShadow texture1DArrayShadow texture2DArrayShadow textureCubeShadow textureCubeArrayShadow textureRectShadow
-texture1DProjShadow texture2DProjShadow textureRectProjShadow
-texture1DShadowLod texture2DShadowLod texture1DArrayShadowLod
-
-shadow1D shadow2D
-shadow1DProj shadow2DProj
-shadow1DLod shadow2DLod
-shadow1DProjLod shadow2DProjLod
 
 hitObjectNV
 tensorViewNV

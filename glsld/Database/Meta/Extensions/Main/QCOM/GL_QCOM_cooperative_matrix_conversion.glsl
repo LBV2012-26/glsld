@@ -1,5 +1,7 @@
 #define GL_QCOM_cooperative_matrix_conversion 1
 
+#include "../KHR/GL_KHR_cooperative_matrix.glsl"
+
 void bitcastQCOM(uint _SrcArr[], uint _DstArr[]);
 void bitcastQCOM(uint _SrcArr[], int _DstArr[]);
 void bitcastQCOM(uint _SrcArr[], float _DstArr[]);

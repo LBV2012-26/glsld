@@ -23,7 +23,7 @@ const int gl_CooperativeVectorMatrixLayoutTrainingOptimalNV    = 3;
 
 void coopVecMatMulAddNV(out coopvecNV<ResultTy, ResultComps> _Result, coopvecNV<InputTy, InputComps> _Input, int _InputInterpretation, const MatrixTy[] _Matrix, uint _MatrixOffset, int _MatrixInterpretation, const BiasTy[] _Bias, uint _BiasOffset, int _BiasInterpretation, uint _M, uint _K, int _MatrixLayout, bool _Transpose, uint _MatrixStride);
 void coopVecMatMulNV(out coopvecNV<ResultTy, ResultComps> _Result, coopvecNV<InputTy, InputComps> _Input, int _InputInterpretation, const MatrixTy[] _Matrix, uint _MatrixOffset, int _MatrixInterpretation, uint _M, uint _K, int _MatrixLayout, bool _Transpose, uint _MatrixStride);
-void coopVecLoadNV(out coopvecNV<VectorElemTy, NumComps> _V, volatile coherent ArrayElemTy[] _Buf, uint _Offset);
-void coopVecStoreNV(coopvecNV<VectorElemTy, NumComps> _V, volatile coherent ArrayElemTy[] _Buf, uint _Offset);
-void coopVecOuterProductAccumulateNV(const coopvecNV<T, M> _V1, const coopvecNV<T, N> _V2, T[] _Buf, uint _Offset, uint _Stride, int _MatrixLayout, int _MatrixInterpretation);
-void coopVecReduceSumAccumulateNV(const coopvecNV<VectorElemTy, NumComps> _V, T[] _Buf, uint _Offset);
+void coopVecLoadNV(out coopvecNV<VectorElemTy, NumComps> _V, volatile coherent ArrayElemTy[] _Buffer, uint _Offset);
+void coopVecStoreNV(coopvecNV<VectorElemTy, NumComps> _V, volatile coherent ArrayElemTy[] _Buffer, uint _Offset);
+void coopVecOuterProductAccumulateNV(const coopvecNV<T, M> _V1, const coopvecNV<T, N> _V2, T[] _Buffer, uint _Offset, uint _Stride, int _MatrixLayout, int _MatrixInterpretation);
+void coopVecReduceSumAccumulateNV(const coopvecNV<VectorElemTy, NumComps> _V, T[] _Buffer, uint _Offset);

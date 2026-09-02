@@ -37,47 +37,47 @@
 // uint8_t, u8vec2, u8vec3, u8vec4
 
 // 8.x Integer Pack and Unpack Functions
-int64_t pack64(i32vec2 _V);
-uint64_t pack64(u32vec2 _V);
-int64_t pack64(i16vec4 _V);
-uint64_t pack64(u16vec4 _V);
-int32_t pack32(i16vec2 _V);
-uint32_t pack32(u16vec2 _V);
-int32_t pack32(i8vec4 _V);
-uint32_t pack32(u8vec4 _V);
-int16_t pack16(i8vec2 _V);
-uint16_t pack16(u8vec2 _V);
+int64_t pack64(i32vec2 _Value);
+uint64_t pack64(u32vec2 _Value);
+int64_t pack64(i16vec4 _Value);
+uint64_t pack64(u16vec4 _Value);
+int32_t pack32(i16vec2 _Value);
+uint32_t pack32(u16vec2 _Value);
+int32_t pack32(i8vec4 _Value);
+uint32_t pack32(u8vec4 _Value);
+int16_t pack16(i8vec2 _Value);
+uint16_t pack16(u8vec2 _Value);
 
-i32vec2 unpack32(int64_t _V);
-u32vec2 unpack32(uint64_t _V);
-i16vec4 unpack16(int64_t _V);
-u16vec4 unpack16(uint64_t _V);
-i16vec2 unpack16(int32_t _V);
-u16vec2 unpack16(uint32_t _V);
-i8vec4 unpack8(int32_t _V);
-u8vec4 unpack8(uint32_t _V);
-i8vec2 unpack8(int16_t _V);
-u8vec2 unpack8(uint16_t _V);
+i32vec2 unpack32(int64_t _Value);
+u32vec2 unpack32(uint64_t _Value);
+i16vec4 unpack16(int64_t _Value);
+u16vec4 unpack16(uint64_t _Value);
+i16vec2 unpack16(int32_t _Value);
+u16vec2 unpack16(uint32_t _Value);
+i8vec4 unpack8(int32_t _Value);
+u8vec4 unpack8(uint32_t _Value);
+i8vec2 unpack8(int16_t _Value);
+u8vec2 unpack8(uint16_t _Value);
 
 // Alias pack/unpack functions
-int64_t packInt2x32(ivec2 _V);
-uint64_t packUint2x32(uvec2 _V);
-ivec2 unpackInt2x32(int64_t _V);
-uvec2 unpackUint2x32(uint64_t _V);
+int64_t packInt2x32(ivec2 _Value);
+uint64_t packUint2x32(uvec2 _Value);
+ivec2 unpackInt2x32(int64_t _Value);
+uvec2 unpackUint2x32(uint64_t _Value);
 
 // 8.4 Floating-Point Pack and Unpack additions
-uint32_t packFloat2x16(f16vec2 _V);
-f16vec2 unpackFloat2x16(uint32_t _V);
+uint32_t packFloat2x16(f16vec2 _Value);
+f16vec2 unpackFloat2x16(uint32_t _Value);
 
-int32_t packInt2x16(i16vec2 _V);
-int64_t packInt4x16(i16vec4 _V);
-uint32_t packUint2x16(u16vec2 _V);
-uint64_t packUint4x16(u16vec4 _V);
+int32_t packInt2x16(i16vec2 _Value);
+int64_t packInt4x16(i16vec4 _Value);
+uint32_t packUint2x16(u16vec2 _Value);
+uint64_t packUint4x16(u16vec4 _Value);
 
-i16vec2 unpackInt2x16(int32_t _V);
-i16vec4 unpackInt4x16(int64_t _V);
-u16vec2 unpackUint2x16(uint32_t _V);
-u16vec4 unpackUint4x16(uint64_t _V);
+i16vec2 unpackInt2x16(int32_t _Value);
+i16vec4 unpackInt4x16(int64_t _Value);
+u16vec2 unpackUint2x16(uint32_t _Value);
+u16vec4 unpackUint4x16(uint64_t _Value);
 
 // 8.3 Common Functions (16-bit / 64-bit bitcast additions only)
 int16_t halfBitsToInt16(float16_t _Value);

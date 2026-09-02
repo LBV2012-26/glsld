@@ -4,4 +4,4 @@
 
 in vec3 gl_HitTriangleVertexPositionsEXT[3];
 
-void rayQueryGetIntersectionTriangleVertexPositionsEXT(rayQueryEXT _Q, bool _Committed, out vec3 _Positions[3]);
+void rayQueryGetIntersectionTriangleVertexPositionsEXT(rayQueryEXT _RayQuery, bool _Committed, out vec3 _Positions[3]);

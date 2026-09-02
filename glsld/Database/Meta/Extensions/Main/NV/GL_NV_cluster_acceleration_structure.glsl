@@ -5,5 +5,5 @@
 in    int gl_ClusterIDNV;
 const int gl_ClusterIDNoneNV = -1;
 
-int rayQueryGetIntersectionClusterIdNV(rayQueryEXT _Q, bool _Committed);
+int rayQueryGetIntersectionClusterIdNV(rayQueryEXT _RayQuery, bool _Committed);
 int hitObjectGetClusterIdNV(hitObjectNV _HitObject);
