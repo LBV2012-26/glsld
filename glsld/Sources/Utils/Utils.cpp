@@ -792,8 +792,8 @@ namespace glsld::Utils {
 
         std::vector<char*> argv;
         argv.reserve(args.size() + 1);
-        for (const auto& argv : args) {
-            argv.push_back(const_cast<char*>(argv.data()));
+        for (const auto& arg : args) {
+            argv.push_back(const_cast<char*>(arg.data()));
         }
 
         std::array<int, 2> stdout_pipe{};
