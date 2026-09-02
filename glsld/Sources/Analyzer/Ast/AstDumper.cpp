@@ -495,8 +495,8 @@ namespace glsld {
             PrintIndent();
             std::println("Arguments:");
             ++indent_level_;
-            for (const auto& arg : node->args) {
-                Traverse(arg);
+            for (const auto& argv : node->args) {
+                Traverse(argv);
             }
             --indent_level_;
         }

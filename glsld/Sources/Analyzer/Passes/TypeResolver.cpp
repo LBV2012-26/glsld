@@ -739,10 +739,10 @@ namespace glsld {
 
     void TypeResolver::VisitCallExpression(CallExpressionNode* node) {
         std::vector<TypeInfo> call_arg_types;
-        for (const auto& arg : node->args) {
-            if (arg != nullptr) {
-                Traverse(arg);
-                call_arg_types.push_back(arg->evaluated_type); // 处理参数类型
+        for (auto* argv : node->args) {
+            if (argv != nullptr) {
+                Traverse(argv);
+                call_arg_types.push_back(argv->evaluated_type); // 处理参数类型
             } else {
                 call_arg_types.push_back({
                     .typename_token{
@@ -1528,8 +1528,8 @@ namespace glsld {
         }
 
         std::vector<std::string_view> template_arg_views;
-        for (const auto& arg : template_args) {
-            template_arg_views.push_back(document_.StoreTokenText(arg));
+        for (const auto& argv : template_args) {
+            template_arg_views.push_back(document_.StoreTokenText(argv));
         }
 
         info.template_args = document_.arena->CopySpan<std::string_view>(template_arg_views);

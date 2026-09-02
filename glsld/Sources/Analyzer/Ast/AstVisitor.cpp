@@ -446,8 +446,8 @@ namespace glsld {
             Traverse(node->callee);
         }
 
-        for (auto& arg : node->args) {
-            Traverse(arg);
+        for (auto& argv : node->args) {
+            Traverse(argv);
         }
     }
 
