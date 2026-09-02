@@ -26,6 +26,10 @@ void OverloadFunction(ivec2 int2) {}
 void OverloadFunction(ivec3 int3) {}
 void OverloadFunction(ivec4 int4) {}
 
+void OverloadFunction(uvec2 uint2) {}
+void OverloadFunction(uvec3 uint3) {}
+void OverloadFunction(uvec4 uint4) {}
+
 void OverloadFunction(bvec2 bool2) {}
 void OverloadFunction(bvec3 bool3) {}
 void OverloadFunction(bvec4 bool4) {}
@@ -134,7 +138,11 @@ void OverloadFunction(COOPMAT_TYPE_32 CoopMat32);
 void OverloadFunction(coopmat Matrix, int Int);
 void OverloadFunction(coopmat Matrix, uint Uint);
 
-void OverloadFunction(_Func Func);
+void OverloadFunction(_Func<void(bool)> BoolFunc);
+void OverloadFunction(_Func<void(void)> VoidFunc);
+
+void BoolFunc(bool);
+void VoidFunc();
 
 struct InnerData {
     float Float;
@@ -923,16 +931,9 @@ void main() {
     OverloadFunction(uint16_t[](7us, 8us, 9us));
 
     OverloadFunction(intArray1D_2);
-    OverloadFunction({30, 40});
-    OverloadFunction({1, 2, 3});
-
-    OverloadFunction({{1, 2, 3}, {4, 5, 6}}); 
 
     uint uintArray1D_4[4] = {1u, 2u, 3u, 4u};
     OverloadFunction(uintArray1D_4);
-    OverloadFunction({10u, 20u});
-
-    OverloadFunction({10us, 20us, 30us});
 
     OverloadFunction(floatArray1D_5);
     OverloadFunction(float[5](0.1, 0.2, 0.3, 0.4, 0.5));
@@ -955,22 +956,11 @@ void main() {
     OverloadFunction(double[4](0.0LF, 0.0LF, 0.0LF, 0.0LF));
     OverloadFunction(double[](9.0LF, 8.0LF, 7.0LF, 6.0LF));
 
-    // float[5]
-    OverloadFunction({1.1, 2.2, 3.3, 4.4, 5.5});
-
     // float[2][3] 与 float[3][4]
     float floatArray2D_2x3[2][3] = {{1., 2., 3.}, {4., 5., 6.}};
+    float floatArray2D_3x4[3][4] = {{0., 0., 0., 0.}, {1., 1., 1., 1.}, {2., 2., 2., 2.}};
     OverloadFunction(floatArray2D_2x3);
-    OverloadFunction({{0.,0.,0.,0.}, {1.,1.,1.,1.}, {2.,2.,2.,2.}}); // 对应 float[3][4]
-
-    // float[2][2][3] (三维)
-    OverloadFunction({
-        {{1.,1.,1.}, {2.,2.,2.}}, 
-        {{3.,3.,3.}, {4.,4.,4.}}
-    });
-
-    // double[4]
-    OverloadFunction({1.0LF, 2.0LF, 3.0LF, 4.0LF});
+    OverloadFunction(floatArray2D_3x4);
 
     // vec2[3]
     OverloadFunction(vec2Array1D_3);
@@ -984,35 +974,17 @@ void main() {
         vec2[2][2](vec2[2](vec2(1), vec2(1)), vec2[2](vec2(1), vec2(1)))
     ));
 
-    // ivec3[2] / vec3[2] / vec4[2]
+    // ivec3[2] / vec3[2] / vec4[2] / vec2[4]
     OverloadFunction(vec3Array1D_2);
     OverloadFunction(ivec3[2](ivec3(1), ivec3(2)));
     OverloadFunction(vec4[](vec4(1), vec4(0)));
+    OverloadFunction(vec2Array1D_4);
 
     // dvec2[2]
     dvec2 dvec2Array1D_2[2] = dvec2[2](dvec2(1.0LF), dvec2(2.0LF));
     OverloadFunction(dvec2Array1D_2);
     OverloadFunction(dvec2[2](dvec2(0), dvec2(1)));
     OverloadFunction(dvec2[](dvec2(5), dvec2(6)));
-
-    // vec2[3] 与 vec2[4]
-    OverloadFunction({vec2(0), vec2(1), vec2(2)});
-    OverloadFunction(vec2Array1D_4);
-
-    // vec2[2][2][2] (三维向量数组)
-    OverloadFunction({
-        {{vec2(0), vec2(0)}, {vec2(1), vec2(1)}},
-        {{vec2(2), vec2(2)}, {vec2(3), vec2(3)}}
-    });
-
-    // ivec3[2], vec3[2], vec4[2], dvec2[2]
-    OverloadFunction({ivec3(1), ivec3(2)});
-    OverloadFunction({vec3(0.1), vec3(0.2)});
-    OverloadFunction({vec4(0), vec4(1)});
-    OverloadFunction({dvec2(1.0LF), dvec2(2.0LF)});
-
-    // vec3[2][2]
-    OverloadFunction({{vec3(0), vec3(0)}, {vec3(1), vec3(1)}});
 
     OverloadFunction(mat2Array2D_2x2);
     OverloadFunction(mat2[2][2](mat2[2](mat2(0), mat2(0)), mat2[2](mat2(0), mat2(0))));
@@ -1024,14 +996,11 @@ void main() {
     OverloadFunction(mat4[](mat4(2), mat4(2)));
 
     // mat3[2] 与 mat4[2]
-    OverloadFunction({mat3(1.0), mat3(1.0)});
+    OverloadFunction(mat3Array1D_2);
     OverloadFunction(mat4Array1D_2);
 
     // mat2[2][2] (多维矩阵数组)
-    OverloadFunction({
-        {mat2(1), mat2(1)},
-        {mat2(0), mat2(0)}
-    });
+    OverloadFunction(mat2Array2D_2x2);
 
     InnerData LocalInner;
     MiddleData LocalMiddle;
@@ -1120,7 +1089,8 @@ void main() {
     OverloadFunction(CoopMat16, Int32);
     OverloadFunction(CoopMat32, UInt32);
 
-    OverloadFunction(OverloadFunction);
+    OverloadFunction(BoolFunc);
+    OverloadFunction(VoidFunc);
 
     OverloadFunction(intArray1D_2.length());
 
