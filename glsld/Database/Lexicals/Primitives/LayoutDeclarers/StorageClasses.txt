@@ -4,5 +4,4 @@ descriptor_heap
 local_size_variable
 nonprivate
 push_constant
-restrict
 shader_record

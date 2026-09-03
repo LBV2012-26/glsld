@@ -71,7 +71,7 @@ void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint16_t[] _Bu
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
-void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
+void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
@@ -105,7 +105,7 @@ void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint16_t[] _Bu
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
-void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
+void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
@@ -139,7 +139,7 @@ void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint16_t[] _Bu
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
-void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
+void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc);
@@ -173,7 +173,7 @@ void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint16_t[] _Bu
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
-void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
+void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View, _Func _DecodeFunc);
@@ -207,7 +207,7 @@ void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint16_t[] _Buf
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
-void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
+void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout);
@@ -241,7 +241,7 @@ void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint16_t[] _Buf
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out uint64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
-void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
+void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out float64_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out i8vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out i16vec2[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
@@ -267,9 +267,7 @@ void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out f32vec4[] _Buff
 void coopMatStoreTensorNV(coopmat _Matrix, volatile coherent out f64vec4[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, tensorViewNV _View);
 
 void coopMatReduceNV(out coopmat _Result, coopmat _Matrix, int _ReduceMask, _Func<float16_t(float16_t, float16_t)> _CombineOp);
-void coopMatReduceNV(out coopmat _Result, coopmat _Matrix, int _ReduceMask, _Func<float(float, float)> _CombineOp);
 void coopMatReduceNV(out coopmat _Result, coopmat _Matrix, int _ReduceMask, _Func<float32_t(float32_t, float32_t)> _CombineOp);
-void coopMatReduceNV(out coopmat _Result, coopmat _Matrix, int _ReduceMask, _Func<double(double, double)> _CombineOp);
 void coopMatReduceNV(out coopmat _Result, coopmat _Matrix, int _ReduceMask, _Func<float64_t(float64_t, float64_t)> _CombineOp);
 
 // _ElemOp may have an arbitrary number of additional parameters matched by the trailing arguments.

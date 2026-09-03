@@ -1,6 +1,6 @@
 attribute varying
 layout readonly writeonly uniform buffer resourceheap samplerheap
-shared volatile
+shared volatile restrict
 centroid flat smooth noperspective patch sample
 subroutine
 const in out inout
