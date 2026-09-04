@@ -687,7 +687,9 @@ namespace glsld {
                 }
 
                 const auto& next_token = PeekToken();
-                if (next_token.type != TokenType::kIdentifier) {
+                if (next_token.type != TokenType::kIdentifier &&
+                    next_token.type != TokenType::kOpenBracket)
+                {
                     break;
                 }
 
