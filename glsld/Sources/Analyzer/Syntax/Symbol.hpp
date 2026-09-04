@@ -82,16 +82,18 @@ namespace glsld {
     };
 
     struct SymbolInfo;
+    struct FunctionTypeInfo;
+    struct TemplateArgumentInfo;
     struct TypeInfo {
         Token                                         typename_token;
         TypeDescriptor                                type_desc;
         const SymbolInfo*                             block_symbol{ nullptr };
         std::span<const std::optional<std::uint64_t>> array_sizes;
         std::span<const Token>                        qualifiers;
-        std::span<const std::string_view>             template_args;
+        std::span<const TemplateArgumentInfo>         template_args;
+        std::span<const FunctionTypeInfo* const>      function_signatures;
         std::string_view                              spirv_type;
         std::optional<SpirvTypeSignature>             spirv_signature;
-        std::span<const std::string_view>             function_signatures;
         bool                                          is_func_ref{ false };
 
         bool operator==(const TypeInfo& other) const;
@@ -100,6 +102,24 @@ namespace glsld {
         bool is_valid() const;
         bool is_array() const;
         bool is_const() const;
+
+        std::string Format(std::string_view type_name = {}) const;
+    };
+
+    struct FunctionTypeInfo {
+        TypeInfo                  return_type;
+        std::span<const TypeInfo> param_types;
+
+        bool CompareWithoutQualifiers(const FunctionTypeInfo& other) const;
+    };
+
+    struct TemplateArgumentInfo {
+        using Value = std::variant<TypeInfo, std::int64_t, std::uint64_t, double, bool>;
+        Value value;
+        std::optional<Token> display;
+
+        bool operator==(const TemplateArgumentInfo& other) const;
+        bool CompareWithoutQualifiers(const TemplateArgumentInfo& other) const;
     };
 
     class Scope;

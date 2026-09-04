@@ -1880,36 +1880,9 @@ namespace glsld::Providers {
                 return {};
             }
 
-            if (!node->type_spec.function_signature.empty()) {
-                type_name += std::format("<{}>", node->type_spec.function_signature);
-            } else if (!node->type_spec.template_args.empty()) {
-                type_name += "<";
-                for (auto i = 0uz; i != node->type_spec.template_args.size(); ++i) {
-                    if (node->type_spec.template_args[i]->kind() == AstNodeKind::kVariableExpression) {
-                        auto* var_expr = static_cast<const VariableExpressionNode*>(node->type_spec.template_args[i]);
-                        type_name += var_expr->name;
-                    } else if (node->type_spec.template_args[i]->kind() == AstNodeKind::kRawExpression) {
-                        auto* raw_expr = static_cast<const RawExpressionNode*>(node->type_spec.template_args[i]);
-                        type_name += raw_expr->tokens.front().text;
-                    }
-
-                    if (i + 1 != node->type_spec.template_args.size()) {
-                        type_name += ", ";
-                    }
-                }
-
-                type_name += ">";
-            }
-
             const auto* symbol = node->declared_symbol;
             if (symbol != nullptr) {
-                for (const auto array_size : symbol->type_info.array_sizes) {
-                    if (array_size.has_value()) {
-                        type_name += std::format("[{}]", *array_size);
-                    } else {
-                        type_name += "[]";
-                    }
-                }
+                return symbol->type_info.Format(type_name);
             }
 
             return type_name;
@@ -2030,26 +2003,9 @@ namespace glsld::Providers {
             return {};
         }
 
-        std::string return_typename = symbol->type_info.spirv_type.empty()
-                                    ? std::string(symbol->type_info.typename_token.text)
-                                    : std::string(symbol->type_info.spirv_type);
-
-        for (const auto& template_args : symbol->type_info.template_args) {
-            return_typename += (template_args == symbol->type_info.template_args.front()) ? "<" : ", ";
-            return_typename += template_args;
-        }
-
-        if (!symbol->type_info.template_args.empty()) {
-            return_typename += ">";
-        }
-
-        for (auto array_size : symbol->type_info.array_sizes) {
-            if (array_size.has_value()) {
-                std::format_to(std::back_inserter(return_typename), "[{}]", *array_size);
-            } else {
-                return_typename += "[]";
-            }
-        }
+        auto return_typename = symbol->type_info.spirv_type.empty()
+                             ? symbol->type_info.Format()
+                             : std::string(symbol->type_info.spirv_type);
 
         const auto raw_name = Utils::UnmangleFunctionName(symbol->name);
         auto result = std::format("{} {}(", return_typename, raw_name);

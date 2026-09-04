@@ -660,73 +660,21 @@ namespace glsld {
                 ConsumeToken();
 
                 if (token.text == "_Func" && MatchAndConsume(TokenType::kLessThan)) {
-                    std::string signature;
-                    int level = 1;
-
-                    while (current_token().type != TokenType::kEndOfFile && level > 0) {
-                        const auto& part = current_token();
-
-                        if (part.type == TokenType::kLessThan) {
-                            ++level;
-                            signature += part.text;
-                            ConsumeToken();
-                            continue;
-                        }
-
-                        if (part.type == TokenType::kGreaterThan) {
-                            --level;
-                            if (level == 0) {
-                                ConsumeToken();
-                                break;
-                            }
-
-                            signature += part.text;
-                            ConsumeToken();
-                            continue;
-                        }
-
-                        signature += part.text;
-                        if (part.text == ",") {
-                            signature += ' ';
-                        }
-
-                        ConsumeToken();
-                    }
-
-                    type_spec.function_signature = document_.StoreTokenText(signature);
+                    type_spec.function_type = ParseFunctionTypeSpec();
                     continue;
                 }
 
                 if (MatchAndConsume(TokenType::kLessThan)) { // coopmat<float16_t, gl_ScopeSubgroup, M, N, gl_MatrixUseA>;
-                    int level = 1;
-                    while (current_token().type != TokenType::kEndOfFile && level > 0) {
-                        const auto& arg_token = current_token();
-
-                        if (arg_token.type == TokenType::kComma) {
-                            ConsumeToken();
-                            continue;
-                        }
-
-                        if (arg_token.type == TokenType::kLessThan) {
-                            ++level;
-                        }
-
-                        if (arg_token.type == TokenType::kGreaterThan) {
-                            --level;
-                            if (level > 0) {
-                                type_spec.template_args.push_back(ParseTemplateArgument());
-                            } else {
-                                ConsumeToken();
-                            }
-
-                            continue;
-                        }
-
-                        auto* argument = ParseTemplateArgument();
-                        if (argument != nullptr) {
-                            type_spec.template_args.push_back(argument);
+                    while (current_token().type != TokenType::kEndOfFile &&
+                           current_token().type != TokenType::kGreaterThan)
+                    {
+                        type_spec.template_args.push_back(ParseTemplateArgument());
+                        if (!MatchAndConsume(TokenType::kComma)) {
+                            break;
                         }
                     }
+
+                    MatchAndConsume(TokenType::kGreaterThan);
                 }
 
                 continue;
@@ -759,6 +707,26 @@ namespace glsld {
         }
 
         return type_spec;
+    }
+
+    FunctionTypeSpec* Parser::ParseFunctionTypeSpec() {
+        auto* function_type = document_.arena->Construct<FunctionTypeSpec>(document_.arena.get());
+
+        function_type->return_type = ParseTypeSpec();
+        MatchAndConsume(TokenType::kOpenParen);
+        if (current_token().type != TokenType::kCloseParen) {
+            while (true) {
+                function_type->param_types.push_back(ParseTypeSpec());
+                if (!MatchAndConsume(TokenType::kComma)) {
+                    break;
+                }
+            }
+        }
+
+        MatchAndConsume(TokenType::kCloseParen);
+        MatchAndConsume(TokenType::kGreaterThan);
+
+        return function_type;
     }
 
     ArenaVector<Token> Parser::CaptureBalancedTokens(TokenType open, TokenType close) {
@@ -1132,28 +1100,44 @@ namespace glsld {
     }
 
     ExpressionNode* Parser::ParseTemplateArgument() {
-        // current token is template argument, which can be a type or an expression
-        const auto& token = current_token();
+        auto end = token_index_;
+        int paren_level   = 0;
+        int bracket_level = 0;
+        int brace_level   = 0;
 
-        if (token.type == TokenType::kNumberLiteral || token.type == TokenType::kStringLiteral) {
-            auto* node  = MakeNode<RawExpressionNode>(current_scope());
-            node->tokens.push_back(token);
-            node->begin = token.location;
-            node->end   = GetCurrentTokenEnd();
 
-            ConsumeToken();
-            return node;
+        while (end < expanded_tokens_.size()) {
+            const auto type = expanded_tokens_[end].type;
+
+            if (paren_level == 0 && bracket_level == 0 && brace_level == 0 &&
+                (type == TokenType::kComma || type == TokenType::kGreaterThan))
+            {
+                break;
+            }
+
+            if (type == TokenType::kOpenParen)
+                ++paren_level;
+            else if (type == TokenType::kCloseParen)
+                --paren_level;
+            else if (type == TokenType::kOpenBracket)
+                ++bracket_level;
+            else if (type == TokenType::kCloseBracket)
+                --bracket_level;
+            else if (type == TokenType::kOpenBrace)
+                ++brace_level;
+            else if (type == TokenType::kCloseBrace)
+                --brace_level;
+
+            ++end;
         }
 
-        auto* node           = MakeNode<VariableExpressionNode>(current_scope());
-        node->name           = token.text;
-        node->original_token = token;
-        node->node_type      = VariableExpressionNode::NodeType::kCommonVariable;
-        node->begin          = token.location;
-        node->end            = GetCurrentTokenEnd();
+        const auto previous_stop = expr_stop_index_;
+        expr_stop_index_ = end;
 
-        ConsumeToken();
-        return node;
+        auto* result = ParseExpression(Precedence::kLowest);
+
+        expr_stop_index_ = previous_stop;
+        return result;
     }
 
     bool Parser::TryParseLayoutQualifier(TypeSpec& type_spec) {
@@ -1678,6 +1662,10 @@ namespace glsld {
         }
 
         while (true) {
+            if (expr_stop_index_.has_value() && *expr_stop_index_ == token_index_) {
+                break;
+            }
+
             const auto op_type = current_token().type;
             const auto op_prec = GetInfixPrecedence(op_type);
 
@@ -2112,6 +2100,58 @@ namespace glsld {
         }
     }
 
+    namespace {
+        std::string BuildFunctionTypeSpecName(const FunctionTypeSpec* function_type);
+
+        std::string BuildCommonTypeSpecName(const TypeSpec& type_spec) {
+            std::string result;
+
+            for (const auto& specifier : type_spec.specifiers) {
+                if (!result.empty()) {
+                    result += " ";
+                }
+
+                result += specifier.text;
+            }
+
+            if (type_spec.function_type != nullptr) {
+                result += std::format("<{}>", BuildFunctionTypeSpecName(type_spec.function_type));
+            }
+
+            for (const auto* array_size : type_spec.array_sizes) {
+                result += "[";
+                if (array_size->kind() == AstNodeKind::kVariableExpression) {
+                    result += static_cast<const VariableExpressionNode*>(array_size)->name;
+                } else if (array_size->kind() == AstNodeKind::kRawExpression) {
+                    auto* raw = static_cast<const RawExpressionNode*>(array_size);
+                    for (const auto& token : raw->tokens) {
+                        result += token.text;
+                    }
+                }
+
+                result += "]";
+            }
+
+            return result;
+        }
+
+        std::string BuildFunctionTypeSpecName(const FunctionTypeSpec* function_type) {
+            std::string result = BuildCommonTypeSpecName(function_type->return_type);
+            result += "(";
+
+            for (const auto& [i, param_type] : function_type->param_types | std::views::enumerate) {
+                if (!std::cmp_equal(i, 0)) {
+                    result += ", ";
+                }
+
+                result += BuildCommonTypeSpecName(param_type);
+            }
+
+            result += ")";
+            return result;
+        }
+    }
+
     std::vector<std::string> Parser::MangleParameterNames(const FunctionDeclarationNode* node) {
         std::vector<std::string> param_typenames;
 
@@ -2131,8 +2171,8 @@ namespace glsld {
                 }
             }
 
-            if (!param->type_spec.function_signature.empty()) {
-                param_typename += std::format("<{}>", param->type_spec.function_signature);
+            if (param->type_spec.function_type != nullptr) {
+                param_typename += std::format("<{}>", BuildFunctionTypeSpecName(param->type_spec.function_type));
             } else if (!param->type_spec.template_args.empty()) {
                 param_typename += "<";
                 for (auto i = 0uz; i != param->type_spec.template_args.size(); ++i) {

@@ -51,9 +51,11 @@ namespace glsld {
         void SeparateType(TypeInfo& type_info, bool keep_vector);
         TypeInfo GetCanonicalTypeInfo(const TypeDescriptor& type_desc);
         TypeInfo SplitCanonicalTypeInfo(const TypeInfo& base_type);
+        std::optional<TemplateArgumentInfo> ExtractTemplateArgument(ExpressionNode* node, const Scope* located_scope);
         std::vector<std::int64_t> DeduceArraySizesFromArgs(const CallExpressionNode* call_node);
-        std::string_view BuildFunctionSignature(const SymbolInfo* symbol);
-        std::span<const std::string_view> BuildFunctionSignatures(SymbolListView symbols);
+        const FunctionTypeInfo* BuildFunctionType(const SymbolInfo* symbol);
+        std::span<const FunctionTypeInfo* const> BuildFunctionTypes(SymbolListView symbols);
+        const FunctionTypeInfo* ExtractFunctionTypeInfo(const FunctionTypeSpec* function_type, const Scope* located_scope);
         std::expected<SpirvTypeSignature, std::string> BuildSpirvTypeSignature(const SpirvIntrinsicNode* node);
         TypeInfo ExtractTypeInfo(const TypeSpec& type_spec, const Scope* located_scope);
         TypeDescriptor ParseTypeDescriptor(std::string_view text);

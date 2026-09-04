@@ -131,7 +131,5 @@ int main(int argc, char** argv) { // --benchmark or --debug-ast
     }
 
     glsld::LspServer server;
-    server.Run();
-
     return EXIT_SUCCESS;
 }

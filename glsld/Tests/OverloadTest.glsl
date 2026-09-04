@@ -132,6 +132,7 @@ void OverloadFunction(MySpirvType1 Param1, MySpirvType0 Param0);
 
 #define COOPMAT_TYPE_16 coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>
 #define COOPMAT_TYPE_32 coopmat<float16_t, gl_ScopeSubgroup, 32, 32, gl_MatrixUseB>
+#define COOPMAT_TYPE_16_WITH_EXPR coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>
 
 void OverloadFunction(COOPMAT_TYPE_16 CoopMat16);
 void OverloadFunction(COOPMAT_TYPE_32 CoopMat32);
@@ -140,9 +141,45 @@ void OverloadFunction(coopmat Matrix, uint Uint);
 
 void OverloadFunction(_Func<void(bool)> BoolFunc);
 void OverloadFunction(_Func<void(void)> VoidFunc);
+void OverloadFunction(_Func<void(float)> FloatFunc);
+void OverloadFunction(_Func<float(void)> FloatVoidFunc);
+void OverloadFunction(_Func<void(int)> IntFunc);
+void OverloadFunction(_Func<void(uint32_t)> UintFunc);
+void OverloadFunction(_Func<void(float64_t)> DoubleFunc);
+void OverloadFunction(_Func<void(vec2)> Vec2Func);
+void OverloadFunction(_Func<void(i32vec3)> IVec3Func);
+void OverloadFunction(_Func<void(uvec4)> UVec4Func);
+void OverloadFunction(_Func<void(f64vec2)> DVec2Func);
+void OverloadFunction(_Func<void(mat2)> Mat2Func);
+void OverloadFunction(_Func<float(vec3)> Vec3ReduceFunc);
+void OverloadFunction(_Func<uvec2(uint, uint32_t)> UintPairFunc);
+void OverloadFunction(_Func<void(float, f32vec2, uint32_t)> MixedFunc);
+void OverloadFunction(_Func<void(_Func<void(float)>)> NestedFunc);
+void OverloadFunction(_Func<void(coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>)> CoopMatFunc);
+void OverloadFunction(_Func<coopmat<float, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator>(coopmat<float32_t, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator>)> CoopMatTransformFunc);
+void OverloadFunction(_Func<void(coopmat<float16_t, gl_ScopeSubgroup, 8, 16, gl_MatrixUseA>, coopmat<float16_t, gl_ScopeSubgroup, 16, 8, gl_MatrixUseB>)> CoopMatPairFunc);
+void OverloadFunction(_Func<bool(coopmat)> BareCoopMatFunc);
 
 void BoolFunc(bool);
 void VoidFunc();
+void FloatFunc(float32_t);
+float FloatVoidFunc();
+void IntFunc(int32_t);
+void UintFunc(uint);
+void DoubleFunc(double);
+void Vec2Func(f32vec2);
+void IVec3Func(ivec3);
+void UVec4Func(u32vec4);
+void DVec2Func(dvec2);
+void Mat2Func(f32mat2);
+float32_t Vec3ReduceFunc(f32vec3);
+u32vec2 UintPairFunc(uint32_t, uint);
+void MixedFunc(float32_t, vec2, uint);
+void NestedFunc(_Func<void(float32_t)>);
+void CoopMatFunc(coopmat<float32_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>);
+coopmat<float32_t, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator> CoopMatTransformFunc(coopmat<float, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator>);
+void CoopMatPairFunc(coopmat<float16_t, gl_ScopeSubgroup, 8, 16, gl_MatrixUseA>, coopmat<float16_t, gl_ScopeSubgroup, 16, 8, gl_MatrixUseB>);
+bool BareCoopMatFunc(coopmat<float16_t, gl_ScopeSubgroup, 4, 4, gl_MatrixUseAccumulator>);
 
 struct InnerData {
     float Float;
@@ -275,15 +312,15 @@ void main() {
     OverloadFunction(Float64 / Float64);     // float64 / float64 -> double
 
     // mixed scalar type promotion
-    OverloadFunction(Int8 + Int16);          // int8 + int16 -> int
-    OverloadFunction(Int8 + Int32);          // int8 + int32 -> int
-    OverloadFunction(Int16 + Int32);         // int16 + int32 -> int
-    OverloadFunction(UInt8 + UInt16);        // uint8 + uint16 -> uint
-    OverloadFunction(UInt8 + UInt32);        // uint8 + uint32 -> uint
-    OverloadFunction(UInt16 + UInt32);       // uint16 + uint32 -> uint
-    OverloadFunction(Float16 + Float32);     // float16 + float32 -> float
-    OverloadFunction(Float16 + Float64);     // float16 + float64 -> double
-    OverloadFunction(Float32 + Float64);     // float32 + float64 -> double
+    OverloadFunction(Int8 + Int16);          // int8 + int16 -> int16
+    OverloadFunction(Int8 + Int32);          // int8 + int32 -> int32
+    OverloadFunction(Int16 + Int32);         // int16 + int32 -> int32
+    OverloadFunction(UInt8 + UInt16);        // uint8 + uint16 -> uint16
+    OverloadFunction(UInt8 + UInt32);        // uint8 + uint32 -> uint32
+    OverloadFunction(UInt16 + UInt32);       // uint16 + uint32 -> uint32
+    OverloadFunction(Float16 + Float32);     // float16 + float32 -> float32
+    OverloadFunction(Float16 + Float64);     // float16 + float64 -> float64
+    OverloadFunction(Float32 + Float64);     // float32 + float64 -> float64
 
     // vector type promotion
     ivec2 int2 = ivec2(1, 2);
@@ -1086,11 +1123,32 @@ void main() {
     OverloadFunction(CoopMat16);
     OverloadFunction(CoopMat32);
 
+    COOPMAT_TYPE_16_WITH_EXPR CoopMat16_2;
+    OverloadFunction(CoopMat16_2);
+
     OverloadFunction(CoopMat16, Int32);
     OverloadFunction(CoopMat32, UInt32);
 
     OverloadFunction(BoolFunc);
     OverloadFunction(VoidFunc);
+    OverloadFunction(FloatFunc);
+    OverloadFunction(FloatVoidFunc);
+    OverloadFunction(IntFunc);
+    OverloadFunction(UintFunc);
+    OverloadFunction(DoubleFunc);
+    OverloadFunction(Vec2Func);
+    OverloadFunction(IVec3Func);
+    OverloadFunction(UVec4Func);
+    OverloadFunction(DVec2Func);
+    OverloadFunction(Mat2Func);
+    OverloadFunction(Vec3ReduceFunc);
+    OverloadFunction(UintPairFunc);
+    OverloadFunction(MixedFunc);
+    OverloadFunction(NestedFunc);
+    OverloadFunction(CoopMatFunc);
+    OverloadFunction(CoopMatTransformFunc);
+    OverloadFunction(CoopMatPairFunc);
+    OverloadFunction(BareCoopMatFunc);
 
     OverloadFunction(intArray1D_2.length());
 

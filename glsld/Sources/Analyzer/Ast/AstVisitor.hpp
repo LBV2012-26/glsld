@@ -16,6 +16,7 @@ namespace glsld {
 
     protected:
         void DispatchCommonVisit(AstNode* node);
+        void TraverseTypeSpec(TypeSpec& type_spec);
 
         virtual void VisitTranslationUnit(TranslationUnitNode* node);
         virtual void VisitDeclarationGroup(DeclarationGroupNode* node);

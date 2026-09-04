@@ -2,10 +2,11 @@
 #include "Symbol.hpp"
 
 #include <algorithm>
+#include <concepts>
 #include <format>
 #include <print>
 #include <ranges>
-
+#include <type_traits>
 #include <magic_enum/magic_enum_all.hpp>
 
 #include "Base/Hash.hpp"
@@ -82,9 +83,9 @@ namespace glsld {
                 return true;
             }
 
-            for (const auto lhs : function_signatures) {
-                for (const auto rhs : other.function_signatures) {
-                    if (lhs == rhs) {
+            for (const auto* lhs : function_signatures) {
+                for (const auto* rhs : other.function_signatures) {
+                    if (lhs->CompareWithoutQualifiers(*rhs)) {
                         return true;
                     }
                 }
@@ -93,45 +94,34 @@ namespace glsld {
             return false;
         }
 
-        if (typename_token.type != other.typename_token.type) {
-            auto IsCore = [](TokenType type, BaseFamily family) -> bool {
-                const bool is_core_type   = (type == TokenType::kPrimitive || type == TokenType::kBuiltInType);
-                const bool is_core_family = (family == BaseFamily::kBool
-                                          || family == BaseFamily::kInt
-                                          || family == BaseFamily::kUint
-                                          || family == BaseFamily::kFloat
-                                          || family == BaseFamily::kVoid);
+        auto IsCoreType = [](const TypeInfo& type) -> bool {
+            const bool is_core_token =
+                type.typename_token.type == TokenType::kPrimitive ||
+                type.typename_token.type == TokenType::kBuiltInType;
 
-                return is_core_type && is_core_family;
-            };
+            const bool is_core_family =
+                type.type_desc.family == BaseFamily::kBool  ||
+                type.type_desc.family == BaseFamily::kInt   ||
+                type.type_desc.family == BaseFamily::kUint  ||
+                type.type_desc.family == BaseFamily::kFloat ||
+                type.type_desc.family == BaseFamily::kVoid;
 
-            if (!IsCore(typename_token.type, type_desc.family) ||
-                !IsCore(other.typename_token.type, other.type_desc.family))
-            {
+            return is_core_token && is_core_family;
+        };
+
+        const bool is_core       = IsCoreType(*this);
+        const bool is_other_core = IsCoreType(other);
+
+        if (is_core || is_other_core) {
+            if (!is_core || !is_other_core || type_desc != other.type_desc) {
                 return false;
             }
-
-            if (type_desc != other.type_desc) {
-                return false;
-            }
-        } else {
-            if (typename_token.text != other.typename_token.text) {
-                return false;
-            }
+        } else if (typename_token.type != other.typename_token.type || typename_token.text != other.typename_token.text) {
+            return false;
         }
 
         if (spirv_signature.has_value() != other.spirv_signature.has_value()) {
             return false;
-        }
-
-        if (typename_token.type == TokenType::kPrimitive) {
-            if (type_desc.family != other.type_desc.family || type_desc.bits != other.type_desc.bits) {
-                return false;
-            }
-        } else if (typename_token.type == TokenType::kBuiltInType || typename_token.type == TokenType::kIdentifier) {
-            if (typename_token.text != other.typename_token.text) {
-                return false;
-            }
         }
 
         if (spirv_signature.has_value() && other.spirv_signature.has_value()) {
@@ -160,13 +150,149 @@ namespace glsld {
             }
 
             for (auto i = 0uz; i != template_args.size(); ++i) {
-                if (template_args[i] != other.template_args[i]) {
+                if (!template_args[i].CompareWithoutQualifiers(other.template_args[i])) {
                     return false;
                 }
             }
         }
 
         return true;
+    }
+
+    namespace {
+        std::string FormatFunctionTypeInfo(const FunctionTypeInfo* function_type) {
+            auto result = function_type->return_type.Format();
+            result += "(";
+
+            for (const auto& [i, param_type] : function_type->param_types | std::views::enumerate) {
+                if (!std::cmp_equal(i, 0)) {
+                    result += ", ";
+                }
+
+                result += param_type.Format();
+            }
+
+            result += ")";
+            return result;
+        }
+
+        std::string FormatTemplateArgument(const TemplateArgumentInfo& argument) {
+            if (argument.display.has_value()) {
+                return std::string(argument.display->text);
+            }
+
+            return std::visit(Overloaded{
+                [](const TypeInfo& type) -> std::string {
+                    return type.Format();
+                },
+                [](std::int64_t value) -> std::string {
+                    return std::to_string(value);
+                },
+                [](std::uint64_t value) -> std::string {
+                    return std::to_string(value);
+                },
+                [](double value) -> std::string {
+                    return std::format("{}", value);
+                },
+                [](bool value) -> std::string {
+                    return std::string(value ? "true" : "false");
+                }
+            }, argument.value);
+        }
+    }
+
+    std::string TypeInfo::Format(std::string_view type_name) const {
+        std::string result(type_name.empty() ? typename_token.text : type_name);
+
+        if (is_func_ref) {
+            result = "_Func";
+
+            if (function_signatures.size() == 1) {
+                result += std::format("<{}>", FormatFunctionTypeInfo(function_signatures.front()));
+            }
+        }
+
+        if (!template_args.empty()) {
+            result += "<";
+            for (const auto& [i, argv] : template_args | std::views::enumerate) {
+                if (!std::cmp_equal(i, 0)) {
+                    result += ", ";
+                }
+
+                result += FormatTemplateArgument(argv);
+            }
+
+            result += ">";
+        }
+
+        for (const auto& size : array_sizes) {
+            result += "[";
+            if (size.has_value()) {
+                result += std::to_string(*size);
+            }
+
+            result += "]";
+        }
+
+        return result;
+    }
+
+    bool FunctionTypeInfo::CompareWithoutQualifiers(const FunctionTypeInfo& other) const {
+        if (!return_type.CompareWithoutQualifiers(other.return_type)) {
+            return false;
+        }
+
+        if (param_types.size() != other.param_types.size()) {
+            return false;
+        }
+
+        for (auto i = 0uz; i != param_types.size(); ++i) {
+            if (!param_types[i].CompareWithoutQualifiers(other.param_types[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    namespace {
+        bool TemplateArgumentCompare(
+            const TemplateArgumentInfo::Value& this_value,
+            const TemplateArgumentInfo::Value& other_value,
+            auto compare)
+        {
+            if (this_value.index() != other_value.index()) {
+                return false;
+            }
+
+            return std::visit(Overloaded{
+                [&compare](const TypeInfo& lhs, const TypeInfo& rhs) -> bool {
+                    return compare(lhs, rhs);
+                },
+                [](const auto& lhs, const auto& rhs) -> bool {
+                    using LeftType = std::remove_cvref_t<decltype(lhs)>;
+                    using RightType = std::remove_cvref_t<decltype(rhs)>;
+
+                    if constexpr (std::same_as<LeftType, RightType>) {
+                        return lhs == rhs;
+                    } else {
+                        return false;
+                    }
+                },
+            }, this_value, other_value);
+        }
+    }
+
+    bool TemplateArgumentInfo::operator==(const TemplateArgumentInfo& other) const {
+        return TemplateArgumentCompare(value, other.value, [](const TypeInfo& lhs, const TypeInfo& rhs) -> bool {
+            return lhs == rhs;
+        });
+    }
+
+    bool TemplateArgumentInfo::CompareWithoutQualifiers(const TemplateArgumentInfo& other) const {
+        return TemplateArgumentCompare(value, other.value, [](const TypeInfo& lhs, const TypeInfo& rhs) -> bool {
+            return lhs.CompareWithoutQualifiers(rhs);
+        });
     }
 
     Scope::Scope(Scope* parent)

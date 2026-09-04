@@ -60,12 +60,11 @@ namespace glsld {
         LspServer& operator=(const LspServer&) = delete;
         LspServer& operator=(LspServer&&)      = delete;
 
-        void Run();
-
     private:
         using MutableVersionPointer  = std::shared_ptr<std::atomic<int>>;
         using CancellationTokenTable = ankerl::unordered_dense::map<nlohmann::json, CancellationToken>; // [Request ID, Token]
 
+        void Run();
         void RegisterHandlers();
         std::optional<nlohmann::json> ReadMessage();
 

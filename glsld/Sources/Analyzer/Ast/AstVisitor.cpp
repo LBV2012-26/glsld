@@ -169,6 +169,32 @@ namespace glsld {
         }
     }
 
+    void AstVisitor::TraverseTypeSpec(TypeSpec& type_spec) {
+        for (auto* layout : type_spec.layouts) {
+            Traverse(layout);
+        }
+
+        for (auto* spirv_intrinsic : type_spec.spirv_intrinsics) {
+            Traverse(spirv_intrinsic);
+        }
+
+        for (auto* template_arg : type_spec.template_args) {
+            Traverse(template_arg);
+        }
+
+        for (auto* array_size : type_spec.array_sizes) {
+            Traverse(array_size);
+        }
+
+        if (type_spec.function_type != nullptr) {
+            TraverseTypeSpec(type_spec.function_type->return_type);
+
+            for (auto& param_type : type_spec.function_type->param_types) {
+                TraverseTypeSpec(param_type);
+            }
+        }
+    }
+
     void AstVisitor::VisitTranslationUnit(TranslationUnitNode* node) {
         for (auto& statement : node->statements) {
             Traverse(statement);
@@ -214,21 +240,7 @@ namespace glsld {
     }
 
     void AstVisitor::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
-        for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout);
-        }
-
-        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic);
-        }
-
-        for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg);
-        }
-
-        for (auto& size_expr : node->type_spec.array_sizes) {
-            Traverse(size_expr);
-        }
+        TraverseTypeSpec(node->type_spec);
 
         for (auto& param : node->params) {
             Traverse(param);
@@ -240,21 +252,7 @@ namespace glsld {
     }
 
     void AstVisitor::VisitVariableDeclaration(VariableDeclarationNode* node) {
-        for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout);
-        }
-
-        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic);
-        }
-
-        for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg);
-        }
-
-        for (auto& size_expr : node->type_spec.array_sizes) {
-            Traverse(size_expr);
-        }
+        TraverseTypeSpec(node->type_spec);
 
         if (node->init != nullptr) {
             Traverse(node->init);
@@ -262,17 +260,7 @@ namespace glsld {
     }
 
     void AstVisitor::VisitInterfaceDeclaration(InterfaceDeclarationNode* node) {
-        for (auto& layout : node->type_spec.layouts) {
-            Traverse(layout);
-        }
-
-        for (auto& spirv_intrinsic : node->type_spec.spirv_intrinsics) {
-            Traverse(spirv_intrinsic);
-        }
-
-        for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg);
-        }
+        TraverseTypeSpec(node->type_spec);
 
         if (node->body != nullptr) {
             Traverse(node->body);

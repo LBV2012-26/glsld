@@ -79,6 +79,7 @@ namespace glsld {
         ArenaVector<VariableDeclarationNode*> ParseParameterList();
 
         TypeSpec ParseTypeSpec();
+        FunctionTypeSpec* ParseFunctionTypeSpec();
         ArenaVector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
         QualifierArgumentNode* ParseQualifierArguments(std::span<const Token> tokens);
         LayoutQualifierNode* ParseLayoutQualifier();
@@ -156,6 +157,11 @@ namespace glsld {
         // const int gl_BuiltinVariable = 0; // builtin declaration
         // layout(constant_id = 0) gl_BuiltinVariable; // re-attach
         ankerl::unordered_dense::map<const SymbolInfo*, VariableDeclarationNode*> variable_declaration_cache_;
+
+        // --------------------------------------------------------------------
+        // for expression parsing in template argument like Ty<114514 * 1919810>
+        // terminate when encount '>'
+        std::optional<std::size_t> expr_stop_index_;
     };
 }
 

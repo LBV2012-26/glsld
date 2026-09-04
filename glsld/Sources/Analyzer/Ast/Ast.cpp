@@ -39,7 +39,7 @@ namespace glsld {
         , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
         , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
         , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
-        , function_signature{ other.function_signature }
+        , function_type{ other.function_type != nullptr ? arena->Construct<FunctionTypeSpec>(*other.function_type) : nullptr }
     {
         if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
             return;
@@ -66,6 +66,27 @@ namespace glsld {
         return std::ranges::any_of(specifiers, [name](const auto& token) -> bool {
             return token.text == name;
         });
+    }
+
+    FunctionTypeSpec::FunctionTypeSpec(Arena* arena)
+        : return_type{ arena }
+        , param_types{ ArenaAllocator<TypeSpec>(arena) }
+    {}
+
+    FunctionTypeSpec::FunctionTypeSpec(const FunctionTypeSpec& other)
+        : return_type{ other.return_type }
+        , param_types{ ArenaAllocator<TypeSpec>(other.return_type.arena) }
+    {
+        param_types.assign_range(other.param_types);
+    }
+
+    FunctionTypeSpec& FunctionTypeSpec::operator=(const FunctionTypeSpec& other) {
+        if (this != &other) {
+            FunctionTypeSpec temp(other);
+            std::swap(*this, temp);
+        }
+
+        return *this;
     }
 
     AstNode::AstNode(Arena* arena, Scope* scope)

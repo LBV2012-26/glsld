@@ -13,7 +13,7 @@ namespace glsld {
     struct ExpressionNode;
     struct LayoutQualifierNode;
     struct SpirvIntrinsicNode;
-
+    struct FunctionTypeSpec;
     struct TypeSpec {
         Arena* arena{ nullptr };
         ArenaVector<Token>                specifiers{ ArenaAllocator<Token>(arena) };
@@ -21,7 +21,7 @@ namespace glsld {
         ArenaVector<ExpressionNode*>      array_sizes{ ArenaAllocator<ExpressionNode*>(arena) };
         ArenaVector<LayoutQualifierNode*> layouts{ ArenaAllocator<LayoutQualifierNode*>(arena) };
         ArenaVector<SpirvIntrinsicNode*>  spirv_intrinsics{ ArenaAllocator<SpirvIntrinsicNode*>(arena) };
-        std::string_view                  function_signature;
+        FunctionTypeSpec*                 function_type{ nullptr };
         const SpirvIntrinsicNode*         spirv_type{ nullptr };
 
         TypeSpec(Arena* arena);
@@ -36,6 +36,19 @@ namespace glsld {
         SourceLocation begin_location() const;
         bool empty() const;
         bool has_keyword(std::string_view name) const;
+    };
+
+    struct FunctionTypeSpec {
+        TypeSpec              return_type;
+        ArenaVector<TypeSpec> param_types;
+
+        explicit FunctionTypeSpec(Arena* arena);
+        FunctionTypeSpec(const FunctionTypeSpec& other);
+        FunctionTypeSpec(FunctionTypeSpec&&) noexcept = default;
+        ~FunctionTypeSpec() = default;
+
+        FunctionTypeSpec& operator=(const FunctionTypeSpec& other);
+        FunctionTypeSpec& operator=(FunctionTypeSpec&&) noexcept = default;
     };
 
     enum class AstNodeKind {

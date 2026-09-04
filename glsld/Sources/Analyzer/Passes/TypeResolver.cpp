@@ -334,16 +334,10 @@ namespace glsld {
     }
 
     void TypeResolver::VisitVariableDeclaration(VariableDeclarationNode* node) {
+        TraverseTypeSpec(node->type_spec);
+
         if (node->declared_symbol == nullptr) {
             return;
-        }
-
-        for (auto* array_size : node->type_spec.array_sizes) {
-            Traverse(array_size);
-        }
-
-        for (auto* template_arg : node->type_spec.template_args) {
-            Traverse(template_arg);
         }
 
         auto* variable_symbol = node->declared_symbol;
@@ -867,7 +861,9 @@ namespace glsld {
                         return best_match;
                     },
                     [&](const SymbolList&) -> SymbolReferenceView {
-                        return std::get<SymbolListView>(document_.ReferenceSymbol(resolved));
+                        const auto referenced = document_.ReferenceSymbol(resolved);
+                        document_.bindings[callee_node->begin] = referenced;
+                        return referenced;
                     },
                     [](std::monostate) -> SymbolReferenceView {
                         return std::monostate{};
@@ -966,11 +962,11 @@ namespace glsld {
                 {
                     node->evaluated_type.is_func_ref = true;
                     const std::array signatures{
-                        BuildFunctionSignature(symbol)
+                        BuildFunctionType(symbol)
                     };
 
                     node->evaluated_type.function_signatures =
-                        document_.arena->CopySpan<std::string_view>(signatures);
+                        document_.arena->CopySpan<const FunctionTypeInfo*>(signatures);
                 }
             },
             [&](SymbolListView list) -> void {
@@ -988,7 +984,7 @@ namespace glsld {
                         .type     = TokenType::kPrimitive
                     };
                     node->evaluated_type.is_func_ref = true;
-                    node->evaluated_type.function_signatures = BuildFunctionSignatures(list);
+                    node->evaluated_type.function_signatures = BuildFunctionTypes(list);
                 }
             },
             [](std::monostate) -> void {}
@@ -1189,7 +1185,93 @@ namespace glsld {
         }
 
         return canonical_info;
-    };
+    }
+
+    std::optional<TemplateArgumentInfo> TypeResolver::ExtractTemplateArgument(ExpressionNode* node, const Scope* located_scope) {
+        if (node == nullptr) {
+            return std::nullopt;
+        }
+
+        std::optional<Token> display;
+        if (node->kind() == AstNodeKind::kVariableExpression) {
+            auto* var_expr = static_cast<VariableExpressionNode*>(node);
+            const auto& token = var_expr->original_token;
+            display = token;
+
+            if (token.text != "true" && token.text != "false" &&
+                (token.type == TokenType::kPrimitive ||
+                 token.type == TokenType::kBuiltInType))
+            {
+                return TemplateArgumentInfo{
+                    .value = TypeInfo{
+                        .typename_token = token,
+                        .type_desc = ParseTypeDescriptor(token.text)
+                    },
+                    .display = std::move(display)
+                };
+            }
+
+            if (token.type == TokenType::kIdentifier) {
+                if (const auto* symbol = located_scope->FindVisibleType(var_expr->name)) {
+                    auto type = symbol->type_info;
+                    type.typename_token = token;
+                    type.block_symbol   = symbol;
+
+                    document_.bindings.try_emplace(token.location, symbol);
+                    return TemplateArgumentInfo{
+                        .value   = std::move(type),
+                        .display = std::move(display)
+                    };
+                }
+            }
+        }
+
+        Traverse(node);
+
+        ConstantEvaluator evaluator;
+        switch (node->evaluated_type.type_desc.family) {
+        case BaseFamily::kInt:
+            if (auto value = evaluator.EvaluateAs<std::int64_t>(node)) {
+                return TemplateArgumentInfo{
+                    .value   = *value,
+                    .display = std::move(display)
+                };
+            }
+            break;
+
+        case BaseFamily::kUint:
+            if (auto value = evaluator.EvaluateAs<std::uint64_t>(node)) {
+                return TemplateArgumentInfo{
+                    .value   = *value,
+                    .display = std::move(display)
+                };
+            }
+            break;
+
+        case BaseFamily::kFloat:
+            if (auto value = evaluator.EvaluateAs<double>(node)) {
+                return TemplateArgumentInfo{
+                    .value   = *value,
+                    .display = std::move(display)
+                };
+            }
+            break;
+
+        case BaseFamily::kBool:
+            if (auto value = evaluator.EvaluateAs<bool>(node)) {
+                return TemplateArgumentInfo{
+                    .value   = *value,
+                    .display = std::move(display)
+                };
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        return std::nullopt;
+    }
 
     std::vector<std::int64_t> TypeResolver::DeduceArraySizesFromArgs(const CallExpressionNode* call_node) {
         std::vector<std::int64_t> dimensions;
@@ -1211,63 +1293,38 @@ namespace glsld {
         return dimensions;
     }
 
-    namespace {
-        std::string BuildFunctionTypename(const TypeInfo& type_info) {
-            std::string result(type_info.typename_token.text);
-            if (!type_info.template_args.empty()) {
-                result += "<";
-                for (const auto& [i, argv] : type_info.template_args | std::views::enumerate) {
-                    if (i != 0) {
-                        result += ", ";
-                    }
-
-                    result += argv;
-                }
-
-                result += ">";
-            }
-
-            for (const auto& size : type_info.array_sizes) {
-                result += "[";
-                if (size.has_value()) {
-                    result += std::to_string(*size);
-                }
-
-                result += "]";
-            }
-
-            return result;
-        }
+    const FunctionTypeInfo* TypeResolver::BuildFunctionType(const SymbolInfo* symbol) {
+        return document_.arena->Construct<FunctionTypeInfo>(FunctionTypeInfo{
+            .return_type = symbol->type_info,
+            .param_types = document_.arena->CopySpan<TypeInfo>(symbol->param_typeinfos)
+        });
     }
 
-    std::string_view TypeResolver::BuildFunctionSignature(const SymbolInfo* symbol) {
-        auto signature = BuildFunctionTypename(symbol->type_info);
-        signature += "(";
-
-        for (const auto& [i, typeinfo] : symbol->param_typeinfos | std::views::enumerate) {
-            if (i != 0) {
-                signature += ", ";
-            }
-
-            signature += BuildFunctionTypename(typeinfo);
-        }
-
-        signature += ")";
-        return document_.StoreTokenText(signature);
-    }
-
-    std::span<const std::string_view> TypeResolver::BuildFunctionSignatures(SymbolListView symbols) {
-        std::vector<std::string_view> signatures;
-
+    std::span<const FunctionTypeInfo* const> TypeResolver::BuildFunctionTypes(SymbolListView symbols) {
+        std::vector<const FunctionTypeInfo*> function_types;
         for (const auto* symbol : symbols) {
             if (symbol->kind == SymbolKind::kFunctionDecl ||
                 symbol->kind == SymbolKind::kFunctionImpl)
             {
-                signatures.push_back(BuildFunctionSignature(symbol));
+                function_types.push_back(BuildFunctionType(symbol));
             }
         }
 
-        return document_.arena->CopySpan<std::string_view>(signatures);
+        return document_.arena->CopySpan<const FunctionTypeInfo*>(function_types);
+    }
+
+    const FunctionTypeInfo* TypeResolver::ExtractFunctionTypeInfo(const FunctionTypeSpec* function_type, const Scope* located_scope) {
+        std::vector<TypeInfo> param_types;
+        param_types.reserve(function_type->param_types.size());
+
+        for (const auto& param_type : function_type->param_types) {
+            param_types.push_back(ExtractTypeInfo(param_type, located_scope));
+        }
+
+        return document_.arena->Construct<FunctionTypeInfo>(FunctionTypeInfo{
+            .return_type = ExtractTypeInfo(function_type->return_type, located_scope),
+            .param_types = document_.arena->CopySpan<TypeInfo>(param_types)
+        });
     }
 
     namespace {
@@ -1434,12 +1491,13 @@ namespace glsld {
         if (type_spec.typename_token().text == "_Func") {
             info.is_func_ref = true;
 
-            if (!type_spec.function_signature.empty()) {
+            if (type_spec.function_type != nullptr) {
                 const std::array signatures{
-                    type_spec.function_signature
+                    ExtractFunctionTypeInfo(type_spec.function_type, located_scope)
                 };
 
-                info.function_signatures = document_.arena->CopySpan<std::string_view>(signatures);
+                info.function_signatures =
+                    document_.arena->CopySpan<const FunctionTypeInfo*>(signatures);
             }
         }
 
@@ -1509,30 +1567,19 @@ namespace glsld {
             document_.bindings.try_emplace(typename_token.location, type_symbol);
         }
 
-        std::vector<std::string> template_args;
-        for (const auto& template_arg : type_spec.template_args) {
-            std::string arg_text;
-            if (template_arg->kind() == AstNodeKind::kVariableExpression) {
-                auto* var_expr = static_cast<const VariableExpressionNode*>(template_arg);
-                arg_text = var_expr->name;
-            } else if (template_arg->kind() == AstNodeKind::kRawExpression) {
-                auto* raw_expr = static_cast<const RawExpressionNode*>(template_arg);
-                if (!raw_expr->tokens.empty()) {
-                    arg_text = raw_expr->tokens.front().text;
-                }
+        std::vector<TemplateArgumentInfo> template_args;
+        template_args.reserve(type_spec.template_args.size());
+
+        for (auto* node : type_spec.template_args) {
+            auto argument = ExtractTemplateArgument(node, located_scope);
+            if (!argument.has_value()) {
+                return {};
             }
 
-            if (!arg_text.empty()) {
-                template_args.push_back(std::move(arg_text));
-            }
+            template_args.push_back(std::move(*argument));
         }
 
-        std::vector<std::string_view> template_arg_views;
-        for (const auto& argv : template_args) {
-            template_arg_views.push_back(document_.StoreTokenText(argv));
-        }
-
-        info.template_args = document_.arena->CopySpan<std::string_view>(template_arg_views);
+        info.template_args = document_.arena->CopySpan<TemplateArgumentInfo>(template_args);
         info.type_desc     = ParseTypeDescriptor(typename_token.text);
 
         return info;

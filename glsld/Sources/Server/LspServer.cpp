@@ -106,6 +106,8 @@ namespace glsld {
                 .kind          = LspSubmitItem::Kind::kNotification
             });
         });
+
+        Run();
     }
 
     LspServer::~LspServer() {
