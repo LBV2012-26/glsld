@@ -195,7 +195,7 @@
 							"match": ":"
 						},
 						{
-							"name": "entity.name.tag.extension.glsl",
+							"name": "entity.name.function.preprocessor.glsl",
 							"match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
 						},
 						{
@@ -683,7 +683,7 @@
 			"patterns": [
 				{
 					"name": "storage.modifier.glsl",
-					"match": "\\b(?:asm|attribute|buffer|callableDataInNV|callableDataNV|cast|centroid|class|coherent|common|const|devicecoherent|enum|extern|external|flat|highp|hitAttributeNV|in|inline|inout|interface|invariant|layout|lowp|mediump|namespace|noinline|noncoherent|nontemporal|nonuniformEXT|noperspective|out|patch|perprimitiveEXT|perprimitiveNV|pervertexEXT|perviewNV|precise|precision|public|queuefamilycoherent|rayPayloadInNV|rayPayloadNV|readonly|resource|resourceheap|sample|samplerheap|shadercallcoherent|shared|sizeof|smooth|static|struct|subgroupcoherent|subgroupuniformEXT|subroutine|template|this|typedef|uniform|union|using|varying|volatile|workgroupcoherent|writeonly)\\b"
+					"match": "\\b(?:asm|attribute|buffer|callableDataInNV|callableDataNV|cast|centroid|class|coherent|common|const|devicecoherent|enum|extern|external|flat|highp|hitAttributeNV|in|inline|inout|interface|invariant|layout|lowp|mediump|namespace|noinline|noncoherent|nontemporal|nonuniformEXT|noperspective|out|patch|perprimitiveEXT|perprimitiveNV|pervertexEXT|perviewNV|precise|precision|public|queuefamilycoherent|rayPayloadInNV|rayPayloadNV|readonly|resource|resourceheap|restrict|sample|samplerheap|shadercallcoherent|shared|sizeof|smooth|static|struct|subgroupcoherent|subgroupuniformEXT|subroutine|template|this|typedef|uniform|union|using|varying|volatile|workgroupcoherent|writeonly)\\b"
 				}
 			]
 		},

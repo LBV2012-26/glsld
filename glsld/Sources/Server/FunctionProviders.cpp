@@ -409,6 +409,13 @@ namespace glsld::Providers {
             });
         };
 
+        ankerl::unordered_dense::set<SourceLocation, LocationHash> extension_names;
+        for (const auto* node : snapshot->ast->pprefs) {
+            if (node->directive == "extension" && !node->tokens.empty()) {
+                extension_names.insert(node->tokens.front().location);
+            }
+        }
+
         for (const auto& token : snapshot->raw_tokens) {
             ABORT_IF_CANCELLED();
 
@@ -418,6 +425,11 @@ namespace glsld::Providers {
             }
 
             int type_index = -1;
+
+            if (extension_names.contains(token.location)) {
+                EmitSemanticData(14, modifiers, token); // macro
+                continue;
+            }
 
             auto it = snapshot->bindings.find(token.location);
             if (it == snapshot->bindings.end()) {

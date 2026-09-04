@@ -136,8 +136,8 @@ void main() {
     [[unroll, max_iterations(max_iterations), min_iterations(MIN_ITERATIONS)]]
     for (int i = 0; i != max_iterations; ++i) {}
 
-    LightData light_grid[max_iterations][MAX_RETURN_ARRAY_SIZE];
-    vec3 indexed_position = light_grid[ReturnArray(source_array)[0]][3].position + input_data.frag_pos;
+    LightData[24] light_grid[max_iterations][MAX_RETURN_ARRAY_SIZE], light_gird2[42];
+    vec3 indexed_position = light_grid[ReturnArray(source_array)[0]][3][25].position + input_data.frag_pos;
     LightData selected_light = ReturnLightData(returned_array[0]);
 
     vec3 heap_light = resource_heap.light.position;
