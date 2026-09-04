@@ -9,6 +9,7 @@
 #include <format>
 #include <iterator>
 #include <limits>
+#include <ranges>
 #include <system_error>
 #include <tuple>
 #include <type_traits>
@@ -1461,9 +1462,57 @@ namespace glsld {
                 return std::format("{}mat{}x{}", prefix, type.vector_count, type.vector_length);
             return {};
         }
+
+        std::string MakeIndent(std::size_t indent) {
+            return std::string(indent, ' ');
+        }
+
+        std::string FormatComposite(
+            std::string_view type_name,
+            const std::vector<std::string>& elements,
+            std::size_t indent,
+            bool force_multiline = false)
+        {
+            const bool multiline = force_multiline || std::ranges::any_of(elements, [](const auto& element) -> bool {
+                return element.contains('\n');
+            });
+
+            std::string result(type_name);
+            result += "(";
+
+            if (!multiline) {
+                for (const auto& [i, element] : elements | std::views::enumerate) {
+                    if (!std::cmp_equal(i, 0)) {
+                        result += ", ";
+                    }
+
+                    result += element;
+                }
+
+                result += ")";
+                return result;
+            }
+
+            result += "\n";
+
+            for (const auto& [i, element] : elements | std::views::enumerate) {
+                result += MakeIndent(indent + 4);
+                result += element;
+
+                if (!std::cmp_equal(i + 1, elements.size())) {
+                    result += ",";
+                }
+
+                result += "\n";
+            }
+
+            result += MakeIndent(indent);
+            result += ")";
+            return result;
+        }
     }
 
-    std::optional<std::string> ConstantEvaluator::FormatValue(const Value& value) const {
+    std::optional<std::string> ConstantEvaluator::FormatValue(const Value& value, std::size_t indent) const {
         if (const auto* scalar = GetScalar(value)) {
             return FormatScalar(*scalar);
         }
@@ -1483,23 +1532,18 @@ namespace glsld {
                 }
             }
 
-            auto result = std::move(type_name) + "(";
-
-            for (auto i = 0uz; i != array->elements.size(); ++i) {
-                if (i != 0) {
-                    result += ", ";
-                }
-
-                const auto formatted = FormatValue(array->elements[i]);
+            std::vector<std::string> elements;
+            elements.reserve(array->elements.size());
+            for (const auto& element : array->elements) {
+                const auto formatted = FormatValue(element, indent + 4);
                 if (!formatted.has_value()) {
                     return std::nullopt;
                 }
 
-                result += *formatted;
+                elements.push_back(*formatted);
             }
 
-            result += ")";
-            return result;
+            return FormatComposite(type_name, elements, indent);
         }
 
         if (const auto* object = GetStruct(value)) {
@@ -1513,28 +1557,23 @@ namespace glsld {
                 return std::nullopt;
             }
 
-            std::string result(struct_symbol->name);
-            result += "(";
+            std::vector<std::string> fields;
+            fields.reserve(object->fields.size());
 
             for (auto i = 0uz; i != object->fields.size(); ++i) {
                 if (object->fields[i].symbol != (*declared_fields)[i]) {
                     return std::nullopt;
                 }
 
-                if (i != 0) {
-                    result += ", ";
-                }
-
-                const auto formatted = FormatValue(object->fields[i].value);
+                const auto formatted = FormatValue(object->fields[i].value, indent + 4);
                 if (!formatted.has_value()) {
                     return std::nullopt;
                 }
 
-                result += *formatted;
+                fields.push_back(*formatted);
             }
 
-            result += ")";
-            return result;
+            return FormatComposite(struct_symbol->name, fields, indent);
         }
 
         const auto* aggregate = GetAggregate(value);
@@ -1547,18 +1586,39 @@ namespace glsld {
             return std::nullopt;
         }
 
-        auto result = std::move(type_name) + "(";
+        const auto& type_desc = aggregate->type_desc;
 
-        for (auto i = 0uz; i != aggregate->components.size(); ++i) {
-            if (i != 0) {
-                result += ", ";
+        if (type_desc.vector_count > 1 && type_desc.vector_length > 1) {
+            auto column_type = type_desc;
+            column_type.vector_count = 1;
+
+            const auto column_type_name = AggregateTypename(column_type);
+            const auto column_count     = static_cast<std::size_t>(type_desc.vector_count);
+            const auto row_count        = static_cast<std::size_t>(type_desc.vector_length);
+
+            std::vector<std::string> columns;
+            columns.reserve(column_count);
+
+            for (auto column = 0uz; column != column_count; ++column) {
+                std::vector<std::string> components;
+                components.reserve(row_count);
+                for (auto row = 0uz; row != row_count; ++row) {
+                    components.push_back(FormatScalar(aggregate->components[column * row_count + row]));
+                }
+
+                columns.push_back(FormatComposite(column_type_name, components, indent + 4));
             }
 
-            result += FormatScalar(aggregate->components[i]);
+            return FormatComposite(type_name, columns, indent, true);
         }
 
-        result += ")";
-        return result;
+        std::vector<std::string> components;
+        components.reserve(aggregate->components.size());
+        for (const auto& component : aggregate->components) {
+            components.push_back(FormatScalar(component));
+        }
+
+        return FormatComposite(type_name, components, indent);
     }
 
     void ConstantEvaluator::VisitVariableExpression(VariableExpressionNode* node) {

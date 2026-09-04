@@ -103,7 +103,7 @@ namespace glsld {
             CallExpressionNode* node,
             const TypeInfo& target_type);
 
-        std::optional<std::string> FormatValue(const Value& value) const;
+        std::optional<std::string> FormatValue(const Value& value, std::size_t indent = 0) const;
 
         void VisitVariableExpression(VariableExpressionNode* node) override;
         void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
