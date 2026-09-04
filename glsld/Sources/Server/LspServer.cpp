@@ -565,7 +565,8 @@ namespace glsld {
         capabilities["inlayHintProvider"]  = true;
 
         capabilities["signatureHelpProvider"] = {
-            { "triggerCharacters", { "(", "," } }
+            { "triggerCharacters", { "(", "," } },
+            { "retriggerCharacters", { ")" } }
         };
 
         capabilities["completionProvider"] = {

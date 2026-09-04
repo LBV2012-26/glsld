@@ -1001,6 +1001,10 @@ namespace glsld::Providers {
             ++it;
         }
 
+        if (paren_level <= 0) {
+            return std::nullopt;
+        }
+
         std::vector<TypeInfo> current_arg_types;
         for (auto i = 0uz; i <= active_param_index && i < node->args.size(); ++i) {
             ABORT_IF_CANCELLED();
@@ -1064,17 +1068,22 @@ namespace glsld::Providers {
         }
 
         auto unique_candidates = DeduplicateSignatures(std::get<SymbolList>(candidates));
-        const int active_signature_index = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
-        ClampToVariadic(active_param_index, unique_candidates[active_signature_index]);
+        const auto ranked = TypeResolver::RankSignatureCandidates(unique_candidates, current_arg_types);
+
+        if (ranked.candidates.empty()) {
+            return std::nullopt;
+        }
+
+        ClampToVariadic(active_param_index, ranked.candidates[ranked.active_index]);
 
         std::vector<std::string> signatures;
-        for (const auto* symbol : unique_candidates) {
+        for (const auto* symbol : ranked.candidates) {
             signatures.push_back(FormatFunctionSymbol(symbol, snapshot).full_spec);
         }
 
         return SignatureHelpResult{
             .signatures             = std::move(signatures),
-            .active_signature_index = active_signature_index,
+            .active_signature_index = ranked.active_index,
             .active_param_index     = active_param_index
         };
     }
