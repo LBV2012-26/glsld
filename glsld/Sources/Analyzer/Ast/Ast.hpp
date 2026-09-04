@@ -15,7 +15,7 @@ namespace glsld {
     struct SpirvIntrinsicNode;
     struct FunctionTypeSpec;
     struct TypeSpec {
-        Arena* arena{ nullptr };
+        Arena*                            arena{ nullptr };
         ArenaVector<Token>                specifiers{ ArenaAllocator<Token>(arena) };
         ArenaVector<ExpressionNode*>      template_args{ ArenaAllocator<ExpressionNode*>(arena) };
         ArenaVector<ExpressionNode*>      array_sizes{ ArenaAllocator<ExpressionNode*>(arena) };
@@ -642,6 +642,7 @@ namespace glsld {
     };
 
     struct DeclarationGroupNode final : public StatementNode {
+        TypeSpec                              type_spec{ arena };
         ArenaVector<VariableDeclarationNode*> declarations{ ArenaAllocator<VariableDeclarationNode*>(arena) };
 
         using StatementNode::StatementNode;

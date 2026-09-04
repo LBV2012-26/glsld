@@ -35,22 +35,13 @@ namespace glsld {
     TypeSpec::TypeSpec(const TypeSpec& other)
         : arena{ other.arena }
         , specifiers{ other.specifiers }
-        , template_args{ CloneVector<ExpressionNode>(*arena, other.template_args) }
-        , array_sizes{ CloneVector<ExpressionNode>(*arena, other.array_sizes) }
-        , layouts{ CloneVector<LayoutQualifierNode>(*arena, other.layouts) }
-        , spirv_intrinsics{ CloneVector<SpirvIntrinsicNode>(*arena, other.spirv_intrinsics) }
-        , function_type{ other.function_type != nullptr ? arena->Construct<FunctionTypeSpec>(*other.function_type) : nullptr }
+        , template_args{ other.template_args }
+        , array_sizes{ other.array_sizes }
+        , layouts{ other.layouts }
+        , spirv_intrinsics{ other.spirv_intrinsics }
+        , function_type{ other.function_type }
+        , spirv_type{ other.spirv_type }
     {
-        if (other.spirv_type == nullptr || spirv_intrinsics.empty()) {
-            return;
-        }
-
-        for (const auto* spirv_intrinsic : std::views::reverse(spirv_intrinsics)) {
-            if (spirv_intrinsic->intrinsic_kind == SpirvIntrinsicKind::kTypeOverride) {
-                spirv_type = spirv_intrinsic;
-                break;
-            }
-        }
     }
 
     TypeSpec& TypeSpec::operator=(const TypeSpec& other) {
@@ -75,7 +66,7 @@ namespace glsld {
 
     FunctionTypeSpec::FunctionTypeSpec(const FunctionTypeSpec& other)
         : return_type{ other.return_type }
-        , param_types{ ArenaAllocator<TypeSpec>(other.return_type.arena) }
+        , param_types{ other.param_types }
     {
         param_types.assign_range(other.param_types);
     }
@@ -596,6 +587,7 @@ namespace glsld {
 
     DeclarationGroupNode::DeclarationGroupNode(const DeclarationGroupNode& other)
         : StatementNode(other)
+        , type_spec{ other.type_spec }
         , declarations{ CloneVector<VariableDeclarationNode>(*arena, other.declarations) }
     {}
 

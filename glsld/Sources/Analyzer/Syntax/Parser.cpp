@@ -1214,9 +1214,10 @@ namespace glsld {
     DeclarationGroupNode* Parser::ParseVariableDeclarationList(TypeSpec type_spec) {
         // current token is variable name or semicolon
         if (current_token().type == TokenType::kSemicolon) {
-            auto* node  = MakeNode<DeclarationGroupNode>(current_scope());
-            node->begin = type_spec.begin_location();
-            node->end   = GetCurrentTokenEnd();
+            auto* node      = MakeNode<DeclarationGroupNode>(current_scope());
+            node->begin     = type_spec.begin_location();
+            node->end       = GetCurrentTokenEnd();
+            node->type_spec = std::move(type_spec);
 
             ConsumeToken();
             return node;
@@ -1299,6 +1300,10 @@ namespace glsld {
             ConsumeToken();
         } else if (!node->declarations.empty()) {
             node->end = node->declarations.back()->end;
+        }
+
+        if (node->declarations.empty()) {
+            node->type_spec = std::move(type_spec);
         }
 
         return node;

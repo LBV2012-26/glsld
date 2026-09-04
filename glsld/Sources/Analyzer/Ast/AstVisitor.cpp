@@ -202,6 +202,8 @@ namespace glsld {
     }
 
     void AstVisitor::VisitDeclarationGroup(DeclarationGroupNode* node) {
+        TraverseTypeSpec(node->type_spec);
+
         for (auto& declaration : node->declarations) {
             Traverse(declaration);
         }

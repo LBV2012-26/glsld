@@ -25,11 +25,16 @@ namespace glsld {
         std::vector<MatchGrade> param_grades;
     };
 
+    struct RankedSignatureCandidates {
+        SymbolList candidates;
+        int active_index{ -1 };
+    };
+
     class TypeResolver final : public AstVisitor {
     public:
         TypeResolver(Document& document, int version_replica, VersionPointer version_pointer);
 
-        static int RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
+        static RankedSignatureCandidates RankSignatureCandidates(const SymbolList& candidates, std::span<const TypeInfo> call_arg_types);
 
     private:
         void VisitTranslationUnit(TranslationUnitNode* node) override;
