@@ -400,10 +400,6 @@ namespace glsld {
         return meta_;
     }
 
-    bool MetadataManager::IsNoExpandHint(std::string_view word) const {
-        return no_expand_hints_.contains(word);
-    }
-
     MetadataManager& MetadataManager::GetInstance() {
         static MetadataManager instance;
         return instance;
@@ -443,7 +439,6 @@ namespace glsld {
         }
 
         lexical_loaded_.store(true, std::memory_order::relaxed);
-        LoadNoExpandHints();
 
         for (const auto& [name, entry] : lexical_entries_) {
             const auto& subtype = entry.subtype;
@@ -609,18 +604,5 @@ namespace glsld {
         MacroBinder binder(*document, 0, nullptr);
 
         return document;
-    }
-
-    void MetadataManager::LoadNoExpandHints() {
-        const auto path   = Utils::GetFilePath("Database/NoExpandHints.txt");
-        const auto source = Utils::LoadSource(path);
-        if (!source.has_value()) {
-            throw std::runtime_error("Failed to load no-expand hints: " + source.error());
-        }
-
-        const auto words = ExtractWords(*source);
-        for (auto word : words) {
-            no_expand_hints_.insert(word);
-        }
     }
 }

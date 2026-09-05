@@ -1856,34 +1856,27 @@ namespace glsld::Providers {
             return std::format("{}({})", name, inside);
         }
 
-        std::string ResolveAlias(const Document* snapshot, const SourceLocation& location) {
+        std::string ResolveSpirvAlias(const Document* snapshot, const SourceLocation& location) {
             if (snapshot == nullptr) {
                 return {};
             }
 
-            const auto& metadata = MetadataManager::GetInstance();
-
-            auto it = snapshot->macro_traces.find(location);
-            if (it != snapshot->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
+            if (auto it = snapshot->macro_traces.find(location); it != snapshot->macro_traces.end()) {
                 return std::string(it->second.text);
             }
 
             for (const auto& builtin : snapshot->builtins) {
-#pragma warning(push)
-#pragma warning(disable : 4456)
-                auto it = builtin->macro_traces.find(location);
-                if (it != builtin->macro_traces.end() && metadata.IsNoExpandHint(it->second.text)) {
+                if (auto it = builtin->macro_traces.find(location); it != builtin->macro_traces.end()) {
                     return std::string(it->second.text);
                 }
-#pragma warning(pop)
             }
 
             return {};
-        };
+        }
 
         std::string BuildTypeText(const auto* node, const Document* snapshot) {
             if (node->type_spec.spirv_type != nullptr) {
-                auto alias = ResolveAlias(snapshot, node->type_spec.spirv_type->keyword.location);
+                auto alias = ResolveSpirvAlias(snapshot, node->type_spec.spirv_type->keyword.location);
                 if (!alias.empty()) {
                     return alias;
                 }
@@ -1893,8 +1886,7 @@ namespace glsld::Providers {
 
             auto& metadata = MetadataManager::GetInstance();
 
-            const auto alias = ResolveAlias(snapshot, node->type_spec.typename_token().location);
-            auto type_name = alias.empty() ? std::string(node->type_spec.typename_token().text) : alias;
+            auto type_name = std::string(node->type_spec.typename_token().text);
             if (auto subtype = metadata.GetLexicalSubtype(type_name);
                 subtype.has_value() && subtype->contains("Qualifiers"))
             {
@@ -1924,8 +1916,10 @@ namespace glsld::Providers {
                     continue;
                 }
 
-                const auto alias = ResolveAlias(snapshot, spec.location);
-                auto text = alias.empty() ? (spec.text.contains("__AnonymousStruct_") ? "<anonymous>" : std::string(spec.text)) : std::string(alias);
+                auto text = spec.text.contains("__AnonymousStruct_")
+                          ? std::string("<anonymous>")
+                          : std::string(spec.text);
+
                 if (const auto subtype = metadata.GetLexicalSubtype(spec.text);
                     subtype.has_value() && subtype->contains("Qualifiers"))
                 {
@@ -1939,7 +1933,7 @@ namespace glsld::Providers {
                 }
 
                 const auto name  = spirv->keyword.text;
-                const auto alias = ResolveAlias(snapshot, spirv->keyword.location);
+                const auto alias = ResolveSpirvAlias(snapshot, spirv->keyword.location);
                 auto       call  = alias.empty() ? RenderCanonicalSpirvCall(spirv) : alias;
 
                 if (name == "spirv_execution_mode" || name == "spirv_execution_mode_ide" || name == "spirv_instruction") {

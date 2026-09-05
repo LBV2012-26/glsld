@@ -39,7 +39,6 @@ namespace glsld {
         const StringHeteroHashMap<TokenType>* GetLexicalTable();
         std::optional<std::string_view> GetLexicalSubtype(std::string_view word);
         const std::vector<std::pair<std::string, std::string>>& GetMeta();
-        bool IsNoExpandHint(std::string_view word) const;
 
         static MetadataManager& GetInstance();
 
@@ -72,8 +71,6 @@ namespace glsld {
             IncludeDirectoryHandle include_dirs,
             const MacroTable* injected_macros);
 
-        void LoadNoExpandHints();
-
         struct BuiltinDocumentVariant {
             std::shared_ptr<Document> document;
             std::size_t               ref_count{};
@@ -85,7 +82,6 @@ namespace glsld {
         StringHeteroHashMap<LexicalEntry>         lexical_entries_;
         StringHeteroHashMap<TokenType>            lexical_table_;
         StringHeteroHashMap<BuiltinDocumentCache> builtin_documents_;
-        StringHeteroHashSet                       no_expand_hints_;
         std::vector<std::pair<std::string, std::string>> meta_; // [subtype, name]
         std::shared_mutex                         lexical_mutex_;
         std::shared_mutex                         builtin_mutex_;
