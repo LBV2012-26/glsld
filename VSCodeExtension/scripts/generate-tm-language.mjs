@@ -239,7 +239,11 @@ function installContexts(grammar) {
 	};
 }
 
-const builtinTypeSources = ['Builtins/Types.txt'];
+const builtinTypeSources = [
+	'Builtins/Arithmetics.txt',
+	'Builtins/Opaques.txt'
+];
+
 const primitiveTypeSources = ['Primitives/Types.txt'];
 const keywordSources = ['Keywords/Meta.txt'];
 const qualifierSources = ['Primitives/Qualifiers.txt'];
