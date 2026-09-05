@@ -1942,6 +1942,13 @@ namespace glsld {
     }
 
     void ConstantEvaluator::VisitBinaryExpression(BinaryExpressionNode* node) {
+        if (!node->evaluated_type.is_valid() ||
+            node->evaluated_type.type_desc.family == BaseFamily::kUnknown)
+        {
+            is_valid_ = false;
+            return;
+        }
+
         if (node->left == nullptr || node->right == nullptr) {
             is_valid_ = false;
             return;
@@ -2161,6 +2168,13 @@ namespace glsld {
     }
 
     void ConstantEvaluator::VisitUnaryExpression(UnaryExpressionNode* node) {
+        if (!node->evaluated_type.is_valid() ||
+            node->evaluated_type.type_desc.family == BaseFamily::kUnknown)
+        {
+            is_valid_ = false;
+            return;
+        }
+
         if (node->operand == nullptr) {
             is_valid_ = false;
             return;
@@ -2530,18 +2544,15 @@ namespace glsld {
             }
 
             switch (type.type_desc.arithmetic_structure()) {
-                using enum TypeDescriptor::ArithmeticStructure;
-            case kVector:
-                if (type.type_desc.vector_length > 1) {
+            case ArithmeticStructure::kVector:
+                if (type.type_desc.vector_length > 1)
                     return type.type_desc.vector_length;
-                }
                 break;
-            case kMatrix:
-                if (type.type_desc.vector_count > 1) {
+            case ArithmeticStructure::kMatrix:
+                if (type.type_desc.vector_count > 1)
                     return type.type_desc.vector_count;
-                }
                 break;
-            case kScalar:
+            case ArithmeticStructure::kScalar:
                 break;
             }
 
@@ -2607,7 +2618,7 @@ namespace glsld {
         }
 
         // vector swizzle
-        if (object_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector) {
+        if (object_type.type_desc.arithmetic_structure() != ArithmeticStructure::kVector) {
             is_valid_ = false;
             return;
         }

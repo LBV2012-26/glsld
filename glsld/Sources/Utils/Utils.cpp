@@ -295,6 +295,35 @@ namespace glsld::Utils {
             text.find('.') != std::string_view::npos ||
             text.find_first_of(is_hex ? "pP" : "eE") != std::string_view::npos;
 
+        struct SpecialFloatSuffix {
+            std::string_view suffix;
+            int              bits{};
+            FloatEncoding    encoding{};
+        };
+
+        static constexpr std::array kSpecialFloatSuffixes{
+            SpecialFloatSuffix{ "bf16",   16, FloatEncoding::kBFloat16 },
+            SpecialFloatSuffix{ "fmxint8", 8, FloatEncoding::kMXInt8 },
+            SpecialFloatSuffix{ "fue8m0",  8, FloatEncoding::kUE8M0 },
+            SpecialFloatSuffix{ "fe2m1",   4, FloatEncoding::kE2M1 },
+            SpecialFloatSuffix{ "fe2m3",   6, FloatEncoding::kE2M3 },
+            SpecialFloatSuffix{ "fe3m2",   6, FloatEncoding::kE3M2 },
+            SpecialFloatSuffix{ "fe4m3",   8, FloatEncoding::kE4M3 },
+            SpecialFloatSuffix{ "fe5m2",   8, FloatEncoding::kE5M2 }
+        };
+
+        for (const auto& suffix : kSpecialFloatSuffixes) {
+            if (EndsWithInsensitive(suffix.suffix)) {
+                return {
+                    .kind           = NumberLiteralKind::kFloatingPoint,
+                    .core           = text.substr(0, text.size() - suffix.suffix.size()),
+                    .base           = is_hex ? 16 : 10,
+                    .bits           = suffix.bits,
+                    .float_encoding = suffix.encoding
+                };
+            }
+        }
+
         if (EndsWithInsensitive("lf") && (has_float_syntax || !is_hex)) {
             return {
                 .kind = NumberLiteralKind::kFloatingPoint,

@@ -51,6 +51,7 @@ namespace glsld::Utils {
         std::string_view  core;
         int               base{ 10 };
         int               bits{};
+        FloatEncoding     float_encoding{ FloatEncoding::kStandard };
 
         explicit operator bool() const;
     };

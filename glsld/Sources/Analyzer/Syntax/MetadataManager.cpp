@@ -521,7 +521,7 @@ namespace glsld {
         }
 
         TokenType ResolveTokenType(std::string_view relative_path) {
-            if (relative_path == "Builtins/Types.txt")
+            if (relative_path == "Builtins/Arithmetics.txt" || relative_path == "Builtins/Opaques.txt")
                 return TokenType::kBuiltInType;
             if (relative_path == "Keywords/Meta.txt")
                 return TokenType::kKeyword;

@@ -13,6 +13,7 @@
 
 #include "Analyzer/Ast/Ast.hpp"
 #include "Analyzer/Passes/ConstantEvaluator.hpp"
+#include "Analyzer/Syntax/MetadataManager.hpp"
 #include "Base/Hash.hpp"
 #include "Utils/Utils.hpp"
 
@@ -76,7 +77,41 @@ namespace glsld {
             return inserted_it->second;
         }
 
-        MatchGrade TryImplicityConvert(const TypeInfo& src, const TypeInfo& dst) {
+        bool CanPromoteSpecialFloat(const TypeDescriptor& src, const TypeDescriptor& dst) {
+            if (src.float_encoding == FloatEncoding::kE2M1) {
+                return dst.float_encoding == FloatEncoding::kE4M3
+                    || dst.float_encoding == FloatEncoding::kE5M2
+                    || dst.float_encoding == FloatEncoding::kBFloat16
+                    || dst.float_encoding == FloatEncoding::kStandard
+                    && dst.bits >= 16;
+            }
+
+            if (src.float_encoding == FloatEncoding::kE3M2 ||
+                src.float_encoding == FloatEncoding::kE2M3 ||
+                src.float_encoding == FloatEncoding::kMXInt8)
+            {
+                return dst.float_encoding == FloatEncoding::kBFloat16
+                    || dst.float_encoding == FloatEncoding::kStandard
+                    && dst.bits >= 16;
+            }
+
+            return false;
+        }
+
+        bool IsRestrictedFloat(const TypeDescriptor& desc) {
+            switch (desc.float_encoding) {
+            case FloatEncoding::kE2M1:
+            case FloatEncoding::kE3M2:
+            case FloatEncoding::kE2M3:
+            case FloatEncoding::kUE8M0:
+            case FloatEncoding::kMXInt8:
+                return true;
+            default:
+                return false;
+            }
+        }
+
+        MatchGrade TryImplicityCast(const TypeInfo& src, const TypeInfo& dst) {
             if (src.is_func_ref || dst.is_func_ref)
                 return MatchGrade::kFailed;
             if (src.typename_token.text == "" || dst.typename_token.text == "")
@@ -93,20 +128,23 @@ namespace glsld {
 
             if (src_desc.family == BaseFamily::kOpaque  || dst_desc.family == BaseFamily::kOpaque  ||
                 src_desc.family == BaseFamily::kUnknown || dst_desc.family == BaseFamily::kUnknown ||
-                src_desc.family == BaseFamily::kBool    || dst_desc.family == BaseFamily::kBool)
-            {
-                return MatchGrade::kFailed;
-            }
-
-            if (src_desc.vector_count           != dst_desc.vector_count  ||
-                src_desc.vector_length          != dst_desc.vector_length ||
-                src_desc.arithmetic_structure() != dst_desc.arithmetic_structure())
+                src_desc.family == BaseFamily::kBool    || dst_desc.family == BaseFamily::kBool    ||
+                src_desc.vector_count  != dst_desc.vector_count  ||
+                src_desc.vector_length != dst_desc.vector_length)
             {
                 return MatchGrade::kFailed;
             }
 
             if (src_desc == dst_desc) {
                 return MatchGrade::kExactMatch;
+            }
+
+            if (IsRestrictedFloat(src_desc) || IsRestrictedFloat(dst_desc)) {
+                return CanPromoteSpecialFloat(src_desc, dst_desc) ? MatchGrade::kImplicitly : MatchGrade::kFailed;
+            }
+
+            if (src_desc.arithmetic_structure() != dst_desc.arithmetic_structure()) {
+                return MatchGrade::kFailed;
             }
 
             // 类型提升
@@ -248,7 +286,7 @@ namespace glsld {
                     continue;
                 }
 
-                const auto grade = TryImplicityConvert(call_type, param_type);
+                const auto grade = TryImplicityCast(call_type, param_type);
                 if (grade == MatchGrade::kFailed) {
                     matched = false;
                     break;
@@ -412,7 +450,7 @@ namespace glsld {
             Traverse(element);
 
             bool compared = element->evaluated_type.CompareWithoutQualifiers(element_target);
-            bool implicity_converted = TryImplicityConvert(element->evaluated_type, element_target) != MatchGrade::kFailed;
+            bool implicity_converted = TryImplicityCast(element->evaluated_type, element_target) != MatchGrade::kFailed;
             return compared || implicity_converted;
         };
 
@@ -462,16 +500,18 @@ namespace glsld {
             return;
         }
 
-        using enum TypeDescriptor::ArithmeticStructure;
-
         const auto structure = target_type.type_desc.arithmetic_structure();
-        if (structure != kVector && structure != kMatrix) {
+        if (structure != ArithmeticStructure::kVector &&
+            structure != ArithmeticStructure::kMatrix)
+        {
             node->evaluated_type = {};
             return;
         }
 
         const auto expected_size = static_cast<std::size_t>(
-            structure == kVector ? target_type.type_desc.vector_length : target_type.type_desc.vector_count);
+            structure == ArithmeticStructure::kVector
+                       ? target_type.type_desc.vector_length
+                       : target_type.type_desc.vector_count);
 
         if (node->elements.size() != expected_size) {
             node->evaluated_type = {};
@@ -569,24 +609,23 @@ namespace glsld {
             const auto dst_structure = target.type_desc.arithmetic_structure();
 
             switch (src_structure) {
-                using enum TypeDescriptor::ArithmeticStructure;
-            case kScalar:
+            case ArithmeticStructure::kScalar:
                 // scalar -> scalar/vector/matrix
                 return true;
-            case kVector:
+            case ArithmeticStructure::kVector:
                 // vector -> vector with same component
-                if (dst_structure == kVector) {
+                if (dst_structure == ArithmeticStructure::kVector) {
                     return target.type_desc.vector_length <= source.type_desc.vector_length;
                 }
 
                 // vec4 -> mat2x2
                 return source.type_desc.vector_length == 4
-                    && dst_structure == kMatrix
+                    && dst_structure == ArithmeticStructure::kMatrix
                     && target.type_desc.vector_count  == 2
                     && target.type_desc.vector_length == 2;
-            case kMatrix:
+            case ArithmeticStructure::kMatrix:
                 // matrix -> matrix
-                return dst_structure == kMatrix;
+                return dst_structure == ArithmeticStructure::kMatrix;
             }
 
             return false;
@@ -676,8 +715,12 @@ namespace glsld {
         case TokenType::kMinus:
         case TokenType::kPlusPlus:
         case TokenType::kMinusMinus:
-            if (operand_type.type_desc.family == BaseFamily::kBool || operand_type.type_desc.family == BaseFamily::kOpaque)
+            if (operand_type.type_desc.family == BaseFamily::kBool   ||
+                operand_type.type_desc.family == BaseFamily::kOpaque ||
+                IsRestrictedFloat(operand_type.type_desc))
+            {
                 result_desc.family = BaseFamily::kUnknown;
+            }
             break;
         case TokenType::kTilde:
             if (operand_type.type_desc.family != BaseFamily::kInt && operand_type.type_desc.family != BaseFamily::kUint)
@@ -718,9 +761,9 @@ namespace glsld {
 
             if (true_type.CompareWithoutQualifiers(false_type)) {
                 node->evaluated_type = true_type;
-            } else if (TryImplicityConvert(true_type, false_type) != MatchGrade::kFailed) {
+            } else if (TryImplicityCast(true_type, false_type) != MatchGrade::kFailed) {
                 node->evaluated_type = false_type;
-            } else if (TryImplicityConvert(false_type, true_type) != MatchGrade::kFailed) {
+            } else if (TryImplicityCast(false_type, true_type) != MatchGrade::kFailed) {
                 node->evaluated_type = true_type;
             } else {
                 node->evaluated_type = {
@@ -1014,10 +1057,9 @@ namespace glsld {
                 return false;
             }
 
-            using enum TypeDescriptor::ArithmeticStructure;
-
             const auto structure = type.type_desc.arithmetic_structure();
-            return structure == kVector || structure == kMatrix;
+            return structure == ArithmeticStructure::kVector
+                || structure == ArithmeticStructure::kMatrix;
         }
 
         TypeInfo BuildLengthResultType(const SourceLocation& location) {
@@ -1145,16 +1187,15 @@ namespace glsld {
         }
 
         const auto arithmetic_structure = type_desc.arithmetic_structure();
-        using enum TypeDescriptor::ArithmeticStructure;
 
         TypeInfo type_info;
         type_info.typename_token.type = TokenType::kBuiltInType;
 
-        if (arithmetic_structure == kScalar) {
+        if (arithmetic_structure == ArithmeticStructure::kScalar) {
             type_info.typename_token.text = document_.StoreTokenText(GetScalarTypename(type_desc));
         } else {
             std::string prefix = GetTypeBitsPrefix(type_desc);
-            if (arithmetic_structure == kVector) {
+            if (arithmetic_structure == ArithmeticStructure::kVector) {
                 type_info.typename_token.text =
                     document_.StoreTokenText(std::format("{}vec{}", prefix, type_desc.vector_length));
             } else {
@@ -1178,11 +1219,9 @@ namespace glsld {
         }
 
         TypeInfo canonical_info = base_type;
-
-        using enum TypeDescriptor::ArithmeticStructure;
-        if (base_type.type_desc.arithmetic_structure() == kMatrix) {
+        if (base_type.type_desc.arithmetic_structure() == ArithmeticStructure::kMatrix) {
             SeparateType(canonical_info, true);
-        } else if (base_type.type_desc.arithmetic_structure() == kVector) {
+        } else if (base_type.type_desc.arithmetic_structure() == ArithmeticStructure::kVector) {
             SeparateType(canonical_info, false);
         }
 
@@ -1594,25 +1633,29 @@ namespace glsld {
             return it->second;
         };
 
-        static const std::vector<std::string> kOpaquePrefix{
-            "sampler", "isampler", "usampler",
-            "image", "iimage", "uimage",
-            "texture", "shadow",
-            "subpass", "isubpass", "usubpass",
-            "accelerationStructure", "ray", "hit"
-            "hitAttribute", "callableData", "shaderRecord",
-            "atomic", "NV", "EXT", "KHR"
-        };
-
-        TypeDescriptor desc;
-
-        for (const auto& prefix : kOpaquePrefix) {
-            if (text.contains(prefix)) {
-                desc.family = BaseFamily::kOpaque;
-                return desc;
-            }
+        const auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(text);
+        if (subtype.has_value() && *subtype == "Builtins.Opaques") {
+            return {
+                .family = BaseFamily::kOpaque
+            };
         }
 
+        if (text == "bfloat16_t")
+            return { BaseFamily::kFloat, 16, 1, 1, FloatEncoding::kBFloat16 };
+        if (text == "floate5m2_t")
+            return { BaseFamily::kFloat, 8,  1, 1, FloatEncoding::kE5M2 };
+        if (text == "floate4m3_t")
+            return { BaseFamily::kFloat, 8,  1, 1, FloatEncoding::kE4M3 };
+        if (text == "floate3m2_t")
+            return { BaseFamily::kFloat, 6,  1, 1, FloatEncoding::kE3M2 };
+        if (text == "floate2m3_t")
+            return { BaseFamily::kFloat, 6,  1, 1, FloatEncoding::kE2M3 };
+        if (text == "floate2m1_t")
+            return { BaseFamily::kFloat, 4,  1, 1, FloatEncoding::kE2M1 };
+        if (text == "floatue8m0_t")
+            return { BaseFamily::kFloat, 8,  1, 1, FloatEncoding::kUE8M0 };
+        if (text == "floatmxint8_t")
+            return { BaseFamily::kFloat, 8,  1, 1, FloatEncoding::kMXInt8 };
         if (text == "bool")
             return { BaseFamily::kBool,  32, 1, 1 };
         if (text == "int")
@@ -1657,23 +1700,57 @@ namespace glsld {
             prefix = text.substr(0, vec_pos);
         }
 
-        desc.family = BaseFamily::kFloat;
-        desc.bits   = 32;
+        TypeDescriptor desc{
+            .family = BaseFamily::kFloat,
+            .bits   = 32
+        };
 
         if (prefix.empty()) {
             // vec2, mat4 -> float32
         } else if (prefix == "b") {
-            desc.family = BaseFamily::kBool;
+            desc.family         = BaseFamily::kBool;
         } else if (prefix == "i") {
-            desc.family = BaseFamily::kInt;
+            desc.family         = BaseFamily::kInt;
         } else if (prefix == "u") {
             desc.family = BaseFamily::kUint;
         } else if (prefix == "d") {
-            desc.family = BaseFamily::kFloat;
-            desc.bits   = 64;
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 64;
         } else if (prefix == "h") {
-            desc.family = BaseFamily::kFloat;
-            desc.bits   = 16;
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 16;
+        } else if (prefix == "bf16") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 16;
+            desc.float_encoding = FloatEncoding::kBFloat16;
+        } else if (prefix == "fe5m2") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 8;
+            desc.float_encoding = FloatEncoding::kE5M2;
+        } else if (prefix == "fe4m3") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 8;
+            desc.float_encoding = FloatEncoding::kE4M3;
+        } else if (prefix == "fe3m2") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 6;
+            desc.float_encoding = FloatEncoding::kE3M2;
+        } else if (prefix == "fe2m3") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 6;
+            desc.float_encoding = FloatEncoding::kE2M3;
+        } else if (prefix == "fe2m1") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 4;
+            desc.float_encoding = FloatEncoding::kE2M1;
+        } else if (prefix == "fue8m0") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 8;
+            desc.float_encoding = FloatEncoding::kUE8M0;
+        } else if (prefix == "fmxint8") {
+            desc.family         = BaseFamily::kFloat;
+            desc.bits           = 8;
+            desc.float_encoding = FloatEncoding::kMXInt8;
         } else if (prefix == "f") {
             // such as default;
         } else { // 带数字的
@@ -1727,17 +1804,20 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::SniffLiteralType(const Token& token) {
-        auto BuildType = [](std::string_view name, BaseFamily family, int bits) -> TypeInfo {
+        auto BuildType = [](std::string_view name, BaseFamily family, int bits, FloatEncoding encoding = FloatEncoding::kStandard)
+            -> TypeInfo
+        {
             return TypeInfo{
                 .typename_token{
                     .text = name,
                     .type = name.contains("_t") ? TokenType::kBuiltInType : TokenType::kPrimitive
                 },
                 .type_desc{
-                    .family        = family,
-                    .bits          = bits,
-                    .vector_count  = 1,
-                    .vector_length = 1
+                    .family         = family,
+                    .bits           = bits,
+                    .vector_count   = 1,
+                    .vector_length  = 1,
+                    .float_encoding = encoding
                 }
             };
         };
@@ -1761,6 +1841,28 @@ namespace glsld {
                 return BuildType("uint", BaseFamily::kUint, 32);
 
             case Utils::NumberLiteralKind::kFloatingPoint:
+                switch (literal.float_encoding) {
+                case FloatEncoding::kE2M1:
+                    return BuildType("floate2m1_t", BaseFamily::kFloat, 4, FloatEncoding::kE2M1);
+                case FloatEncoding::kE2M3:
+                    return BuildType("floate2m3_t", BaseFamily::kFloat, 6, FloatEncoding::kE2M3);
+                case FloatEncoding::kE3M2:
+                    return BuildType("floate3m2_t", BaseFamily::kFloat, 6, FloatEncoding::kE3M2);
+                case FloatEncoding::kE4M3:
+                    return BuildType("floate4m3_t", BaseFamily::kFloat, 8, FloatEncoding::kE4M3);
+                case FloatEncoding::kE5M2:
+                    return BuildType("floate5m2_t", BaseFamily::kFloat, 8, FloatEncoding::kE5M2);
+                case FloatEncoding::kUE8M0:
+                    return BuildType("floatue8m0_t", BaseFamily::kFloat, 8, FloatEncoding::kUE8M0);
+                case FloatEncoding::kMXInt8:
+                    return BuildType("floatmxint8_t", BaseFamily::kFloat, 8, FloatEncoding::kMXInt8);
+                case FloatEncoding::kBFloat16:
+                    return BuildType("bfloat16_t", BaseFamily::kFloat, 16, FloatEncoding::kBFloat16);
+
+                default:
+                    break;
+                }
+
                 if (literal.bits == 64)
                     return BuildType("double", BaseFamily::kFloat, 64);
                 if (literal.bits == 16)
@@ -1787,7 +1889,7 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ResolveSwizzleType(const TypeInfo& base_type, std::string_view swizzle) {
-        if (base_type.type_desc.arithmetic_structure() != TypeDescriptor::ArithmeticStructure::kVector ||
+        if (base_type.type_desc.arithmetic_structure() != ArithmeticStructure::kVector ||
             base_type.type_desc.family == BaseFamily::kUnknown)
         {
             return GetCanonicalTypeInfo(TypeDescriptor{
@@ -1842,7 +1944,7 @@ namespace glsld {
                 if (call_type.CompareWithoutQualifiers(target_type)) {
                     current_grades.push_back(MatchGrade::kExactMatch);
                 } else {
-                    auto match_grade = TryImplicityConvert(call_type, target_type);
+                    auto match_grade = TryImplicityCast(call_type, target_type);
                     if (match_grade != MatchGrade::kFailed) {
                         current_grades.push_back(match_grade);
                     } else {
@@ -1933,9 +2035,12 @@ namespace glsld {
             };
         }
 
-        auto IsAssignmentOperator = [](TokenType op) -> bool {
-            return op == TokenType::kEqual
-                || op == TokenType::kPlusEqual
+        if (op == TokenType::kEqual) {
+            return left_type;
+        }
+
+        auto IsArithmeticAssignmentOperator = [](TokenType op) -> bool {
+            return op == TokenType::kPlusEqual
                 || op == TokenType::kMinusEqual
                 || op == TokenType::kStarEqual
                 || op == TokenType::kSlashEqual
@@ -1947,7 +2052,21 @@ namespace glsld {
                 || op == TokenType::kVerticalBarEqual;
         };
 
-        if (IsAssignmentOperator(op)) {
+        if (IsArithmeticAssignmentOperator(op)) {
+            if (IsRestrictedFloat(left_type.type_desc) ||
+                IsRestrictedFloat(right_type.type_desc))
+            {
+                return {
+                    .typename_token{
+                        .text = "unknown",
+                        .type = TokenType::kUnknown
+                    },
+                    .type_desc{
+                        .family = BaseFamily::kUnknown
+                    }
+                };
+            }
+
             return left_type;
         }
 
@@ -1955,6 +2074,20 @@ namespace glsld {
     }
 
     TypeInfo TypeResolver::ResolveArithmeticPromotion(const TypeInfo& left_type, const TypeInfo& right_type, TokenType op) {
+        if (IsRestrictedFloat(left_type.type_desc) ||
+            IsRestrictedFloat(right_type.type_desc))
+        { // 特殊 float 不能算术运算
+            return {
+                .typename_token{
+                    .text = "unknown",
+                    .type = TokenType::kUnknown
+                },
+                .type_desc{
+                    .family = BaseFamily::kUnknown
+                }
+            };
+        }
+
         if (left_type.CompareWithoutQualifiers(right_type)) {
             return left_type;
         }
@@ -1969,7 +2102,7 @@ namespace glsld {
         const auto left_structure  = left_desc.arithmetic_structure();
         const auto right_structure = right_desc.arithmetic_structure();
 
-        using enum TypeDescriptor::ArithmeticStructure;
+        using enum ArithmeticStructure;
 
         if (left_structure == kMatrix || right_structure == kMatrix) {
             if (left_structure == kMatrix && right_structure == kMatrix) {

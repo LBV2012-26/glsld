@@ -2,11 +2,14 @@
 
 namespace glsld {
     inline bool TypeDescriptor::operator==(const TypeDescriptor& other) const {
-        return family       == other.family       && bits          == other.bits &&
-               vector_count == other.vector_count && vector_length == other.vector_length;
+        return family         == other.family
+            && bits           == other.bits
+            && vector_count   == other.vector_count
+            && vector_length  == other.vector_length
+            && float_encoding == other.float_encoding;
     }
 
-    inline TypeDescriptor::ArithmeticStructure TypeDescriptor::arithmetic_structure() const {
+    inline ArithmeticStructure TypeDescriptor::arithmetic_structure() const {
         if (vector_count == 1 && vector_length == 1)
             return ArithmeticStructure::kScalar;
         if (vector_count > 1)

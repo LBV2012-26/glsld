@@ -39,17 +39,31 @@ namespace glsld {
         kOpaque
     };
 
-    struct TypeDescriptor {
-        enum class ArithmeticStructure {
-            kMatrix, kVector, kScalar
-        };
+    enum class FloatEncoding {
+        kStandard,
+        kBFloat16,
+        kE5M2,
+        kE4M3,
+        kE2M1,
+        kE3M2,
+        kE2M3,
+        kUE8M0,
+        kMXInt8
+    };
 
+    enum class ArithmeticStructure {
+        kMatrix, kVector, kScalar
+    };
+
+    struct TypeDescriptor {
         BaseFamily family{ BaseFamily::kUnknown };
         int        bits{};
 
         // mat2x3 -> 2 x vector with size 3
         int vector_count{};
         int vector_length{};
+
+        FloatEncoding float_encoding{ FloatEncoding::kStandard };
 
         bool operator==(const TypeDescriptor& other) const;
         ArithmeticStructure arithmetic_structure() const;

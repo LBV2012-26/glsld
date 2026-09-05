@@ -1316,7 +1316,7 @@ namespace glsld::Providers {
         };
 
         int SubtypeToKind(std::string_view subtype) {
-            if (subtype == "Builtins.Types")
+            if (subtype == "Builtins.Arithmetics" || subtype == "Builtins.Opaques")
                 return 22; // Struct
             if (subtype == "Primitives.Types" || subtype == "Keywords.Meta")
                 return 14; // Keyword

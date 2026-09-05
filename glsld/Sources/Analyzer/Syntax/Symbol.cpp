@@ -70,6 +70,7 @@ namespace glsld {
         HashCombine(seed, static_cast<std::size_t>(desc.bits));
         HashCombine(seed, static_cast<std::size_t>(desc.vector_count));
         HashCombine(seed, static_cast<std::size_t>(desc.vector_length));
+        HashCombine(seed, static_cast<std::size_t>(desc.float_encoding));
         return seed;
     }
 
