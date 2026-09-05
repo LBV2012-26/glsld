@@ -33,7 +33,7 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-!/glsld/Assets/Meta/ExtensionHeaders/ARM
+!glsld/Database/Meta/Extensions/Main/ARM/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

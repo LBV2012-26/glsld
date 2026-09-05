@@ -1,9 +1,8 @@
 accelerationStructureEXT
-
+callableDataEXT
+callableDataInEXT
+hitAttributeEXT
 rayQueryEXT
 rayPayloadEXT
 rayPayloadInEXT
-hitAttributeEXT
-callableDataEXT
-callableDataInEXT
 shaderRecordEXT

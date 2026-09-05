@@ -1,10 +1,9 @@
 #define GL_EXT_shader_16bit_storage 1
 
-// GL_EXT_shader_16bit_storage / GL_EXT_shader_8bit_storage
+// Umbrella document "GL_EXT_shader_16bit_storage" defines:
+//   GL_EXT_shader_16bit_storage and GL_EXT_shader_8bit_storage.
 
-// Types (8-bit)
-// int8_t, i8vec2, i8vec3, i8vec4
-// uint8_t, u8vec2, u8vec3, u8vec4
+#include "GL_EXT_shader_8bit_storage.glsl"
 
 // Types (16-bit)
 // float16_t, f16vec2, f16vec3, f16vec4

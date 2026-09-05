@@ -101,8 +101,8 @@ void imageAtomicStore(uimage2D _Image, ivec2 _Coord, uint _Data, int _Scope, int
 void controlBarrier(int _Execution, int _Memory, int _Storage, int _Semantics);
 
 void memoryBarrier(int _Memory, int _Storage, int _Semantics);
-void memoryBarrier();
-void memoryBarrierBuffer();
-void memoryBarrierShared();
-void memoryBarrierImage();
-void groupMemoryBarrier();
+// void memoryBarrier();
+// void memoryBarrierBuffer();
+// void memoryBarrierShared();
+// void memoryBarrierImage();
+// void groupMemoryBarrier();
