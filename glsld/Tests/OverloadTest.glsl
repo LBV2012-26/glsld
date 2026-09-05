@@ -57,6 +57,40 @@ void OverloadFunction(float16_t Float16) {}
 void OverloadFunction(float32_t Float32) {}
 void OverloadFunction(float64_t Float64) {}
 
+void OverloadFunction(bfloat16_t BFloat16) {}
+void OverloadFunction(floate5m2_t FloatE5M2) {}
+void OverloadFunction(floate4m3_t FloatE4M3) {}
+void OverloadFunction(floate3m2_t FloatE3M2) {}
+void OverloadFunction(floate2m3_t FloatE2M3) {}
+void OverloadFunction(floate2m1_t FloatE2M1) {}
+void OverloadFunction(floatue8m0_t FloatUE8M0) {}
+void OverloadFunction(floatmxint8_t FloatMXInt8) {}
+
+void OverloadFunction(bf16vec2 BFloat16Vec2) {}
+void OverloadFunction(bf16vec3 BFloat16Vec3) {}
+void OverloadFunction(bf16vec4 BFloat16Vec4) {}
+void OverloadFunction(fe5m2vec2 FloatE5M2Vec2) {}
+void OverloadFunction(fe5m2vec3 FloatE5M2Vec3) {}
+void OverloadFunction(fe5m2vec4 FloatE5M2Vec4) {}
+void OverloadFunction(fe4m3vec2 FloatE4M3Vec2) {}
+void OverloadFunction(fe4m3vec3 FloatE4M3Vec3) {}
+void OverloadFunction(fe4m3vec4 FloatE4M3Vec4) {}
+void OverloadFunction(fe3m2vec2 FloatE3M2Vec2) {}
+void OverloadFunction(fe3m2vec3 FloatE3M2Vec3) {}
+void OverloadFunction(fe3m2vec4 FloatE3M2Vec4) {}
+void OverloadFunction(fe2m3vec2 FloatE2M3Vec2) {}
+void OverloadFunction(fe2m3vec3 FloatE2M3Vec3) {}
+void OverloadFunction(fe2m3vec4 FloatE2M3Vec4) {}
+void OverloadFunction(fe2m1vec2 FloatE2M1Vec2) {}
+void OverloadFunction(fe2m1vec3 FloatE2M1Vec3) {}
+void OverloadFunction(fe2m1vec4 FloatE2M1Vec4) {}
+void OverloadFunction(fue8m0vec2 FloatUE8M0Vec2) {}
+void OverloadFunction(fue8m0vec3 FloatUE8M0Vec3) {}
+void OverloadFunction(fue8m0vec4 FloatUE8M0Vec4) {}
+void OverloadFunction(fmxint8vec2 FloatMXInt8Vec2) {}
+void OverloadFunction(fmxint8vec3 FloatMXInt8Vec3) {}
+void OverloadFunction(fmxint8vec4 FloatMXInt8Vec4) {}
+
 void OverloadFunction(int intArray1D_2[2]) {}
 void OverloadFunction(int intArray1D_3[3]) {}
 void OverloadFunction(int intArray2D_2x3[2][3]) {}
@@ -233,6 +267,40 @@ void main() {
     float32_t Float32;
     float64_t Float64;
 
+    bfloat16_t BFloat16;
+    floate5m2_t FloatE5M2;
+    floate4m3_t FloatE4M3;
+    floate3m2_t FloatE3M2;
+    floate2m3_t FloatE2M3;
+    floate2m1_t FloatE2M1;
+    floatue8m0_t FloatUE8M0;
+    floatmxint8_t FloatMXInt8;
+
+    bf16vec2 BFloat16Vec2;
+    bf16vec3 BFloat16Vec3;
+    bf16vec4 BFloat16Vec4;
+    fe5m2vec2 FloatE5M2Vec2;
+    fe5m2vec3 FloatE5M2Vec3;
+    fe5m2vec4 FloatE5M2Vec4;
+    fe4m3vec2 FloatE4M3Vec2;
+    fe4m3vec3 FloatE4M3Vec3;
+    fe4m3vec4 FloatE4M3Vec4;
+    fe3m2vec2 FloatE3M2Vec2;
+    fe3m2vec3 FloatE3M2Vec3;
+    fe3m2vec4 FloatE3M2Vec4;
+    fe2m3vec2 FloatE2M3Vec2;
+    fe2m3vec3 FloatE2M3Vec3;
+    fe2m3vec4 FloatE2M3Vec4;
+    fe2m1vec2 FloatE2M1Vec2;
+    fe2m1vec3 FloatE2M1Vec3;
+    fe2m1vec4 FloatE2M1Vec4;
+    fue8m0vec2 FloatUE8M0Vec2;
+    fue8m0vec3 FloatUE8M0Vec3;
+    fue8m0vec4 FloatUE8M0Vec4;
+    fmxint8vec2 FloatMXInt8Vec2;
+    fmxint8vec3 FloatMXInt8Vec3;
+    fmxint8vec4 FloatMXInt8Vec4;
+
 #define CALL_TEST_OVERLOAD_FUNC OverloadFunction(UInt16, UInt32, UInt64, Float16)
 
     // test literal overloads
@@ -244,6 +312,79 @@ void main() {
     OverloadFunction(1.0hf);
     OverloadFunction(1.0f);
     OverloadFunction(1.0lf);
+
+    // Special floating-point scalar overloads
+    OverloadFunction(BFloat16);
+    OverloadFunction(FloatE5M2);
+    OverloadFunction(FloatE4M3);
+    OverloadFunction(FloatE3M2);
+    OverloadFunction(FloatE2M3);
+    OverloadFunction(FloatE2M1);
+    OverloadFunction(FloatUE8M0);
+    OverloadFunction(FloatMXInt8);
+
+    // Special floating-point literal overloads
+    OverloadFunction(1.0bf16);
+    OverloadFunction(1.0fe5m2);
+    OverloadFunction(1.0fe4m3);
+    OverloadFunction(1.0fe3m2);
+    OverloadFunction(1.0fe2m3);
+    OverloadFunction(1.0fe2m1);
+    OverloadFunction(1.0fue8m0);
+    OverloadFunction(1.0fmxint8);
+
+    // Literal suffix matching is case-insensitive and supports exponent/hexadecimal syntax
+    OverloadFunction(2.0BF16);
+    OverloadFunction(2.0FE5M2);
+    OverloadFunction(2.0FE4M3);
+    OverloadFunction(1e0FE3M2);
+    OverloadFunction(1e0FE2M3);
+    OverloadFunction(0x1p0FE2M1);
+    OverloadFunction(0x1p0FUE8M0);
+    OverloadFunction(0x1p0FMXINT8);
+
+    // Special floating-point vectors constructed from matching literals
+    OverloadFunction(bf16vec2(1.0bf16));
+    OverloadFunction(fe5m2vec3(1.0fe5m2));
+    OverloadFunction(fe4m3vec4(1.0fe4m3));
+    OverloadFunction(fe3m2vec2(1.0fe3m2));
+    OverloadFunction(fe2m3vec3(1.0fe2m3));
+    OverloadFunction(fe2m1vec4(1.0fe2m1));
+    OverloadFunction(fue8m0vec2(1.0fue8m0));
+    OverloadFunction(fmxint8vec3(1.0fmxint8));
+
+    // Special floating-point vector overloads and swizzles
+    OverloadFunction(BFloat16Vec2);
+    OverloadFunction(BFloat16Vec3);
+    OverloadFunction(BFloat16Vec4);
+    OverloadFunction(FloatE5M2Vec2);
+    OverloadFunction(FloatE5M2Vec3);
+    OverloadFunction(FloatE5M2Vec4);
+    OverloadFunction(FloatE4M3Vec2);
+    OverloadFunction(FloatE4M3Vec3);
+    OverloadFunction(FloatE4M3Vec4);
+    OverloadFunction(FloatE3M2Vec2);
+    OverloadFunction(FloatE3M2Vec3);
+    OverloadFunction(FloatE3M2Vec4);
+    OverloadFunction(FloatE2M3Vec2);
+    OverloadFunction(FloatE2M3Vec3);
+    OverloadFunction(FloatE2M3Vec4);
+    OverloadFunction(FloatE2M1Vec2);
+    OverloadFunction(FloatE2M1Vec3);
+    OverloadFunction(FloatE2M1Vec4);
+    OverloadFunction(FloatUE8M0Vec2);
+    OverloadFunction(FloatUE8M0Vec3);
+    OverloadFunction(FloatUE8M0Vec4);
+    OverloadFunction(FloatMXInt8Vec2);
+    OverloadFunction(FloatMXInt8Vec3);
+    OverloadFunction(FloatMXInt8Vec4);
+    OverloadFunction(FloatE5M2Vec4.xy);
+    OverloadFunction(FloatE4M3Vec4.xyz);
+    OverloadFunction(FloatE3M2Vec4.wzyx);
+    OverloadFunction(FloatE2M3Vec3.yx);
+    OverloadFunction(FloatE2M1Vec4.zxy);
+    OverloadFunction(FloatUE8M0Vec3.xx);
+    OverloadFunction(FloatMXInt8Vec4.yzw);
 
     // int8 -> int
     OverloadFunction(Int8 + Int8);           // int8 + int8 -> int8
