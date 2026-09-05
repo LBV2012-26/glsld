@@ -1,5 +1,7 @@
 #define GL_EXT_samplerless_texture_functions 1
 
+#include "../KHR/GL_KHR_vulkan_glsl.glsl"
+
 // GL_EXT_samplerless_texture_functions
 
 // Texture query functions (no sampler parameter)

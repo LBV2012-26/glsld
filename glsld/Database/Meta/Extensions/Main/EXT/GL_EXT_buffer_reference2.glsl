@@ -1,5 +1,7 @@
 #define GL_EXT_buffer_reference2 1
 
+#include "GL_EXT_buffer_reference.glsl"
+
 // GL_EXT_buffer_reference2
 // No new functions, types, variables, or constants defined.
 // Adds arithmetic and array subscript operators to buffer reference types:

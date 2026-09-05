@@ -1,6 +1,6 @@
 align
-offset
-descriptor_stride
-descriptor_size
 buffer_reference_align
+descriptor_size
+descriptor_stride
 heap_offset
+offset

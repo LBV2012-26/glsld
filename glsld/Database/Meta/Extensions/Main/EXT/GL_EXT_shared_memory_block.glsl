@@ -1,5 +1,7 @@
 #define GL_EXT_shared_memory_block 1
 
+#include "../KHR/GL_KHR_vulkan_glsl.glsl"
+
 // GL_EXT_shared_memory_block
 // No new functions, types, variables, or constants defined.
 // Only shared block syntax added (shared interface blocks in compute shaders).

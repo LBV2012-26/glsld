@@ -5,6 +5,8 @@
 
 #define GL_NV_cooperative_matrix_decode_vector 1
 
+#include "GL_NV_cooperative_matrix2.glsl"
+
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent int8_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc, _Func _DecodeVectorFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent int16_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc, _Func _DecodeVectorFunc);
 void coopMatLoadTensorNV(inout coopmat _Matrix, volatile coherent int32_t[] _Buffer, uint _ElementOffset, tensorLayoutNV _Layout, _Func _DecodeFunc, _Func _DecodeVectorFunc);

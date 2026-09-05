@@ -1,5 +1,7 @@
 #define GL_EXT_control_flow_attributes2 1
 
+#include "GL_EXT_control_flow_attributes.glsl"
+
 // GL_EXT_control_flow_attributes2
 // No new functions, types, variables, or constants defined.
 // Only control-flow attributes: [[min_iterations(I)]], [[max_iterations(I)]],

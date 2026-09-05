@@ -1,7 +1,7 @@
-max_vertices
 invocations
-vertices
+max_vertices
 stream
+vertices
 xfb_buffer
 xfb_offset
 xfb_stride

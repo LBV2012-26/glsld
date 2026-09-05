@@ -1,9 +1,8 @@
+derivative_group_quadsKHR
+derivative_group_linearKHR
 local_size_x
 local_size_y
 local_size_z
 local_size_x_id
 local_size_y_id
 local_size_z_id
-derivative_group_quadsKHR
-derivative_group_linearKHR
-

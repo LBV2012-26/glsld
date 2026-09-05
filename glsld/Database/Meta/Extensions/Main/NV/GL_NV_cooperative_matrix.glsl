@@ -1,5 +1,7 @@
 #define GL_NV_cooperative_matrix 1
 
+#include "../KHR/GL_KHR_memory_scope_semantics.glsl"
+
 void coopMatLoadNV(out fcoopmatNV _Matrix, volatile coherent float16_t[] _Buffer, uint _Element, uint _Stride, bool _ColMajor);
 void coopMatLoadNV(out fcoopmatNV _Matrix, volatile coherent float32_t[] _Buffer, uint _Element, uint _Stride, bool _ColMajor);
 void coopMatLoadNV(out fcoopmatNV _Matrix, volatile coherent float64_t[] _Buffer, uint _Element, uint _Stride, bool _ColMajor);

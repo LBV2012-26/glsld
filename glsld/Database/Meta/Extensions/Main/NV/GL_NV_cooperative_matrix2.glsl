@@ -3,6 +3,8 @@
 
 #define GL_NV_cooperative_matrix2 1
 
+#include "../KHR/GL_KHR_cooperative_matrix.glsl"
+
 const int gl_CooperativeMatrixClampModeUndefinedNV    = 0;
 const int gl_CooperativeMatrixClampModeConstantNV     = 1;
 const int gl_CooperativeMatrixClampModeClampToEdgeNV  = 2;

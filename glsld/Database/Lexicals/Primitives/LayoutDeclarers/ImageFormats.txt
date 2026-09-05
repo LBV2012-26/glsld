@@ -1,4 +1,19 @@
-rgba32f rgba16f r32f r16f rg32f rg16f
-rgba32i rgba16i rgba8i r32i r16i r8i rg32i rg16i rg8i
-rgba32ui rgba16ui rgba8ui r32ui r16ui r8ui rg32ui rg16ui rg8ui 
-rgba8 r8 rg8
+r32f rg32f rgba32f
+r16f rg16f rgba16f
+r11f_g11f_b10f
+
+r16 rg16 rgba16
+rgb10_a2
+r8 rg8 rgba8
+
+r16_snorm rg16_snorm rgba16_snorm
+r8_snorm rg8_snorm rgba8_snorm
+
+r32i rg32i rgba32i
+r16i rg16i rgba16i
+r8i rg8i rgba8i
+
+r32ui rg32ui rgba32ui
+r16ui rg16ui rgba16ui
+rgb10_a2ui
+r8ui rg8ui rgba8ui

@@ -1,5 +1,7 @@
 #define GL_EXT_shader_image_int64 1
 
+#include "GL_EXT_shader_atomic_int64.glsl"
+
 u64vec4 imageLoad(readonly i64image2D _Image, ivec2 _Pos);
 u64vec4 imageLoad(readonly u64image2D _Image, ivec2 _Pos);
 i64vec4 imageLoad(readonly i64image2D _Image, ivec2 _Pos);

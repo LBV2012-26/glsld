@@ -1,7 +1,7 @@
-location
-set
 binding
+buffer_type
+constant_id
 index
 input_attachment_index
-constant_id
-buffer_type
+location
+set

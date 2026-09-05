@@ -1,5 +1,6 @@
 #define GL_EXT_shader_invocation_reorder 1
 
+#include "GL_EXT_buffer_reference_uvec2.glsl"
 #include "GL_EXT_ray_query.glsl"
 #include "GL_EXT_ray_tracing.glsl"
 

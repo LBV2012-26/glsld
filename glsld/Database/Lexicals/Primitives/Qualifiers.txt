@@ -16,23 +16,23 @@ cast
 namespace
 nontemporal
 
-pervertexEXT
-perprimitiveEXT
 nonuniformEXT
+perprimitiveEXT
+pervertexEXT
 subgroupuniformEXT
 
-rayPayloadNV
-rayPayloadInNV
-hitAttributeNV
-callableDataNV
 callableDataInNV
+callableDataNV
+hitAttributeNV
+rayPayloadInNV
+rayPayloadNV
 
-perviewNV
 perprimitiveNV
+perviewNV
 
 coherent
-noncoherent
 devicecoherent
+noncoherent
 queuefamilycoherent
 shadercallcoherent
 subgroupcoherent
