@@ -8,11 +8,12 @@
 #include <Base/Arena.hpp>
 
 namespace glsld {
+    using ResolvedNamePart = std::pair<Token, const SymbolInfo*>;
+
     struct ExpressionNode;
     struct LayoutQualifierNode;
     struct SpirvIntrinsicNode;
     struct FunctionTypeSpec;
-
     struct TypeSpec {
         Arena*                            arena{ nullptr };
         ArenaVector<Token>                specifiers{ ArenaAllocator<Token>(arena) };
@@ -24,6 +25,7 @@ namespace glsld {
         const SpirvIntrinsicNode*         spirv_type{ nullptr };
         const SymbolInfo*                 named_type_symbol{ nullptr };
         std::string_view                  written_typename;
+        std::span<const ResolvedNamePart> name_prefixes;
         SourceLocation                    typename_begin;
 
         TypeSpec(Arena* arena);
@@ -348,13 +350,14 @@ namespace glsld {
             kBlockMember
         };
 
-        Token                original_token;
-        NodeType             node_type;
-        std::string_view     name;
-        SymbolReferenceView  linked_symbols{ std::monostate{} };
-        const SymbolInfo*    named_type_symbol{ nullptr };
-        const NamespaceInfo* qualifier_space{ nullptr };
-        std::string_view     written_name;
+        Token                             original_token;
+        NodeType                          node_type;
+        std::string_view                  name;
+        SymbolReferenceView               linked_symbols{ std::monostate{} };
+        const SymbolInfo*                 named_type_symbol{ nullptr };
+        const NamespaceInfo*              qualifier_space{ nullptr };
+        std::span<const ResolvedNamePart> name_prefixes;
+        std::string_view                  written_name;
 
         using ExpressionNode::ExpressionNode;
         AstNodeKind kind() const override;
@@ -391,9 +394,10 @@ namespace glsld {
     };
 
     struct NamespaceDeclarationNode final : public DeclarationNode {
-        ArenaVector<Token>          names{ ArenaAllocator<Token>(arena) };
-        ArenaVector<StatementNode*> children{ ArenaAllocator<StatementNode*>(arena) };
-        std::string_view            alias_target; // 空：namespace X { ... }  非空：namespace X = Y::Z;
+        ArenaVector<Token>            names{ ArenaAllocator<Token>(arena) };
+        ArenaVector<ResolvedNamePart> resolved_names{ ArenaAllocator<ResolvedNamePart>(arena) };
+        ArenaVector<StatementNode*>   children{ ArenaAllocator<StatementNode*>(arena) };
+        std::string_view              alias_target; // 空：namespace X { ... }  非空：namespace X = Y::Z;
 
         using DeclarationNode::DeclarationNode;
         AstNodeKind kind() const override;

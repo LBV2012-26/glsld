@@ -151,12 +151,6 @@ namespace glsld {
         }
     }
 
-    void Parser::BindNamePrefixes(const NameProbe& name) {
-        for (const auto& [token, symbol] : name.prefixes) {
-            document_.bindings.insert_or_assign(token.location, symbol);
-        }
-    }
-
     void Parser::Parse(
         SourceTable& source_table,
         IncludeLoader& include_loader,
@@ -443,10 +437,7 @@ namespace glsld {
             const auto& name_token = current_token();
             if (name_token.type == TokenType::kIdentifier) {
                 node->name = name_token;
-
-                const auto* attribute_symbol =
-                    document_.symbols.root_scope()->AddSymbol(node, name_token.text, name_token.location, SymbolKind::kAttribute);
-                document_.bindings.try_emplace(name_token.location, attribute_symbol);
+                document_.symbols.root_scope()->AddSymbol(node, name_token.text, name_token.location, SymbolKind::kAttribute);
             }
 
             ConsumeToken();
@@ -509,55 +500,7 @@ namespace glsld {
 
         if (common_calling || constructor || is_expr_primitive) {
             if (constructor) {
-                const bool is_complex = !type_spec.template_args.empty()
-                                     ||  type_spec.spirv_type != nullptr
-                                     || !type_spec.array_sizes.empty()
-                                     ||  type_spec.written_typename.contains("::");
-                if (is_complex) {
-                    token_index_ = statement_begin_index;
-                } else {
-                    const auto& type_token = type_spec.typename_token();
-
-                    auto* callee  = MakeNode<VariableExpressionNode>(current_scope());
-                    callee->begin = type_token.location;
-                    callee->end   = GetCurrentTokenEnd();
-
-                    callee->original_token    = type_token;
-                    callee->name              = type_token.text;
-                    callee->named_type_symbol = type_spec.named_type_symbol;
-                    callee->node_type         = VariableExpressionNode::NodeType::kFunctionCallee;
-
-                    ConsumeToken(); // consume '('
-
-                    auto* call   = MakeNode<CallExpressionNode>(current_scope());
-                    call->begin  = callee->begin;
-                    call->callee = callee;
-
-                    if (current_token().type != TokenType::kCloseParen) {
-                        while (true) {
-                            call->args.push_back(ParseExpression(Precedence::kAssignment));
-                            if (!MatchAndConsume(TokenType::kComma)) {
-                                break;
-                            }
-                        }
-                    }
-
-                    MatchAndConsume(TokenType::kCloseParen);
-                    call->end = GetPreviousTokenEnd();
-
-                    auto* statement  = MakeNode<ExpressionStatementNode>(current_scope());
-                    statement->begin = call->begin;
-                    statement->expr  = call;
-
-                    if (current_token().type == TokenType::kSemicolon) {
-                        statement->end = GetCurrentTokenEnd();
-                        ConsumeToken();
-                    } else {
-                        statement->end = statement->expr->end;
-                    }
-
-                    return statement;
-                }
+                token_index_ = statement_begin_index;
             }
 
             return ParseExpressionStatement();
@@ -799,9 +742,10 @@ namespace glsld {
 
                 type_spec.named_type_symbol = type_symbol;
                 type_spec.typename_begin    = name->begin;
+                type_spec.name_prefixes     = document_.arena->CopySpan<ResolvedNamePart>(name->prefixes);
                 type_spec.written_typename  = document_.StoreTokenText(name->spelling);
                 type_spec.specifiers.push_back(name->leaf);
-                BindNamePrefixes(*name);
+
                 ConsumeToken(name->token_count);
                 ParseTemplateArguments();
                 continue;
@@ -1010,8 +954,8 @@ namespace glsld {
             node->end = GetPreviousTokenEnd();
             node->alias_target = document_.StoreTokenText(target_name->spelling);
 
-            BindNamePrefixes(*target_name);
-            document_.bindings.insert_or_assign(target_name->leaf.location, *single);
+            node->resolved_names.append_range(target_name->prefixes | std::views::as_rvalue);
+            node->resolved_names.emplace_back(target_name->leaf, *single);
 
             SymbolReference existing{};
 
@@ -1048,7 +992,6 @@ namespace glsld {
                 current_scope()->visible_types_.erase(alias_name.text);
             }
 
-            document_.bindings.insert_or_assign(alias_name.location, node->declared_symbol);
             return node;
         }
 
@@ -1101,7 +1044,7 @@ namespace glsld {
                 return Fail();
             }
 
-            document_.bindings.insert_or_assign(name.location, space->symbol);
+            node->resolved_names.emplace_back(name, space->symbol);
         }
 
         auto* declared_symbol = const_cast<SymbolInfo*>(space->symbol);
@@ -2029,7 +1972,8 @@ namespace glsld {
                 node->named_type_symbol = *single;
             }
 
-            BindNamePrefixes(*name);
+            node->name_prefixes = document_.arena->CopySpan<ResolvedNamePart>(name->prefixes);
+
             ConsumeToken(name->token_count);
 
             node->node_type = current_token().type == TokenType::kOpenParen

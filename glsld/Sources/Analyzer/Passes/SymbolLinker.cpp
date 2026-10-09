@@ -12,17 +12,53 @@ namespace glsld {
         Traverse(document_.ast);
     }
 
+    void SymbolLinker::BindResolvedNames(std::span<const ResolvedNamePart> names) {
+        for (const auto& [token, symbol] : names) {
+            if (symbol != nullptr) {
+                document_.bindings.insert_or_assign(token.location, symbol);
+            }
+        }
+    }
+
+    void SymbolLinker::TraverseTypeSpec(TypeSpec& type_spec) {
+        BindResolvedNames(type_spec.name_prefixes);
+        AstVisitor::TraverseTypeSpec(type_spec);
+    }
+
     void SymbolLinker::VisitPreprocessor(PreprocessorNode* node) {
         if (node->directive == "define" && node->symbol != nullptr) {
             document_.bindings.try_emplace(node->symbol->location, node->symbol);
         }
 
-        for (auto& statement : node->body) {
-            Traverse(statement);
+        AstVisitor::VisitPreprocessor(node);
+    }
+
+    void SymbolLinker::VisitAttribute(AttributeNode* node) {
+        const auto& symbols = document_.symbols.root_scope()->symbols();
+
+        const auto it = symbols.find(node->name.text);
+        if (it != symbols.end()) {
+            document_.bindings.try_emplace(node->name.location, it->second.get());
         }
+
+        AstVisitor::VisitAttribute(node);
+    }
+
+    void SymbolLinker::VisitNamespaceDeclaration(NamespaceDeclarationNode* node) {
+        BindResolvedNames(node->resolved_names);
+
+        if (!node->alias_target.empty() && node->declared_symbol != nullptr) {
+            if (const auto* name = node->name()) {
+                document_.bindings.insert_or_assign(name->location, node->declared_symbol);
+            }
+        }
+
+        AstVisitor::VisitNamespaceDeclaration(node);
     }
 
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode* node) {
+        BindResolvedNames(node->name_prefixes);
+
         const Scope* scope = nullptr;
         if (node->internal_scope != nullptr) {
             scope = node->internal_scope;

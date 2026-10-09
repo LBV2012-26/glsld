@@ -59,16 +59,15 @@ namespace glsld {
         bool IsRightAssociative(TokenType type);
 
         struct NameProbe {
-            Token                leaf;
-            SourceLocation       begin;
-            const NamespaceInfo* qualifier_space{ nullptr };
-            std::int64_t         token_count{};
-            std::string          spelling;
-            std::vector<std::pair<Token, const SymbolInfo*>> prefixes;
+            Token                         leaf;
+            SourceLocation                begin;
+            const NamespaceInfo*          qualifier_space{ nullptr };
+            std::int64_t                  token_count{};
+            std::string                   spelling;
+            std::vector<ResolvedNamePart> prefixes;
         };
 
         std::optional<NameProbe> ProbeName(std::int64_t offset = 0);
-        void BindNamePrefixes(const NameProbe& name);
 
         void Parse(SourceTable& source_table,
                    IncludeLoader& include_loader,
