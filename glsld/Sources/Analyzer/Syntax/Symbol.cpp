@@ -545,6 +545,32 @@ namespace glsld {
         }, target_);
     }
 
+    void QualifiedScope::GetMember(SymbolList& result) const {
+        if (auto* space = std::get_if<const NamespaceInfo*>(&target_)) {
+            if (*space == nullptr) {
+                return;
+            }
+
+            for (const auto& [_, reference] : (*space)->members) {
+                if (auto* single = std::get_if<const SymbolInfo*>(&reference)) {
+                    if (*single != nullptr) {
+                        result.push_back(*single);
+                    }
+                } else if (auto* list = std::get_if<SymbolList>(&reference)) {
+                    result.append_range(*list);
+                }
+            }
+        } else if (auto* scope = std::get_if<const Scope*>(&target_)) {
+            if (*scope == nullptr) {
+                return;
+            }
+
+            for (const auto& [_, symbol] : (*scope)->symbols()) {
+                result.push_back(symbol.get());
+            }
+        }
+    }
+
     DocumentSymbols::DocumentSymbols()
         : root_scope_{ std::make_unique<Scope>(nullptr) }
     {}

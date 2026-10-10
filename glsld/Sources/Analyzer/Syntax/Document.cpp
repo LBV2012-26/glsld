@@ -231,7 +231,7 @@ namespace glsld {
         return false;
     }
 
-    QualifiedScope Document::GetQualifiedScope(const SymbolInfo* symbol) {
+    QualifiedScope Document::GetQualifiedScope(const SymbolInfo* symbol) const {
         if (symbol == nullptr) {
             return {};
         }

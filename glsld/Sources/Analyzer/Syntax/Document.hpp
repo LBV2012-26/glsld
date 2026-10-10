@@ -127,7 +127,7 @@ namespace glsld {
         SymbolReference LookupUnqualified(const Scope* scope, std::string_view name) const;
         bool RegisterNamespaceMember(const SymbolInfo* symbol, std::string_view name);
 
-        QualifiedScope GetQualifiedScope(const SymbolInfo* symbol);
+        QualifiedScope GetQualifiedScope(const SymbolInfo* symbol) const;
 
     private:
         StringHeteroHashMap<MacroDefinition> pending_macros_;

@@ -1319,17 +1319,21 @@ namespace glsld::Providers {
     namespace {
         int MapSymbolKindToLspCompletion(SymbolKind kind, bool is_const = false) {
             switch (kind) {
-            case SymbolKind::kVariable:  return is_const ? 21 : 6; // 常量用 Constant(21)，普通变量用 Variable(6)
-            case SymbolKind::kParameter: return 6;  // Variable
-            case SymbolKind::kStruct:    return 22; // Struct
-            case SymbolKind::kInterface: return 8;  // Interface
+            case SymbolKind::kVariable:   return is_const ? 21 : 6; // Constant(21)，Variable(6)
+            case SymbolKind::kParameter:  return 6;  // Variable
+            case SymbolKind::kStruct:     return 22; // Struct
+            case SymbolKind::kInterface:  return 8;  // Interface
 
             case SymbolKind::kFunctionDecl:
             case SymbolKind::kFunctionImpl:
                 return 3;  // Function
 
-            case SymbolKind::kMacro:     return 9;  // Module (或者 Constant)
-            default:                     return 1;  // Text
+            case SymbolKind::kMacro:      return 9;  // Module (或 Constant)
+            case SymbolKind::kNamespace:  return 9;  // Module
+            case SymbolKind::kTypeAlias:  return 25; // TypeParameter（LSP 没有 TypeAlias）
+            case SymbolKind::kEnum:       return 13; // Enum
+            case SymbolKind::kEnumerator: return 20; // EnumMember
+            default:                      return 1;  // Text
             }
         };
 
@@ -1390,6 +1394,71 @@ namespace glsld::Providers {
 
             return active_macros;
         }
+
+        std::optional<QualifiedScope> FindCompletionQualifier(const Document& document, const SourceLocation& location) {
+            const auto& tokens = document.raw_tokens;
+
+            const auto it = std::ranges::lower_bound(tokens, location, std::ranges::less{}, &Token::location);
+            auto end = static_cast<std::size_t>(it - tokens.begin());
+
+            // E::kMem| 或者 E:kMe|m 跳过正在输入的末尾名称
+            if (end != 0 && tokens[end - 1].type == TokenType::kIdentifier &&
+                IsPositionInToken(tokens[end - 1], location))
+            {
+                --end;
+            }
+
+            if (end == 0 || tokens[end - 1].type != TokenType::kColonColon) {
+                return std::nullopt;
+            }
+
+            const auto& separator = tokens[end - 1];
+            if (IsPositionInToken(separator, location) &&
+                location.column() < separator.location.column() + separator.text.size())
+            {
+                return std::nullopt;
+            }
+
+            auto begin = end - 1;
+            while (begin != 0 && tokens[begin - 1].type == TokenType::kIdentifier) {
+                --begin;
+                if (begin == 0 || tokens[begin - 1].type != TokenType::kColonColon) {
+                    break;
+                }
+                --begin;
+            }
+
+            QualifiedScope owner;
+            auto cursor = begin;
+
+            if (tokens[cursor].type == TokenType::kColonColon) {
+                owner = QualifiedScope(&document.global_namespace);
+                ++cursor;
+            }
+
+            const auto* scope = document.symbols.FindScopeAt(tokens[begin].location);
+
+            while (cursor < end) {
+                const auto& name = tokens[cursor];
+                const auto reference = owner
+                    ? owner.Lookup(name.text)
+                    : document.LookupUnqualified(scope, name.text);
+
+                auto* single = std::get_if<const SymbolInfo*>(&reference);
+                if (single == nullptr || *single == nullptr) {
+                    return QualifiedScope{};
+                }
+
+                owner = document.GetQualifiedScope(*single);
+                if (!owner) {
+                    return QualifiedScope{};
+                }
+
+                cursor += 2; // ::
+            }
+
+            return owner;
+        }
     }
 
     nlohmann::json GetCompletionItems(
@@ -1401,17 +1470,22 @@ namespace glsld::Providers {
             return {};
         }
 
-        const auto* located_scope = snapshot->symbols.FindScopeAt(location);
-
         ABORT_IF_CANCELLED();
-        std::vector<const SymbolInfo*> visible_symbols;
+        SymbolList visible_symbols;
+        const auto qualifier = FindCompletionQualifier(*snapshot, location);
 
-        const auto active_macros = GetActiveMacrosAt(snapshot.get(), location);
-        for (const auto& [_, symbol] : active_macros) {
-            visible_symbols.push_back(symbol);
+        if (qualifier.has_value()) {
+            qualifier->GetMember(visible_symbols);
+        } else {
+            const auto active_macros = GetActiveMacrosAt(snapshot.get(), location);
+            for (const auto& [_, symbol] : active_macros) {
+                visible_symbols.push_back(symbol);
+            }
+
+            if (const auto* scope = snapshot->symbols.FindScopeAt(location)) {
+                scope->GetVisibleSymbols(visible_symbols);
+            }
         }
-
-        located_scope->GetVisibleSymbols(visible_symbols);
 
         nlohmann::json items = nlohmann::json::array();
         StringHeteroHashSet existing_labels;
@@ -1438,6 +1512,10 @@ namespace glsld::Providers {
 
             // TODO: document, detail, etc
             items.push_back(item);
+        }
+
+        if (qualifier.has_value()) {
+            return items;
         }
 
         const auto& meta = MetadataManager::GetInstance().GetMeta();
@@ -2511,7 +2589,7 @@ namespace glsld::Providers {
             AppendHitsCommit(decorate_hits, "Decorate");
         };
 
-        auto BuildDefinedDeclare = [&declare, &snapshot](
+        auto BuildDefinedDeclaration = [&declare, &snapshot](
             const SymbolInfo* symbol,
             std::string_view text,
             bool complete_declaration = false) mutable -> void
@@ -2559,6 +2637,8 @@ namespace glsld::Providers {
                     host_name = "namespace " + qualified_name;
                 } else if (host_symbol->kind == SymbolKind::kFunctionDecl || host_symbol->kind == SymbolKind::kFunctionImpl) {
                     host_name = std::format("function {}", Utils::UnmangleFunctionName(host_symbol->name));
+                } else if (host_symbol->kind == SymbolKind::kEnum) {
+                    host_name = "enum " + host_symbol->name;
                 } else if (host_symbol->name.contains("__AnonymousStruct_")) {
                     host_name = "<anonymous>";
                 } else {
@@ -2673,9 +2753,9 @@ namespace glsld::Providers {
                 ? static_cast<const NamespaceDeclarationNode*>(symbol->node) : nullptr;
 
             if (node != nullptr && !node->alias_target.empty()) {
-                BuildDefinedDeclare(symbol, std::format("namespace {} = {};", symbol->name, node->alias_target), true);
+                BuildDefinedDeclaration(symbol, std::format("namespace {} = {};", symbol->name, node->alias_target), true);
             } else {
-                BuildDefinedDeclare(symbol, std::format("namespace {} {{ ... }}", symbol->name), true);
+                BuildDefinedDeclaration(symbol, std::format("namespace {} {{ ... }}", symbol->name), true);
             }
 
             break;
@@ -2712,7 +2792,7 @@ namespace glsld::Providers {
             }
 
             const auto full = BuildHoverSpecifierLine(node, snapshot.get());
-            BuildDefinedDeclare(symbol, full);
+            BuildDefinedDeclaration(symbol, full);
 
             AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
@@ -2754,7 +2834,7 @@ namespace glsld::Providers {
                 }
             }
 
-            BuildDefinedDeclare(symbol, format_result.full_spec, true);
+            BuildDefinedDeclaration(symbol, format_result.full_spec, true);
             break;
         }
 
@@ -2770,7 +2850,55 @@ namespace glsld::Providers {
             // 使用右侧的源码类型名及当前节点的显式限定符
             // BuildTypeText() 已处理别名链和附加数组维度
             const auto target = BuildHoverSpecifierLine(node, snapshot.get());
-            BuildDefinedDeclare(symbol, std::format("using {} = {};", symbol->name, target), true);
+            BuildDefinedDeclaration(symbol, std::format("using {} = {};", symbol->name, target), true);
+            break;
+        }
+
+        case SymbolKind::kEnum: {
+            auto* node = static_cast<const EnumDeclarationNode*>(symbol->node);
+            if (node == nullptr) {
+                return {};
+            }
+
+            title = std::format("**Enum** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+
+            auto declaration = std::format("enum {}", symbol->name);
+            const auto& underlying = node->underlying_type;
+            const auto  type_name  = underlying.written_typename.empty() ? underlying.typename_token().text : underlying.written_typename;
+
+            if (!type_name.empty()) {
+                declaration += std::format(" : {}", type_name);
+            }
+
+            declaration += " { ... }";
+
+            BuildDefinedDeclaration(symbol, declaration, true);
+            break;
+        }
+
+        case SymbolKind::kEnumerator: {
+            auto* node = static_cast<const EnumeratorDeclarationNode*>(symbol->node);
+            if (node == nullptr) {
+                return {};
+            }
+
+            title = std::format("**Enumerator** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+
+            const auto value = node->value.has_value()
+                ? std::visit([](auto integer) -> std::string { return std::to_string(integer); }, *node->value)
+                : std::string("<unresolved>");
+
+            type_arrow = std::format("**Type** -> `{}`\n\n**Value** = `{}`", FormatResolvedHoverType(symbol->type_info), value);
+
+            auto declaration = symbol->name;
+            if (node->init != nullptr) {
+                const auto initializer = SerializeInitializer(node->init);
+                if (!initializer.empty()) {
+                    declaration += " = " + initializer;
+                }
+            }
+
+            BuildDefinedDeclaration(symbol, declaration, true);
             break;
         }
 
@@ -2778,7 +2906,7 @@ namespace glsld::Providers {
             title = std::format("**Struct** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
             type_arrow.clear();
 
-            BuildDefinedDeclare(symbol, "struct");
+            BuildDefinedDeclaration(symbol, "struct");
 
             break;
         }
@@ -2789,7 +2917,7 @@ namespace glsld::Providers {
             type_arrow.clear();
 
             const auto full = BuildHoverSpecifierLine(node, snapshot.get());
-            BuildDefinedDeclare(symbol, full);
+            BuildDefinedDeclaration(symbol, full);
 
             AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);

@@ -239,6 +239,7 @@ namespace glsld {
         explicit operator bool() const;
 
         SymbolReference Lookup(std::string_view name) const;
+        void GetMember(SymbolList& result) const;
 
     private:
         std::variant<std::monostate, const NamespaceInfo*, const Scope*> target_;

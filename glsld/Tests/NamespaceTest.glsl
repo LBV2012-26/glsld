@@ -1,3 +1,5 @@
+int Read();
+
 namespace A
 {
     using Vector = vec4;
@@ -17,14 +19,12 @@ namespace A
         }
 
         auto r = ::Read();
-    } // namespace Inner
-} // namespace A
+    }
+}
 
 void Between()
 {
 }
-
-int Read();
 
 namespace B
 {
@@ -32,7 +32,7 @@ namespace B
     {
         return v;
     }
-} // namespace B
+}
 
 namespace A
 {
@@ -40,13 +40,13 @@ namespace A
     {
         return F(v) * Inner::Read();
     }
-} // namespace A
+}
 
 namespace A
 {
     using Scalar = float;
     const Scalar value = 2.0;
-} // namespace A
+}
 
 namespace A::B::C
 {
@@ -76,6 +76,7 @@ void main()
     auto f = (A::Scalar)1;
     auto g = A::B::C::y;
 
-    auto ms = A::B::C::MyStruct(10);
+    namespace Abc = A::B::C;
+    auto ms = Abc::MyStruct(10);
     auto md = ms.data;
 }

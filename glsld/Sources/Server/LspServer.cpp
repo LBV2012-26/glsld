@@ -570,7 +570,7 @@ namespace glsld {
         };
 
         capabilities["completionProvider"] = {
-            { "triggerCharacters", { ".", "\"", "<", "/" }}
+            { "triggerCharacters", { ".", "\"", "<", "/", ":" }}
         };
 
         capabilities["documentOnTypeFormattingProvider"] = {
@@ -1061,6 +1061,10 @@ namespace glsld {
 
         if (context.params["context"]["triggerCharacter"] == ".") {
             return Providers::GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
+        }
+
+        if (context.params["context"]["triggerCharacter"] == ":") {
+            return Providers::GetCompletionItems(context, snapshot, target);
         }
 
         if (context.params["context"]["triggerCharacter"] == "\"" ||
