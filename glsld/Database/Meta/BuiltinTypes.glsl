@@ -1,0 +1,4 @@
+#ifndef GLSLD_BUILTIN_TYPES_GLSL_
+#define GLSLD_BUILTIN_TYPES_GLSL_
+
+#endif

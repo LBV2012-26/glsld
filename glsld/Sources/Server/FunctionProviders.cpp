@@ -301,11 +301,11 @@ namespace glsld::Providers {
             case SymbolKind::kNamespace:    type_index = 0; break;
 
             case SymbolKind::kAttribute:
-            case SymbolKind::kOpaqueType:
             case SymbolKind::kTypeAlias:
                 type_index = 1;
                 break;
 
+            case SymbolKind::kOpaqueType:   type_index = 2;  break;
             case SymbolKind::kEnum:         type_index = 3;  break;
             case SymbolKind::kInterface:    type_index = 4;  break;
             case SymbolKind::kStruct:       type_index = 5;  break;
@@ -2664,7 +2664,11 @@ namespace glsld::Providers {
                 full_spec += ';';
             }
 
-            declare = std::format("// In {}\n{}", host_name, full_spec);
+            if (symbol->kind == SymbolKind::kOpaqueType) {
+                declare = std::format("// \"class\" used for LSP to declare opaque type.\n// Do not use in general code.\n{}", full_spec);
+            } else {
+                declare = std::format("// In {}\n{}", host_name, full_spec);
+            }
 
             if (symbol->kind != SymbolKind::kVariable || !symbol->type_info.is_const()) {
                 return;
@@ -2922,6 +2926,15 @@ namespace glsld::Providers {
             AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
             CollectAndAppendDecorateHits(node);
+
+            break;
+        }
+
+        case SymbolKind::kOpaqueType: {
+            title = std::format("**OpaqueType** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            type_arrow.clear();
+
+            BuildDefinedDeclaration(symbol, "class");
 
             break;
         }

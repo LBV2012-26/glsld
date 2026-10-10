@@ -194,6 +194,7 @@ namespace glsld {
             };
 
             PushIfExists("Database/Meta/BuiltinFunctions.glsl");
+            PushIfExists("Database/Meta/BuiltinTypes.glsl");
 
             static const StringHeteroHashMap<std::string> kMacroStages{
                 { "GL_VERTEX_SHADER",             "Vertex",         },

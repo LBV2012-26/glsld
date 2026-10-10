@@ -23,6 +23,8 @@ namespace glsld {
             return 2;  // Module
         case SymbolKind::kNamespace:
             return 3;  // Namespace
+        case SymbolKind::kOpaqueType:
+            return 5;  // Class
         case SymbolKind::kEnum:
             return 10; // Enum
         case SymbolKind::kEnumerator:
@@ -39,7 +41,6 @@ namespace glsld {
             return 14; // Constant
         case SymbolKind::kStruct:
         case SymbolKind::kTypeAlias:
-        case SymbolKind::kOpaqueType:
             return 23; // Struct
         default:
             return 13; // Fallback to Variable

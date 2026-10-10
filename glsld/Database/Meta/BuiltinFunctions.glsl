@@ -2,6 +2,8 @@
 // Built-in Functions Extracted from GLSL Specification
 // ===================================================================
 
+#include "BuiltinTypes.glsl"
+
 // Radians
 // Converts degrees to radians, i.e., (PI / 180) * degrees.
 // [Generic] genFType radians(genFType degrees);

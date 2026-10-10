@@ -63,6 +63,12 @@ namespace glsld {
 
     inline void Scope::AddBuiltinScope(const Scope* builtin_scope) {
         builtin_parents_.push_back(builtin_scope);
+
+        if (builtin_scope != nullptr) {
+            for (const auto& [name, symbol] : builtin_scope->visible_types_) {
+                visible_types_.try_emplace(name, symbol);
+            }
+        }
     }
 
     inline const Scope* Scope::parent() const {

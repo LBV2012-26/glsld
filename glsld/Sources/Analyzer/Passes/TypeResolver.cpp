@@ -394,6 +394,18 @@ namespace glsld {
         auto* variable_symbol = node->declared_symbol;
         document_.bindings.try_emplace(variable_symbol->location, variable_symbol);
 
+        if (variable_symbol->kind == SymbolKind::kOpaqueType) {
+            variable_symbol->type_info = {
+                .typename_token = {
+                    .text     = variable_symbol->name,
+                    .location = variable_symbol->location,
+                    .type     = TokenType::kIdentifier
+                },
+                .type_desc{ .family = BaseFamily::kOpaque }
+            };
+            return;
+        }
+
         if (node->type_spec.typename_token().text == "auto") {
             variable_symbol->type_info = {};
             if (node->init == nullptr) {

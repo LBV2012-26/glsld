@@ -687,7 +687,7 @@ namespace glsld {
         while (true) {
             const auto& token = current_token();
 
-            if (context == TypeParseContext::kDeclarationPrefix && token.text == "enum") {
+            if (context == TypeParseContext::kDeclarationPrefix && (token.text == "enum" || token.text == "class")) {
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
                 break;
@@ -1877,7 +1877,10 @@ namespace glsld {
 
             if (IsLayoutAttachment(node->type_spec) && PeekToken().type == TokenType::kSemicolon) {
                 const auto& existing_symbol = current_scope()->FindSymbol(name_token.text);
-                if (existing_symbol != nullptr && existing_symbol->kind == SymbolKind::kVariable) {
+                if (existing_symbol != nullptr &&
+                    existing_symbol->kind == SymbolKind::kVariable &&
+                    !node->type_spec.has_keyword("class"))
+                {
                     document_.bindings.try_emplace(name_token.location, existing_symbol);
 
                     auto it = variable_declaration_cache_.find(existing_symbol);
@@ -1891,8 +1894,13 @@ namespace glsld {
                 return nullptr;
             }
 
-            node->declared_symbol = current_scope()->AddSymbol(
-                node, name_token.text, name_token.location, SymbolKind::kVariable);
+            if (node->type_spec.has_keyword("class")) { // clase OpaqueType; 用于给 LSP 声明不透明类型，反正不用白不用
+                node->declared_symbol = current_scope()->AddSymbol(
+                    node, name_token.text, name_token.location, SymbolKind::kOpaqueType);
+            } else {
+                node->declared_symbol = current_scope()->AddSymbol(
+                    node, name_token.text, name_token.location, SymbolKind::kVariable);
+            }
 
             if (node->declared_symbol != nullptr && node->declared_symbol->node == node) {
                 variable_declaration_cache_.try_emplace(node->declared_symbol, node);
