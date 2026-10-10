@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <Analyzer/Passes/InlayHintCollector.hpp>
 #include <Analyzer/Syntax/Symbol.hpp>
 #include <Analyzer/Syntax/Document.hpp>
 #include <Base/FileSystem/Source.hpp>

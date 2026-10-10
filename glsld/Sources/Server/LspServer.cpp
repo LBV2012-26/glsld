@@ -937,11 +937,13 @@ namespace glsld {
                 continue;
             }
 
+            const SourceLocation location(hint.location->source_file(), hint.location->line(), hint.location->column() + hint.offset);
+
             nlohmann::json result;
-            result["position"]     = ConvertToLspPosition(*hint.location, mapper);
+            result["position"]     = ConvertToLspPosition(location, mapper);
             result["label"]        = std::move(hint.label);
-            result["kind"]         = 2;
-            result["paddingRight"] = true;
+            result["kind"]         = hint.kind;
+            result["paddingRight"] = hint.padding_right;
 
             response.push_back(std::move(result));
         }

@@ -17,7 +17,6 @@
 
 #include <Analyzer/Ast/Ast.hpp>
 #include <Analyzer/Passes/ConstantEvaluator.hpp>
-#include <Analyzer/Passes/InlayHintCollector.hpp>
 #include <Analyzer/Passes/NodeLocator.hpp>
 #include <Analyzer/Passes/TypeResolver.hpp>
 #include <Analyzer/Syntax/MetadataManager.hpp>
@@ -164,9 +163,12 @@ namespace glsld::Providers {
                 int symbol_kind = ConvertSymbolKind(info->kind);
                 if (symbol_kind == 13) {
                     if (info->located_scope != nullptr &&
-                        (info->located_scope->kind() == ScopeKind::kBlock || info->located_scope->kind() == ScopeKind::kBlockTransparent))
+                        (info->located_scope->kind() == ScopeKind::kBlock ||
+                         info->located_scope->kind() == ScopeKind::kBlockTransparent))
                     {
                         symbol_kind = 8;
+                    } else if (info->type_info.is_const()) {
+                        symbol_kind = 14;
                     }
                 }
 
@@ -297,17 +299,19 @@ namespace glsld::Providers {
 
             switch (kind) {
             case SymbolKind::kNamespace:    type_index = 0; break;
-            case SymbolKind::kAttribute:    type_index = 1; break;
 
+            case SymbolKind::kAttribute:
             case SymbolKind::kOpaqueType:
             case SymbolKind::kTypeAlias:
-                type_index = 2;
+                type_index = 1;
                 break;
 
-            case SymbolKind::kInterface:    type_index = 4; break;
-            case SymbolKind::kStruct:       type_index = 5; break;
-            case SymbolKind::kParameter:    type_index = 7; break;
-            case SymbolKind::kVariable:     type_index = 8; break;
+            case SymbolKind::kEnum:         type_index = 3;  break;
+            case SymbolKind::kInterface:    type_index = 4;  break;
+            case SymbolKind::kStruct:       type_index = 5;  break;
+            case SymbolKind::kParameter:    type_index = 7;  break;
+            case SymbolKind::kVariable:     type_index = 8;  break;
+            case SymbolKind::kEnumerator:   type_index = 10; break;
 
             case SymbolKind::kFunctionDecl:
             case SymbolKind::kFunctionImpl:
@@ -1071,8 +1075,8 @@ namespace glsld::Providers {
         }
 
         const auto candidates = [&]() -> SymbolReference {
-            if (callee->qualifier_space != nullptr) {
-                return callee->qualifier_space->Lookup(callee->name);
+            if (callee->qualifier_scope) {
+                return callee->qualifier_scope.Lookup(callee->name);
             }
 
             return snapshot->LookupUnqualified(callee->located_scope, callee->name);
@@ -1915,7 +1919,23 @@ namespace glsld::Providers {
                 return {};
             }
 
-            const auto* symbol = node->declared_symbol;
+            const auto* symbol     = node->declared_symbol;
+            const auto* named_type = node->type_spec.named_type_symbol;
+            if (named_type != nullptr && named_type->kind == SymbolKind::kTypeAlias) {
+                std::string result = type_name;
+                for (auto i = 0uz; i < node->type_spec.array_sizes.size(); ++i) {
+                    result += '[';
+                    if (symbol != nullptr && i < symbol->type_info.array_sizes.size()) {
+                        if (const auto size = symbol->type_info.array_sizes[i]; size.has_value()) {
+                            result += std::to_string(*size);
+                        }
+                    }
+                    result += ']';
+                }
+
+                return result;
+            }
+
             if (symbol != nullptr) {
                 const auto& display = symbol->type_info;
                 return display.Format();
@@ -2401,7 +2421,7 @@ namespace glsld::Providers {
         }
 
         std::string BuildAliasTypeArrow(const TypeInfo& type, std::string_view alias_name) {
-            return std::format("**Type** -> `{}` alias `{}`", FormatResolvedHoverType(type), alias_name);
+            return std::format("**Type** -> `{}` (aka `{}`)", FormatResolvedHoverType(type), alias_name);
         }
     }
 
@@ -2491,32 +2511,80 @@ namespace glsld::Providers {
             AppendHitsCommit(decorate_hits, "Decorate");
         };
 
-        auto BuildDefinedDeclare = [&declare](const SymbolInfo* symbol, std::string_view type_spec) mutable -> void {
-            const auto* host_symbol = symbol->located_scope->closest_host();
+        auto BuildDefinedDeclare = [&declare, &snapshot](
+            const SymbolInfo* symbol,
+            std::string_view text,
+            bool complete_declaration = false) mutable -> void
+        {
+            const auto* host_symbol = symbol->located_scope != nullptr
+                ? symbol->located_scope->closest_host()
+                : nullptr;
 
-            std::string host_name;
+            // 处理 namespace A::B 时 B 的 Hover
+            if (symbol->kind == SymbolKind::kNamespace) {
+                if (const auto* space = snapshot->FindNamespace(symbol);
+                    space != nullptr && space->symbol == symbol)
+                {
+                    host_symbol = space->parent != nullptr ? space->parent->symbol : nullptr;
+                }
+            }
+
+            std::string host_name = "global scope";
+
             if (host_symbol != nullptr) {
-                if (host_symbol->name.contains("__AnonymousStruct_")) {
+                if (host_symbol->kind == SymbolKind::kNamespace) {
+                    std::vector<std::string_view> parts;
+
+                    for (const auto* space = snapshot->FindNamespace(host_symbol);
+                         space != nullptr; space = space->parent)
+                    {
+                        if (space->symbol != nullptr) {
+                            parts.push_back(space->symbol->name);
+                        }
+                    }
+
+                    std::string qualified_name;
+                    for (auto name : parts | std::views::reverse) {
+                        if (!qualified_name.empty()) {
+                            qualified_name += "::";
+                        }
+
+                        qualified_name += name;
+                    }
+
+                    if (qualified_name.empty()) {
+                        qualified_name = host_symbol->name;
+                    }
+
+                    host_name = "namespace " + qualified_name;
+                } else if (host_symbol->kind == SymbolKind::kFunctionDecl || host_symbol->kind == SymbolKind::kFunctionImpl) {
+                    host_name = std::format("function {}", Utils::UnmangleFunctionName(host_symbol->name));
+                } else if (host_symbol->name.contains("__AnonymousStruct_")) {
                     host_name = "<anonymous>";
-                } else if (host_symbol->name.contains("__Impl_") || host_symbol->name.contains("__Decl_")) {
-                    host_name = Utils::UnmangleFunctionName(host_symbol->name);
                 } else {
                     host_name = host_symbol->name;
                 }
-            } else {
-                host_name = "global scope";
             }
 
-            std::string full_spec(type_spec);
-            const auto last_close_paren = full_spec.find(')');
-            const auto open_bracket = (last_close_paren != std::string::npos) ? full_spec.find('[', last_close_paren) : full_spec.find('[');
-            if (open_bracket != std::string::npos) {
-                full_spec.insert(open_bracket, " " + symbol->name);
-            } else {
-                full_spec += " " + symbol->name;
+            std::string full_spec(text);
+
+            if (!complete_declaration) {
+                const auto close_paren  = full_spec.find(')');
+                const auto open_bracket = close_paren != std::string::npos
+                    ? full_spec.find('[', close_paren) : full_spec.find('[');
+
+                if (open_bracket != std::string::npos) {
+                    full_spec.insert(open_bracket, " " + symbol->name);
+                } else {
+                    full_spec += " " + symbol->name;
+                }
             }
 
-            declare = std::format("// In {}\n{};", host_name, full_spec);
+            if (!full_spec.empty() && full_spec.back() != ';') {
+                full_spec += ';';
+            }
+
+            declare = std::format("// In {}\n{}", host_name, full_spec);
 
             if (symbol->kind != SymbolKind::kVariable || !symbol->type_info.is_const()) {
                 return;
@@ -2598,16 +2666,16 @@ namespace glsld::Providers {
         }
 
         case SymbolKind::kNamespace: {
-            title = std::format("**Namespace** `{}`", symbol->name);
+            title = std::format("**Namespace** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
 
             const auto* node =
                 symbol->node != nullptr && symbol->node->kind() == AstNodeKind::kNamespaceDeclaration
                 ? static_cast<const NamespaceDeclarationNode*>(symbol->node) : nullptr;
 
             if (node != nullptr && !node->alias_target.empty()) {
-                declare = std::format("namespace {} = {};", symbol->name, node->alias_target);
+                BuildDefinedDeclare(symbol, std::format("namespace {} = {};", symbol->name, node->alias_target), true);
             } else {
-                declare = std::format("namespace {} {{ ... }}", symbol->name);
+                BuildDefinedDeclare(symbol, std::format("namespace {} {{ ... }}", symbol->name), true);
             }
 
             break;
@@ -2657,7 +2725,7 @@ namespace glsld::Providers {
         case SymbolKind::kFunctionImpl: {
             const auto format_result = FormatFunctionSymbol(symbol, snapshot);
 
-            title      = std::format("**Function** `{}`", format_result.base_name);
+            title      = std::format("**Function** `{}`\n\n{}", format_result.base_name, BuildDefinedAt(symbol));
             type_arrow = std::format("**Returns** -> `{}`", format_result.return_typename);
 
             std::string params_block = "**Parameters:**\n";
@@ -2686,8 +2754,7 @@ namespace glsld::Providers {
                 }
             }
 
-            declare += std::format("// {}\n", BuildDefinedAt(symbol));
-            declare += format_result.full_spec;
+            BuildDefinedDeclare(symbol, format_result.full_spec, true);
             break;
         }
 
@@ -2703,7 +2770,7 @@ namespace glsld::Providers {
             // 使用右侧的源码类型名及当前节点的显式限定符
             // BuildTypeText() 已处理别名链和附加数组维度
             const auto target = BuildHoverSpecifierLine(node, snapshot.get());
-            declare = std::format("using {} = {};", symbol->name, target);
+            BuildDefinedDeclare(symbol, std::format("using {} = {};", symbol->name, target), true);
             break;
         }
 
