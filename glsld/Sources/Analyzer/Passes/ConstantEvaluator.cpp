@@ -2006,25 +2006,17 @@ namespace glsld {
             return;
         }
 
-        auto PromoteArithmetic = [](const auto& lhs, const auto& rhs)
+        auto PromoteArithmetic = [family = node->evaluated_type.type_desc.family](const auto& lhs, const auto& rhs)
             -> std::optional<std::pair<Scalar, Scalar>>
         {
             if (std::holds_alternative<bool>(lhs) || std::holds_alternative<bool>(rhs)) {
                 return std::nullopt;
             }
 
-            if (lhs.index() == rhs.index()) {
-                return std::make_pair(lhs, rhs);
-            }
-
-            auto ToDouble = [](const auto& scalar) -> double {
-                return std::visit([](auto&& argv) -> double {
-                    return static_cast<double>(argv);
-                }, scalar);
-            };
-
-            if (std::holds_alternative<double>(lhs) || std::holds_alternative<double>(rhs)) {
-                return std::make_pair(ToDouble(lhs), ToDouble(rhs));
+            const auto left  = ConvertScalarValue(lhs, family, false);
+            const auto right = ConvertScalarValue(rhs, family, false);
+            if (left.has_value() && right.has_value()) {
+                return std::make_pair(*left, *right);
             }
 
             return std::nullopt;
