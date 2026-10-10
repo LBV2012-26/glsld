@@ -24,7 +24,9 @@ perprimitiveEXT out gl_MeshPerPrimitiveEXT {
     int  gl_Layer;
     int  gl_ViewportIndex;
     bool gl_CullPrimitiveEXT;
+#if defined(GL_EXT_fragment_shading_rate)
     int  gl_PrimitiveShadingRateEXT;
+#endif
 } gl_MeshPrimitivesEXT[];
 
 void EmitMeshTasksEXT(uint _GroupCountX, uint _GroupCountY, uint _GroupCountZ);

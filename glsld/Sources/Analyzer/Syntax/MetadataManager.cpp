@@ -88,6 +88,8 @@ namespace glsld {
                 });
             };
 
+            InjectMacro("GL_KHR_vulkan_glsl");
+
             static const StringHeteroHashMap<std::string> kStageMacros{
                 { "vertex",      "GL_VERTEX_SHADER"             },
                 { "fragment",    "GL_FRAGMENT_SHADER"           },
@@ -194,7 +196,6 @@ namespace glsld {
             };
 
             PushIfExists("Database/Meta/BuiltinFunctions.glsl");
-            PushIfExists("Database/Meta/BuiltinTypes.glsl");
 
             static const StringHeteroHashMap<std::string> kMacroStages{
                 { "GL_VERTEX_SHADER",             "Vertex",         },
@@ -248,6 +249,7 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs)
     {
         target.InjectMacro("_GLSLD");
+        target.InjectMacro("VULKAN");
         target.InjectMacro("__LINE__");
         target.InjectMacro("__FILE__");
 

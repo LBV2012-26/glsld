@@ -8,4 +8,7 @@
 
 // Saturated convert for cooperative matrix types
 // valid if the result type is constructible from the value type
+#if defined(GL_KHR_cooperative_matrix)
+#include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 void saturatedConvertEXT(out coopmat _Result, coopmat _Value);
+#endif

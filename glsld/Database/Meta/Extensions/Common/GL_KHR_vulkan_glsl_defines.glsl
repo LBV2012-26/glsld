@@ -1,0 +1,45 @@
+#ifndef GL_KHR_vulkan_glsl_defines
+#define GL_KHR_vulkan_glsl_defines
+
+class sampler;
+class texture1D;
+class texture2D;
+class texture3D;
+class textureCube;
+class textureCubeArray;
+class texture1DArray;
+class texture2DArray;
+class textureBuffer;
+class texture2DMS;
+class texture2DMSArray;
+class texture2DRect;
+class itexture1D;
+class itexture2D;
+class itexture3D;
+class itextureCube;
+class itextureCubeArray;
+class itextureBuffer;
+class itexture1DArray;
+class itexture2DArray;
+class itexture2DMS;
+class itexture2DMSArray;
+class itexture2DRect;
+class utexture1D;
+class utexture2D;
+class utexture3D;
+class utextureCube;
+class utextureCubeArray;
+class utextureBuffer;
+class utexture1DArray;
+class utexture2DArray;
+class utexture2DMS;
+class utexture2DMSArray;
+class utexture2DRect;
+class subpassInput;
+class isubpassInput;
+class usubpassInput;
+class subpassInputMS;
+class isubpassInputMS;
+class usubpassInputMS;
+
+#endif

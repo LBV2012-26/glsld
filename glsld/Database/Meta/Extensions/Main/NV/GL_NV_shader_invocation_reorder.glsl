@@ -1,16 +1,25 @@
 #define GL_NV_shader_invocation_reorder 1
 
+#include "../../Common/GL_NV_shader_invocation_reorder_defines.glsl"
 #include "../EXT/GL_EXT_buffer_reference_uvec2.glsl"
 #include "../EXT/GL_EXT_ray_tracing.glsl"
 
 void hitObjectTraceRayNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectTraceRayMotionNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, int _Payload);
+#endif
 void hitObjectRecordHitNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, int _Instanceid, int _Primitiveid, int _Geometryindex, uint _HitKind, uint _SbtRecordOffset, uint _SbtRecordStride, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _AttributeLocation);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectRecordHitMotionNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, int _Instanceid, int _Primitiveid, int _Geometryindex, uint _HitKind, uint _SbtRecordOffset, uint _SbtRecordStride, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, int _AttributeLocation);
+#endif
 void hitObjectRecordHitWithIndexNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, int _Instanceid, int _Primitiveid, int _Geometryindex, uint _HitKind, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _AttributeLocation);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectRecordHitWithIndexMotionNV(hitObjectNV _Hitobject, accelerationStructureEXT _TopLevel, int _Instanceid, int _Primitiveid, int _Geometryindex, uint _HitKind, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, int _AttributeLocation);
+#endif
 void hitObjectRecordMissNV(hitObjectNV _HitObject, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _TMax);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectRecordMissMotionNV(hitObjectNV _HitObject, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _TMax, float _CurrentTime);
+#endif
 void hitObjectRecordEmptyNV(hitObjectNV _HitObject);
 void hitObjectExecuteShaderNV(hitObjectNV _HitObject, int _Payload);
 bool hitObjectIsEmptyNV(hitObjectNV _HitObject);

@@ -1,5 +1,6 @@
 #define GL_QCOM_image_processing2 1
 
+#include "../../../BuiltinTypes.glsl"
 #include "../KHR/GL_KHR_vulkan_glsl.glsl"
 #include "GL_QCOM_image_processing.glsl"
 

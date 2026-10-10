@@ -15,7 +15,9 @@ out uint gl_PrimitiveIndicesNV[];
 
 out gl_MeshPerVertexNV {
     vec4            gl_Position;
+#if defined(GL_NVX_multiview_per_view_attributes)
     perviewNV vec4  gl_PositionPerViewNV[];
+#endif
     float           gl_PointSize;
     float           gl_ClipDistance[];
     perviewNV float gl_ClipDistancePerViewNV[][];
@@ -28,12 +30,18 @@ perprimitiveNV out gl_MeshPerPrimitiveNV {
     int           gl_Layer;
     perviewNV int gl_LayerPerViewNV[];
     int           gl_ViewportIndex;
+#if defined(GL_NV_viewport_array2)
     int           gl_ViewportMask[];
+#endif
+#if defined(GL_NVX_multiview_per_view_attributes)
     perviewNV int gl_ViewportMaskPerViewNV[][];
+#endif
 } gl_MeshPrimitivesNV[];
 
 const int gl_MaxMeshViewCountNV = 4;
 
+#if defined(GL_ARB_shader_draw_parameters)
 in int gl_DrawIDARB;
+#endif
 
 void writePackedPrimitiveIndices4x8NV(uint _IndexOffset, uint _PackedIndices);

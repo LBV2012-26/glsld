@@ -2,6 +2,29 @@
 
 #include "GL_EXT_shader_atomic_int64.glsl"
 
+class i64image2D;
+class u64image2D;
+class i64image3D;
+class u64image3D;
+class i64image2DArray;
+class u64image2DArray;
+class i64imageCube;
+class u64imageCube;
+class i64image1D;
+class u64image1D;
+class i64image1DArray;
+class u64image1DArray;
+class i64imageBuffer;
+class u64imageBuffer;
+class i64image2DRect;
+class u64image2DRect;
+class i64image2DMS;
+class u64image2DMS;
+class i64image2DMSArray;
+class u64image2DMSArray;
+class i64imageCubeArray;
+class u64imageCubeArray;
+
 u64vec4 imageLoad(readonly i64image2D _Image, ivec2 _Pos);
 u64vec4 imageLoad(readonly u64image2D _Image, ivec2 _Pos);
 i64vec4 imageLoad(readonly i64image2D _Image, ivec2 _Pos);

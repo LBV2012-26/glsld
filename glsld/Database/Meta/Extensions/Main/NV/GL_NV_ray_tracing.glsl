@@ -32,6 +32,8 @@ const uint gl_RayFlagsCullFrontFacingTrianglesNV = 32U;
 const uint gl_RayFlagsCullOpaqueNV               = 64U;
 const uint gl_RayFlagsCullNoOpaqueNV             = 128U;
 
+class accelerationStructureNV;
+
 void traceNV(accelerationStructureNV _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
 bool reportIntersectionNV(float _HitT, uint _HitKind);
 void ignoreIntersectionNV();

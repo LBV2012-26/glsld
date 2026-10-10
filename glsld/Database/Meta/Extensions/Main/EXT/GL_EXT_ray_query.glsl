@@ -1,8 +1,7 @@
 #define GL_EXT_ray_query 1
 
-#define rayQueryEXT spirv_type(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4472)
-
-#include "../../Common/RayTracingCommon.glsl"
+#include "../../Common/GL_EXT_ray_query_defines.glsl"
+#include "../../Common/GL_EXT_ray_tracing_defines.glsl"
 
 const uint gl_RayQueryCommittedIntersectionNoneEXT      = 0U;
 const uint gl_RayQueryCommittedIntersectionTriangleEXT  = 1U;
@@ -12,15 +11,7 @@ const uint gl_RayQueryCandidateIntersectionTriangleEXT  = 0U;
 const uint gl_RayQueryCandidateIntersectionAABBEXT      = 1U;
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4471,4478], id = 4473)
-void rayQueryInitializeEXT(
-    spirv_by_reference rayQueryEXT _RayQuery,
-    accelerationStructureEXT       _TopLevel,
-    uint                           _TayFlags,
-    uint                           _CullMask,
-    vec3                           _Origin,
-    float                          _Tmin,
-    vec3                           _Direction,
-    float                          _Tmax);
+void rayQueryInitializeEXT(spirv_by_reference rayQueryEXT _RayQuery, accelerationStructureEXT _TopLevel, uint _TayFlags, uint _CullMask, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax);
 
 spirv_instruction(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 4477)
 bool rayQueryProceedEXT(spirv_by_reference rayQueryEXT _RayQuery);

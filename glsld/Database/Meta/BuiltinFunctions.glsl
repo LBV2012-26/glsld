@@ -3703,13 +3703,13 @@ void groupMemoryBarrier();
 // SubpassLoad
 // Read from a subpass input, from the implicit location (x, y, layer) of the current fragment coordinate.
 // [Generic] gvec4 subpassLoad(gsubpassInput subpass);
-vec4 subpassLoad(subpassInput _Subpass);
-ivec4 subpassLoad(isubpassInput _Subpass);
-uvec4 subpassLoad(usubpassInput _Subpass);
+// vec4 subpassLoad(subpassInput _Subpass);
+// ivec4 subpassLoad(isubpassInput _Subpass);
+// uvec4 subpassLoad(usubpassInput _Subpass);
 // [Generic] gvec4 subpassLoad(gsubpassInputMS subpass, int sample);
-vec4 subpassLoad(subpassInputMS _Subpass, int _Sample);
-ivec4 subpassLoad(isubpassInputMS _Subpass, int _Sample);
-uvec4 subpassLoad(usubpassInputMS _Subpass, int _Sample);
+// vec4 subpassLoad(subpassInputMS _Subpass, int _Sample);
+// ivec4 subpassLoad(isubpassInputMS _Subpass, int _Sample);
+// uvec4 subpassLoad(usubpassInputMS _Subpass, int _Sample);
 
 // AnyInvocation
 // Returns true if and only if value is true for at least one active invocation in the group.

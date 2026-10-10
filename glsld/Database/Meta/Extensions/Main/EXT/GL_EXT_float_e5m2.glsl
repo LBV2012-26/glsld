@@ -32,6 +32,9 @@ fe5m2vec3 uintBitsToFloate5m2EXT(u8vec3 _Value);
 fe5m2vec4 uintBitsToFloate5m2EXT(u8vec4 _Value);
 
 // Saturated convert functions - floate5m2
+#if defined(GL_KHR_cooperative_matrix)
+#include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
+
 void saturatedConvertEXT(out floate5m2_t _Result, float16_t _Value);
 void saturatedConvertEXT(out fe5m2vec2 _Result, f16vec2 _Value);
 void saturatedConvertEXT(out fe5m2vec3 _Result, f16vec3 _Value);
@@ -60,3 +63,4 @@ void coopMatLoad(out coopmat _Matrix, volatile coherent fe5m2vec4[] _Buffer, uin
 void coopMatStore(coopmat _Matrix, volatile coherent out floate5m2_t[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 void coopMatStore(coopmat _Matrix, volatile coherent out fe5m2vec2[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 void coopMatStore(coopmat _Matrix, volatile coherent out fe5m2vec4[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+#endif

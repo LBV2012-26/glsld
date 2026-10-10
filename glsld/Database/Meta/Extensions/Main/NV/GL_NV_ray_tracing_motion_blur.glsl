@@ -1,7 +1,7 @@
 #define GL_NV_ray_tracing_motion_blur 1
 
 #define GL_EXT_ray_tracing
-#include "../../Common/RayTracingCommon.glsl"
+#include "../../Common/GL_EXT_ray_tracing_defines.glsl"
 
 in float gl_CurrentRayTimeNV;
 

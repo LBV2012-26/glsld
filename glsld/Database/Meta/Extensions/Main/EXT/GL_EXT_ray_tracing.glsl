@@ -4,7 +4,7 @@
 spirv_extension("SPV_KHR_ray_tracing")
 spirv_capability(5353)
 
-#include "../../Common/RayTracingCommon.glsl"
+#include "../../Common/GL_EXT_ray_tracing_defines.glsl"
 
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT)
 #define rayPayloadEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5338)
@@ -30,7 +30,9 @@ spirv_capability(5353)
 
 const uint gl_HitKindFrontFacingTriangleEXT = 0xFEU;
 const uint gl_HitKindBackFacingTriangleEXT  = 0xFFU;
+#if defined(GL_KHR_memory_scope_semantics)
 const int  gl_ScopeShaderCallEXT            = 6;
+#endif
 
 
 spirv_decorate(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 11, 5319)
@@ -85,18 +87,7 @@ in mat4x3 gl_WorldToObjectEXT;
 
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT)
 spirv_instruction(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353, 4478], id = 5337)
-void traceRayEXT(
-    accelerationStructureEXT _TopLevel,
-    uint                     _RayFlags,
-    uint                     _CullMask,
-    uint                     _SbtRecordOffset,
-    uint                     _SbtRecordStride,
-    uint                     _MissIndex,
-    vec3                     _Origin,
-    float                    _Tmin,
-    vec3                     _Direction,
-    float                    _Tmax,
-    int                      _Payload);
+void traceRayEXT(accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int  _Payload);
 #endif
 
 #ifdef GL_INTERSECTION_SHADER_EXT

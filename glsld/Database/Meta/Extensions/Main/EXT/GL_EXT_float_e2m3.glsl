@@ -1,5 +1,7 @@
 #define GL_EXT_float_e2m3 1
 
+#include "../../Common/GL_EXT_long_vector_defines.glsl"
+
 // GL_EXT_float_e2m3 (defined by the GL_EXT_ocp_microscaling_types document)
 
 // Types
@@ -14,8 +16,11 @@ fe2m3vec4 bitcastExtractfe2m3EXT(u8vec4 _Value, uint _Offset);
 // pack and unpack functions
 fe2m3vec4 unpackFloat4xfe2m3EXT(u8vec3 _Value);
 vector<floate2m3_t, 8> unpackFloat8xfe2m3EXT(u16vec3 _Value);
-vector<floate2m3_t, 16> unpackFloat16xfe2m3EXT(u32vec3 _Value);
+vector<floate2m3_t, 16> unpackFloat16xfe2m3EXT(uvec3 _Value);
 
 u8vec3 packFloat4xfe2m3EXT(fe2m3vec4 _Value);
+
+#if defined(GL_EXT_long_vector)
 u16vec3 packFloat8xfe2m3EXT(vector<floate2m3_t, 8> _Value);
-u32vec3 packFloat16xfe2m3EXT(vector<floate2m3_t, 16> _Value);
+uvec3 packFloat16xfe2m3EXT(vector<floate2m3_t, 16> _Value);
+#endif

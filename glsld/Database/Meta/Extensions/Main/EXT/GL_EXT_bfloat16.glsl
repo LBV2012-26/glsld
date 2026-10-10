@@ -35,6 +35,9 @@ bf16vec2 uintBitsToBFloat16EXT(u16vec2 _Value);
 bf16vec3 uintBitsToBFloat16EXT(u16vec3 _Value);
 bf16vec4 uintBitsToBFloat16EXT(u16vec4 _Value);
 
+#if defined(GL_KHR_cooperative_matrix)
+#include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
+
 // Cooperative matrix load/store overloads for bfloat16 types
 void coopMatLoad(out coopmat _Matrix, volatile coherent bfloat16_t[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 void coopMatLoad(out coopmat _Matrix, volatile coherent bf16vec2[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
@@ -43,3 +46,4 @@ void coopMatLoad(out coopmat _Matrix, volatile coherent bf16vec4[] _Buffer, uint
 void coopMatStore(coopmat _Matrix, volatile coherent out bfloat16_t[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 void coopMatStore(coopmat _Matrix, volatile coherent out bf16vec2[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
 void coopMatStore(coopmat _Matrix, volatile coherent out bf16vec4[] _Buffer, uint _Element, uint _Stride, int _MatrixLayout);
+#endif

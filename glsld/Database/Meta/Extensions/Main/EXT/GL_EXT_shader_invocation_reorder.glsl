@@ -1,15 +1,23 @@
 #define GL_EXT_shader_invocation_reorder 1
 
+#include "../../Common/GL_EXT_ray_query_defines.glsl"
 #include "GL_EXT_buffer_reference_uvec2.glsl"
-#include "GL_EXT_ray_query.glsl"
 #include "GL_EXT_ray_tracing.glsl"
 
+class hitObjectEXT;
+
 void hitObjectTraceRayEXT(hitObjectEXT _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectTraceRayMotionEXT(hitObjectEXT _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, int _Payload);
+#endif
+#if defined(GL_EXT_ray_query)
 void hitObjectRecordFromQueryEXT(hitObjectEXT _Hitobject, rayQueryEXT _RayQuery, uint _SbtRecordIndex, int _AttributeLocation);
 void hitObjectRecordFromQueryEXT(hitObjectEXT _Hitobject, rayQueryEXT _RayQuery, uint _SbtRecordIndex, int _AttributeLocation, uint _HitKind);
+#endif
 void hitObjectRecordMissEXT(hitObjectEXT _HitObject, uint _RayFlags, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _TMax);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectRecordMissMotionEXT(hitObjectEXT _HitObject, uint _RayFlags, uint _SbtRecordIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _TMax, float _CurrentTime);
+#endif
 void hitObjectRecordEmptyEXT(hitObjectEXT _HitObject);
 void hitObjectExecuteShaderEXT(hitObjectEXT _HitObject, int _Payload);
 bool hitObjectIsEmptyEXT(hitObjectEXT _HitObject);
@@ -44,4 +52,6 @@ void hitObjectReorderExecuteEXT(hitObjectEXT _HitObject, int _Payload);
 void hitObjectReorderExecuteEXT(hitObjectEXT _HitObject, uint _Hint, uint _Bits, int _Payload);
 void hitObjectTraceReorderExecuteEXT(hitObjectEXT _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
 void hitObjectTraceReorderExecuteEXT(hitObjectEXT _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, uint _Hint, uint _Bits, int _Payload);
+#if defined(GL_NV_ray_tracing_motion_blur)
 void hitObjectTraceMotionReorderExecuteEXT(hitObjectEXT _Hitobject, accelerationStructureEXT _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, float _CurrentTime, uint _Hint, uint _Bits, int _Payload);
+#endif
