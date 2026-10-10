@@ -169,6 +169,14 @@ namespace glsld {
         return AstNodeKind::kStructDeclaration;
     }
 
+    inline AstNodeKind EnumeratorDeclarationNode::kind() const {
+        return AstNodeKind::kEnumeratorDeclaration;
+    }
+
+    inline AstNodeKind EnumDeclarationNode::kind() const {
+        return AstNodeKind::kEnumDeclaration;
+    }
+
     inline AstNodeKind TranslationUnitNode::kind() const {
         return AstNodeKind::kTranslationUnit;
     }

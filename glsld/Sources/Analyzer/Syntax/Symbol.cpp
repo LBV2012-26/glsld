@@ -10,6 +10,7 @@
 
 #include <magic_enum/magic_enum_all.hpp>
 
+#include <Analyzer/Syntax/Document.hpp>
 #include <Base/Hash.hpp>
 #include <Utils/Utils.hpp>
 
@@ -22,6 +23,10 @@ namespace glsld {
             return 2;  // Module
         case SymbolKind::kNamespace:
             return 3;  // Namespace
+        case SymbolKind::kEnum:
+            return 10; // Enum
+        case SymbolKind::kEnumerator:
+            return 22; // EnumMember
         case SymbolKind::kInterface:
             return 11; // Interface
         case SymbolKind::kFunctionDecl:
@@ -100,30 +105,36 @@ namespace glsld {
             return false;
         }
 
-        auto IsCoreType = [](const TypeInfo& type) -> bool {
-            const bool is_core_token =
-                type.typename_token.type == TokenType::kPrimitive ||
-                type.typename_token.type == TokenType::kBuiltInType;
-
-            const bool is_core_family =
-                type.type_desc.family == BaseFamily::kBool  ||
-                type.type_desc.family == BaseFamily::kInt   ||
-                type.type_desc.family == BaseFamily::kUint  ||
-                type.type_desc.family == BaseFamily::kFloat ||
-                type.type_desc.family == BaseFamily::kVoid;
-
-            return is_core_token && is_core_family;
-        };
-
-        const bool is_core       = IsCoreType(*this);
-        const bool is_other_core = IsCoreType(other);
-
-        if (is_core || is_other_core) {
-            if (!is_core || !is_other_core || type_desc != other.type_desc) {
+        if (is_enum() || other.is_enum()) {
+            if (enum_symbol != other.enum_symbol) {
                 return false;
             }
-        } else if (typename_token.type != other.typename_token.type || typename_token.text != other.typename_token.text) {
-            return false;
+        } else {
+            auto IsCoreType = [](const TypeInfo& type) -> bool {
+                const bool is_core_token =
+                    type.typename_token.type == TokenType::kPrimitive ||
+                    type.typename_token.type == TokenType::kBuiltInType;
+
+                const bool is_core_family =
+                    type.type_desc.family == BaseFamily::kBool  ||
+                    type.type_desc.family == BaseFamily::kInt   ||
+                    type.type_desc.family == BaseFamily::kUint  ||
+                    type.type_desc.family == BaseFamily::kFloat ||
+                    type.type_desc.family == BaseFamily::kVoid;
+
+                return is_core_token && is_core_family;
+            };
+
+            const bool is_core       = IsCoreType(*this);
+            const bool is_other_core = IsCoreType(other);
+
+            if (is_core || is_other_core) {
+                if (!is_core || !is_other_core || type_desc != other.type_desc) {
+                    return false;
+                }
+            } else if (typename_token.type != other.typename_token.type || typename_token.text != other.typename_token.text) {
+                return false;
+            }
         }
 
         if (spirv_signature.has_value() != other.spirv_signature.has_value()) {
@@ -457,11 +468,7 @@ namespace glsld {
             block_base_names_.try_emplace(base_name, inserted_symbol);
         }
 
-        if (inserted_symbol->kind == SymbolKind::kStruct ||
-            inserted_symbol->kind == SymbolKind::kInterface ||
-            inserted_symbol->kind == SymbolKind::kOpaqueType ||
-            inserted_symbol->kind == SymbolKind::kTypeAlias)
-        {
+        if (IsTypeSymbol(inserted_symbol)) {
             visible_types_.insert_or_assign(inserted_symbol->name, inserted_symbol);
             if (!base_name.empty()) {
                 visible_types_.insert_or_assign(std::move(base_name), inserted_symbol);
@@ -494,6 +501,48 @@ namespace glsld {
                 child->CollectLocalSymbols(symbols);
             }
         }
+    }
+
+    QualifiedScope::QualifiedScope(const NamespaceInfo* space)
+        : target_{ space }
+    {}
+
+    QualifiedScope::QualifiedScope(const Scope* scope)
+        : target_{ scope }
+    {}
+
+    QualifiedScope::operator bool() const {
+        return std::visit(Overloaded{
+            [](const auto* target) -> bool {
+                return target != nullptr;
+            },
+            [](std::monostate) -> bool {
+                return false;
+            }
+        }, target_);
+    }
+
+    SymbolReference QualifiedScope::Lookup(std::string_view name) const {
+        return std::visit(Overloaded{
+            [&](const NamespaceInfo* space) -> SymbolReference {
+                return space != nullptr ? space->Lookup(name) : SymbolReference(std::monostate{});
+            },
+            [&](const Scope* scope) -> SymbolReference {
+                if (scope == nullptr) {
+                    return std::monostate{};
+                }
+
+                const auto it = scope->symbols().find(name);
+                if (it == scope->symbols().end()) {
+                    return std::monostate{};
+                }
+
+                return it->second.get();
+            },
+            [](std::monostate) -> SymbolReference {
+                return std::monostate{};
+            }
+        }, target_);
     }
 
     DocumentSymbols::DocumentSymbols()

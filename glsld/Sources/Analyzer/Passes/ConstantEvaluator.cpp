@@ -1637,6 +1637,25 @@ namespace glsld {
             symbol = std::get<const SymbolInfo*>(node->linked_symbols);
         }
 
+        if (symbol != nullptr && symbol->kind == SymbolKind::kEnumerator) {
+            if (symbol->node == nullptr || symbol->node->kind() != AstNodeKind::kEnumeratorDeclaration) {
+                is_valid_ = false;
+                return;
+            }
+
+            auto* item = static_cast<const EnumeratorDeclarationNode*>(symbol->node);
+            if (!item->value.has_value()) {
+                is_valid_ = false;
+                return;
+            }
+
+            std::visit([&](auto value) -> void {
+                current_value_ = Scalar(value);
+            }, *item->value);
+
+            return;
+        }
+
         if (symbol == nullptr || symbol->kind != SymbolKind::kVariable ||
             visited_symbols_.contains(symbol) ||
             symbol->node->kind() != AstNodeKind::kVariableDeclaration)
@@ -2277,18 +2296,34 @@ namespace glsld {
             return;
         }
 
-        auto* callee      = static_cast<VariableExpressionNode*>(node->callee);
+        auto* base = node->callee;
+        while (base != nullptr && base->kind() == AstNodeKind::kIndexExpression) {
+            base = static_cast<IndexExpressionNode*>(base)->base;
+        }
+
+        if (base == nullptr || base->kind() != AstNodeKind::kVariableExpression) {
+            is_valid_ = false;
+            return;
+        }
+
+        auto* callee      = static_cast<VariableExpressionNode*>(base);
         auto* symbol_slot = std::get_if<const SymbolInfo*>(&callee->linked_symbols);
 
         const bool symbol_valid      = symbol_slot != nullptr && *symbol_slot != nullptr;
         const bool builtin_construct = callee->original_token.type == TokenType::kPrimitive
                                     || callee->original_token.type == TokenType::kBuiltInType;
 
-        const bool type_construct    = symbol_valid && ((*symbol_slot)->kind == SymbolKind::kStruct
-                                                    ||  (*symbol_slot)->kind == SymbolKind::kTypeAlias)
+        const bool type_construct = symbol_valid && ((*symbol_slot)->kind == SymbolKind::kStruct
+                                                    || (*symbol_slot)->kind == SymbolKind::kTypeAlias
+                                                    || (*symbol_slot)->kind == SymbolKind::kEnum)
                                     || node->callee->kind() == AstNodeKind::kIndexExpression;
 
         if (builtin_construct || type_construct) {
+            if (!node->evaluated_type.is_valid()) {
+                is_valid_ = false;
+                return;
+            }
+
             auto converted = EvaluateConstructor(node, node->evaluated_type);
             if (!converted.has_value()) {
                 is_valid_ = false;

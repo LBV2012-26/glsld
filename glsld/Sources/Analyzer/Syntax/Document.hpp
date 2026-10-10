@@ -127,17 +127,13 @@ namespace glsld {
         SymbolReference LookupUnqualified(const Scope* scope, std::string_view name) const;
         bool RegisterNamespaceMember(const SymbolInfo* symbol, std::string_view name);
 
+        QualifiedScope GetQualifiedScope(const SymbolInfo* symbol);
+
     private:
         StringHeteroHashMap<MacroDefinition> pending_macros_;
         std::vector<IncludeSnapshot>         include_snapshots_;
     };
 
-    using Snapshot = std::shared_ptr<const Document>;
-
-    struct InlayHint {
-        const SourceLocation* location{ nullptr };
-        std::string           label;
-    };
-
+    using Snapshot       = std::shared_ptr<const Document>;
     using VersionPointer = std::shared_ptr<const std::atomic<int>>;
 }

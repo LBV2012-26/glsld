@@ -1,10 +1,12 @@
 #include "pch.hpp"
 #include "TypeResolver.hpp"
 
+#include <cstddef>
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <format>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -118,6 +120,8 @@ namespace glsld {
                 return MatchGrade::kFailed;
             if (src.typename_token.type == TokenType::kUnknown || dst.typename_token.type == TokenType::kUnknown)
                 return MatchGrade::kWildcard;
+            if (src.is_enum() || dst.is_enum())
+                return src.CompareWithoutQualifiers(dst) ? MatchGrade::kExactMatch : MatchGrade::kFailed;
             if (src == dst)
                 return MatchGrade::kExactMatch;
             if (src.is_array() || dst.is_array())
@@ -428,7 +432,15 @@ namespace glsld {
 
         Traverse(node->init);
 
-        const auto& init_type  = node->init->evaluated_type;
+        const auto& declared_type = variable_symbol->type_info;
+        const auto& init_type     = node->init->evaluated_type;
+        if ((declared_type.is_enum() || init_type.is_enum()) &&
+            !declared_type.CompareWithoutQualifiers(init_type))
+        {
+            node->init->evaluated_type = {};
+            return;
+        }
+
         const auto& init_sizes = init_type.array_sizes;
         const auto& decl_sizes = variable_symbol->type_info.array_sizes;
 
@@ -467,6 +479,186 @@ namespace glsld {
         }
 
         AstVisitor::VisitStructDeclaration(node);
+    }
+
+    namespace {
+        bool IsEnumUnderlyingType(const TypeInfo& type) {
+            const auto& desc = type.type_desc;
+
+            return type.is_valid()
+                && !type.is_enum()
+                && !type.is_array()
+                && !type.is_func_ref
+                && type.block_symbol == nullptr
+                && type.qualifiers.empty()
+                && (desc.family == BaseFamily::kInt || desc.family == BaseFamily::kUint)
+                && desc.vector_count  == 1
+                && desc.vector_length == 1
+                && (desc.bits == 8  ||
+                    desc.bits == 16 ||
+                    desc.bits == 32 ||
+                    desc.bits == 64);
+        }
+
+        std::uint64_t EnumUnsignedMax(int bits) {
+            return bits == 64 ? std::numeric_limits<std::uint64_t>::max() : (1uz << bits) - 1;
+        }
+
+        std::int64_t EnumSignedMax(int bits) {
+            return bits == 64 ? std::numeric_limits<std::int64_t>::max() : static_cast<std::int64_t>((1uz << (bits - 1)) - 1);
+        }
+
+        std::int64_t EnumSignedMin(int bits) {
+            return bits == 64 ? std::numeric_limits<std::int64_t>::min() : -EnumSignedMax(bits) - 1;
+        }
+
+        std::optional<EnumInteger> NormalizeEnumInteger(const EnumInteger& input, const TypeDescriptor& underlying) {
+            if (underlying.family == BaseFamily::kUint) {
+                std::uint64_t value = 0;
+                if (const auto* source = std::get_if<std::int64_t>(&input)) {
+                    if (*source < 0) {
+                        return std::nullopt;
+                    }
+
+                    value = static_cast<std::uint64_t>(*source);
+                } else {
+                    value = std::get<std::uint64_t>(input);
+                }
+
+                if (value > EnumUnsignedMax(underlying.bits)) {
+                    return std::nullopt;
+                }
+
+                return EnumInteger(value);
+            }
+
+            std::int64_t value = 0;
+            if (const auto* source = std::get_if<std::uint64_t>(&input)) {
+                if (*source > static_cast<std::uint64_t>(EnumSignedMax(underlying.bits))) {
+                    return std::nullopt;
+                }
+
+                value = static_cast<std::int64_t>(*source);
+            } else {
+                value = std::get<std::int64_t>(input);
+            }
+
+            if (value < EnumSignedMin(underlying.bits) || value > EnumSignedMax(underlying.bits)) {
+                return std::nullopt;
+            }
+
+            return EnumInteger(value);
+        }
+
+        std::optional<EnumInteger> NextEnumInteger(const EnumInteger& previous, const TypeDescriptor& underlying) {
+            if (underlying.family == BaseFamily::kUint) {
+                const auto value = std::get<std::uint64_t>(previous);
+                if (value == EnumUnsignedMax(underlying.bits)) {
+                    return std::nullopt;
+                }
+
+                return EnumInteger(value + 1);
+            }
+
+            const auto value = std::get<std::int64_t>(previous);
+            if (value == EnumSignedMax(underlying.bits)) {
+                return std::nullopt;
+            }
+
+            return EnumInteger(value + 1);
+        }
+    }
+
+    void TypeResolver::VisitEnumDeclaration(EnumDeclarationNode* node) {
+        if (node->declared_symbol == nullptr) {
+            return;
+        }
+
+        auto* enum_symbol = node->declared_symbol;
+        enum_symbol->type_info = {};
+
+        for (auto* item : node->enumerators) {
+            item->value.reset();
+            if (item->declared_symbol != nullptr) {
+                item->declared_symbol->type_info = {};
+            }
+        }
+
+        TraverseTypeSpec(node->underlying_type);
+
+        const auto underlying = ExtractTypeInfo(node->underlying_type, node->located_scope);
+        if (!IsEnumUnderlyingType(underlying)) {
+            return;
+        }
+
+        auto enum_type = underlying;
+        enum_type.typename_token = node->name;
+        enum_type.enum_symbol    = enum_symbol;
+
+        enum_symbol->type_info = enum_type;
+
+        const Token const_token{
+            .text     = "const",
+            .location = node->name.location,
+            .type     = TokenType::kPrimitive
+        };
+
+        const auto const_qualifiers = document_.arena->CopySpan<Token>(std::span<const Token>(&const_token, 1));
+
+        auto underlying_constant = underlying;
+        underlying_constant.qualifiers = const_qualifiers;
+
+        auto enum_constant = enum_type;
+        enum_constant.qualifiers = const_qualifiers;
+
+        std::optional<EnumInteger> previous;
+        bool first = true;
+
+        for (auto* item : node->enumerators) {
+            if (item->declared_symbol == nullptr) {
+                previous.reset();
+                first = false;
+                continue;
+            }
+
+            std::optional<EnumInteger> value;
+
+            if (item->init != nullptr) {
+                Traverse(item->init);
+
+                ConstantEvaluator evaluator;
+                if (underlying.type_desc.family == BaseFamily::kUint) {
+                    if (auto evaluated = evaluator.EvaluateAs<std::uint64_t>(item->init)) {
+                        value = NormalizeEnumInteger(EnumInteger(*evaluated), underlying.type_desc);
+                    }
+                } else {
+                    if (auto evaluated = evaluator.EvaluateAs<std::int64_t>(item->init)) {
+                        value = NormalizeEnumInteger(EnumInteger(*evaluated), underlying.type_desc);
+                    }
+                }
+            } else if (first) {
+                value = NormalizeEnumInteger(EnumInteger(std::int64_t(0)), underlying.type_desc);
+            } else if (previous.has_value()) {
+                value = NextEnumInteger(*previous, underlying.type_desc);
+            }
+
+            item->value = value;
+
+            if (value.has_value()) {
+                item->declared_symbol->type_info = underlying_constant;
+            }
+
+            previous = value;
+            first = false;
+        }
+
+        for (auto* item : node->enumerators) {
+            if (item->declared_symbol != nullptr) {
+                item->declared_symbol->type_info = enum_constant;
+            }
+        }
+
+        Traverse(node->instances);
     }
 
     void TypeResolver::VisitInitializerListExpression(InitializerListExpressionNode* node) {
@@ -739,6 +931,11 @@ namespace glsld {
         TypeInfo operand_type = node->operand->evaluated_type;
         if (operand_type.type_desc.family == BaseFamily::kUnknown) {
             node->evaluated_type = operand_type;
+            return;
+        }
+
+        if (operand_type.is_enum()) {
+            node->evaluated_type = {};
             return;
         }
 
@@ -1775,6 +1972,13 @@ namespace glsld {
 
                 info = type_symbol->type_info;
                 return FinishType();
+            } else if (type_symbol->kind == SymbolKind::kEnum) {
+                info = type_symbol->type_info;
+                if (!info.is_valid()) {
+                    return {};
+                }
+
+                return FinishType();
             } else if (type_symbol->kind == SymbolKind::kOpaqueType) {
                 info.type_desc = type_symbol->type_info.type_desc;
             } else {
@@ -2196,6 +2400,27 @@ namespace glsld {
         auto IsEqualityOperator = [](TokenType op) -> bool {
             return op == TokenType::kEqualEqual || op == TokenType::kNotEqual;
         };
+
+        if (left_type.is_enum() || right_type.is_enum()) {
+            if (!left_type.is_enum() || !right_type.is_enum() || !left_type.CompareWithoutQualifiers(right_type)) {
+                return {};
+            }
+
+            if (op == TokenType::kEqual) {
+                return left_type;
+            }
+
+            if (!left_type.is_array() && (IsRelationalOperator(op) || IsEqualityOperator(op))) {
+                return GetCanonicalTypeInfo(TypeDescriptor{
+                    .family        = BaseFamily::kBool,
+                    .bits          = 32,
+                    .vector_count  = 1,
+                    .vector_length = 1
+                });
+            }
+
+            return {};
+        }
 
         if (IsLogicalOperator(op) || IsRelationalOperator(op) || IsEqualityOperator(op)) {
             return {

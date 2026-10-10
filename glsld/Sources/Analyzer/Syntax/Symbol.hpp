@@ -17,6 +17,8 @@
 namespace glsld {
     enum class SymbolKind {
         kAttribute,
+        kEnum,
+        kEnumerator,
         kFunctionDecl,
         kFunctionImpl,
         kInterface,
@@ -105,6 +107,7 @@ namespace glsld {
         Token                                         typename_token;
         TypeDescriptor                                type_desc;
         const SymbolInfo*                             block_symbol{ nullptr };
+        const SymbolInfo*                             enum_symbol{ nullptr };
         std::span<const std::optional<std::uint64_t>> array_sizes;
         std::span<const Token>                        qualifiers;
         std::span<const TemplateArgumentInfo>         template_args;
@@ -119,6 +122,7 @@ namespace glsld {
         bool is_valid() const;
         bool is_array() const;
         bool is_const() const;
+        bool is_enum() const;
 
         std::string Format(bool with_qualifiers = false) const;
     };
@@ -224,6 +228,21 @@ namespace glsld {
 
     template <typename... Ts>
     Overloaded(Ts...) -> Overloaded<Ts...>;
+
+    struct NamespaceInfo;
+    class QualifiedScope {
+    public:
+        QualifiedScope() = default;
+        explicit QualifiedScope(const NamespaceInfo* space);
+        explicit QualifiedScope(const Scope* scope);
+
+        explicit operator bool() const;
+
+        SymbolReference Lookup(std::string_view name) const;
+
+    private:
+        std::variant<std::monostate, const NamespaceInfo*, const Scope*> target_;
+    };
 
     class DocumentSymbols {
     public:

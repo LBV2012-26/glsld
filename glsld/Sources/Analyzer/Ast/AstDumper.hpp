@@ -19,6 +19,8 @@ namespace glsld {
         void VisitSpirvIntrinsic(SpirvIntrinsicNode* node) override;
         void VisitDeclarationGroup(DeclarationGroupNode* node) override;
         void VisitTypeAliasDeclaration(TypeAliasDeclarationNode* node) override;
+        void VisitEnumDeclaration(EnumDeclarationNode* node) override;
+        void VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node) override;
         void VisitFunctionDeclaration(FunctionDeclarationNode* node) override;
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;

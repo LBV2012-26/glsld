@@ -16,6 +16,8 @@ namespace glsld {
         void VisitPreprocessor(PreprocessorNode* node) override;
         void VisitAttribute(AttributeNode* node) override;
         void VisitNamespaceDeclaration(NamespaceDeclarationNode* node) override;
+        void VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node) override;
+        void VisitEnumDeclaration(EnumDeclarationNode* node) override;
         void VisitVariableExpression(VariableExpressionNode* node) override;
 
         Document& document_;

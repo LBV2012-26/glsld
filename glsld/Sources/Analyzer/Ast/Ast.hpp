@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <string_view>
 #include <variant>
 
@@ -63,6 +65,8 @@ namespace glsld {
         kVariableDeclaration,
         kInterfaceDeclaration,
         kStructDeclaration,
+        kEnumeratorDeclaration,
+        kEnumDeclaration,
 
         // Statements
         kStatement,
@@ -342,7 +346,6 @@ namespace glsld {
         AstNodeKind kind() const override;
     };
 
-    struct NamespaceInfo;
     struct VariableExpressionNode final : public ExpressionNode {
         enum class NodeType {
             kCommonVariable,
@@ -355,7 +358,7 @@ namespace glsld {
         std::string_view                  name;
         SymbolReferenceView               linked_symbols{ std::monostate{} };
         const SymbolInfo*                 named_type_symbol{ nullptr };
-        const NamespaceInfo*              qualifier_space{ nullptr };
+        QualifiedScope                    qualifier_scope;
         std::span<const ResolvedNamePart> name_prefixes;
         std::string_view                  written_name;
 
@@ -443,6 +446,29 @@ namespace glsld {
     struct StructDeclarationNode final : public DeclarationNode {
         CompoundStatementNode* body{ nullptr };
         DeclarationGroupNode*  instances{ nullptr };
+
+        using DeclarationNode::DeclarationNode;
+        AstNodeKind kind() const override;
+    };
+
+    using EnumInteger = std::variant<std::int64_t, std::uint64_t>;
+    struct EnumeratorDeclarationNode final : DeclarationNode {
+        Token                      name;
+        ExpressionNode*            init{ nullptr };
+        std::optional<EnumInteger> value;
+
+        using DeclarationNode::DeclarationNode;
+        AstNodeKind kind() const override;
+    };
+
+    struct EnumDeclarationNode final : DeclarationNode {
+        Token                 name;
+        TypeSpec              underlying_type{ arena };
+        DeclarationGroupNode* instances{ nullptr };
+
+        ArenaVector<EnumeratorDeclarationNode*> enumerators{
+            ArenaAllocator<EnumeratorDeclarationNode*>(arena)
+        };
 
         using DeclarationNode::DeclarationNode;
         AstNodeKind kind() const override;

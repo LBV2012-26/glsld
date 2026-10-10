@@ -32,6 +32,8 @@ namespace glsld {
         virtual void VisitVariableDeclaration(VariableDeclarationNode* node);
         virtual void VisitInterfaceDeclaration(InterfaceDeclarationNode* node);
         virtual void VisitStructDeclaration(StructDeclarationNode* node);
+        virtual void VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node);
+        virtual void VisitEnumDeclaration(EnumDeclarationNode* node);
         virtual void VisitCompoundStatement(CompoundStatementNode* node);
         virtual void VisitIfStatement(IfStatementNode* node);
         virtual void VisitForStatement(ForStatementNode* node);

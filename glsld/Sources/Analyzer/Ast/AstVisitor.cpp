@@ -26,10 +26,13 @@ namespace glsld {
             case AstNodeKind::kNullStatement:
             case AstNodeKind::kDeclarationGroup:
             case AstNodeKind::kTypeAliasDeclaration:
+            case AstNodeKind::kNamespaceDeclaration:
             case AstNodeKind::kFunctionDeclaration:
             case AstNodeKind::kVariableDeclaration:
             case AstNodeKind::kInterfaceDeclaration:
             case AstNodeKind::kStructDeclaration:
+            case AstNodeKind::kEnumDeclaration:
+            case AstNodeKind::kEnumeratorDeclaration:
                 return true;
             default:
                 return false;
@@ -101,6 +104,12 @@ namespace glsld {
             break;
         case AstNodeKind::kStructDeclaration:
             VisitStructDeclaration(static_cast<StructDeclarationNode*>(node));
+            break;
+        case AstNodeKind::kEnumeratorDeclaration:
+            VisitEnumeratorDeclaration(static_cast<EnumeratorDeclarationNode*>(node));
+            break;
+        case AstNodeKind::kEnumDeclaration:
+            VisitEnumDeclaration(static_cast<EnumDeclarationNode*>(node));
             break;
         case AstNodeKind::kCompoundStatement:
             VisitCompoundStatement(static_cast<CompoundStatementNode*>(node));
@@ -293,6 +302,22 @@ namespace glsld {
     void AstVisitor::VisitStructDeclaration(StructDeclarationNode* node) {
         if (node->body != nullptr) {
             Traverse(node->body);
+        }
+
+        if (node->instances != nullptr) {
+            Traverse(node->instances);
+        }
+    }
+
+    void AstVisitor::VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node) {
+        Traverse(node->init);
+    }
+
+    void AstVisitor::VisitEnumDeclaration(EnumDeclarationNode* node) {
+        TraverseTypeSpec(node->underlying_type);
+
+        for (auto* item : node->enumerators) {
+            Traverse(item);
         }
 
         if (node->instances != nullptr) {

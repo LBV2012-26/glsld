@@ -230,4 +230,48 @@ namespace glsld {
 
         return false;
     }
+
+    QualifiedScope Document::GetQualifiedScope(const SymbolInfo* symbol) {
+        if (symbol == nullptr) {
+            return {};
+        }
+
+        // namespace or namespace alias
+        if (symbol->kind == SymbolKind::kNamespace) {
+            const auto* space = FindNamespace(symbol);
+            return space != nullptr ? QualifiedScope(space) : QualifiedScope{};
+        }
+
+        // enum alias
+        ankerl::unordered_dense::set<const SymbolInfo*> visited;
+
+        while (symbol != nullptr && symbol->kind == SymbolKind::kTypeAlias) {
+            if (!visited.insert(symbol).second) {
+                return {};
+            }
+
+            if (symbol->node == nullptr || symbol->node->kind() != AstNodeKind::kTypeAliasDeclaration) {
+                return {};
+            }
+
+            auto* decl = static_cast<const TypeAliasDeclarationNode*>(symbol->node);
+            const auto& type_spec = decl->type_spec;
+
+            if (!type_spec.array_sizes.empty() ||
+                !type_spec.template_args.empty() ||
+                type_spec.function_type != nullptr ||
+                type_spec.spirv_type != nullptr)
+            {
+                return {};
+            }
+
+            symbol = type_spec.named_type_symbol;
+        }
+
+        if (symbol == nullptr || symbol->kind != SymbolKind::kEnum || symbol->internal_scope == nullptr) {
+            return {};
+        }
+
+        return QualifiedScope(symbol->internal_scope);
+    }
 }

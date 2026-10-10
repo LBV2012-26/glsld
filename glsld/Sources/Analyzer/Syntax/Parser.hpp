@@ -61,7 +61,7 @@ namespace glsld {
         struct NameProbe {
             Token                         leaf;
             SourceLocation                begin;
-            const NamespaceInfo*          qualifier_space{ nullptr };
+            QualifiedScope                qualifier_scope;
             std::int64_t                  token_count{};
             std::string                   spelling;
             std::vector<ResolvedNamePart> prefixes;
@@ -102,6 +102,10 @@ namespace glsld {
 
         TypeAliasDeclarationNode* ParseTypeAliasDeclaration();
         NamespaceDeclarationNode* ParseNamespaceDeclaration();
+
+        EnumDeclarationNode* ParseEnum(TypeSpec type_spec);
+        void ParseEnumBody(EnumDeclarationNode* node);
+
         FunctionTypeSpec* ParseFunctionTypeSpec();
         ArenaVector<Token> CaptureBalancedTokens(TokenType open, TokenType close);
         QualifierArgumentNode* ParseQualifierArguments(std::span<const Token> tokens);

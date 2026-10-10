@@ -39,6 +39,10 @@ namespace glsld {
         return false;
     }
 
+    inline bool TypeInfo::is_enum() const {
+        return enum_symbol != nullptr;
+    }
+
     inline SymbolInfo::operator bool() const {
         return !name.empty();
     }
@@ -48,7 +52,8 @@ namespace glsld {
             && (symbol->kind == SymbolKind::kStruct
             ||  symbol->kind == SymbolKind::kInterface
             ||  symbol->kind == SymbolKind::kOpaqueType
-            ||  symbol->kind == SymbolKind::kTypeAlias);
+            ||  symbol->kind == SymbolKind::kTypeAlias
+            ||  symbol->kind == SymbolKind::kEnum);
     }
 
     inline const SymbolInfo* Scope::FindVisibleType(std::string_view name) const {

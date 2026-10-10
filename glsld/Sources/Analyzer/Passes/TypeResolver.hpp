@@ -43,6 +43,7 @@ namespace glsld {
         void VisitVariableDeclaration(VariableDeclarationNode* node) override;
         void VisitInterfaceDeclaration(InterfaceDeclarationNode* node) override;
         void VisitStructDeclaration(StructDeclarationNode* node) override;
+        void VisitEnumDeclaration(EnumDeclarationNode* node) override;
         void VisitInitializerListExpression(InitializerListExpressionNode* node) override;
         void VisitCastExpression(CastExpressionNode* node) override;
         void VisitBinaryExpression(BinaryExpressionNode* node) override;

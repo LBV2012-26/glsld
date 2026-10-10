@@ -56,6 +56,22 @@ namespace glsld {
         AstVisitor::VisitNamespaceDeclaration(node);
     }
 
+    void SymbolLinker::VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node) {
+        if (node->declared_symbol != nullptr) {
+            document_.bindings.insert_or_assign(node->name.location, node->declared_symbol);
+        }
+
+        AstVisitor::VisitEnumeratorDeclaration(node);
+    }
+
+    void SymbolLinker::VisitEnumDeclaration(EnumDeclarationNode* node) {
+        if (node->declared_symbol != nullptr) {
+            document_.bindings.insert_or_assign(node->name.location, node->declared_symbol);
+        }
+
+        AstVisitor::VisitEnumDeclaration(node);
+    }
+
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode* node) {
         BindResolvedNames(node->name_prefixes);
 
@@ -74,8 +90,8 @@ namespace glsld {
             node->linked_symbols = node->named_type_symbol;
         } else {
             SymbolReference found;
-            if (node->qualifier_space != nullptr) {
-                found = node->qualifier_space->Lookup(node->name);
+            if (node->qualifier_scope) {
+                found = node->qualifier_scope.Lookup(node->name);
             } else {
                 found = document_.LookupUnqualified(scope, node->name);
             }

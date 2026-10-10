@@ -91,6 +91,24 @@ namespace glsld {
         --indent_level_;
     }
 
+    void AstDumper::VisitEnumDeclaration(EnumDeclarationNode* node) {
+        PrintIndent();
+        std::println("EnumDeclaration '{}' Underlying: {} {}", node->name.text, TypeToString(node->underlying_type), FormatRange(node));
+
+        ++indent_level_;
+        Base::VisitEnumDeclaration(node);
+        --indent_level_;
+    }
+
+    void AstDumper::VisitEnumeratorDeclaration(EnumeratorDeclarationNode* node) {
+        PrintIndent();
+        std::println("EnumeratorDeclaration '{}' {}", node->name.text, FormatRange(node));
+
+        ++indent_level_;
+        Base::VisitEnumeratorDeclaration(node);
+        --indent_level_;
+    }
+
     void AstDumper::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         PrintIndent();
         const auto name = node->declared_symbol ? node->declared_symbol->name : "unnamed";

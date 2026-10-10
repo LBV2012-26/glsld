@@ -108,11 +108,11 @@ namespace glsld {
         result.begin = PeekToken(offset).location;
 
         auto cursor = offset;
-        const NamespaceInfo* owner = nullptr;
+        QualifiedScope owner;
 
         if (PeekToken(cursor).type == TokenType::kColonColon) {
-            owner = &document_.global_namespace;
-            result.qualifier_space = owner;
+            owner = QualifiedScope(&document_.global_namespace);
+            result.qualifier_scope = owner;
             result.spelling = "::";
             ++cursor;
         }
@@ -132,20 +132,20 @@ namespace glsld {
                 return result;
             }
 
-            const auto found = owner != nullptr ? owner->Lookup(token.text) : document_.LookupUnqualified(current_scope(), token.text);
+            const auto found = owner ? owner.Lookup(token.text) : document_.LookupUnqualified(current_scope(), token.text);
 
             auto* single = std::get_if<const SymbolInfo*>(&found);
-            if (single == nullptr || *single == nullptr || (*single)->kind != SymbolKind::kNamespace) {
+            if (single == nullptr || *single == nullptr) {
                 return std::nullopt;
             }
 
-            owner = document_.FindNamespace(*single);
-            if (owner == nullptr) {
+            owner = document_.GetQualifiedScope(*single);
+            if (!owner) {
                 return std::nullopt;
             }
 
             result.prefixes.emplace_back(token, *single);
-            result.qualifier_space = owner;
+            result.qualifier_scope = owner;
             result.spelling += "::";
             ++cursor;
         }
@@ -476,6 +476,11 @@ namespace glsld {
                 return ParseBlockBody(std::move(type_spec));
             }
 
+            // enum when identify the underlying type
+            if (type_spec.has_keyword("enum")) {
+                return ParseBlockBody(std::move(type_spec));
+            }
+
             // function, current is identifier, and next is '('
             if (current_token().type == TokenType::kIdentifier && PeekToken().type == TokenType::kOpenParen) {
                 return ParseFunction(std::move(type_spec));
@@ -682,6 +687,12 @@ namespace glsld {
         while (true) {
             const auto& token = current_token();
 
+            if (context == TypeParseContext::kDeclarationPrefix && token.text == "enum") {
+                type_spec.specifiers.push_back(token);
+                ConsumeToken();
+                break;
+            }
+
             if (token.type == TokenType::kPrimitive && TryParseLayoutQualifier(type_spec))
                 continue;
             if (token.type == TokenType::kSpirvIntrinsic && TryParseSpirvIntrinsics(type_spec))
@@ -714,8 +725,8 @@ namespace glsld {
 
                 const SymbolInfo* type_symbol = nullptr;
 
-                if (name->qualifier_space != nullptr) {
-                    const auto found = name->qualifier_space->Lookup(name->leaf.text);
+                if (name->qualifier_scope) {
+                    const auto found = name->qualifier_scope.Lookup(name->leaf.text);
                     if (const auto* single = std::get_if<const SymbolInfo*>(&found);
                         single != nullptr && IsTypeSymbol(*single))
                     {
@@ -815,6 +826,13 @@ namespace glsld {
                 }
             }
 
+            break;
+        }
+
+        case AstNodeKind::kEnumDeclaration: {
+            auto* decl = static_cast<EnumDeclarationNode*>(node);
+            Register(decl->declared_symbol);
+            RegisterNamespaceStatement(decl->instances);
             break;
         }
 
@@ -932,8 +950,8 @@ namespace glsld {
                 return Fail();
             }
 
-            const auto found = target_name->qualifier_space != nullptr
-                ? target_name->qualifier_space->Lookup(target_name->leaf.text)
+            const auto found = target_name->qualifier_scope
+                ? target_name->qualifier_scope.Lookup(target_name->leaf.text)
                 : document_.LookupUnqualified(current_scope(), target_name->leaf.text);
             auto* single = std::get_if<const SymbolInfo*>(&found);
             if (single == nullptr || *single == nullptr || (*single)->kind != SymbolKind::kNamespace) {
@@ -1094,6 +1112,166 @@ namespace glsld {
         LeaveScope(node->end);
 
         return node;
+    }
+
+    EnumDeclarationNode* Parser::ParseEnum(TypeSpec type_spec) {
+        // current token is enum name
+        auto* node  = MakeNode<EnumDeclarationNode>(current_scope());
+        node->begin = type_spec.begin_location();
+
+        auto Fail = [&]() -> EnumDeclarationNode* {
+            while (current_token().type != TokenType::kEndOfFile  &&
+                   current_token().type != TokenType::kOpenBrace  &&
+                   current_token().type != TokenType::kCloseBrace &&
+                   current_token().type != TokenType::kSemicolon)
+            {
+                ConsumeToken();
+            }
+
+            if (current_token().type == TokenType::kOpenBrace) {
+                // 跳过无效的枚举块
+                auto depth = 0uz;
+                do {
+                    if (current_token().type == TokenType::kOpenBrace) {
+                        ++depth;
+                    } else if (current_token().type == TokenType::kCloseBrace) {
+                        --depth;
+                    }
+
+                    ConsumeToken();
+                } while (depth != 0 && current_token().type != TokenType::kEndOfFile);
+            }
+
+            MatchAndConsume(TokenType::kSemicolon);
+            node->end = GetPreviousTokenEnd();
+            return node;
+        };
+
+        if (current_token().type != TokenType::kIdentifier) {
+            return Fail();
+        }
+
+        node->name = current_token();
+        ConsumeToken();
+
+        if (MatchAndConsume(TokenType::kColon)) { // enum Enum : xxx
+            node->underlying_type = ParseTypeSpec(TypeParseContext::kTypeId);
+            if (node->underlying_type.empty()) {
+                return Fail();
+            }
+        } else {
+            node->underlying_type.specifiers.push_back(Token{
+                .text     = "int",
+                .location = node->name.location,
+                .type     = TokenType::kPrimitive
+            });
+        }
+
+        if (current_token().type != TokenType::kOpenBrace) {
+            return Fail();
+        }
+
+        // 检查当前作用域中是否已存在同名符号，避免重复定义
+        if (auto* space = document_.NamespaceForDeclaration(current_scope())) {
+            if (!std::holds_alternative<std::monostate>(space->Lookup(node->name.text))) {
+                return Fail();
+            }
+        }
+
+        if (current_scope()->symbols().contains(node->name.text)) {
+            return Fail();
+        }
+
+        node->declared_symbol = current_scope()->AddSymbol(node, node->name.text, node->name.location, SymbolKind::kEnum);
+        ParseEnumBody(node);
+        return node;
+    }
+
+    void Parser::ParseEnumBody(EnumDeclarationNode* node) {
+        // current token is {
+        const auto open = current_token().location;
+        ConsumeToken();
+
+        auto* enum_scope = EnterScope(open, node->declared_symbol, ScopeKind::kBlock);
+        node->internal_scope = enum_scope;
+        node->declared_symbol->internal_scope = enum_scope;
+
+        // 注册类型符号本身
+        document_.RegisterNamespaceMember(node->declared_symbol, node->name.text);
+
+        auto SkipToItemBoundary = [&]() -> void {
+            while (current_token().type != TokenType::kEndOfFile  &&
+                   current_token().type != TokenType::kComma      &&
+                   current_token().type != TokenType::kCloseBrace &&
+                   current_token().type != TokenType::kSemicolon)
+            {
+                ConsumeToken();
+            }
+        };
+
+        while (current_token().type != TokenType::kEndOfFile  &&
+               current_token().type != TokenType::kCloseBrace &&
+               current_token().type != TokenType::kSemicolon)
+        {
+            if (current_token().type != TokenType::kIdentifier) {
+                SkipToItemBoundary();
+                if (MatchAndConsume(TokenType::kComma)) {
+                    continue;
+                }
+
+                break;
+            }
+
+            auto* item  = MakeNode<EnumeratorDeclarationNode>(current_scope());
+            item->name  = current_token();
+            item->begin = current_token().location;
+            ConsumeToken();
+
+            bool valid = true;
+
+            if (MatchAndConsume(TokenType::kEqual)) {
+                item->init = ParseExpression(Precedence::kAssignment);
+                valid = item->init != nullptr; // = 后边跟了个滚木
+            }
+
+            item->end = GetPreviousTokenEnd();
+            valid = valid &&
+                (current_token().type == TokenType::kComma ||
+                 current_token().type == TokenType::kCloseBrace);
+
+            if (enum_scope->symbols().contains(item->name.text)) {
+                valid = false;
+            }
+
+            if (valid) {
+                item->declared_symbol = enum_scope->AddSymbol(
+                    item, item->name.text, item->name.location, SymbolKind::kEnumerator);
+                node->enumerators.push_back(item);
+            } else {
+                SkipToItemBoundary();
+            }
+
+            if (!MatchAndConsume(TokenType::kComma)) {
+                break;
+            }
+        }
+
+        const auto end = current_token().type == TokenType::kCloseBrace
+            ? GetCurrentTokenEnd() : GetPreviousTokenEnd();
+        const bool closed = MatchAndConsume(TokenType::kCloseBrace);
+        LeaveScope(end);
+
+        if (closed && current_token().type == TokenType::kIdentifier) {
+            TypeSpec instance_type(document_.arena.get());
+            instance_type.specifiers.push_back(node->name);
+            instance_type.named_type_symbol = node->declared_symbol;
+
+            node->instances = ParseVariableDeclarationList(std::move(instance_type));
+        } else {
+            MatchAndConsume(TokenType::kSemicolon);
+        }
+
+        node->end = GetPreviousTokenEnd();
     }
 
     FunctionTypeSpec* Parser::ParseFunctionTypeSpec() {
@@ -1821,8 +1999,8 @@ namespace glsld {
 
                 const SymbolInfo* type_symbol = nullptr;
 
-                if (name->qualifier_space != nullptr) {
-                    const auto found = name->qualifier_space->Lookup(name->leaf.text);
+                if (name->qualifier_scope) {
+                    const auto found = name->qualifier_scope.Lookup(name->leaf.text);
                     if (auto* single = std::get_if<const SymbolInfo*>(&found);
                         single != nullptr && IsTypeSymbol(*single))
                     {
@@ -1958,14 +2136,14 @@ namespace glsld {
     VariableExpressionNode* Parser::ParseVariableReference() {
         auto* node = MakeNode<VariableExpressionNode>(current_scope());
 
-        if (const auto name = ProbeName(); name.has_value() && name->qualifier_space != nullptr) {
+        if (const auto name = ProbeName(); name.has_value() && name->qualifier_scope) {
             node->begin           = name->begin;
             node->original_token  = name->leaf;
             node->name            = name->leaf.text;
-            node->qualifier_space = name->qualifier_space;
+            node->qualifier_scope = name->qualifier_scope;
             node->written_name    = document_.StoreTokenText(name->spelling);
 
-            const auto found = name->qualifier_space->Lookup(name->leaf.text);
+            const auto found = name->qualifier_scope.Lookup(name->leaf.text);
             if (auto* single = std::get_if<const SymbolInfo*>(&found);
                 single != nullptr && IsTypeSymbol(*single))
             {
@@ -2232,6 +2410,10 @@ namespace glsld {
     }
 
     DeclarationNode* Parser::ParseBlockBody(TypeSpec type_spec) {
+        if (type_spec.has_keyword("enum")) {
+            return ParseEnum(std::move(type_spec));
+        }
+
         std::string_view name;
         SourceLocation   name_location;
 

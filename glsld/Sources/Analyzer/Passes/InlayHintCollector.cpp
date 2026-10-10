@@ -5,6 +5,7 @@
 #include <format>
 #include <iterator>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <variant>
 
@@ -15,6 +16,7 @@
 namespace glsld {
     InlayHintCollector::InlayHintCollector(const Document& document)
         : AstVisitor(0, nullptr)
+        , document_(document)
     {
         Traverse(document.ast);
 
@@ -29,6 +31,39 @@ namespace glsld {
         return hints_;
     }
 
+    void InlayHintCollector::VisitNamespaceDeclaration(NamespaceDeclarationNode* node) {
+        if (node->alias_target.empty() && node->internal_scope != nullptr &&
+            node->declared_symbol != nullptr)
+        {
+            std::vector<std::string_view> parts;
+            for (const auto* space = document_.FindNamespace(node->declared_symbol);
+                 space != nullptr; space = space->parent)
+            {
+                if (space->symbol != nullptr) {
+                    parts.push_back(space->symbol->name);
+                }
+            }
+
+            std::string name;
+            for (auto part : parts | std::views::reverse) {
+                if (!name.empty()) {
+                    name += "::";
+                }
+                name += part;
+            }
+
+            if (!name.empty()) {
+                hints_.push_back({
+                    .location      = &node->end,
+                    .label         = " // namespace " + name,
+                    .padding_right = false
+                });
+            }
+        }
+
+        AstVisitor::VisitNamespaceDeclaration(node);
+    }
+
     void InlayHintCollector::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
         if (node->declared_symbol == nullptr || node->body == nullptr) {
             return;
@@ -37,11 +72,33 @@ namespace glsld {
         const auto func_name = Utils::UnmangleFunctionName(node->declared_symbol->name);
 
         hints_.push_back({
-            .location = &node->body->end,
-            .label    = std::format(" // {}", func_name)
+            .location      = &node->body->end,
+            .label         = std::format(" // {}", func_name),
+            .padding_right = false
         });
 
         AstVisitor::VisitFunctionDeclaration(node);
+    }
+
+    void InlayHintCollector::VisitVariableDeclaration(VariableDeclarationNode* node) {
+        const auto* symbol = node->declared_symbol;
+
+        if (node->type_spec.typename_token().text == "auto" &&
+            symbol != nullptr && symbol->node == node && symbol->type_info.is_valid())
+        {
+            const auto type_name = symbol->type_info.Format(true);
+            if (!type_name.empty()) {
+                hints_.push_back({
+                    .location      = &symbol->location,
+                    .label         = ": " + type_name,
+                    .offset        = static_cast<int>(symbol->name.size()),
+                    .kind          = 1,
+                    .padding_right = false
+                });
+            }
+        }
+
+        AstVisitor::VisitVariableDeclaration(node);
     }
 
     void InlayHintCollector::VisitInitializerListExpression(InitializerListExpressionNode* node) {
