@@ -80,6 +80,12 @@ namespace glsld {
         }
 
         bool CanPromoteSpecialFloat(const TypeDescriptor& src, const TypeDescriptor& dst) {
+            if (src.float_encoding == FloatEncoding::kBFloat16) { // bfloat16_t 可以隐式转换成 float/double，但是不能转换成 float16_t
+                return dst.family == BaseFamily::kFloat
+                    && dst.float_encoding == FloatEncoding::kStandard
+                    && (dst.bits == 32 || dst.bits == 64);
+            }
+
             if (src.float_encoding == FloatEncoding::kE2M1) {
                 return dst.float_encoding == FloatEncoding::kE4M3
                     || dst.float_encoding == FloatEncoding::kE5M2
@@ -102,6 +108,7 @@ namespace glsld {
 
         bool IsRestrictedFloat(const TypeDescriptor& desc) {
             switch (desc.float_encoding) {
+            case FloatEncoding::kBFloat16:
             case FloatEncoding::kE2M1:
             case FloatEncoding::kE3M2:
             case FloatEncoding::kE2M3:
