@@ -1,8 +1,13 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const grammarPath = fileURLToPath(new URL('../syntaxes/glsl.tmLanguage.json', import.meta.url));
 const lexicalRoot = new URL('../../glsld/Database/Lexicals/', import.meta.url);
+const metadataRoot = new URL('../../glsld/Database/Meta/', import.meta.url);
+
+function sortWords(words) {
+	return [...words].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+}
 
 async function readWords(relativePaths) {
 	const words = new Set();
@@ -12,7 +17,31 @@ async function readWords(relativePaths) {
 			if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(word)) { words.add(word); }
 		}
 	}
-	return [...words].sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+	return sortWords(words);
+}
+
+async function readOpaqueTypes(directory = metadataRoot) {
+	const words = new Set();
+	for (const entry of await readdir(directory, { withFileTypes: true })) {
+		const entryUrl = new URL(entry.name + (entry.isDirectory() ? '/' : ''), directory);
+		if (entry.isDirectory()) {
+			for (const word of await readOpaqueTypes(entryUrl)) { words.add(word); }
+		} else if (entry.isFile() && entry.name.endsWith('.glsl')) {
+			const source = await readFile(entryUrl, 'utf8');
+			// Ignore examples in comments and strings, preserving directive line boundaries.
+			const declarations = source.replace(
+				/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\/[^\r\n]*|\/\*[\s\S]*?\*\//gu,
+				text => text.replace(/[^\r\n]/gu, ' ')
+			);
+			for (const match of declarations.matchAll(/\bclass\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/gu)) {
+				words.add(match[1]);
+			}
+			for (const match of declarations.matchAll(/^\s*#\s*define\s+([A-Za-z_][A-Za-z0-9_]*)\s+spirv_type\s*\(/gmu)) {
+				words.add(match[1]);
+			}
+		}
+	}
+	return sortWords(words);
 }
 
 function escapeRegex(word) {
@@ -106,6 +135,7 @@ function installContexts(grammar) {
 			{ include: '#strings_and_numbers' },
 			{ include: '#attributes' },
 			{ include: '#layout_qualifiers' },
+			{ include: '#class_declarations' },
 			{ include: '#metadata_function_definitions' },
 			{ include: '#structures' },
 			{ include: '#compound_statement' },
@@ -119,10 +149,18 @@ function installContexts(grammar) {
 			{ include: '#strings_and_numbers' },
 			{ include: '#attributes' },
 			{ include: '#layout_qualifiers' },
+			{ include: '#class_declarations' },
 			{ include: '#structures' },
 			{ include: '#compound_statement' },
 			{ include: '#statement_tokens' }
 		]
+	};
+	grammar.repository.class_declarations = {
+		match: '\\b(class)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b',
+		captures: {
+			1: { name: 'storage.modifier.glsl' },
+			2: { name: 'entity.name.type.glsl' }
+		}
 	};
 	grammar.repository.statement_tokens = {
 		patterns: [
@@ -240,9 +278,9 @@ function installContexts(grammar) {
 }
 
 const builtinTypeSources = [
-	'Builtins/Arithmetics.txt',
-	'Builtins/Opaques.txt'
+	'Builtins/Arithmetics.txt'
 ];
+const opaqueTypeSources = ['Database/Meta/**/*.glsl (class declarations and spirv_type macros)'];
 
 const primitiveTypeSources = ['Primitives/Types.txt'];
 const keywordSources = ['Keywords/Meta.txt'];
@@ -250,7 +288,10 @@ const qualifierSources = ['Primitives/Qualifiers.txt'];
 const grammarSource = await readFile(grammarPath, 'utf8');
 const grammar = JSON.parse(grammarSource);
 
-const builtinTypes = await readWords(builtinTypeSources);
+const builtinTypes = sortWords(new Set([
+	...await readWords(builtinTypeSources),
+	...await readOpaqueTypes()
+]));
 const primitiveTypes = await readWords(primitiveTypeSources);
 const keywords = await readWords(keywordSources);
 const qualifiers = await readWords(qualifierSources);
@@ -260,10 +301,10 @@ for (const legacyRule of ['builtin_functions', 'builtin_variables', 'extended_ty
 }
 
 grammar.repository.metadata_types = {
-	comment: 'Generated from primitive and built-in Metadata type lists. Do not edit this rule manually.',
+	comment: 'Generated from lexical type lists and GLSL Metadata type declarations. Do not edit this rule manually.',
 	patterns: [
 		...buildRule('storage.type.glsl', primitiveTypes, primitiveTypeSources).patterns,
-		...buildRule('entity.name.type.glsl', builtinTypes, builtinTypeSources).patterns
+		...buildRule('entity.name.type.glsl', builtinTypes, [...builtinTypeSources, ...opaqueTypeSources]).patterns
 	]
 };
 grammar.repository.metadata_keywords = buildRule('keyword.control.glsl', keywords, keywordSources);
