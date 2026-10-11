@@ -18,11 +18,11 @@ spirv_capability(5353)
 #define hitAttributeEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5339)
 #endif
 
-#if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT) || defined(GL_CALLABLE_SHADER)
+#if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT) || defined(GL_CALLABLE_SHADER_EXT)
 #define callableDataEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5328)
 #endif
 
-#ifdef GL_CALLABLE_SHADER
+#ifdef GL_CALLABLE_SHADER_EXT
 #define callableDataInEXT spirv_storage_class(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], 5329)
 #endif
 
