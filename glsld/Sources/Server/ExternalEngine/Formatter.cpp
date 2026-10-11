@@ -49,7 +49,7 @@ namespace glsld {
         int  exit_code = -1;
         auto formatted = Utils::ExecuteCommand(command, filename.parent_path().generic_string(), source, 10'000, &exit_code);
 
-        if (exit_code != 0 && formatted.empty()) {
+        if (exit_code != 0 || formatted.empty()) {
             return {};
         }
 
