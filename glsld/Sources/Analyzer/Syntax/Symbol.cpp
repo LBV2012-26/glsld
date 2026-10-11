@@ -504,6 +504,35 @@ namespace glsld {
         }
     }
 
+    void DeduplicateFunctionOrigins(SymbolList& symbols) {
+        using Key = std::pair<SourceLocation, std::string_view>;
+
+        struct KeyHash {
+            std::size_t operator()(const Key& key) const {
+                auto hash = LocationHash{}(key.first);
+                HashCombine(hash, key.second);
+                return hash;
+            }
+        };
+
+        ankerl::unordered_dense::set<Key, KeyHash> seen;
+        seen.reserve(symbols.size());
+
+        std::erase_if(symbols, [&](const SymbolInfo* symbol) -> bool {
+            if (symbol == nullptr) {
+                return true;
+            }
+
+            if (symbol->location.source_file() == nullptr ||
+                symbol->location.line() == 0)
+            {
+                return false;
+            }
+
+            return !seen.emplace(symbol->location, std::string_view(symbol->name)).second;
+        });
+    }
+
     QualifiedScope::QualifiedScope(const NamespaceInfo* space)
         : target_{ space }
     {}
@@ -646,6 +675,8 @@ namespace glsld {
                 [](std::monostate) -> void {}
             }, result);
         }
+
+        DeduplicateFunctionOrigins(overloads);
 
         if (overloads.size() == 1) {
             return overloads.front();

@@ -221,6 +221,8 @@ namespace glsld {
     using SymbolListView      = std::span<const SymbolInfo* const>;
     using SymbolReferenceView = std::variant<std::monostate, const SymbolInfo*, SymbolListView>;
 
+    void DeduplicateFunctionOrigins(SymbolList& symbols);
+
     template <typename... Ts>
     struct Overloaded : Ts... {
         using Ts::operator()...;

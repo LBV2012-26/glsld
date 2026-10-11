@@ -188,6 +188,8 @@ namespace glsld {
             }
         }
 
+        DeduplicateFunctionOrigins(functions);
+
         if (functions.size() == 1)
             return functions.front();
         if (!functions.empty())

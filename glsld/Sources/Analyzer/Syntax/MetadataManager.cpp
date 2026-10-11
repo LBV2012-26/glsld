@@ -198,20 +198,20 @@ namespace glsld {
             PushIfExists("Database/Meta/BuiltinFunctions.glsl");
 
             static const StringHeteroHashMap<std::string> kMacroStages{
-                { "GL_VERTEX_SHADER",             "Vertex",         },
-                { "GL_FRAGMENT_SHADER",           "Fragment",       },
-                { "GL_TESS_CONTROL_SHADER",       "TessControl",    },
-                { "GL_TESS_EVALUATION_SHADER",    "TessEvaluation", },
-                { "GL_GEOMETRY_SHADER",           "Geometry",       },
-                { "GL_COMPUTE_SHADER",            "Compute",        },
-                { "GL_RAY_GENERATION_SHADER_EXT", "RayGeneration",  },
-                { "GL_INTERSECTION_SHADER_EXT",   "Intersection",   },
-                { "GL_ANY_HIT_SHADER_EXT",        "AnyHit",         },
-                { "GL_CLOSEST_HIT_SHADER_EXT",    "ClosestHit",     },
-                { "GL_MISS_SHADER_EXT",           "Miss",           },
-                { "GL_CALLABLE_SHADER_EXT",       "Callable",       },
-                { "GL_TASK_SHADER_EXT",           "Task",           },
-                { "GL_MESH_SHADER_EXT",           "Mesh",           }
+                { "GL_VERTEX_SHADER",                  "Vertex",         },
+                { "GL_FRAGMENT_SHADER",                "Fragment",       },
+                { "GL_TESSELLATION_CONTROL_SHADER",    "TessControl",    },
+                { "GL_TESSELLATION_EVALUATION_SHADER", "TessEvaluation", },
+                { "GL_GEOMETRY_SHADER",                "Geometry",       },
+                { "GL_COMPUTE_SHADER",                 "Compute",        },
+                { "GL_RAY_GENERATION_SHADER_EXT",      "RayGeneration",  },
+                { "GL_INTERSECTION_SHADER_EXT",        "Intersection",   },
+                { "GL_ANY_HIT_SHADER_EXT",             "AnyHit",         },
+                { "GL_CLOSEST_HIT_SHADER_EXT",         "ClosestHit",     },
+                { "GL_MISS_SHADER_EXT",                "Miss",           },
+                { "GL_CALLABLE_SHADER_EXT",            "Callable",       },
+                { "GL_TASK_SHADER_EXT",                "Task",           },
+                { "GL_MESH_SHADER_EXT",                "Mesh",           }
             };
 
             auto [injected_macros, version] = CollectRequestedExtensionsAndVersion(raw_tokens);
@@ -254,20 +254,20 @@ namespace glsld {
         target.InjectMacro("__FILE__");
 
         static const StringHeteroHashMap<std::string> kMacros{
-            { "vert",  "GL_VERTEX_SHADER"             },
-            { "frag",  "GL_FRAGMENT_SHADER"           },
-            { "comp",  "GL_COMPUTE_SHADER"            },
-            { "geom",  "GL_GEOMETRY_SHADER"           },
-            { "tesc",  "GL_TESS_CONTROL_SHADER"       },
-            { "tese",  "GL_TESS_EVALUATION_SHADER"    },
-            { "mesh",  "GL_MESH_SHADER_EXT"           },
-            { "task",  "GL_TASK_SHADER_EXT"           },
-            { "rgen",  "GL_RAY_GENERATION_SHADER_EXT" },
-            { "rahit", "GL_ANY_HIT_SHADER_EXT"        },
-            { "rchit", "GL_CLOSEST_HIT_SHADER_EXT"    },
-            { "rmiss", "GL_MISS_SHADER_EXT"           },
-            { "rint",  "GL_INTERSECTION_SHADER_EXT"   },
-            { "rcall", "GL_CALLABLE_SHADER_EXT"       },
+            { "vert",  "GL_VERTEX_SHADER"                  },
+            { "frag",  "GL_FRAGMENT_SHADER"                },
+            { "comp",  "GL_COMPUTE_SHADER"                 },
+            { "geom",  "GL_GEOMETRY_SHADER"                },
+            { "tesc",  "GL_TESSELLATION_CONTROL_SHADER"    },
+            { "tese",  "GL_TESSELLATION_EVALUATION_SHADER" },
+            { "mesh",  "GL_MESH_SHADER_EXT"                },
+            { "task",  "GL_TASK_SHADER_EXT"                },
+            { "rgen",  "GL_RAY_GENERATION_SHADER_EXT"      },
+            { "rahit", "GL_ANY_HIT_SHADER_EXT"             },
+            { "rchit", "GL_CLOSEST_HIT_SHADER_EXT"         },
+            { "rmiss", "GL_MISS_SHADER_EXT"                },
+            { "rint",  "GL_INTERSECTION_SHADER_EXT"        },
+            { "rcall", "GL_CALLABLE_SHADER_EXT"            },
         };
 
         static const StringHeteroHashMap<std::string> kStages{
