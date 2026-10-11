@@ -28,6 +28,9 @@ namespace glsld {
     using HandlerFunc = std::function<void(Context&)>;
 }
 
+#ifdef _DEBUG
+#define ABORT_IF_CANCELLED()
+#else
 #define ABORT_IF_CANCELLED()                                              \
     do {                                                                  \
         if (context.cancelled()) {                                        \
@@ -35,3 +38,4 @@ namespace glsld {
             return {};                                                    \
         }                                                                 \
     } while (false)
+#endif
