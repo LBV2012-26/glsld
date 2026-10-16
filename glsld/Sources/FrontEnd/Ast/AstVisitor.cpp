@@ -332,6 +332,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitIfStatement(IfStatementNode* node) {
+        if (node->init != nullptr) {
+            Traverse(node->init);
+        }
+
         if (node->condition != nullptr) {
             Traverse(node->condition);
         }
@@ -384,6 +388,10 @@ namespace glsld {
     }
 
     void AstVisitor::VisitSwitchStatement(SwitchStatementNode* node) {
+        if (node->init != nullptr) {
+            Traverse(node->init);
+        }
+
         if (node->condition != nullptr) {
             Traverse(node->condition);
         }

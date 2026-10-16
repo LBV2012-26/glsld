@@ -204,9 +204,10 @@ namespace glsld {
     };
 
     struct IfStatementNode final : public StatementNode {
-        ExpressionNode* condition{ nullptr };
-        StatementNode*  then_branch{ nullptr };
-        StatementNode*  else_branch{ nullptr };
+        StatementNode* init{ nullptr };
+        StatementNode* condition{ nullptr };
+        StatementNode* then_branch{ nullptr };
+        StatementNode* else_branch{ nullptr };
 
         using StatementNode::StatementNode;
         AstNodeKind kind() const override;
@@ -214,7 +215,7 @@ namespace glsld {
 
     struct ForStatementNode final : public StatementNode {
         StatementNode*  init{ nullptr };
-        ExpressionNode* condition{ nullptr };
+        StatementNode*  condition{ nullptr };
         ExpressionNode* iteration{ nullptr };
         StatementNode*  body{ nullptr };
 
@@ -223,23 +224,24 @@ namespace glsld {
     };
 
     struct WhileStatementNode final : public StatementNode {
-        ExpressionNode* condition{ nullptr };
-        StatementNode*  body{ nullptr };
+        StatementNode* condition{ nullptr };
+        StatementNode* body{ nullptr };
 
         using StatementNode::StatementNode;
         AstNodeKind kind() const override;
     };
 
     struct DoStatementNode final : public StatementNode {
-        StatementNode*  body{ nullptr };
-        ExpressionNode* condition{ nullptr };
+        StatementNode* body{ nullptr };
+        StatementNode* condition{ nullptr };
 
         using StatementNode::StatementNode;
         AstNodeKind kind() const override;
     };
 
     struct SwitchStatementNode final : public StatementNode {
-        ExpressionNode*             condition{ nullptr };
+        StatementNode* init{ nullptr };
+        StatementNode* condition{ nullptr };
         ArenaVector<StatementNode*> cases{ ArenaAllocator<StatementNode*>(arena) };
 
         using StatementNode::StatementNode;

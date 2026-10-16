@@ -2887,22 +2887,24 @@ namespace glsld::Providers {
             }
 
             title = std::format("**Enumerator** `{}`\n\n{}", symbol->name, BuildDefinedAt(symbol));
+            type_arrow = std::format("**Type** -> `{}`", FormatResolvedHoverType(symbol->type_info));
+
+            auto enumerator = symbol->name;
+            if (node->init != nullptr) {
+                const auto initializer = SerializeInitializer(node->init);
+                if (!initializer.empty()) {
+                    enumerator += " = " + initializer;
+                }
+            }
+
+            BuildDefinedDeclaration(symbol, enumerator, true);
 
             const auto value = node->value.has_value()
                 ? std::visit([](auto integer) -> std::string { return std::to_string(integer); }, *node->value)
                 : std::string("<unresolved>");
 
-            type_arrow = std::format("**Type** -> `{}`\n\n**Value** = `{}`", FormatResolvedHoverType(symbol->type_info), value);
+            declare += std::format("\n// Evaluates to\n{}", value);
 
-            auto declaration = symbol->name;
-            if (node->init != nullptr) {
-                const auto initializer = SerializeInitializer(node->init);
-                if (!initializer.empty()) {
-                    declaration += " = " + initializer;
-                }
-            }
-
-            BuildDefinedDeclaration(symbol, declaration, true);
             break;
         }
 

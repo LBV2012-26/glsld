@@ -230,9 +230,17 @@ namespace glsld {
 
         ++indent_level_;
 
-        PrintIndent();
-        std::print("Condition: ");
-        TraverseWithoutIndent(node->condition);
+        if (node->init != nullptr) {
+            PrintIndent();
+            std::print("Init: ");
+            TraverseWithoutIndent(node->init);
+        }
+
+        if (node->condition != nullptr) {
+            PrintIndent();
+            std::print("Condition: ");
+            TraverseWithoutIndent(node->condition);
+        }
 
         if (node->then_branch != nullptr) {
             PrintIndent();
@@ -335,6 +343,12 @@ namespace glsld {
         std::println("SwitchStatement {}", FormatRange(node));
 
         ++indent_level_;
+
+        if (node->init != nullptr) {
+            PrintIndent();
+            std::print("Init: ");
+            TraverseWithoutIndent(node->init);
+        }
 
         if (node->condition != nullptr) {
             PrintIndent();

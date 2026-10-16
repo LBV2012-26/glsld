@@ -228,6 +228,14 @@ namespace glsld {
             node = ParseScope();
             break;
         case TokenType::kOpenParen:
+        case TokenType::kNumberLiteral:
+        case TokenType::kStringLiteral:
+        case TokenType::kExclamation:
+        case TokenType::kPlus:
+        case TokenType::kMinus:
+        case TokenType::kPlusPlus:
+        case TokenType::kMinusMinus:
+        case TokenType::kTilde:
             node = ParseExpressionStatement();
             break;
         case TokenType::kSharp:
@@ -690,6 +698,13 @@ namespace glsld {
             if (context == TypeParseContext::kDeclarationPrefix && (token.text == "enum" || token.text == "class")) {
                 type_spec.specifiers.push_back(token);
                 ConsumeToken();
+
+                // enum struct/enum class
+                if (token.text == "enum" && (current_token().text == "class" || current_token().text == "struct")) {
+                    type_spec.specifiers.push_back(current_token());
+                    ConsumeToken();
+                }
+
                 break;
             }
 
@@ -1959,10 +1974,10 @@ namespace glsld {
         return node;
     }
 
-    ExpressionStatementNode* Parser::ParseExpressionStatement() {
+    ExpressionStatementNode* Parser::ParseExpressionStatement(Precedence precedence) {
         auto* node  = MakeNode<ExpressionStatementNode>(current_scope());
         node->begin = current_token().location;
-        node->expr  = ParseExpression(Precedence::kLowest);
+        node->expr  = ParseExpression(precedence);
 
         if (current_token().type == TokenType::kSemicolon) {
             node->end = GetCurrentTokenEnd();
@@ -2537,6 +2552,38 @@ namespace glsld {
         return nullptr;
     }
 
+    bool Parser::HasInitStatement() {
+        int depth = 0;
+        for (auto offset = 0uz; ; ++offset) {
+            switch (PeekToken(offset).type) {
+            case TokenType::kEndOfFile:
+                return false;
+
+            case TokenType::kSemicolon:
+                if (depth == 0)
+                    return true;
+                break;
+
+            case TokenType::kOpenParen:
+            case TokenType::kOpenBracket:
+            case TokenType::kOpenBrace:
+                ++depth;
+                break;
+
+            case TokenType::kCloseParen:
+            case TokenType::kCloseBracket:
+            case TokenType::kCloseBrace:
+                if (depth == 0)
+                    return false;
+                --depth;
+                break;
+
+            default:
+                break;
+            }
+        }
+    }
+
     IfStatementNode* Parser::ParseIfStatement() {
         // current token is "if"
         auto* node  = MakeNode<IfStatementNode>(current_scope());
@@ -2544,10 +2591,15 @@ namespace glsld {
         ConsumeToken();
 
         EnterScope(node->begin);
-
         MatchAndConsume(TokenType::kOpenParen);
-        node->condition = ParseExpression(Precedence::kLowest);
+
+        if (HasInitStatement()) {
+            node->init = ParseStatement();
+        }
+        node->condition = ParseStatement();
+
         MatchAndConsume(TokenType::kCloseParen);
+        node->end = GetPreviousTokenEnd();
 
         node->then_branch = ParseStatement();
 
@@ -2585,7 +2637,7 @@ namespace glsld {
         }
 
         if (current_token().type != TokenType::kSemicolon) {
-            node->condition = ParseExpression(Precedence::kLowest);
+            node->condition = ParseStatement();
         }
         MatchAndConsume(TokenType::kSemicolon);
 
@@ -2593,6 +2645,8 @@ namespace glsld {
             node->iteration = ParseExpression(Precedence::kLowest);
         }
         MatchAndConsume(TokenType::kCloseParen);
+
+        node->end = GetPreviousTokenEnd();
 
         node->body = ParseStatement();
         if (node->body->kind() != AstNodeKind::kNullStatement) {
@@ -2618,7 +2672,7 @@ namespace glsld {
         if (current_token().text == "while") {
             ConsumeToken();
             MatchAndConsume(TokenType::kOpenParen);
-            node->condition = ParseExpression(Precedence::kLowest);
+            node->condition = ParseStatement();
             MatchAndConsume(TokenType::kCloseParen);
         }
 
@@ -2639,8 +2693,9 @@ namespace glsld {
         EnterScope(node->begin);
 
         MatchAndConsume(TokenType::kOpenParen);
-        node->condition = ParseExpression(Precedence::kLowest);
+        node->condition = ParseStatement();
         MatchAndConsume(TokenType::kCloseParen);
+        node->end = GetPreviousTokenEnd();
 
         node->body = ParseStatement();
 
@@ -2661,13 +2716,18 @@ namespace glsld {
         node->begin = current_token().location;
         ConsumeToken();
 
+        EnterScope(node->begin);
         MatchAndConsume(TokenType::kOpenParen);
-        node->condition = ParseExpression(Precedence::kLowest);
+
+        if (HasInitStatement()) {
+            node->init = ParseStatement();
+        }
+        node->condition = ParseStatement();
+
         MatchAndConsume(TokenType::kCloseParen);
+        node->end = GetPreviousTokenEnd();
 
         if (MatchAndConsume(TokenType::kOpenBrace)) {
-            EnterScope(node->begin);
-
             while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseBrace) {
                 if (current_token().text == "case" || current_token().text == "default") {
                     node->cases.push_back(ParseCaseLabel());
@@ -2679,11 +2739,11 @@ namespace glsld {
             }
 
             node->end = GetCurrentTokenEnd();
-            node->internal_scope = current_scope();
             MatchAndConsume(TokenType::kCloseBrace);
-            LeaveScope(node->end);
         }
 
+        node->internal_scope = current_scope();
+        LeaveScope(node->end);
         return node;
     }
 

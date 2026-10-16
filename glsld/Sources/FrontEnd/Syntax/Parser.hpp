@@ -118,7 +118,7 @@ namespace glsld {
         bool TryParseTemplateDefinition();
 
         DeclarationGroupNode* ParseVariableDeclarationList(TypeSpec type_spec);
-        ExpressionStatementNode* ParseExpressionStatement();
+        ExpressionStatementNode* ParseExpressionStatement(Precedence precedence = Precedence::kLowest);
 
         bool IsCastExpression();
 
@@ -140,6 +140,9 @@ namespace glsld {
 
         DeclarationNode* ParseBlockBody(TypeSpec type_spec);
         StatementNode* ParseControlFlowStatement();
+
+        bool HasInitStatement();
+
         IfStatementNode* ParseIfStatement();
         ForStatementNode* ParseForStatement();
         DoStatementNode* ParseDoStatement();
