@@ -3,8 +3,8 @@
 
 #include <string>
 
-#include <Analyzer/Syntax/MetadataManager.hpp>
 #include <Base/Unicode.hpp>
+#include <FrontEnd/Syntax/MetadataManager.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

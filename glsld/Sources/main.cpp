@@ -14,17 +14,17 @@
 #include <Windows.h>
 #endif
 
-#include "Analyzer/Ast/AstDumper.hpp"
-#include "Analyzer/Passes/MacroBinder.hpp"
-#include "Analyzer/Passes/SymbolLinker.hpp"
-#include "Analyzer/Passes/TypeResolver.hpp"
-#include "Analyzer/Syntax/Document.hpp"
-#include "Analyzer/Syntax/Lexer.hpp"
-#include "Analyzer/Syntax/MetadataManager.hpp"
-#include "Analyzer/Syntax/Parser.hpp"
 #include "Base/FileSystem/Source.hpp"
 #include "Base/Arena.hpp"
 #include "Base/Logger.hpp"
+#include "FrontEnd/Ast/AstDumper.hpp"
+#include "FrontEnd/Passes/MacroBinder.hpp"
+#include "FrontEnd/Passes/SymbolLinker.hpp"
+#include "FrontEnd/Passes/TypeResolver.hpp"
+#include "FrontEnd/Syntax/Document.hpp"
+#include "FrontEnd/Syntax/Lexer.hpp"
+#include "FrontEnd/Syntax/MetadataManager.hpp"
+#include "FrontEnd/Syntax/Parser.hpp"
 #include "Server/LspServer.hpp"
 #include "Utils/Utils.hpp"
 

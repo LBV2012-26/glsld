@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Ast/AstVisitor.hpp>
-#include <Analyzer/Syntax/Document.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Ast/AstVisitor.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
 
 namespace glsld {
     class SymbolLinker final : public AstVisitor {

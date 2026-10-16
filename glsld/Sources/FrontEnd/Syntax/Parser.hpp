@@ -12,13 +12,13 @@
 
 #include <ankerl/unordered_dense.h>
 
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Syntax/Document.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
-#include <Analyzer/Syntax/Token.hpp>
 #include <Base/FileSystem/IncludeLoader.hpp>
 #include <Base/FileSystem/Source.hpp>
 #include <Base/Arena.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
+#include <FrontEnd/Syntax/Token.hpp>
 
 namespace glsld {
     class Parser {

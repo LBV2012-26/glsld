@@ -10,13 +10,13 @@
 #include <system_error>
 #include <utility>
 
-#include <Analyzer/Passes/MacroBinder.hpp>
-#include <Analyzer/Passes/SymbolLinker.hpp>
-#include <Analyzer/Passes/TypeResolver.hpp>
-#include <Analyzer/Syntax/Lexer.hpp>
-#include <Analyzer/Syntax/MetadataManager.hpp>
-#include <Analyzer/Syntax/Parser.hpp>
 #include <Base/Logger.hpp>
+#include <FrontEnd/Passes/MacroBinder.hpp>
+#include <FrontEnd/Passes/SymbolLinker.hpp>
+#include <FrontEnd/Passes/TypeResolver.hpp>
+#include <FrontEnd/Syntax/Lexer.hpp>
+#include <FrontEnd/Syntax/MetadataManager.hpp>
+#include <FrontEnd/Syntax/Parser.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

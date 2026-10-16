@@ -6,7 +6,7 @@
 #include <system_error>
 #include <utility>
 
-#include <Analyzer/Syntax/Lexer.hpp>
+#include <FrontEnd/Syntax/Lexer.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

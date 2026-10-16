@@ -9,8 +9,8 @@
 #include <string>
 #include <variant>
 
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

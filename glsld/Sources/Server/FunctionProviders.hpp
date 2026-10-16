@@ -10,11 +10,11 @@
 
 #include <nlohmann/json.hpp>
 
-#include <Analyzer/Passes/InlayHintCollector.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
-#include <Analyzer/Syntax/Document.hpp>
 #include <Base/FileSystem/Source.hpp>
 #include <Base/Unicode.hpp>
+#include <FrontEnd/Passes/InlayHintCollector.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 #include <Server/ExternalEngine/Formatter.hpp>
 #include <Server/Index/GlobalIndex.hpp>
 #include <Server/Context.hpp>

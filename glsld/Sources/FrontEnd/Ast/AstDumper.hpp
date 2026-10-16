@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Ast/AstVisitor.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Ast/AstVisitor.hpp>
 
 namespace glsld {
     class AstDumper final : public AstVisitor {

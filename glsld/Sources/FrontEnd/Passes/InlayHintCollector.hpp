@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include <Analyzer/Ast/AstVisitor.hpp>
-#include <Analyzer/Syntax/Document.hpp>
 #include <Base/FileSystem/Source.hpp>
+#include <FrontEnd/Ast/AstVisitor.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 
 namespace glsld {
     struct InlayHint {

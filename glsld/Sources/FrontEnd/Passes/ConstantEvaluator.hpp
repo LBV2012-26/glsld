@@ -12,9 +12,9 @@
 #include <vector>
 
 #include <ankerl/unordered_dense.h>
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Ast/AstVisitor.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Ast/AstVisitor.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
 
 namespace glsld {
     CallExpressionNode* FindLengthCall(MemberAccessExpressionNode* node);

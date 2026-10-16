@@ -23,8 +23,8 @@
 #include <unistd.h>
 #endif
 
-#include <Analyzer/Ast/Ast.hpp>
 #include <Base/Unicode.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
 
 namespace glsld::Utils {
     namespace {

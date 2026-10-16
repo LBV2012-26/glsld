@@ -6,8 +6,8 @@
 #include <ranges>
 #include <utility>
 
-#include <Analyzer/Syntax/Lexer.hpp>
 #include <Base/Hash.hpp>
+#include <FrontEnd/Syntax/Lexer.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

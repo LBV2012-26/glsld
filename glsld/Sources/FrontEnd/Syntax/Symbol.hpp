@@ -11,8 +11,8 @@
 #include <variant>
 #include <vector>
 
-#include <Analyzer/Syntax/Token.hpp>
 #include <Base/Hash.hpp>
+#include <FrontEnd/Syntax/Token.hpp>
 
 namespace glsld {
     enum class SymbolKind {

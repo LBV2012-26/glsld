@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Analyzer/Syntax/Document.hpp>
-#include <Analyzer/Syntax/Symbol.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
 
 namespace glsld {
     class MacroBinder {

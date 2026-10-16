@@ -12,13 +12,13 @@
 #include <utility>
 #include <vector>
 
-#include <Analyzer/Syntax/Document.hpp>
-#include <Analyzer/Syntax/Token.hpp>
 #include <Base/FileSystem/IncludeLoader.hpp>
 #include <Base/FileSystem/Source.hpp>
 #include <Base/Arena.hpp>
 #include <Base/Hash.hpp>
 #include <Base/ThreadPool.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
+#include <FrontEnd/Syntax/Token.hpp>
 
 namespace glsld {
     struct LexicalEntry {

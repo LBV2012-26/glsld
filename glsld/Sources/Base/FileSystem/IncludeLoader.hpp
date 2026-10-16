@@ -10,10 +10,10 @@
 #include <string_view>
 #include <vector>
 
-#include <Analyzer/Syntax/Token.hpp>
 #include <Base/FileSystem/Source.hpp>
 #include <Base/Hash.hpp>
 #include <Base/ThreadPool.hpp>
+#include <FrontEnd/Syntax/Token.hpp>
 
 namespace glsld {
     struct IncludeData {

@@ -5,9 +5,9 @@
 #include <string_view>
 #include <variant>
 
-#include <Analyzer/Syntax/Symbol.hpp>
-#include <Analyzer/Syntax/Token.hpp>
 #include <Base/Arena.hpp>
+#include <FrontEnd/Syntax/Symbol.hpp>
+#include <FrontEnd/Syntax/Token.hpp>
 
 namespace glsld {
     using ResolvedNamePart = std::pair<Token, const SymbolInfo*>;

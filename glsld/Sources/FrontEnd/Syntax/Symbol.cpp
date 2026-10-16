@@ -10,8 +10,8 @@
 
 #include <magic_enum/magic_enum_all.hpp>
 
-#include <Analyzer/Syntax/Document.hpp>
 #include <Base/Hash.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {

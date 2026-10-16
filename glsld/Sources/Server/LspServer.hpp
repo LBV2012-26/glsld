@@ -16,9 +16,9 @@
 #include <ankerl/unordered_dense.h>
 #include <nlohmann/json.hpp>
 
-#include <Analyzer/Syntax/Document.hpp>
 #include <Base/Hash.hpp>
 #include <Base/ThreadPool.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 #include <Server/ExternalEngine/DiagnosticEngine.hpp>
 #include <Server/ExternalEngine/Formatter.hpp>
 #include <Server/Context.hpp>

@@ -13,9 +13,9 @@
 #include <thread>
 #include <vector>
 
-#include <Analyzer/Syntax/Document.hpp>
 #include <Base/FileSystem/Source.hpp>
 #include <Base/Hash.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 
 namespace glsld {
     struct DiagnosticTask {

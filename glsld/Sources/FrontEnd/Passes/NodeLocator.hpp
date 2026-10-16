@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Analyzer/Ast/AstVisitor.hpp>
-#include <Analyzer/Syntax/Document.hpp>
+#include <FrontEnd/Ast/AstVisitor.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 
 namespace glsld {
     template <typename NodeType>

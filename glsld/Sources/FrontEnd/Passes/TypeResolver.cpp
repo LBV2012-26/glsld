@@ -13,10 +13,10 @@
 #include <utility>
 #include <variant>
 
-#include <Analyzer/Ast/Ast.hpp>
-#include <Analyzer/Passes/ConstantEvaluator.hpp>
-#include <Analyzer/Syntax/MetadataManager.hpp>
 #include <Base/Hash.hpp>
+#include <FrontEnd/Ast/Ast.hpp>
+#include <FrontEnd/Passes/ConstantEvaluator.hpp>
+#include <FrontEnd/Syntax/MetadataManager.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {
