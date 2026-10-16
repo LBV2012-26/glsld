@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="Sources\Analyzer\Syntax\Parser.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Symbol.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Lexer.cpp" />
     <ClCompile Include="Sources\Base\Logger.cpp" />
     <ClCompile Include="Sources\Base\ThreadPool.cpp" />
     <ClCompile Include="Sources\main.cpp" />
@@ -12,22 +9,10 @@
     <ClCompile Include="Sources\Server\LspServer.cpp" />
     <ClCompile Include="Sources\pch.cpp" />
     <ClCompile Include="Sources\Utils\Utils.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\AstVisitor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\AstDumper.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\NodeLocator.cpp" />
     <ClCompile Include="Sources\Server\FunctionProviders.cpp" />
     <ClCompile Include="Sources\Server\Workspace.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\SymbolLinker.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\TypeResolver.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\InlayHintCollector.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Preprocessor.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\MacroBinder.cpp" />
-    <ClCompile Include="Sources\Analyzer\Passes\ConstantEvaluator.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\IncludeLoader.cpp" />
     <ClCompile Include="Sources\Base\FileSystem\Source.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\MetadataManager.cpp" />
-    <ClCompile Include="Sources\Analyzer\Ast\Ast.cpp" />
-    <ClCompile Include="Sources\Analyzer\Syntax\Document.cpp" />
     <ClCompile Include="Sources\Base\Arena.cpp" />
     <ClCompile Include="Sources\Server\ExternalEngine\DiagnosticEngine.cpp" />
     <ClCompile Include="Sources\Server\Index\GlobalIndex.cpp" />
@@ -35,12 +20,23 @@
     <ClCompile Include="Sources\Server\ExternalEngine\Formatter.cpp" />
     <ClCompile Include="Sources\Base\Unicode.cpp" />
     <ClCompile Include="Sources\ExternalImpl\mimalloc-new-delete.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Ast\Ast.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Ast\AstDumper.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Ast\AstVisitor.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\ConstantEvaluator.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\InlayHintCollector.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\MacroBinder.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\NodeLocator.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\SymbolLinker.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Passes\TypeResolver.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\Document.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\Lexer.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\MetadataManager.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\Parser.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\Preprocessor.cpp" />
+    <ClCompile Include="Sources\FrontEnd\Syntax\Symbol.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\Analyzer\Syntax\Parser.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Symbol.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Lexer.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Token.hpp" />
     <ClInclude Include="Sources\Base\Logger.hpp" />
     <ClInclude Include="Sources\Base\ThreadPool.hpp" />
     <ClInclude Include="Sources\Server\Context.hpp" />
@@ -50,23 +46,11 @@
     <ClInclude Include="Sources\pch.hpp" />
     <ClInclude Include="Sources\Utils\Utils.hpp" />
     <ClInclude Include="Sources\xstdafx.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\Ast.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\AstVisitor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Ast\AstDumper.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\NodeLocator.hpp" />
     <ClInclude Include="Sources\Server\FunctionProviders.hpp" />
     <ClInclude Include="Sources\Server\Workspace.hpp" />
     <ClInclude Include="Sources\Base\Hash.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\SymbolLinker.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Document.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\TypeResolver.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\InlayHintCollector.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\Preprocessor.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\MacroBinder.hpp" />
-    <ClInclude Include="Sources\Analyzer\Passes\ConstantEvaluator.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\IncludeLoader.hpp" />
     <ClInclude Include="Sources\Base\FileSystem\Source.hpp" />
-    <ClInclude Include="Sources\Analyzer\Syntax\MetadataManager.hpp" />
     <ClInclude Include="Sources\Base\Arena.hpp" />
     <ClInclude Include="Sources\Server\ExternalEngine\DiagnosticEngine.hpp" />
     <ClInclude Include="Sources\Server\Index\GlobalIndex.hpp" />
@@ -74,20 +58,36 @@
     <ClInclude Include="Sources\Server\ExternalEngine\Formatter.hpp" />
     <ClInclude Include="Sources\Base\Unicode.hpp" />
     <ClInclude Include="Sources\Base\MathMeta.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Ast\Ast.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Ast\AstDumper.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Ast\AstVisitor.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\ConstantEvaluator.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\InlayHintCollector.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\MacroBinder.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\NodeLocator.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\SymbolLinker.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Passes\TypeResolver.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Document.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Lexer.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\MetadataManager.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Parser.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Preprocessor.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Symbol.hpp" />
+    <ClInclude Include="Sources\FrontEnd\Syntax\Token.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Sources\Base\ThreadPool.inl" />
     <None Include="vcpkg.json" />
-    <None Include="Sources\Analyzer\Syntax\Parser.inl" />
-    <None Include="Sources\Analyzer\Syntax\Symbol.inl" />
-    <None Include="Sources\Analyzer\Syntax\Preprocessor.inl" />
     <None Include="Sources\Base\FileSystem\Source.inl" />
     <None Include="Sources\Server\Workspace.inl" />
     <None Include="Sources\Utils\Utils.inl" />
-    <None Include="Sources\Analyzer\Passes\NodeLocator.inl" />
-    <None Include="Sources\Analyzer\Ast\Ast.inl" />
-    <None Include="Sources\Analyzer\Passes\ConstantEvaluator.inl" />
     <None Include="Sources\Base\Arena.inl" />
+    <None Include="Sources\FrontEnd\Ast\Ast.inl" />
+    <None Include="Sources\FrontEnd\Passes\ConstantEvaluator.inl" />
+    <None Include="Sources\FrontEnd\Passes\NodeLocator.inl" />
+    <None Include="Sources\FrontEnd\Syntax\Parser.inl" />
+    <None Include="Sources\FrontEnd\Syntax\Preprocessor.inl" />
+    <None Include="Sources\FrontEnd\Syntax\Symbol.inl" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="头文件">
@@ -96,8 +96,5 @@
     <Filter Include="源文件">
       <UniqueIdentifier>{d69adafd-6e2c-4924-aecd-7aec521cab30}</UniqueIdentifier>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="Assets\NoExpandHints.txt" />
   </ItemGroup>
 </Project>
