@@ -1631,6 +1631,8 @@ namespace glsld {
             }
 
             if (intrinsic == "spirv_instruction"    ||
+                intrinsic == "spirv_capability"     ||
+                intrinsic == "spirv_extension"      ||
                 intrinsic == "spirv_execution_mode" ||
                 intrinsic == "spirv_execution_mode_id")
             {
