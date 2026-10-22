@@ -1,4 +1,4 @@
-#define GL_KHR_shader_subgroup_basic 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_shader_subgroup_basic 1
 
 highp in uint gl_NumSubgroups;
 highp in uint gl_SubgroupID;

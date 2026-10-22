@@ -1,3 +1,3 @@
-#define GL_EXT_uniform_buffer_unsized_array 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_uniform_buffer_unsized_array 1
 
 

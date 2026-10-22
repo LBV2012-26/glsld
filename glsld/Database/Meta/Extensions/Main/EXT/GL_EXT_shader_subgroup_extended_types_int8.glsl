@@ -1,4 +1,4 @@
-#define GL_EXT_shader_subgroup_extended_types_int8 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_subgroup_extended_types_int8 1
 
 // GL_EXT_shader_subgroup_extended_types_int8 (I8/U8)
 // GLSL_EXT_shader_subgroup_extended_types: genI8/U8 overloads of subgroup built-ins,

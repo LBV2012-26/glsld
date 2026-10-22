@@ -1,4 +1,4 @@
-#define GL_KHR_shader_subgroup 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_shader_subgroup 1
 
 // Umbrella of the KHR_shader_subgroup family:
 // GL_KHR_shader_subgroup_basic, _vote, _arithmetic, _ballot,

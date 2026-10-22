@@ -1,5 +1,5 @@
 #if defined(GL_RAY_GENERATION_SHADER_EXT) || defined(GL_INTERSECTION_SHADER_EXT) || defined(GL_ANY_HIT_SHADER_EXT) || defined(GL_CLOSEST_HIT_SHADER_EXT) || defined(GL_MISS_SHADER_EXT) || defined(GL_CALLABLE_SHADER_EXT)
-#define GL_EXT_ray_tracing 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_ray_tracing 1
 
 spirv_extension("SPV_KHR_ray_tracing")
 spirv_capability(5353)
@@ -30,7 +30,7 @@ spirv_capability(5353)
 
 const uint gl_HitKindFrontFacingTriangleEXT = 0xFEU;
 const uint gl_HitKindBackFacingTriangleEXT  = 0xFFU;
-#if defined(GL_KHR_memory_scope_semantics)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_memory_scope_semantics)
 const int  gl_ScopeShaderCallEXT            = 6;
 #endif
 

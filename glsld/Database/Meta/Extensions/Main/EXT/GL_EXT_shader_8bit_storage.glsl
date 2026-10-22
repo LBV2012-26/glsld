@@ -1,4 +1,4 @@
-#define GL_EXT_shader_8bit_storage 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_8bit_storage 1
 
 // GL_EXT_shader_8bit_storage (defined by the GL_EXT_shader_16bit_storage document)
 

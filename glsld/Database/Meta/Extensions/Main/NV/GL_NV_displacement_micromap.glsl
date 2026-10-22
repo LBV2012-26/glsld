@@ -1,6 +1,6 @@
-#define GL_NV_displacement_micromap 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_displacement_micromap 1
 
-#define GL_EXT_ray_tracing
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_ray_tracing
 #include "../../Common/GL_EXT_ray_tracing_defines.glsl"
 
 in vec3 gl_HitMicroTriangleVertexPositionsNV[3];

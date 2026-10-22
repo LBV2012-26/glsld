@@ -1,4 +1,4 @@
-#define GL_EXT_float_e5m2 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_float_e5m2 1
 
 // GL_EXT_float_e5m2 (defined by the GL_EXT_float8_e5m2_e4m3 document)
 
@@ -32,7 +32,7 @@ fe5m2vec3 uintBitsToFloate5m2EXT(u8vec3 _Value);
 fe5m2vec4 uintBitsToFloate5m2EXT(u8vec4 _Value);
 
 // Saturated convert functions - floate5m2
-#if defined(GL_KHR_cooperative_matrix)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_cooperative_matrix)
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 
 void saturatedConvertEXT(out floate5m2_t _Result, float16_t _Value);

@@ -3,7 +3,7 @@
 // Decode function signatures remain wildcard _Func: their first parameter is an arbitrary
 // user-defined buffer_reference type and their uint array sizes depend on the tensor dimension.
 
-#define GL_NV_cooperative_matrix_decode_vector 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_cooperative_matrix_decode_vector 1
 
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 #include "GL_NV_cooperative_matrix2.glsl"

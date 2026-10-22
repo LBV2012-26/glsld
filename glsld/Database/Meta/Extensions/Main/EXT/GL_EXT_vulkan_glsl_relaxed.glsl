@@ -1,4 +1,4 @@
-#define GL_EXT_vulkan_glsl_relaxed 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_vulkan_glsl_relaxed 1
 
 #include "../KHR/GL_KHR_vulkan_glsl.glsl"
 

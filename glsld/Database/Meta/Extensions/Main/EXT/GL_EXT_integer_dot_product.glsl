@@ -1,4 +1,4 @@
-#define GL_EXT_integer_dot_product 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_integer_dot_product 1
 
 uint dotEXT(uvec2 a, uvec2 b);
 int dotEXT(ivec2 a, ivec2 b);

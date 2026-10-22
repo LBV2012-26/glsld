@@ -1,4 +1,4 @@
-#define GL_EXT_subgroup_uniform_control_flow 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_subgroup_uniform_control_flow 1
 
 // GL_EXT_subgroup_uniform_control_flow
 // No new functions, types, variables, or constants defined.

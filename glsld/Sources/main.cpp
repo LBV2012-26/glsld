@@ -51,17 +51,17 @@ namespace {
 
         Lexer lexer(source_file, shader_source, loader, include_dirs);
         auto lexer_start    = std::chrono::high_resolution_clock::now();
-        auto raw_tokens     = lexer.Tokenize();
+        document.raw_tokens = lexer.Tokenize();
         auto lexer_end      = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
         auto attach_start    = std::chrono::high_resolution_clock::now();
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, raw_tokens, include_dirs);
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, include_dirs);
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
         auto parse_start    = std::chrono::high_resolution_clock::now();
-        Parser parser(document, source_table, source_file, std::move(raw_tokens), loader, include_dirs, 0, nullptr);
+        Parser parser(document, source_table, source_file, loader, include_dirs, 0, nullptr);
         auto parse_end      = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 

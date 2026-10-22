@@ -1,4 +1,4 @@
-#define GL_EXT_shader_subgroup_extended_types_int64 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_subgroup_extended_types_int64 1
 
 // GL_EXT_shader_subgroup_extended_types_int64 (I64/U64)
 // GLSL_EXT_shader_subgroup_extended_types: genI64/U64 overloads of subgroup built-ins,

@@ -1,4 +1,4 @@
-#define GL_KHR_compute_shader_derivatives 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_compute_shader_derivatives 1
 
 // GL_KHR_compute_shader_derivatives
 // No new functions, types, variables, or constants defined.

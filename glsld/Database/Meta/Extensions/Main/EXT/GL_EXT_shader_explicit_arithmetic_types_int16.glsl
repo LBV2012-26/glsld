@@ -1,4 +1,4 @@
-#define GL_EXT_shader_explicit_arithmetic_types_int16 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_int16 1
 
 // Types (keyword additions):
 // int16_t, i16vec2, i16vec3, i16vec4

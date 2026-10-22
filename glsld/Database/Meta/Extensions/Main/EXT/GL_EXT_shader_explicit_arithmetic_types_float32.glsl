@@ -1,4 +1,4 @@
-#define GL_EXT_shader_explicit_arithmetic_types_float32 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_float32 1
 
 // Types (keyword additions):
 // float32_t, f32vec2, f32vec3, f32vec4

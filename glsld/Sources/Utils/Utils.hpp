@@ -24,6 +24,8 @@ namespace glsld::Utils {
     std::expected<std::vector<std::byte>, std::string> LoadBinary(const std::filesystem::path& filename);
     std::expected<std::string, std::string> LoadSource(const std::filesystem::path& filename);
 
+    std::vector<std::string> EnumerateExtensions();
+
     // String manipulation
     std::string_view UnmangleFunctionName(std::string_view mangled_name);
     void PrintIndent(int level);

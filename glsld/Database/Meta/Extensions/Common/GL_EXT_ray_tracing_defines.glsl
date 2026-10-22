@@ -1,11 +1,11 @@
 #ifndef GL_EXT_ray_tracing_defines
 #define GL_EXT_ray_tracing_defines
 
-#if defined(GL_EXT_ray_query) && !defined(GL_EXT_ray_tracing)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_query) && !defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_tracing)
 #define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_query"], capabilities = [4472], id = 5341)
-#elif !defined(GL_EXT_ray_query) && defined(GL_EXT_ray_tracing)
+#elif !defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_query) && defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_tracing)
 #define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
-#elif (defined(GL_EXT_ray_query) && defined(GL_EXT_ray_tracing)) || defined(GL_EXT_shader_invocation_reorder)
+#elif (defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_query) && defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_ray_tracing)) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_invocation_reorder)
 // capabilities 5353 implicit include 4472
 #define accelerationStructureEXT spirv_type(extensions = ["SPV_KHR_ray_tracing"], capabilities = [5353], id = 5341)
 #endif

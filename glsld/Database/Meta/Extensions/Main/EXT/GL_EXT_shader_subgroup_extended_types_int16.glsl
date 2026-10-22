@@ -1,4 +1,4 @@
-#define GL_EXT_shader_subgroup_extended_types_int16 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_subgroup_extended_types_int16 1
 
 // GL_EXT_shader_subgroup_extended_types_int16 (I16/U16)
 // GLSL_EXT_shader_subgroup_extended_types: genI16/U16 overloads of subgroup built-ins,

@@ -1,4 +1,4 @@
-#define GL_EXT_shader_atomic_int64 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_atomic_int64 1
 
 // GL_EXT_shader_atomic_int64
 

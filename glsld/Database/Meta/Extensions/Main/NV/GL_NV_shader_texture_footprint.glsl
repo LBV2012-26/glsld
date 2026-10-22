@@ -1,4 +1,4 @@
-#define GL_NV_shader_texture_footprint 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_shader_texture_footprint 1
 
 #include "../../../BuiltinTypes.glsl"
 
@@ -25,7 +25,7 @@ bool textureFootprintNV(sampler3D _Sampler, vec3 _Pos, int _Granularity, bool _C
 bool textureFootprintNV(isampler3D _Sampler, vec3 _Pos, int _Granularity, bool _Coarse, out gl_TextureFootprint3DNV _Footprint);
 bool textureFootprintNV(usampler3D _Sampler, vec3 _Pos, int _Granularity, bool _Coarse, out gl_TextureFootprint3DNV _Footprint);
 
-#if defined(GL_ARB_sparse_texture_clamp) || defined(GL_EXT_sparse_texture2)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_ARB_sparse_texture_clamp) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_sparse_texture2)
 bool textureFootprintClampNV(sampler2D _Sampler, vec2 _Pos, float _LodClamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 bool textureFootprintClampNV(isampler2D _Sampler, vec2 _Pos, float _LodClamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 bool textureFootprintClampNV(usampler2D _Sampler, vec2 _Pos, float _LodClamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
@@ -45,7 +45,7 @@ bool textureFootprintGradNV(sampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, i
 bool textureFootprintGradNV(isampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 bool textureFootprintGradNV(usampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 
-#if defined(GL_ARB_sparse_texture_clamp) || defined(GL_EXT_sparse_texture2)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_ARB_sparse_texture_clamp) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_sparse_texture2)
 bool textureFootprintGradClampNV(sampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, float _Lodclamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 bool textureFootprintGradClampNV(isampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, float _Lodclamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);
 bool textureFootprintGradClampNV(usampler2D _Sampler, vec2 _Pos, vec2 _Dx, vec2 _Dy, float _Lodclamp, int _Granularity, bool _Coarse, out gl_TextureFootprint2DNV _Footprint);

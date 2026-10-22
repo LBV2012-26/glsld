@@ -1,4 +1,4 @@
-#define GL_EXT_shader_tile_image 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_tile_image 1
 
 class attachmentEXT;
 class iattachmentEXT;

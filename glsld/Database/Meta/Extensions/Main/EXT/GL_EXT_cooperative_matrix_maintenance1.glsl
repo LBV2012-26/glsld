@@ -1,4 +1,4 @@
-#define GL_EXT_cooperative_matrix_maintenance1 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_cooperative_matrix_maintenance1 1
 
 // [Note] The "_Func" primitive is used for LSP placeholders of user-defined
 // combineOp / elemOp function arguments and should not be used directly in

@@ -1,4 +1,4 @@
-#define GL_NV_primitive_shading_rate 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_primitive_shading_rate 1
 
 out gl_PerVertex {
     int gl_ShadingRateNV;

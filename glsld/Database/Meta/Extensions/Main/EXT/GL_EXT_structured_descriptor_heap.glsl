@@ -4,4 +4,4 @@
 // embedding block types in heaps, and heap_offset/descriptor_size layout qualifiers.
 // No new functions, types, variables, or constants defined.
 
-#define GL_EXT_structured_descriptor_heap 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_structured_descriptor_heap 1

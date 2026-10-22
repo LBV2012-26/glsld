@@ -1,4 +1,4 @@
-#define GL_KHR_memory_scope_semantics 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_memory_scope_semantics 1
 
 #include "../../../BuiltinTypes.glsl"
 
@@ -39,7 +39,7 @@ int atomicExchange(inout int _Memory, int _Data, int _Scope, int _Storage, int _
 uint atomicCompSwap(inout uint _Memory, uint _Compare, uint _Data, int _Scope, int _StorageEqual, int _SemEqual, int _StorageUnequal, int _SemUnequal);
 int atomicCompSwap(inout int _Memory, int _Compare, int _Data, int _Scope, int _StorageEqual, int _SemEqual, int _StorageUnequal, int _SemUnequal);
 
-#if defined(GL_KHR_shader_atomic_int64) || defined(GL_EXT_shader_atomic_int64)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_shader_atomic_int64) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_atomic_int64)
 uint64_t atomicAdd(inout uint64_t _Memory, uint64_t _Data, int _Scope, int _Storage, int _Semantics);
 int64_t atomicAdd(inout int64_t _Memory, int64_t _Data, int _Scope, int _Storage, int _Semantics);
 uint64_t atomicMin(inout uint64_t _Memory, uint64_t _Data, int _Scope, int _Storage, int _Semantics);
@@ -60,14 +60,14 @@ int64_t atomicCompSwap(inout int64_t _Memory, int64_t _Compare, int64_t _Data, i
 
 uint atomicLoad(in uint _Memory, int _Scope, int _Storage, int _Semantics);
 int atomicLoad(in int _Memory, int _Scope, int _Storage, int _Semantics);
-#if defined(GL_KHR_shader_atomic_int64) || defined(GL_EXT_shader_atomic_int64)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_shader_atomic_int64) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_atomic_int64)
 uint64_t atomicLoad(in uint64_t _Memory, int _Scope, int _Storage, int _Semantics);
 int64_t atomicLoad(in int64_t _Memory, int _Scope, int _Storage, int _Semantics);
 #endif
 
 void atomicStore(out uint _Memory, uint _Data, int _Scope, int _Storage, int _Semantics);
 void atomicStore(out int _Memory, int _Data, int _Scope, int _Storage, int _Semantics);
-#if defined(GL_KHR_shader_atomic_int64) || defined(GL_EXT_shader_atomic_int64)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_shader_atomic_int64) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_atomic_int64)
 void atomicStore(out uint64_t _Memory, uint64_t _Data, int _Scope, int _Storage, int _Semantics);
 void atomicStore(out int64_t _Memory, int64_t _Data, int _Scope, int _Storage, int _Semantics);
 #endif

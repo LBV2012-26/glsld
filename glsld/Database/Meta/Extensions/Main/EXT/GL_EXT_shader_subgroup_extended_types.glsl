@@ -1,4 +1,4 @@
-#define GL_EXT_shader_subgroup_extended_types 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_subgroup_extended_types 1
 
 // Umbrella document "GLSL_EXT_shader_subgroup_extended_types".
 // Its name strings are the four sub-extensions below.

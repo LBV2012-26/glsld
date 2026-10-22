@@ -1656,22 +1656,10 @@ namespace glsld::Providers {
             return {};
         }
 
-        const auto root = Utils::GetFilePath("Database/Meta/Extensions/Main");
-        std::error_code ec;
         nlohmann::json items = nlohmann::json::array();
+        auto results = Utils::EnumerateExtensions();
 
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(root, ec)) {
-            ABORT_IF_CANCELLED();
-
-            if (ec || !entry.is_regular_file()) {
-                continue;
-            }
-
-            const auto name = entry.path().stem().generic_string();
-            if (name.empty()) {
-                continue;
-            }
-
+        for (const auto& name : results) {
             nlohmann::json item;
             item["label"] = name;
             item["kind"]  = 9; // Module

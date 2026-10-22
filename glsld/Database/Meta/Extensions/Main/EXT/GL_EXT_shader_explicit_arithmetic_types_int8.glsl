@@ -1,4 +1,4 @@
-#define GL_EXT_shader_explicit_arithmetic_types_int8 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_int8 1
 
 // Types (keyword additions):
 // int8_t, i8vec2, i8vec3, i8vec4

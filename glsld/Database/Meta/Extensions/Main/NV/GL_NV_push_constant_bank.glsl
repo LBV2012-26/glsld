@@ -1,1 +1,1 @@
-#define GL_NV_push_constant_bank 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_push_constant_bank 1

@@ -1,4 +1,4 @@
-#define GL_EXT_float_e2m1 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_float_e2m1 1
 
 #include "../../Common/GL_EXT_long_vector_defines.glsl"
 
@@ -22,7 +22,7 @@ vector<floate2m1_t, 16> unpackFloat16xfe2m1EXT(uvec2 _Value);
 uint8_t packFloat2xfe2m1EXT(fe2m1vec2 _Value);
 uint16_t packFloat4xfe2m1EXT(fe2m1vec4 _Value);
 
-#if defined(GL_EXT_long_vector)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_long_vector)
 uint packFloat8xfe2m1EXT(vector<floate2m1_t, 8> _Value);
 uvec2 packFloat16xfe2m1EXT(vector<floate2m1_t, 16> _Value);
 #endif

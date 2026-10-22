@@ -1,4 +1,4 @@
-#define GL_EXT_ray_query 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_ray_query 1
 
 #include "../../Common/GL_EXT_ray_query_defines.glsl"
 #include "../../Common/GL_EXT_ray_tracing_defines.glsl"

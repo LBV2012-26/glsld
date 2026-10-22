@@ -1,7 +1,7 @@
 // [Note] The "_Func" primitive is used for LSP placeholders
 // and should not be used directly in shader code.
 
-#define GL_NV_cooperative_matrix2 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_cooperative_matrix2 1
 
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 #include "../../Common/GL_NV_cooperative_matrix2_defines.glsl"

@@ -71,7 +71,7 @@ namespace glsld {
             std::string_view version{ "460" };
         };
 
-        MacroCollectResult CollectRequestedExtensionsAndVersion(std::span<const Token> raw_tokens) {
+        MacroCollectResult CollectRequestedExtensionsAndVersion(Document& document) {
             MacroCollectResult result;
 
             auto InjectMacro = [&injected_macros = result.injected_macros](std::string_view name) -> void {
@@ -88,7 +88,7 @@ namespace glsld {
                 });
             };
 
-            InjectMacro("GL_KHR_vulkan_glsl");
+            InjectMacro("__GLSLD_EXTENSION_ENABLED_GL_KHR_vulkan_glsl");
 
             static const StringHeteroHashMap<std::string> kStageMacros{
                 { "vertex",      "GL_VERTEX_SHADER"             },
@@ -106,6 +106,8 @@ namespace glsld {
                 { "task",        "GL_TASK_SHADER_EXT"           },
                 { "mesh",        "GL_MESH_SHADER_EXT"           }
             };
+
+            const auto& raw_tokens = document.raw_tokens;
 
             for (auto i = 0uz; i != raw_tokens.size(); ++i) {
                 if (raw_tokens[i].type != TokenType::kSharp) {
@@ -139,7 +141,9 @@ namespace glsld {
                 {
                     const auto& action = raw_tokens[j + 3];
                     if (action.text == "enable" || action.text == "require" || action.text == "warn") {
-                        InjectMacro(raw_tokens[j + 1].text);
+                        const auto macro_name = std::format("__GLSLD_EXTENSION_ENABLED_{}", raw_tokens[j + 1].text);
+                        const auto name_view  = document.StoreTokenText(macro_name);
+                        InjectMacro(name_view);
                     }
 
                     i = j + 3;
@@ -185,7 +189,7 @@ namespace glsld {
             MacroCollectResult                 macro_collect_result;
         };
 
-        CollectResult CollectRequiredMetadataFiles(std::span<const Token> raw_tokens) {
+        CollectResult CollectRequiredMetadataFiles(Document& document) {
             std::vector<std::filesystem::path> required_files;
 
             auto PushIfExists = [&required_files](std::string_view relative_path) {
@@ -214,13 +218,13 @@ namespace glsld {
                 { "GL_MESH_SHADER_EXT",                "Mesh",           }
             };
 
-            auto [injected_macros, version] = CollectRequestedExtensionsAndVersion(raw_tokens);
+            auto [injected_macros, version] = CollectRequestedExtensionsAndVersion(document);
             for (const auto& [name, _] : injected_macros) {
                 auto it = kMacroStages.find(name);
                 if (it != kMacroStages.end()) { // shader_stage
                     PushIfExists(std::format("Database/Meta/BuiltinVariables/{}.glsl", it->second));
                 } else {
-                    PushIfExists(ResolveExtensionFilename(name));
+                    PushIfExists(ResolveExtensionFilename(name.starts_with("__GLSLD_EXTENSION_ENABLED_") ? name.substr(26) : name));
                 }
             }
 
@@ -245,7 +249,6 @@ namespace glsld {
     void MetadataManager::AttachBuiltinMetadata(
         Document& target,
         std::optional<std::string> shader_stage,
-        std::span<const Token> raw_tokens,
         IncludeDirectoryHandle include_dirs)
     {
         target.InjectMacro("_GLSLD");
@@ -287,7 +290,7 @@ namespace glsld {
             { "rcall", "Callable"       },
         };
 
-        auto [required_files, macro_collect_result] = CollectRequiredMetadataFiles(raw_tokens);
+        auto [required_files, macro_collect_result] = CollectRequiredMetadataFiles(target);
         const auto [injected_macros, version]       = std::move(macro_collect_result);
 
         target.InjectMacro(MacroDefinition{
@@ -328,6 +331,11 @@ namespace glsld {
 
         for (auto [_, definition] : injected_macros) {
             target.InjectMacro(std::move(definition));
+        }
+
+        const auto extension_macros = Utils::EnumerateExtensions();
+        for (const auto& extension_macro : extension_macros) {
+            target.InjectMacro(extension_macro);
         }
 
         for (const auto& path : required_files) {
@@ -592,9 +600,9 @@ namespace glsld {
 
         const auto* source_file = source_table_.Intern(filename, uri);
         Lexer lexer(source_file, document->source, include_loader_, include_dirs);
-        auto raw_tokens = lexer.Tokenize();
+        document->raw_tokens = lexer.Tokenize();
 
-        Parser parser(*document, source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs, 0, nullptr);
+        Parser parser(*document, source_table_, source_file, include_loader_, include_dirs, 0, nullptr);
 
         if (document->ast == nullptr) {
             return nullptr;

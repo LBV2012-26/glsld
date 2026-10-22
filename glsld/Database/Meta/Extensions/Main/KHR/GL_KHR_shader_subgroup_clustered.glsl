@@ -1,4 +1,4 @@
-#define GL_KHR_shader_subgroup_clustered 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_shader_subgroup_clustered 1
 
 // Enabling this extension implicitly enables GL_KHR_shader_subgroup_basic.
 #include "GL_KHR_shader_subgroup_basic.glsl"

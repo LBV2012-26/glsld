@@ -1,4 +1,4 @@
-#define GL_EXT_shader_16bit_storage 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_16bit_storage 1
 
 // Umbrella document "GL_EXT_shader_16bit_storage" defines:
 //   GL_EXT_shader_16bit_storage and GL_EXT_shader_8bit_storage.

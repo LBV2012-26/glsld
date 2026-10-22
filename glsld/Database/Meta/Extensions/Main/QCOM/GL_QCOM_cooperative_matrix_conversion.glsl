@@ -1,4 +1,4 @@
-#define GL_QCOM_cooperative_matrix_conversion 1
+#define __GLSLD_EXTENSION_ENABLED_GL_QCOM_cooperative_matrix_conversion 1
 
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 #include "../EXT/GL_EXT_shader_explicit_arithmetic_types.glsl"

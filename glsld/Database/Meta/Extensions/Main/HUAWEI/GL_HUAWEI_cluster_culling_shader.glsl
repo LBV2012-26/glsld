@@ -1,4 +1,4 @@
-#define GL_HUAWEI_cluster_culling_shader 1
+#define __GLSLD_EXTENSION_ENABLED_GL_HUAWEI_cluster_culling_shader 1
 
 // GL_HUAWEI_cluster_culling_shader
 // Output interface block

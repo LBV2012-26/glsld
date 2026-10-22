@@ -1,4 +1,4 @@
-#define GL_EXT_fragment_shading_rate 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_fragment_shading_rate 1
 
 out int gl_PrimitiveShadingRateEXT;
 in  int gl_ShadingRateEXT;

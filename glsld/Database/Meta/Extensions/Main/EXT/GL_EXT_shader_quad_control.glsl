@@ -1,4 +1,4 @@
-#define GL_EXT_shader_quad_control 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_quad_control 1
 
 #include "GL_EXT_maximal_reconvergence.glsl"
 #include "../KHR/GL_KHR_shader_subgroup.glsl"

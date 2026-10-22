@@ -1,4 +1,4 @@
-#define GL_EXT_shader_explicit_arithmetic_types_int64 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_int64 1
 
 // Types (keyword additions):
 // int64_t, i64vec2, i64vec3, i64vec4

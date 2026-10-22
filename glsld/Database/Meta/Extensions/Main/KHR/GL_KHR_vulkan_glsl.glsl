@@ -1,4 +1,4 @@
-#define GL_KHR_vulkan_glsl 1
+#define __GLSLD_EXTENSION_ENABLED_GL_KHR_vulkan_glsl 1
 
 in int gl_VertexIndex;
 in int gl_InstanceIndex;

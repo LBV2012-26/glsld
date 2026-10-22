@@ -1,4 +1,4 @@
-#define GL_EXT_shader_explicit_arithmetic_types 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types 1
 
 // Umbrella document "GLSL_EXT_shader_explicit_arithmetic_types" defines:
 //   GL_EXT_shader_explicit_arithmetic_types, _int8, _int16, _int32, _int64,

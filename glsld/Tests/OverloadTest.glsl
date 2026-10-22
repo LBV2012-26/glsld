@@ -193,7 +193,7 @@ void OverloadFunction(_Func<void(_Func<void(float)>)> NestedFunc);
 void OverloadFunction(_Func<void(coopmat<float, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA>)> CoopMatFunc);
 void OverloadFunction(_Func<coopmat<float, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator>(coopmat<float32_t, gl_ScopeSubgroup, 32, 32, gl_MatrixUseAccumulator>)> CoopMatTransformFunc);
 void OverloadFunction(_Func<void(coopmat<float16_t, gl_ScopeSubgroup, 8, 16, gl_MatrixUseA>, coopmat<float16_t, gl_ScopeSubgroup, 16, 8, gl_MatrixUseB>)> CoopMatPairFunc);
-void OverloadFunction(_Func<bool(coopmat)> BareCoopMatFunc);
+void OverloadFunction(_Func<bool(coopmat<float16_t, gl_ScopeSubgroup, 4, 4, gl_MatrixUseAccumulator)> BareCoopMatFunc);
 
 void BoolFunc(bool);
 void VoidFunc();
@@ -1219,6 +1219,9 @@ void main() {
         mat4      float4x4;
         OuterData Outer;
     } MyStruct;
+
+    auto s = MyStruct;
+    s.Outer.Middle.Inner.float3;
 
     OverloadFunction(MyStruct.Int);
     OverloadFunction(MyStruct.float4);

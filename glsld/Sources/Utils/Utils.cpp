@@ -168,6 +168,28 @@ namespace glsld::Utils {
         return Unicode::SanitizeUtf8(source);
     }
 
+    std::vector<std::string> EnumerateExtensions() {
+        const auto root = Utils::GetFilePath("Database/Meta/Extensions/Main");
+        std::error_code ec;
+
+        std::vector<std::string> results;
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(root, ec)) {
+            if (ec || !entry.is_regular_file()) {
+                continue;
+            }
+
+            auto name = entry.path().stem().generic_string();
+            if (name.empty()) {
+                continue;
+            }
+
+            results.push_back(std::move(name));
+        }
+
+        return results;
+    }
+
     std::string_view UnmangleFunctionName(std::string_view mangled_name) {
         auto raw_name = mangled_name;
         // __Impl_main(void) -> main

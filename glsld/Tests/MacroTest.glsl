@@ -279,3 +279,17 @@ F12(G1(a, b), c
         REGISTER_INTEGER_OVERLOADS("bitfieldReverse", MathMeta::BitfieldReverse);
         REGISTER_INTEGER_OVERLOADS("bitfieldExtract", MathMeta::BitfieldExtract);
         REGISTER_INTEGER_OVERLOADS("bitfieldInsert", MathMeta::BitfieldInsert);
+
+#define _STD_BEGIN namespace std {
+#define _STD_END }
+
+#define OPEN_BRACE {
+#define CLOSE_BRACE }
+
+_STD_BEGIN
+void Fn();
+_STD_END
+
+void main() OPEN_BRACE
+    ::std::Fn();
+CLOSE_BRACE

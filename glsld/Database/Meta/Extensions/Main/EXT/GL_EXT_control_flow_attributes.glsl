@@ -1,4 +1,4 @@
-#define GL_EXT_control_flow_attributes 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_control_flow_attributes 1
 
 // GL_EXT_control_flow_attributes
 // No new functions, types, variables, or constants defined.

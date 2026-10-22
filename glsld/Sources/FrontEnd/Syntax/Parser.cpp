@@ -18,14 +18,12 @@ namespace glsld {
     Parser::Parser(Document& document,
                    SourceTable& source_table,
                    const SourceFile* source_file,
-                   std::vector<Token> raw_tokens,
                    IncludeLoader& include_loader,
                    IncludeDirectoryHandle include_dirs,
                    int version_replica,
                    VersionPointer version_pointer)
 
         : source_file_{ source_file }
-        , raw_tokens_{ std::move(raw_tokens) }
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
         , document_{ document }
@@ -156,7 +154,7 @@ namespace glsld {
         IncludeLoader& include_loader,
         IncludeDirectoryHandle include_dirs)
     {
-        Preprocessor processor(document_, source_table, source_file_, include_loader, include_dirs, raw_tokens_);
+        Preprocessor processor(document_, source_table, source_file_, include_loader, include_dirs, document_.raw_tokens);
         expanded_tokens_ = processor.Process();
 
         document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
@@ -168,10 +166,8 @@ namespace glsld {
         }
 
         document_.ast             = ast_root;
-        document_.raw_tokens      = std::move(raw_tokens_);
+        document_.ast->pprefs     = std::move(pprefs_);
         document_.expanded_tokens = std::move(expanded_tokens_);
-
-        document_.ast->pprefs = std::move(pprefs_);
     }
 
     template <typename NodeType, typename... Types>

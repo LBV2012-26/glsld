@@ -1,4 +1,4 @@
-#define GL_EXT_float_mxint8 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_float_mxint8 1
 
 // GL_EXT_float_mxint8 (defined by the GL_EXT_ocp_microscaling_types document)
 

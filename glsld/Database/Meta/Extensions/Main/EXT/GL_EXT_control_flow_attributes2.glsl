@@ -1,4 +1,4 @@
-#define GL_EXT_control_flow_attributes2 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_control_flow_attributes2 1
 
 #include "GL_EXT_control_flow_attributes.glsl"
 

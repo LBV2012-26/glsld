@@ -1,4 +1,4 @@
-#define GL_EXT_bfloat16 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_bfloat16 1
 
 // GL_EXT_bfloat16
 
@@ -35,7 +35,7 @@ bf16vec2 uintBitsToBFloat16EXT(u16vec2 _Value);
 bf16vec3 uintBitsToBFloat16EXT(u16vec3 _Value);
 bf16vec4 uintBitsToBFloat16EXT(u16vec4 _Value);
 
-#if defined(GL_KHR_cooperative_matrix)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_cooperative_matrix)
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 
 // Cooperative matrix load/store overloads for bfloat16 types

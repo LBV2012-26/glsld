@@ -1,4 +1,4 @@
-#define GL_EXT_terminate_invocation 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_terminate_invocation 1
 
 #include "../KHR/GL_KHR_vulkan_glsl.glsl"
 

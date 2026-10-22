@@ -31,7 +31,6 @@ namespace glsld {
         void AttachBuiltinMetadata(
             Document& target,
             std::optional<std::string> shader_stage,
-            std::span<const Token> raw_tokens,
             IncludeDirectoryHandle include_dirs);
 
         void InvalidateMetadata(Document& document);

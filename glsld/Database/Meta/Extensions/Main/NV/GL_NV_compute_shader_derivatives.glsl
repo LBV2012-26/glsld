@@ -1,1 +1,1 @@
-#define GL_NV_compute_shader_derivatives 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_compute_shader_derivatives 1

@@ -26,7 +26,6 @@ namespace glsld {
         Parser(Document& document,
                SourceTable& source_table,
                const SourceFile* source_file,
-               std::vector<Token> raw_tokens,
                IncludeLoader& include_loader,
                IncludeDirectoryHandle include_dirs,
                int version_replica,
@@ -173,7 +172,6 @@ namespace glsld {
 
         Document&                               document_;
         const SourceFile*                       source_file_;
-        std::vector<Token>                      raw_tokens_;
         std::vector<Token>                      expanded_tokens_;
         ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(*document_.arena) };
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;

@@ -1,4 +1,4 @@
-#define GL_EXT_ocp_microscaling_types 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_ocp_microscaling_types 1
 
 // Umbrella document "GL_EXT_ocp_microscaling_types" (OCP Microscaling Formats).
 // Its name strings are the five sub-extensions below.

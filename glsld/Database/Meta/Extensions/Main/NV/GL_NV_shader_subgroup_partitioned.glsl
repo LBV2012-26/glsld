@@ -1,4 +1,4 @@
-#define GL_NV_shader_subgroup_partitioned 1
+#define __GLSLD_EXTENSION_ENABLED_GL_NV_shader_subgroup_partitioned 1
 
 #include "../KHR/GL_KHR_shader_subgroup.glsl"
 

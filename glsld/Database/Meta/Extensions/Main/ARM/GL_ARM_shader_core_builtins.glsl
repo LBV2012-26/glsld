@@ -1,4 +1,4 @@
-#define GL_ARM_shader_core_builtins 1
+#define __GLSLD_EXTENSION_ENABLED_GL_ARM_shader_core_builtins 1
 
 in uint gl_CoreIDARM;
 in uint gl_CoreCountARM;

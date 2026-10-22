@@ -1,4 +1,4 @@
-#define GL_EXT_float8_e5m2_e4m3 1
+#define __GLSLD_EXTENSION_ENABLED_GL_EXT_float8_e5m2_e4m3 1
 
 // Umbrella document "EXT_float8_e5m2_e4m3" defines:
 //   GL_EXT_float_e5m2 and GL_EXT_float_e4m3.
@@ -8,7 +8,7 @@
 
 // Saturated convert for cooperative matrix types
 // valid if the result type is constructible from the value type
-#if defined(GL_KHR_cooperative_matrix)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_KHR_cooperative_matrix)
 #include "../../Common/GL_KHR_cooperative_matrix_defines.glsl"
 void saturatedConvertEXT(out coopmat _Result, coopmat _Value);
 #endif

@@ -290,8 +290,8 @@ namespace glsld {
         VersionPointer version_pointer)
     {
         Lexer lexer(source_file, source, include_loader_, include_dirs_);
-        auto raw_tokens = lexer.Tokenize(version_replica, version_pointer);
-        if (raw_tokens.empty()) {
+        document.raw_tokens = lexer.Tokenize(version_replica, version_pointer);
+        if (document.raw_tokens.empty()) {
             return;
         }
 
@@ -306,7 +306,7 @@ namespace glsld {
             }
         }
 
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, shader_stage, raw_tokens, include_dirs_);
+        MetadataManager::GetInstance().AttachBuiltinMetadata(document, shader_stage, include_dirs_);
 
         {
             std::shared_lock lock(variant_mutex_);
@@ -324,7 +324,7 @@ namespace glsld {
             }
         }
 
-        Parser parser(document, source_table_, source_file, std::move(raw_tokens), include_loader_, include_dirs_, version_replica, version_pointer);
+        Parser parser(document, source_table_, source_file, include_loader_, include_dirs_, version_replica, version_pointer);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
                 GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",

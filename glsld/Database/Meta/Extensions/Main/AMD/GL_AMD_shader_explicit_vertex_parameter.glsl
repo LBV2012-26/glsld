@@ -1,5 +1,5 @@
 #if defined(GL_FRAGMENT_SHADER)
-#define GL_AMD_shader_explicit_vertex_parameter 1
+#define __GLSLD_EXTENSION_ENABLED_GL_AMD_shader_explicit_vertex_parameter 1
 
 spirv_decorate(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], 11, 4992)
 in vec2 gl_BaryCoordNoPerspAMD;
@@ -27,7 +27,7 @@ vec3 interpolateAtVertexAMD(vec3 _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 vec4 interpolateAtVertexAMD(vec4 _Interpolant, uint _VertexIndex);
 
-#if defined(GL_AMD_gpu_shader_half_float) || defined(GL_EXT_shader_explicit_arithmetic_types_float16)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_AMD_gpu_shader_half_float) || defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_float16)
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 float16_t interpolateAtVertexAMD(float16_t _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
@@ -47,7 +47,7 @@ uvec3 interpolateAtVertexAMD(uvec3 _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 uvec4 interpolateAtVertexAMD(uvec4 _Interpolant, uint _VertexIndex);
 
-#if defined(GL_EXT_shader_explicit_arithmetic_types_int16)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_int16)
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 uint16_t interpolateAtVertexAMD(uint16_t _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
@@ -67,7 +67,7 @@ ivec3 interpolateAtVertexAMD(ivec3 _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 ivec4 interpolateAtVertexAMD(ivec4 _Interpolant, uint _VertexIndex);
 
-#if defined(GL_EXT_shader_explicit_arithmetic_types_int16)
+#if defined(__GLSLD_EXTENSION_ENABLED_GL_EXT_shader_explicit_arithmetic_types_int16)
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
 int16_t interpolateAtVertexAMD(int16_t _Interpolant, uint _VertexIndex);
 spirv_instruction(extensions = ["SPV_AMD_shader_explicit_vertex_parameter"], set = "SPV_AMD_shader_explicit_vertex_parameter", id = 1)
