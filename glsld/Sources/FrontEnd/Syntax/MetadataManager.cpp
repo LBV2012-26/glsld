@@ -138,7 +138,7 @@ namespace glsld {
                     raw_tokens[j + 2].type == TokenType::kColon)
                 {
                     const auto& action = raw_tokens[j + 3];
-                    if (action.text == "enable" || action.text == "require") {
+                    if (action.text == "enable" || action.text == "require" || action.text == "warn") {
                         InjectMacro(raw_tokens[j + 1].text);
                     }
 
