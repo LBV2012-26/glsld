@@ -20,7 +20,39 @@ Install the extension, open a folder containing GLSL source files, and configure
 
 Use `${workspaceFolder}/Shaders` to index a subdirectory instead. If the list is empty or absent, background indexing is disabled. The index cache is stored at `${workspaceFolder}/.glsld/BlobIndex.idx`.
 
-The Windows extension package includes the language server at `bin/Win64/glsld.exe`. Leave `glsld.server.path` empty to use the bundled executable, or provide a custom executable path.
+The extension does not bundle the language server. Run **glsld: Download Language Server** from the Command Palette to download the server from [GitHub Releases](https://github.com/LBV2012-26/glsld/releases). It starts automatically after installation. Downloads only happen when you run this command or accept the first-use Download prompt.
+
+Servers are stored under VS Code's extension global storage (`context.globalStorageUri`), in `servers/<release-tag>/<platform>-<architecture>/`. On a default Windows installation this is typically `%APPDATA%/Code/User/globalStorage/lbv2012-26.glsld/servers/<release-tag>/win32-x64/Win64/glsld.exe`. SSH, WSL, and container sessions use the extension host's platform and storage directory.
+
+The extension checks GitHub's latest published release (`/releases/latest`) on activation and when restarting the server. Every download command queries GitHub again, even when an older server is cached. GitHub's Latest selection excludes drafts and prereleases. Server selection is independent of the extension version; there is no pinned server-version setting. When an update is available, use the Download action or command to install it. A latest version that is already installed is reused without downloading the ZIP again. Failed update checks leave the current installation usable offline, and cached versions survive extension updates. The downloader verifies SHA-256 before extracting and installing a release; failed or cancelled downloads leave previous installations intact.
+
+For development or offline installation, set `glsld.server.path` to a local executable. A custom path takes priority over downloaded servers; relative custom paths are resolved from the extension directory. Changing the server path restarts the language client when the selected server is available. You can also run **glsld: Restart Language Server**. Syntax highlighting, configuration views, and SPIR-V compilation remain available before the language server is installed.
+
+### Server release assets
+
+Publish a GitHub Release tagged `v<version>` in `LBV2012-26/glsld`. For each supported target, attach a ZIP named `glsld-<platform>-<architecture>.zip`, such as `glsld-win32-x64.zip`. Windows archives should preserve `Win64/glsld.exe`, with required DLLs and other runtime files in their original locations. Flat archives with `glsld.exe` at the root are also supported for compatibility. Linux/macOS archives must contain `glsld` at the root. Recognized platforms are `win32`, `linux`, and `darwin`; recognized architectures are `x64` and `arm64`. A target is downloadable only when its matching asset is published.
+
+For Windows, run this from the directory containing `Win64` to include the directory itself:
+
+```powershell
+Compress-Archive -Path .\Win64 -DestinationPath .\glsld-win32-x64.zip
+```
+
+7-Zip can also create a supported ZIP archive with Deflate compression:
+
+```powershell
+7z a -tzip -mm=Deflate glsld-win32-x64.zip .\Win64
+```
+
+The `.7z` archive format is not supported by the downloader.
+
+The downloader uses GitHub's `sha256:` asset digest when available. Otherwise, attach a `SHA256SUMS` text file containing entries in this format:
+
+```text
+<64-character SHA-256 hash>  glsld-win32-x64.zip
+```
+
+An unpublished release, missing platform asset, or failed checksum produces an actionable error and can be retried using the download command. Downloads always target GitHub's current Latest release.
 
 ## Completion
 
@@ -146,16 +178,21 @@ The extension-generated `.glsld/config.json` stores shader overrides, macro stat
 
 ## Building the extension
 
+Requires Node.js 22 or later and npm.
+
+The scoped `@azure/msal-node` override addresses [CVE-2026-109461](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5) in the packaging tool's Azure authentication dependency. Revisit it when `@azure/identity` updates its MSAL dependency.
+
 ```powershell
 cd VSCodeExtension
 npm ci
+npm test
 npm run compile
-npx @vscode/vsce package --target win32-x64
+npx @vscode/vsce package
 ```
 
 ## Current limitations
 
-- Only Windows packages are currently available.
+- Server downloads require a published GitHub Release with the assets described above.
 - Linux builds are still in development.
 - The project is under active development, so incomplete behavior and breaking changes should be expected.
 

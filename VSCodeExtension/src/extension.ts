@@ -4,9 +4,12 @@
  * ------------------------------------------------------------------------------------------ */
 
 import {
+	CancellationError,
 	commands,
 	Disposable,
+	ExtensionContext,
 	Position,
+	ProgressLocation,
 	Range,
 	Selection,
 	TextDocument,
@@ -21,35 +24,38 @@ import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } f
 
 import { activateSidebar, getActiveVariants, getShaderConfigs } from './sidebar';
 import { compileWorkspace } from './compile';
-import * as fs from 'fs';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
+import { ServerManager } from './serverManager';
 
 let client: LanguageClient;
 let inactiveDecorationDisposable: TextEditorDecorationType | undefined;
 const inactiveRangesByUri = new Map<string, Range[]>();
 const scheduledUpdates = new Map<string, NodeJS.Timeout>();
 const runtimeDisposables: Disposable[] = [];
+let shuttingDown = false;
+let downloadAbort: AbortController | undefined;
+let updateAbort: AbortController | undefined;
 
-export async function activate(context: any) {
-	const config = workspace.getConfiguration('glsld');
-	const configuredServerPath = config.get<string>('server.path', '').trim();
-	const defaultServerPath = process.platform === 'linux'
-		? context.asAbsolutePath('bin/Linux/glsld')
-		: context.asAbsolutePath('bin/Win64/glsld.exe');
-	const serverPath = configuredServerPath.length === 0 ? defaultServerPath : path.isAbsolute(configuredServerPath) ? configuredServerPath : context.asAbsolutePath(configuredServerPath);
-	if (process.platform !== 'win32') {
-		try { fs.chmodSync(serverPath, 0o755); } catch (_) { /* best-effort */ }
-	}
-	const serverEnv = createServerEnvironment(config);
+export async function activate(context: ExtensionContext) {
+	shuttingDown = false;
+	updateAbort = new AbortController();
+	const serverManager = new ServerManager(context.globalStorageUri.fsPath);
 	const serverOutput = window.createOutputChannel('glsld');
 	context.subscriptions.push(serverOutput);
-	serverOutput.appendLine(formatMimallocLaunchOptions(serverEnv));
-
-	const serverOptions: ServerOptions = {
-		run: { command: serverPath, transport: TransportKind.stdio, options: { env: serverEnv } },
-		debug: { command: serverPath, transport: TransportKind.stdio, options: { env: serverEnv } },
+	const resolveServerPath = () => {
+		const config = workspace.getConfiguration('glsld');
+		return serverManager.resolveServerPath(config.get<string>('server.path', ''), context.extensionPath);
 	};
+	// Update this executable before each launch while keeping one client for the views.
+	// Let LanguageClient own the child process so stop/restart can also terminate it.
+	const serverExecutable = {
+		command: '', transport: TransportKind.stdio,
+		options: { env: { ...process.env }, windowsHide: true },
+	};
+	const serverOptions: ServerOptions = { run: serverExecutable, debug: serverExecutable };
+	const fileWatcher = workspace.createFileSystemWatcher('**/.clientrc');
+	context.subscriptions.push(fileWatcher);
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
@@ -58,7 +64,7 @@ export async function activate(context: any) {
 		documentSelector: [{ scheme: 'file', language: 'glsl' }],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
-			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+			fileEvents: fileWatcher
 		},
 		middleware: {
 			provideDocumentSemanticTokens: async (document, token, next) => {
@@ -94,8 +100,123 @@ export async function activate(context: any) {
 		clientOptions
 	);
 
-	// Start the client. This will also launch the server
-	await client.start();
+	let serverOperation = Promise.resolve();
+	let downloadTask: Promise<void> | undefined;
+	let missingServerPromptShown = false;
+	const openServerSettings = () => commands.executeCommand('workbench.action.openSettings', 'glsld.server');
+	const reportError = (error: unknown) => {
+		const message = error instanceof Error ? error.message : String(error);
+		serverOutput.appendLine(`[glsld] ${message}`);
+		if (!shuttingDown) {
+			void window.showErrorMessage(`glsld: ${message}`, 'Open Settings', 'Show Output').then(choice => {
+				if (choice === 'Open Settings') { return openServerSettings(); }
+				if (choice === 'Show Output') { serverOutput.show(); }
+			});
+		}
+	};
+	const startServer = (restart = false, promptIfMissing = true): Promise<void> => {
+		serverOperation = serverOperation.then(async () => {
+			if (shuttingDown) { return; }
+			const serverPath = await resolveServerPath();
+			if (shuttingDown) { return; }
+			if (!serverPath) {
+				if (restart && client.isRunning()) {
+					clearInactiveHighlights();
+					await client.stop();
+				}
+				if (promptIfMissing && !missingServerPromptShown && workspace.textDocuments.some(doc => doc.languageId === 'glsl')) {
+					missingServerPromptShown = true;
+					void window.showInformationMessage('Download the glsld language server to enable language features, or configure glsld.server.path to use a local executable.', 'Download', 'Open Settings').then(choice => {
+						if (choice === 'Download') { return commands.executeCommand('glsld.downloadServer'); }
+						if (choice === 'Open Settings') { return openServerSettings(); }
+					});
+				}
+				return;
+			}
+			if (client.isRunning() && !restart) { return; }
+			serverExecutable.command = serverPath;
+			serverExecutable.options.env = createServerEnvironment(workspace.getConfiguration('glsld'));
+			serverOutput.appendLine(`[glsld] Server executable: ${serverPath}`);
+			serverOutput.appendLine(formatMimallocLaunchOptions(serverExecutable.options.env));
+			if (client.isRunning()) {
+				clearInactiveHighlights();
+				await client.restart();
+			} else {
+				await client.start();
+			}
+			missingServerPromptShown = false;
+			await pushConfiguration();
+			for (const document of workspace.textDocuments) {
+				if (document.languageId === 'glsl') { scheduleInactiveUpdate(document, 0); }
+			}
+		}).catch(reportError);
+		return serverOperation;
+	};
+	const downloadServer = (): Promise<void> => {
+		if (downloadTask) { return downloadTask; }
+		downloadTask = (async () => {
+			const installed = await window.withProgress({
+				location: ProgressLocation.Notification,
+				title: 'Downloading glsld language server', cancellable: true,
+			}, async (progress, token) => {
+				const abort = new AbortController();
+				downloadAbort = abort;
+				const cancellation = token.onCancellationRequested(() => abort.abort(new CancellationError()));
+				if (token.isCancellationRequested || shuttingDown) { abort.abort(new CancellationError()); }
+				try {
+					return await serverManager.downloadServer({ signal: abort.signal, onProgress: update => progress.report(update) });
+				} catch (error) {
+					if (abort.signal.aborted) { return undefined; }
+					throw error;
+				} finally {
+					cancellation.dispose();
+					downloadAbort = undefined;
+				}
+			});
+			if (!installed || shuttingDown) { return; }
+			serverOutput.appendLine(`[glsld] Installed ${installed.version} for ${installed.target}: ${installed.executablePath}`);
+			if (workspace.getConfiguration('glsld').get<string>('server.path', '').trim()) {
+				void window.showInformationMessage(`glsld ${installed.version} was downloaded. Clear glsld.server.path to use it.`, 'Open Settings').then(choice => {
+					if (choice === 'Open Settings') { return openServerSettings(); }
+				});
+			} else {
+				await startServer(true, false);
+			}
+		})().catch(reportError).finally(() => { downloadTask = undefined; });
+		return downloadTask;
+	};
+	let notifiedVersion: string | undefined;
+	const checkForUpdates = async (): Promise<void> => {
+		try {
+			const latest = await serverManager.checkForUpdates({ signal: updateAbort?.signal });
+			if (shuttingDown) { return; }
+			serverOutput.appendLine(`[glsld] Latest GitHub release: ${latest.version}`);
+			const customPath = workspace.getConfiguration('glsld').get<string>('server.path', '').trim();
+			if (!customPath && !latest.installed && notifiedVersion !== latest.version && await serverManager.getInstalledServer()) {
+				notifiedVersion = latest.version;
+				void window.showInformationMessage(`glsld ${latest.version} is available. Download the latest language server?`, 'Download').then(choice => {
+					if (choice === 'Download') { return commands.executeCommand('glsld.downloadServer'); }
+				});
+			}
+		} catch (error) {
+			if (!shuttingDown) {
+				const message = error instanceof Error ? error.message : String(error);
+				serverOutput.appendLine(`[glsld] Could not check the latest release: ${message} Using an installed server if available.`);
+			}
+		}
+	};
+	// Register these before attempting startup: a missing server must not prevent installation.
+	context.subscriptions.push(
+		commands.registerCommand('glsld.downloadServer', downloadServer),
+		commands.registerCommand('glsld.restartServer', async () => {
+			await checkForUpdates();
+			await startServer(true);
+		}),
+		new Disposable(() => {
+			downloadAbort?.abort(new CancellationError());
+			updateAbort?.abort(new CancellationError());
+		}),
+	);
 	initializeInactiveTokenDimming();
 	activateSidebar(context, client);
 
@@ -134,7 +255,12 @@ export async function activate(context: any) {
 	context.subscriptions.push(
 		workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('glsld')) {
-				await pushConfiguration();
+				if (e.affectsConfiguration('glsld.server') || e.affectsConfiguration('glsld.mimalloc')) {
+					if (e.affectsConfiguration('glsld.server')) { await checkForUpdates(); }
+					await startServer(true);
+				} else {
+					await pushConfiguration();
+				}
 				shaderConfigProvider.refresh();
 			}
 		})
@@ -145,12 +271,14 @@ export async function activate(context: any) {
 	context.subscriptions.push(
 		workspace.onDidOpenTextDocument(async (doc) => {
 			if (doc.languageId === 'glsl') {
+				await startServer();
 				await pushConfiguration();
 			}
 		})
 	);
 
-	await pushConfiguration();
+	await checkForUpdates();
+	await startServer();
 
 }
 
@@ -189,6 +317,9 @@ function formatMimallocLaunchOptions(environment: NodeJS.ProcessEnv): string {
 }
 
 export function deactivate(): Thenable<void> | undefined {
+	shuttingDown = true;
+	downloadAbort?.abort(new CancellationError());
+	updateAbort?.abort(new CancellationError());
 	for (const handle of scheduledUpdates.values()) {
 		clearTimeout(handle);
 	}
@@ -304,6 +435,7 @@ async function autoCloseIncludeAngleBracket(event: TextDocumentChangeEvent): Pro
 }
 
 function scheduleInactiveUpdate(document: TextDocument, delayMs = 120): void {
+	if (!client?.isRunning()) { return; }
 	const uri = document.uri.toString();
 	const existing = scheduledUpdates.get(uri);
 	if (existing) {
@@ -318,11 +450,21 @@ function scheduleInactiveUpdate(document: TextDocument, delayMs = 120): void {
 	scheduledUpdates.set(uri, timeout);
 }
 
+function clearInactiveHighlights(): void {
+	for (const handle of scheduledUpdates.values()) { clearTimeout(handle); }
+	scheduledUpdates.clear();
+	inactiveRangesByUri.clear();
+	if (inactiveDecorationDisposable) {
+		for (const editor of window.visibleTextEditors) { editor.setDecorations(inactiveDecorationDisposable, []); }
+	}
+}
+
 export function refreshHighlights(document: TextDocument): void {
 	scheduleInactiveUpdate(document, 0);
 }
 
 async function updateInactiveRanges(document: TextDocument): Promise<void> {
+	if (!client?.isRunning()) { return; }
 	try {
 		const response = await client.sendRequest<{ data?: number[] }>('textDocument/semanticTokens/full', {
 			textDocument: {
@@ -400,7 +542,7 @@ function decodeInactiveRanges(data: ArrayLike<number>, inactiveModifierIndex: nu
 }
 
 function getSemanticTokensLegend(): { tokenModifiers: string[] } | undefined {
-	const provider = client.initializeResult?.capabilities.semanticTokensProvider as
+	const provider = client?.initializeResult?.capabilities.semanticTokensProvider as
 		| { legend?: { tokenModifiers?: string[] } }
 		| undefined;
 
@@ -414,6 +556,7 @@ function getSemanticTokensLegend(): { tokenModifiers: string[] } | undefined {
 }
 
 export function notifyRemoveConfig(key: string): void {
+	if (!client?.isRunning()) { return; }
 	const uri = resolveKey(key).toString();
 	client.sendNotification('glsld/removeConfiguration', {
 		uri,
@@ -421,12 +564,14 @@ export function notifyRemoveConfig(key: string): void {
 }
 
 export async function pushConfiguration(): Promise<void> {
+	if (!client?.isRunning()) { return; }
 	const config = workspace.getConfiguration('glsld');
 	const shaderExtensions = getShaderConfigs(); // from .glsld/config.json
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 	const glslcPath = config.get<string>('glslc.path', '').trim();
 	const clangFormatPath = config.get<string>('clangFormat.path', 'clang-format.exe').trim() || 'clang-format.exe';
 	const backgroundIndexRoots = getBackgroundIndexRoots(config.get<string[]>('backgroundIndex.roots', []));
+	const backgroundIndexExtraExtensions = config.get<string[]>('backgroundIndex.extraExtensions', []);
 	const systemIncludeDirectories = getSystemIncludeDirectories();
 	const activeVariants = getActiveVariants();
 
@@ -448,7 +593,7 @@ export async function pushConfiguration(): Promise<void> {
 				diagnosticsEnabled,
 				glslcPath,
 				clangFormatPath,
-				backgroundIndex: { roots: backgroundIndexRoots },
+				backgroundIndex: { roots: backgroundIndexRoots, extraExtensions: backgroundIndexExtraExtensions },
 				systemIncludeDirectories
 			}
 		}

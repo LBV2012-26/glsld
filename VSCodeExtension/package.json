@@ -34,21 +34,32 @@
 		"spirv"
 	],
 	"main": "./out/extension",
+	"extensionKind": [
+		"workspace"
+	],
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"generate:grammar": "node ./scripts/generate-tm-language.mjs",
 		"compile": "npm run generate:grammar && tsc -p ./",
-		"watch": "npm run generate:grammar && tsc -w -p ./"
+		"watch": "npm run generate:grammar && tsc -w -p ./",
+		"test": "tsc -p ./ && node --test"
 	},
 	"dependencies": {
 		"glob": "^11.0.0",
-		"vscode-languageclient": "^9.0.1"
+		"vscode-languageclient": "^9.0.1",
+		"yauzl": "^3.4.0"
 	},
 	"devDependencies": {
 		"@types/node": "^22",
 		"@types/vscode": "^1.100.0",
-		"@vscode/vsce": "^3.9.2",
+		"@types/yauzl": "^3.4.0",
+		"@vscode/vsce": "^4.1.0",
 		"typescript": "^5.3.0"
+	},
+	"overrides": {
+		"@azure/identity@4.14.0": {
+			"@azure/msal-node": "^7.1.2"
+		}
 	},
 	"contributes": {
 		"languages": [
@@ -91,7 +102,7 @@
 				"glsld.server.path": {
 					"type": "string",
 					"default": "",
-					"description": "Path to the glsld executable. Leave empty to use bin/Win64/glsld.exe bundled with the extension. Relative custom paths are resolved from the extension directory."
+					"description": "Path to a custom glsld executable. Leave empty to use the language server downloaded by the glsld: Download Language Server command. Relative custom paths are resolved from the extension directory."
 				},
 				"glsld.mimalloc.largePages.enabled": {
 					"type": "boolean",
@@ -136,6 +147,14 @@
 						"type": "string"
 					},
 					"description": "Directories included in the background index. Use ${workspaceFolder} for the workspace root, for example ${workspaceFolder}/Shaders. Absolute paths are also supported. No directories are indexed when this list is empty."
+				},
+				"glsld.backgroundIndex.extraExtensions": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "string"
+					},
+					"description": "Extra filename extension for background index."
 				},
 				"glsld.systemIncludeDirectories": {
 					"type": "array",
@@ -213,6 +232,16 @@
 			}
 		],
 		"commands": [
+			{
+				"command": "glsld.downloadServer",
+				"title": "Download Language Server",
+				"category": "glsld"
+			},
+			{
+				"command": "glsld.restartServer",
+				"title": "Restart Language Server",
+				"category": "glsld"
+			},
 			{
 				"command": "glsld.addVariant",
 				"title": "Add Global Macro",
@@ -408,5 +437,8 @@
 				}
 			}
 		]
+	},
+	"allowScripts": {
+		"@vscode/vsce-sign@2.1.0": true
 	}
 }

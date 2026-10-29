@@ -229,6 +229,7 @@ function anyGlslDocument(): vscode.TextDocument | undefined {
 // ============================================================
 
 function sendGlobalMacros(client: LanguageClient): void {
+	if (!client.isRunning()) { return; }
 	const doc = anyGlslDocument();
 	if (!doc) { return; }
 
@@ -252,6 +253,7 @@ function sendGlobalMacros(client: LanguageClient): void {
 }
 
 function sendFileMacros(client: LanguageClient, fileUri: vscode.Uri): void {
+	if (!client.isRunning()) { return; }
 	const allFileMacros = getFileMacros();
 	const entry = allFileMacros[fileUri.toString()];
 
@@ -524,10 +526,12 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 		putFileMacros(fm);
 
 		// Send removal to server
-		this._client.sendNotification('glsld/removeVariant', {
-			textDocument: { uri: node.uri.toString() },
-			scope: 'file',
-		});
+		if (this._client.isRunning()) {
+			this._client.sendNotification('glsld/removeVariant', {
+				textDocument: { uri: node.uri.toString() },
+				scope: 'file',
+			});
+		}
 
 		this.refresh();
 	}
