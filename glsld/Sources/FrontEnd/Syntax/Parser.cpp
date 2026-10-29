@@ -2290,8 +2290,10 @@ namespace glsld {
 
                 node->member = member_node;
                 ConsumeToken();
-            } else { // array.length();, the only member func that GLSL supports for built-in arrays
+            } else if (current_token().text == "length" || current_token().text == "length64") {
                 expanded_tokens_[token_index_].type = TokenType::kBuiltInFunction;
+                const auto& length_token = current_token();
+
                 auto* callee_expr = ParseVariableReference();
                 MatchAndConsume(TokenType::kOpenParen); // simulate pratt parsing comsume '(' after callee
                 auto* callee_node = ParseFunctionCall(callee_expr);
@@ -2300,16 +2302,16 @@ namespace glsld {
 
                 TypeDescriptor type_desc{
                     .family        = BaseFamily::kInt,
-                    .bits          = 32,
+                    .bits          = length_token.text == "length" ? 32 : 64,
                     .vector_count  = 1,
                     .vector_length = 1
                 };
 
                 TypeInfo type_info{
                     .typename_token = {
-                        .text     = "int",
+                        .text     = type_desc.bits == 32 ? "int" : "int64_t",
                         .location = member_token.location,
-                        .type     = TokenType::kPrimitive
+                        .type     = type_desc.bits == 32 ? TokenType::kPrimitive : TokenType::kBuiltInType
                     },
                     .type_desc = type_desc,
                 };

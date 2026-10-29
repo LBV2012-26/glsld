@@ -1347,16 +1347,17 @@ namespace glsld {
                 || structure == ArithmeticStructure::kMatrix;
         }
 
-        TypeInfo BuildLengthResultType(const SourceLocation& location) {
+        TypeInfo BuildLengthResultType(const Token& token) {
+            const bool is_length32 = token.text == "length";
             return TypeInfo{
                 .typename_token = Token{
-                    .text     = "int",
-                    .location = location,
-                    .type     = TokenType::kPrimitive
+                    .text     = is_length32 ? "int" : "int64_t",
+                    .location = token.location,
+                    .type     = is_length32 ? TokenType::kPrimitive : TokenType::kBuiltInType
                 },
                 .type_desc = TypeDescriptor{
                     .family        = BaseFamily::kInt,
-                    .bits          = 32,
+                    .bits          = is_length32 ? 32 : 64,
                     .vector_count  = 1,
                     .vector_length = 1
                 }
@@ -1403,7 +1404,7 @@ namespace glsld {
             }
 
             auto* callee = static_cast<VariableExpressionNode*>(length_call->callee);
-            const auto result_type = BuildLengthResultType(callee->original_token.location);
+            const auto result_type = BuildLengthResultType(callee->original_token);
 
             callee->evaluated_type      = result_type;
             length_call->evaluated_type = result_type;

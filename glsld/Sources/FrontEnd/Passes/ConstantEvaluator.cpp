@@ -38,7 +38,7 @@ namespace glsld {
         }
 
         auto* callee = static_cast<VariableExpressionNode*>(call->callee);
-        if (callee->name != "length" ||
+        if ((callee->name != "length" && callee->name != "length64") ||
             callee->original_token.type != TokenType::kBuiltInFunction)
         {
             return nullptr;
