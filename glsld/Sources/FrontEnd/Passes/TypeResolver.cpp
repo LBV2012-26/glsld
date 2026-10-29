@@ -1138,11 +1138,8 @@ namespace glsld {
                     };
 
                     std::ranges::reverse(dimensions);
-#ifdef _MSVC_LANG
-                    if (std::ranges::contains(dimensions, std::nullopt)) {
-#else
-                    if (std::ranges::any_of(dimensions, [](const auto& d) -> bool { return !d.has_value(); })) {
-#endif
+
+                    if (std::ranges::any_of(dimensions, [](const auto& dimension) -> bool { return !dimension.has_value(); })) {
                         const auto dimensions_from_args = DeduceArraySizesFromArgs(node);
                         for (auto&& [target, source] : std::views::zip(dimensions, dimensions_from_args)) {
                             if (!target.has_value()) {
