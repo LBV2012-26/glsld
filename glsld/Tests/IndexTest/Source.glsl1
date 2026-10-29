@@ -1,7 +1,7 @@
 #version 460 core
 #pragma shader_stage(compute)
 
-#include "Include.glsl"
+#include "Include.glsl1"
 
 void main() {
     float value = glsldBackgroundIndexProbe(1.0);
