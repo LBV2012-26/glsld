@@ -117,6 +117,7 @@ extern "C++" int main(int argc, const char* argv[]) { // --benchmark or --debug-
         Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl");
         Benchmark(arena_pool, "Tests/Benchmark/BlackHoleRepeated.glsl");
         Benchmark(arena_pool, "Tests/OverloadTest.glsl");
+        Benchmark(arena_pool, "Tests/EvaluatorTest.glsl");
         Benchmark(arena_pool, "Tests/HoverTest.glsl");
         Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
         Benchmark(arena_pool, "Tests/MacroTest.glsl");
