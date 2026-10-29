@@ -737,6 +737,7 @@ namespace glsld {
         };
 
         const auto extension = filename.extension().generic_string();
-        return std::ranges::contains(kExtensions, extension);
+        return std::ranges::contains(kExtensions, extension)
+            || std::ranges::contains(extra_extensions_, extension);
     }
 }

@@ -94,6 +94,7 @@ namespace glsld {
         IncludeDirectoryHandle include_dirs() const;
         const StringHeteroHashMap<ExtraShaderConfig>& shader_configs() const;
         const TypeMemberIndex& type_member_index() const;
+        void set_extra_extensions(std::vector<std::string> extensions);
 
     private:
         void ProcessSource(
@@ -167,6 +168,8 @@ namespace glsld {
         std::shared_mutex                              background_index_mutex_;
         std::condition_variable_any                    background_index_condition_;
         std::jthread                                   background_index_thread_;
+
+        std::vector<std::string>                       extra_extensions_;
     };
 }
 

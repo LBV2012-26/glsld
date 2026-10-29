@@ -54,4 +54,8 @@ namespace glsld {
     inline const TypeMemberIndex& Workspace::type_member_index() const {
         return type_member_index_;
     }
+
+    inline void Workspace::set_extra_extensions(std::vector<std::string> extensions) {
+        extra_extensions_ = std::move(extensions);
+    }
 }

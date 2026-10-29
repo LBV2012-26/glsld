@@ -670,7 +670,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -695,7 +695,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -763,7 +763,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -818,7 +818,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -873,7 +873,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -914,7 +914,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -992,7 +992,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -1050,7 +1050,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& position   = context.params["position"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (snapshot == nullptr) {
             throw std::runtime_error("Document closed or not found.");
@@ -1113,7 +1113,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
@@ -1141,7 +1141,7 @@ namespace glsld {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto& range      = context.params["range"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
@@ -1172,7 +1172,7 @@ namespace glsld {
         ABORT_IF_CANCELLED();
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        auto        snapshot   =  ValidateAndGetDocument(context, uri);
+        auto        snapshot   = ValidateAndGetDocument(context, uri);
 
         if (!snapshot) {
             throw std::runtime_error("Document closed or not found.");
@@ -1555,6 +1555,25 @@ namespace glsld {
                 const auto path = std::filesystem::path(value.get<std::string>());
                 index_roots.push_back(path.is_absolute() ? path : workspace_roots_.front() / path);
             }
+        }
+
+        if (glsld.contains("backgroundIndex") &&
+            glsld["backgroundIndex"].contains("extraExtensions") &&
+            glsld["backgroundIndex"]["extraExtensions"].is_array())
+        {
+            std::vector<std::string> extra_extensions;
+            for (const auto& value : glsld["backgroundIndex"]["extraExtensions"]) {
+                if (!value.is_string()) {
+                    continue;
+                }
+
+                const auto extension = value.get<std::string>();
+                if (std::ranges::find(extra_extensions, extension) == extra_extensions.end()) {
+                    extra_extensions.push_back(extension);
+                }
+            }
+
+            workspace_.set_extra_extensions(std::move(extra_extensions));
         }
 
         if (workspace_roots_.empty()) {
