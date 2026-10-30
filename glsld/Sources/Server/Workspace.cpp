@@ -10,6 +10,8 @@
 #include <system_error>
 #include <utility>
 
+#include <mimalloc.h>
+
 #include <Base/Logger.hpp>
 #include <FrontEnd/Passes/MacroBinder.hpp>
 #include <FrontEnd/Passes/SymbolLinker.hpp>

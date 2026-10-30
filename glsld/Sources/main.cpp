@@ -29,7 +29,7 @@
 #include "Utils/Utils.hpp"
 
 namespace {
-    int Benchmark(glsld::ArenaPool& arena_pool, const std::filesystem::path& filename, bool dump_ast = false) {
+    void Benchmark(glsld::ArenaPool& arena_pool, const std::filesystem::path& filename, bool dump_ast = false) {
         using namespace glsld;
 
         const auto normalized = Utils::GetFilePath(filename.generic_string());
@@ -97,12 +97,10 @@ namespace {
 
         auto total_duration = lexer_duration + attach_duration + parse_duration + link_duration + resolve_duration + bind_duration;
         std::println("Total time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(total_duration).count());
-
-        return EXIT_SUCCESS;
     }
 }
 
-extern "C++" int main(int argc, const char* argv[]) { // --benchmark or --debug-ast
+int main(int argc, const char* argv[]) { // --benchmark or --debug-ast
 #ifdef _WIN64
     (void)_setmode(_fileno(stdin), _O_BINARY);
     (void)_setmode(_fileno(stdout), _O_BINARY);
@@ -123,13 +121,13 @@ extern "C++" int main(int argc, const char* argv[]) { // --benchmark or --debug-
         Benchmark(arena_pool, "Tests/MacroTest.glsl");
         std::println("-----------------------------------------------------------------------");
 
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     if (argc > 1 && std::string_view(argv[1]) == "--debug-ast") {
         glsld::ArenaPool arena_pool;
         Benchmark(arena_pool, "Tests/Debugger.glsl", true);
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     glsld::LspServer server;
