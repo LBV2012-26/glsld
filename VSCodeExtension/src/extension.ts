@@ -26,7 +26,7 @@ import { activateSidebar, getActiveVariants, getShaderConfigs } from './sidebar'
 import { compileWorkspace } from './compile';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
-import { ServerManager } from './serverManager';
+import { InstalledServer, ServerManager } from './serverManager';
 
 let client: LanguageClient;
 let inactiveDecorationDisposable: TextEditorDecorationType | undefined;
@@ -101,7 +101,9 @@ export async function activate(context: ExtensionContext) {
 	);
 
 	let serverOperation = Promise.resolve();
-	let downloadTask: Promise<void> | undefined;
+	let downloadTask: Promise<InstalledServer | undefined> | undefined;
+	let updateTask: Promise<void> | undefined;
+	let notifyUpdateResult = false;
 	let missingServerPromptShown = false;
 	const openServerSettings = () => commands.executeCommand('workbench.action.openSettings', 'glsld.server');
 	const reportError = (error: unknown) => {
@@ -114,26 +116,33 @@ export async function activate(context: ExtensionContext) {
 			});
 		}
 	};
-	const startServer = (restart = false, promptIfMissing = true): Promise<void> => {
+	const promptForMissingServer = (force = false) => {
+		if (shuttingDown || downloadTask || (!force && missingServerPromptShown)) { return; }
+		missingServerPromptShown = true;
+		void Promise.resolve(window.showInformationMessage(
+			'The glsld language server was not found. Download the latest release from GitHub to enable language features?',
+			'Download', 'Open Settings',
+		)).then(choice => {
+			if (shuttingDown) { return; }
+			if (choice === 'Download') { return commands.executeCommand('glsld.downloadServer'); }
+			if (choice === 'Open Settings') { return openServerSettings(); }
+		}).catch(reportError);
+	};
+	const startServer = (options: { restart?: 'always' | 'ifChanged'; promptIfMissing?: boolean } = {}): Promise<void> => {
 		serverOperation = serverOperation.then(async () => {
 			if (shuttingDown) { return; }
 			const serverPath = await resolveServerPath();
 			if (shuttingDown) { return; }
 			if (!serverPath) {
-				if (restart && client.isRunning()) {
+				if (options.restart && client.isRunning()) {
 					clearInactiveHighlights();
 					await client.stop();
 				}
-				if (promptIfMissing && !missingServerPromptShown && workspace.textDocuments.some(doc => doc.languageId === 'glsl')) {
-					missingServerPromptShown = true;
-					void window.showInformationMessage('Download the glsld language server to enable language features, or configure glsld.server.path to use a local executable.', 'Download', 'Open Settings').then(choice => {
-						if (choice === 'Download') { return commands.executeCommand('glsld.downloadServer'); }
-						if (choice === 'Open Settings') { return openServerSettings(); }
-					});
-				}
+				if (options.promptIfMissing !== false) { promptForMissingServer(); }
 				return;
 			}
-			if (client.isRunning() && !restart) { return; }
+			if (client.isRunning() && (!options.restart ||
+				(options.restart === 'ifChanged' && serverExecutable.command === serverPath))) { return; }
 			serverExecutable.command = serverPath;
 			serverExecutable.options.env = createServerEnvironment(workspace.getConfiguration('glsld'));
 			serverOutput.appendLine(`[glsld] Server executable: ${serverPath}`);
@@ -152,7 +161,23 @@ export async function activate(context: ExtensionContext) {
 		}).catch(reportError);
 		return serverOperation;
 	};
-	const downloadServer = (): Promise<void> => {
+	const cleanupOldServers = (): Promise<void> => {
+		// Serialize with starts/restarts so cleanup sees the executable that is actually running.
+		serverOperation = serverOperation.then(async () => {
+			if (shuttingDown || !client.isRunning() || workspace.getConfiguration('glsld').get<string>('server.path', '').trim()) { return; }
+			const removed = await serverManager.cleanupOldVersions(serverExecutable.command, {
+				signal: updateAbort?.signal,
+				onError: (version, error) => {
+					serverOutput.appendLine(`[glsld] Could not remove ${version}; cleanup will be retried on a later startup: ${error}`);
+				},
+			});
+			if (removed.length) { serverOutput.appendLine(`[glsld] Removed old server versions: ${removed.join(', ')}`); }
+		}).catch(error => {
+			if (!shuttingDown) { serverOutput.appendLine(`[glsld] Could not clean old server versions: ${error}`); }
+		});
+		return serverOperation;
+	};
+	const downloadServer = (): Promise<InstalledServer | undefined> => {
 		if (downloadTask) { return downloadTask; }
 		downloadTask = (async () => {
 			const installed = await window.withProgress({
@@ -180,38 +205,81 @@ export async function activate(context: ExtensionContext) {
 					if (choice === 'Open Settings') { return openServerSettings(); }
 				});
 			} else {
-				await startServer(true, false);
+				await startServer({ restart: 'ifChanged', promptIfMissing: false });
+				await cleanupOldServers();
 			}
-		})().catch(reportError).finally(() => { downloadTask = undefined; });
+			return installed;
+		})().catch(error => {
+			reportError(error);
+			return undefined;
+		}).finally(() => { downloadTask = undefined; });
 		return downloadTask;
 	};
-	let notifiedVersion: string | undefined;
-	const checkForUpdates = async (): Promise<void> => {
-		try {
+	const checkForUpdates = (notify = false): Promise<void> => {
+		if (shuttingDown) { return Promise.resolve(); }
+		notifyUpdateResult ||= notify;
+		if (updateTask) { return updateTask; }
+		updateTask = Promise.resolve().then(async () => {
 			const latest = await serverManager.checkForUpdates({ signal: updateAbort?.signal });
 			if (shuttingDown) { return; }
 			serverOutput.appendLine(`[glsld] Latest GitHub release: ${latest.version}`);
 			const customPath = workspace.getConfiguration('glsld').get<string>('server.path', '').trim();
-			if (!customPath && !latest.installed && notifiedVersion !== latest.version && await serverManager.getInstalledServer()) {
-				notifiedVersion = latest.version;
-				void window.showInformationMessage(`glsld ${latest.version} is available. Download the latest language server?`, 'Download').then(choice => {
-					if (choice === 'Download') { return commands.executeCommand('glsld.downloadServer'); }
-				});
+			if (customPath) {
+				serverOutput.appendLine('[glsld] Using a custom server path; automatic updates apply only to downloaded servers.');
+				if (notifyUpdateResult) {
+					void window.showInformationMessage(`The latest glsld release is ${latest.version}. Clear glsld.server.path to use automatic updates.`, 'Open Settings').then(choice => {
+						if (!shuttingDown && choice === 'Open Settings') { return openServerSettings(); }
+					});
+				}
+				return;
 			}
-		} catch (error) {
+			const installed = await serverManager.getInstalledServer();
+			if (shuttingDown) { return; }
+			if (!installed && !downloadTask) {
+				// First installation still requires accepting the Download action.
+				promptForMissingServer(notifyUpdateResult);
+				return;
+			}
+			if (downloadTask || (!latest.installed && installed?.version !== latest.version)) {
+				serverOutput.appendLine(`[glsld] Updating the language server to the latest release (${latest.version}).`);
+				const updated = await downloadServer();
+				if (updated && !shuttingDown && notifyUpdateResult && client.isRunning()) {
+					void window.showInformationMessage(`glsld was updated to ${updated.version}.`);
+				}
+				return;
+			}
+			// checkForUpdates also selects a latest release that was already cached.
+			await startServer({ restart: 'ifChanged', promptIfMissing: false });
+			await cleanupOldServers();
+			if (!shuttingDown && notifyUpdateResult) {
+				void window.showInformationMessage(`glsld ${latest.version} is up to date.`);
+			}
+		}).catch(error => {
 			if (!shuttingDown) {
 				const message = error instanceof Error ? error.message : String(error);
 				serverOutput.appendLine(`[glsld] Could not check the latest release: ${message} Using an installed server if available.`);
+				if (notifyUpdateResult) { reportError(error); }
 			}
-		}
+		}).finally(() => {
+			updateTask = undefined;
+			notifyUpdateResult = false;
+		});
+		return updateTask;
+	};
+	const restartServer = async () => {
+		const previousPath = serverExecutable.command;
+		await checkForUpdates();
+		// A successful update has already restarted the client with the new executable.
+		await startServer({ restart: serverExecutable.command === previousPath ? 'always' : 'ifChanged' });
 	};
 	// Register these before attempting startup: a missing server must not prevent installation.
 	context.subscriptions.push(
 		commands.registerCommand('glsld.downloadServer', downloadServer),
-		commands.registerCommand('glsld.restartServer', async () => {
-			await checkForUpdates();
-			await startServer(true);
-		}),
+		commands.registerCommand('glsld.checkForUpdates', () => window.withProgress({
+			location: ProgressLocation.Window,
+			title: 'Checking for glsld language server updates',
+		}, () => checkForUpdates(true))),
+		commands.registerCommand('glsld.restartServer', restartServer),
 		new Disposable(() => {
 			downloadAbort?.abort(new CancellationError());
 			updateAbort?.abort(new CancellationError());
@@ -256,8 +324,8 @@ export async function activate(context: ExtensionContext) {
 		workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('glsld')) {
 				if (e.affectsConfiguration('glsld.server') || e.affectsConfiguration('glsld.mimalloc')) {
-					if (e.affectsConfiguration('glsld.server')) { await checkForUpdates(); }
-					await startServer(true);
+					if (e.affectsConfiguration('glsld.server')) { await restartServer(); }
+					else { await startServer({ restart: 'always' }); }
 				} else {
 					await pushConfiguration();
 				}
@@ -277,8 +345,8 @@ export async function activate(context: ExtensionContext) {
 		})
 	);
 
-	await checkForUpdates();
 	await startServer();
+	await checkForUpdates();
 
 }
 

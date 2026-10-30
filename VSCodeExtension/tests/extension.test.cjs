@@ -26,26 +26,30 @@ async function activateFixture(t, options = {}) {
   const root = path.join(__dirname, 'virtual-storage');
   const state = {
     config: { ...options.config },
-    installed: new Map(options.installed ? [['v0.9.5', options.installed]] : []),
-    latestVersion: options.latestVersion ?? 'v0.9.5', currentVersion: 'v0.9.5', checks: 0,
-    checkError: options.checkError,
-    commands: new Map(), clients: [], sidebarClients: [], starts: [],
-    errors: [], information: [], output: [], progress: [],
+    installed: new Map(options.installations ?? (options.installed ? [['v0.9.5', options.installed]] : [])),
+    latestVersion: options.latestVersion ?? 'v0.9.5', currentVersion: options.currentVersion ?? 'v0.9.5', checks: 0,
+    checkError: options.checkError, onCheck: options.onCheck, download: options.download,
+    commands: new Map(), executedCommands: [], clients: [], sidebarClients: [], starts: [],
+    errors: [], information: [], informationActions: [], output: [], progress: [],
     downloads: 0, restarts: 0, stops: 0, compilations: 0, cancelProgress: false,
+    cleanupCalls: [], cleanupError: options.cleanupError,
     onConfiguration: event(), onOpenDocument: event(),
   };
   const disposableEvent = () => new Disposable();
   const vscode = {
     Disposable,
     CancellationError: class CancellationError extends Error {},
-    ProgressLocation: { Notification: 15 },
+    ProgressLocation: { Notification: 15, Window: 10 },
     commands: {
       registerCommand(name, callback) {
         assert.equal(state.commands.has(name), false, `Command registered twice: ${name}`);
         state.commands.set(name, callback);
         return new Disposable(() => state.commands.delete(name));
       },
-      executeCommand(name, ...args) { return Promise.resolve(state.commands.get(name)?.(...args)); },
+      executeCommand(name, ...args) {
+        state.executedCommands.push({ name, args });
+        return Promise.resolve(state.commands.get(name)?.(...args));
+      },
     },
     window: {
       activeTextEditor: undefined,
@@ -55,7 +59,11 @@ async function activateFixture(t, options = {}) {
       registerTreeDataProvider: () => new Disposable(),
       onDidChangeActiveTextEditor: disposableEvent,
       onDidChangeVisibleTextEditors: disposableEvent,
-      showInformationMessage: async message => { state.information.push(message); },
+      showInformationMessage: async (message, ...actions) => {
+        state.information.push(message);
+        state.informationActions.push(actions);
+        return options.onInformation?.(message, actions, state);
+      },
       showErrorMessage: async message => { state.errors.push(message); },
       withProgress: async (_options, callback) => callback({ report: progress => state.progress.push(progress) }, {
         isCancellationRequested: state.cancelProgress,
@@ -99,9 +107,11 @@ async function activateFixture(t, options = {}) {
       const executablePath = state.installed.get(state.currentVersion);
       return executablePath ? { version: state.currentVersion, executablePath } : undefined;
     }
-    async checkForUpdates(options) {
-      options.signal.throwIfAborted();
+    async checkForUpdates(checkOptions) {
+      checkOptions.signal.throwIfAborted();
       state.checks++;
+      await state.onCheck?.(state);
+      checkOptions.signal.throwIfAborted();
       if (state.checkError) throw state.checkError;
       const installed = state.installed.has(state.latestVersion);
       if (installed) state.currentVersion = state.latestVersion;
@@ -116,6 +126,18 @@ async function activateFixture(t, options = {}) {
       state.installed.set(tag, executablePath);
       state.currentVersion = tag;
       return { version: tag, target: 'win32-x64', executablePath };
+    }
+    async cleanupOldVersions(executablePath, options) {
+      options.signal.throwIfAborted();
+      assert.equal(state.clients[0].isRunning(), true, 'Cleanup requires a successfully started server');
+      assert.equal(executablePath, state.installed.get(state.currentVersion));
+      state.cleanupCalls.push({ executablePath, version: state.currentVersion, restarts: state.restarts });
+      if (state.cleanupError) throw state.cleanupError;
+      const removed = [];
+      for (const version of state.installed.keys()) {
+        if (version !== state.currentVersion) { removed.push(version); state.installed.delete(version); }
+      }
+      return removed;
     }
   }
   const mocks = {
@@ -151,14 +173,17 @@ async function activateFixture(t, options = {}) {
   return { state, vscode, context };
 }
 
-test('first activation without a binary still registers commands and views without downloading', async t => {
-  const { state, vscode } = await activateFixture(t, { withGlsl: true });
+test('activation without a binary offers download even without an open GLSL document', async t => {
+  const { state, vscode } = await activateFixture(t);
   assert.equal(state.starts.length, 0);
   assert.equal(state.downloads, 0);
   assert.equal(state.checks, 1);
   assert.equal(state.errors.length, 0);
   assert.equal(state.information.length, 1);
+  assert.match(state.information[0], /not found.*latest release from GitHub/);
+  assert.deepEqual(state.informationActions[0], ['Download', 'Open Settings']);
   assert.ok(state.commands.has('glsld.downloadServer'));
+  assert.ok(state.commands.has('glsld.checkForUpdates'));
   assert.ok(state.commands.has('glsld.restartServer'));
   assert.ok(state.commands.has('glsld.addShaderConfig'));
   assert.equal(state.sidebarClients.length, 1);
@@ -166,6 +191,73 @@ test('first activation without a binary still registers commands and views witho
   assert.equal(state.compilations, 1);
   await state.extension.pushConfiguration();
   state.extension.notifyRemoveConfig('shader.glsl');
+});
+
+test('the startup Download action installs the latest server and starts it without reloading', async t => {
+  const { state, context } = await activateFixture(t, {
+    latestVersion: 'v1.2.3',
+    onInformation: () => 'Download',
+  });
+  await new Promise(setImmediate);
+  assert.equal(state.downloads, 1);
+  assert.equal(state.clients.length, 1);
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.starts.length, 1);
+  assert.ok(state.starts[0].command.startsWith(path.join(context.globalStorageUri.fsPath, 'servers', 'v1.2.3')));
+  assert.equal(state.information.length, 1);
+  assert.equal(state.errors.length, 0);
+});
+
+test('dismissing the startup prompt does not download or repeat on document opens and restarts', async t => {
+  const { state, vscode } = await activateFixture(t);
+  await state.onOpenDocument.fire({ languageId: 'glsl', uri: { toString: () => 'file:///shader.glsl' } });
+  await state.onOpenDocument.fire({ languageId: 'glsl' });
+  await vscode.commands.executeCommand('glsld.restartServer');
+  assert.equal(state.information.length, 1);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.starts.length, 0);
+});
+
+test('the startup Open Settings action opens server settings without downloading', async t => {
+  const { state } = await activateFixture(t, { onInformation: () => 'Open Settings' });
+  assert.deepEqual(state.executedCommands, [{ name: 'workbench.action.openSettings', args: ['glsld.server'] }]);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.starts.length, 0);
+});
+
+test('the missing-server prompt is shown before a slow or failed GitHub check completes', async t => {
+  const { state } = await activateFixture(t, {
+    onCheck: async state => {
+      assert.equal(state.information.length, 1);
+      await new Promise(setImmediate);
+      assert.equal(state.downloads, 0);
+    },
+    checkError: new Error('Network unavailable'),
+  });
+  assert.equal(state.information.length, 1);
+  assert.equal(state.errors.length, 0);
+  assert.ok(state.output.some(message => message.includes('Network unavailable')));
+});
+
+test('cached and custom servers start without an installation prompt', async t => {
+  for (const options of [{ installed: 'cached-server.exe' }, { config: { 'server.path': 'local.exe' } }]) {
+    const { state } = await activateFixture(t, options);
+    assert.equal(state.clients[0].isRunning(), true);
+    assert.equal(state.information.length, 0);
+    assert.equal(state.downloads, 0);
+  }
+});
+
+test('accepting the startup prompt after deactivation cannot start a download', async t => {
+  let choose;
+  const { state } = await activateFixture(t, {
+    onInformation: () => new Promise(resolve => { choose = resolve; }),
+  });
+  await state.extension.deactivate();
+  choose('Download');
+  await new Promise(setImmediate);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.starts.length, 0);
 });
 
 test('the download command installs to global storage and starts the existing client without reloading', async t => {
@@ -212,6 +304,7 @@ test('a custom path remains active after downloading and invalid custom paths ca
   await vscode.commands.executeCommand('glsld.downloadServer');
   assert.equal(state.starts.length, 1);
   assert.equal(state.config['server.path'], 'local.exe');
+  assert.equal(state.cleanupCalls.length, 0);
   assert.ok(state.information.some(message => message.includes('Clear glsld.server.path')));
   state.config['server.path'] = 'missing';
   await vscode.commands.executeCommand('glsld.restartServer');
@@ -222,7 +315,7 @@ test('a custom path remains active after downloading and invalid custom paths ca
   assert.equal(state.starts.at(-1).command.startsWith(context.globalStorageUri.fsPath + path.sep), true);
 });
 
-test('startup and restart check GitHub and downloading updates an already running cached server', async t => {
+test('restart checks GitHub and automatically updates an already running cached server once', async t => {
   const { state, vscode } = await activateFixture(t, { installed: 'old-server.exe' });
   assert.equal(state.checks, 1);
   state.latestVersion = 'v0.9.6';
@@ -230,11 +323,201 @@ test('startup and restart check GitHub and downloading updates an already runnin
   await vscode.commands.executeCommand('glsld.restartServer');
   assert.equal(state.checks, 2);
   assert.equal(state.clients[0].isRunning(), true);
-  assert.equal(state.starts.at(-1).command, 'old-server.exe');
-  assert.ok(state.information.some(message => message.includes('v0.9.6')));
-  await vscode.commands.executeCommand('glsld.downloadServer');
+  assert.equal(state.downloads, 1);
+  assert.equal(state.restarts, 1);
+  assert.equal(state.information.length, 0);
   assert.ok(state.starts.at(-1).command.includes(path.join('servers', 'v0.9.6')));
   assert.equal(state.clients.length, 1);
+});
+
+test('startup starts the installed server before checking and automatically installing the latest release', async t => {
+  const { state } = await activateFixture(t, {
+    installed: 'cached-server.exe', latestVersion: 'v1.0.0',
+    onCheck: state => {
+      assert.equal(state.clients[0].isRunning(), true);
+      assert.equal(state.starts[0].command, 'cached-server.exe');
+    },
+  });
+  assert.equal(state.checks, 1);
+  assert.equal(state.downloads, 1);
+  assert.equal(state.restarts, 1);
+  assert.equal(state.clients.length, 1);
+  assert.ok(state.starts.at(-1).command.includes(path.join('servers', 'v1.0.0')));
+  assert.deepEqual([...state.installed.keys()], ['v1.0.0']);
+  assert.equal(state.cleanupCalls.length, 1);
+  assert.equal(state.cleanupCalls[0].version, 'v1.0.0');
+  assert.equal(state.cleanupCalls[0].restarts, 1);
+  assert.equal(state.information.length, 0);
+  await state.onOpenDocument.fire({ languageId: 'glsl', uri: { toString: () => 'file:///shader.glsl' } });
+  assert.equal(state.checks, 1);
+  assert.equal(state.downloads, 1);
+});
+
+test('the update command reports an up-to-date server without downloading or restarting', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.checks, 2);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.restarts, 0);
+  assert.equal(state.information.at(-1), 'glsld v0.9.5 is up to date.');
+});
+
+test('the update command automatically downloads a new release and reports completion', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  state.latestVersion = 'v1.0.1';
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.downloads, 1);
+  assert.equal(state.restarts, 1);
+  assert.ok(state.starts.at(-1).command.includes(path.join('servers', 'v1.0.1')));
+  assert.equal(state.information.at(-1), 'glsld was updated to v1.0.1.');
+});
+
+test('an already cached Latest release is selected and started without downloading again', async t => {
+  const { state } = await activateFixture(t, {
+    installations: [['v0.9.5', 'old-server.exe'], ['v1.0.0', 'latest-server.exe']],
+    latestVersion: 'v1.0.0',
+  });
+  assert.equal(state.starts[0].command, 'old-server.exe');
+  assert.equal(state.starts.at(-1).command, 'latest-server.exe');
+  assert.equal(state.downloads, 0);
+  assert.equal(state.restarts, 1);
+  assert.deepEqual([...state.installed.keys()], ['v1.0.0']);
+});
+
+test('startup removes accumulated versions even when no new download is needed', async t => {
+  const { state } = await activateFixture(t, {
+    installations: [['v0.9.3', 'older-server.exe'], ['v0.9.4', 'old-server.exe'], ['v0.9.5', 'current-server.exe']],
+  });
+  assert.equal(state.downloads, 0);
+  assert.equal(state.restarts, 0);
+  assert.deepEqual([...state.installed.keys()], ['v0.9.5']);
+  assert.equal(state.cleanupCalls.length, 1);
+  assert.ok(state.output.some(message => message.includes('Removed old server versions: v0.9.3, v0.9.4')));
+});
+
+test('a failed launch of an updated server preserves previous installations', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  const previousCleanups = state.cleanupCalls.length;
+  state.latestVersion = 'v1.0.0';
+  state.failNextStart = true;
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.clients[0].isRunning(), false);
+  assert.equal(state.cleanupCalls.length, previousCleanups);
+  assert.equal(state.installed.get('v0.9.5'), 'cached-server.exe');
+  assert.equal(state.installed.has('v1.0.0'), true);
+  assert.match(state.errors.at(-1), /Failed to launch/);
+});
+
+test('cleanup failures leave the updated server running and are retried by a later check', async t => {
+  const { state, vscode } = await activateFixture(t, {
+    installed: 'cached-server.exe', latestVersion: 'v1.0.0', cleanupError: new Error('Files are busy'),
+  });
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.installed.has('v0.9.5'), true);
+  assert.equal(state.errors.length, 0);
+  assert.ok(state.output.some(message => message.includes('Could not clean old server versions: Error: Files are busy')));
+  state.cleanupError = undefined;
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.deepEqual([...state.installed.keys()], ['v1.0.0']);
+  assert.equal(state.restarts, 1);
+});
+
+test('a failed automatic download preserves the running server and can be retried manually', async t => {
+  const { state, vscode } = await activateFixture(t, {
+    installed: 'cached-server.exe', latestVersion: 'v1.0.0',
+    download: async () => { throw new Error('SHA-256 verification failed'); },
+  });
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.starts.at(-1).command, 'cached-server.exe');
+  assert.equal(state.restarts, 0);
+  assert.equal(state.currentVersion, 'v0.9.5');
+  assert.equal(state.cleanupCalls.length, 0);
+  assert.match(state.errors[0], /SHA-256/);
+  state.download = undefined;
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.downloads, 2);
+  assert.equal(state.restarts, 1);
+  assert.ok(state.starts.at(-1).command.includes(path.join('servers', 'v1.0.0')));
+});
+
+test('cancelling an automatic update preserves the running version without reporting success', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  const previousCleanups = state.cleanupCalls.length;
+  state.latestVersion = 'v1.0.0';
+  state.cancelProgress = true;
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.starts.at(-1).command, 'cached-server.exe');
+  assert.equal(state.currentVersion, 'v0.9.5');
+  assert.equal(state.restarts, 0);
+  assert.equal(state.errors.length, 0);
+  assert.equal(state.information.length, 0);
+  assert.equal(state.cleanupCalls.length, previousCleanups);
+});
+
+test('custom servers are never automatically downloaded or replaced and the command explains why', async t => {
+  const { state, vscode, context } = await activateFixture(t, {
+    config: { 'server.path': 'local.exe' }, installed: 'cached-server.exe', latestVersion: 'v1.0.0',
+  });
+  assert.equal(state.checks, 1);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.information.length, 0);
+  assert.equal(state.cleanupCalls.length, 0);
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.checks, 2);
+  assert.equal(state.downloads, 0);
+  assert.equal(state.starts.at(-1).command, path.join(context.extensionPath, 'local.exe'));
+  assert.match(state.information.at(-1), /latest glsld release is v1.0.0.*glsld.server.path/);
+});
+
+test('the update command reoffers first installation after the initial prompt was dismissed', async t => {
+  const { state, vscode } = await activateFixture(t);
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.information.length, 2);
+  assert.deepEqual(state.informationActions.at(-1), ['Download', 'Open Settings']);
+  assert.equal(state.downloads, 0);
+});
+
+test('concurrent manual checks share one check and download and show a single result', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  state.latestVersion = 'v1.0.0';
+  let releaseCheck;
+  let enteredCheck;
+  const checking = new Promise(resolve => { enteredCheck = resolve; });
+  state.onCheck = () => new Promise(resolve => { releaseCheck = resolve; enteredCheck(); });
+  const first = vscode.commands.executeCommand('glsld.checkForUpdates');
+  const second = vscode.commands.executeCommand('glsld.checkForUpdates');
+  await checking;
+  releaseCheck();
+  await Promise.all([first, second]);
+  assert.equal(state.checks, 2);
+  assert.equal(state.downloads, 1);
+  assert.equal(state.restarts, 1);
+  assert.deepEqual(state.information, ['glsld was updated to v1.0.0.']);
+});
+
+test('a manual check joins a running automatic check and still receives its result', async t => {
+  let manualCheck;
+  const { state } = await activateFixture(t, {
+    installed: 'cached-server.exe', latestVersion: 'v1.0.0',
+    onCheck: state => { manualCheck = state.commands.get('glsld.checkForUpdates')(); },
+  });
+  await manualCheck;
+  assert.equal(state.checks, 1);
+  assert.equal(state.downloads, 1);
+  assert.equal(state.restarts, 1);
+  assert.deepEqual(state.information, ['glsld was updated to v1.0.0.']);
+});
+
+test('deactivating during the update check prevents a later download or restart', async t => {
+  const { state } = await activateFixture(t, {
+    installed: 'cached-server.exe', latestVersion: 'v1.0.0',
+    onCheck: state => state.extension.deactivate(),
+  });
+  assert.equal(state.downloads, 0);
+  assert.equal(state.restarts, 0);
+  assert.equal(state.clients[0].isRunning(), false);
+  assert.equal(state.errors.length, 0);
 });
 
 test('a failed update check keeps a cached server running without a startup error', async t => {
@@ -248,6 +531,18 @@ test('a failed update check keeps a cached server running without a startup erro
   assert.equal(state.starts.at(-1).command, 'cached-server.exe');
   assert.equal(state.errors.length, 0);
   assert.ok(state.output.some(message => message.includes('Network unavailable')));
+});
+
+test('a failed manual check reports the error and leaves the running version usable', async t => {
+  const { state, vscode } = await activateFixture(t, { installed: 'cached-server.exe' });
+  state.checkError = new Error('GitHub rate limit exceeded');
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.downloads, 0);
+  assert.match(state.errors.at(-1), /rate limit exceeded/);
+  state.checkError = undefined;
+  await vscode.commands.executeCommand('glsld.checkForUpdates');
+  assert.equal(state.information.at(-1), 'glsld v0.9.5 is up to date.');
 });
 
 test('background index extra extensions are sent at startup, on changes, and when cleared', async t => {

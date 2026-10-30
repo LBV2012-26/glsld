@@ -119,6 +119,50 @@ export class ServerManager {
 		return download;
 	}
 
+	/** Call only after the selected managed executable has started successfully. */
+	async cleanupOldVersions(
+		executablePath: string,
+		options: { signal?: AbortSignal; onError?: (version: string, error: unknown) => void } = {},
+	): Promise<string[]> {
+		options.signal?.throwIfAborted();
+		const target = getServerTarget(this.platform, this.architecture);
+		const current = await this.getInstalledServer();
+		if (!current || path.resolve(executablePath) !== path.resolve(current.executablePath)) { return []; }
+		const root = await fs.realpath(path.resolve(this.storagePath, 'servers'));
+		const removed: string[] = [];
+		for (const entry of await fs.readdir(root, { withFileTypes: true })) {
+			options.signal?.throwIfAborted();
+			if (!entry.isDirectory() || !isReleaseVersion(entry.name) || entry.name === current.version) { continue; }
+			const versionDirectory = path.resolve(root, entry.name);
+			const directory = path.resolve(versionDirectory, target.name);
+			try {
+				// Never follow a junction/symlink or recursively remove anything outside managed storage.
+				if (path.relative(root, await fs.realpath(versionDirectory)) !== entry.name) { continue; }
+				let stat;
+				try { stat = await fs.lstat(directory); } catch (error) {
+					if (!isFileError(error, 'ENOENT')) { throw error; }
+				}
+				// An empty version directory may belong to a download that has not created staging yet.
+				if (!stat || !stat.isDirectory() || stat.isSymbolicLink() ||
+					path.relative(root, await fs.realpath(directory)) !== path.join(entry.name, target.name)) { continue; }
+				// A different VS Code window may have selected another release during cleanup.
+				const selected = await this.getInstalledServer();
+				if (selected?.version !== current.version || selected.executablePath !== current.executablePath) { break; }
+				options.signal?.throwIfAborted();
+				await fs.rm(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+				removed.push(entry.name);
+				// Other platforms and in-progress downloads keep the version directory nonempty.
+				try { await fs.rmdir(versionDirectory); } catch (error) {
+					if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].some(code => isFileError(error, code))) { throw error; }
+				}
+			} catch (error) {
+				options.signal?.throwIfAborted();
+				options.onError?.(entry.name, error);
+			}
+		}
+		return removed;
+	}
+
 	private installationDirectory(version: string, target: ServerTarget): string {
 		return path.join(this.storagePath, 'servers', version, target.name);
 	}

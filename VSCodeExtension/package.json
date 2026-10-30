@@ -238,6 +238,11 @@
 				"category": "glsld"
 			},
 			{
+				"command": "glsld.checkForUpdates",
+				"title": "Check for Language Server Updates",
+				"category": "glsld"
+			},
+			{
 				"command": "glsld.restartServer",
 				"title": "Restart Language Server",
 				"category": "glsld"

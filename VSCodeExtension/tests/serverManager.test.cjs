@@ -83,6 +83,14 @@ async function fixture(t, options = {}) {
   return { storage, manager, archive, release, sha256, requests, fetch };
 }
 
+async function cachedServer(storage, tag, target = 'win32-x64') {
+  const directory = path.join(storage, 'servers', tag, target);
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(path.join(directory, '.install.json'), JSON.stringify({ version: tag, target }));
+  await fs.writeFile(path.join(directory, target.startsWith('win32') ? 'glsld.exe' : 'glsld'), 'cached server fixture');
+  return directory;
+}
+
 test('invalid and unsafe release tags are rejected before creating an installation', async t => {
   for (const value of ['', '../0.9.5', 'v0.9.5/../../outside', 'C:\\server']) {
     const { manager, release, storage } = await fixture(t);
@@ -322,6 +330,109 @@ test('cached versions never skip Latest checks and a newly published release is 
   assert.deepEqual(await manager.checkForUpdates(), { version, installed: true });
   assert.deepEqual(await manager.getInstalledServer(), previous);
   assert.equal(requests.filter(request => request.url !== releaseUrl).length, 2);
+});
+
+test('cleanup removes previous installations only when explicitly given the selected running executable', async t => {
+  const { manager, storage, requests } = await fixture(t);
+  const oldest = await cachedServer(storage, 'v0.9.3');
+  const previous = await cachedServer(storage, 'v0.9.4');
+  const current = await manager.downloadServer();
+  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.deepEqual(await manager.cleanupOldVersions(path.join(storage, 'custom-server.exe')), []);
+  const requestCount = requests.length;
+  assert.deepEqual((await manager.cleanupOldVersions(current.executablePath)).sort(), ['v0.9.3', 'v0.9.4']);
+  for (const directory of [oldest, previous]) {
+    await assert.rejects(fs.stat(path.dirname(directory)), { code: 'ENOENT' });
+  }
+  assert.deepEqual(await manager.getInstalledServer(), current);
+  assert.equal(await fs.readFile(current.executablePath, 'utf8'), 'server fixture');
+  assert.deepEqual((await fs.readdir(path.join(storage, 'servers'))).sort(), ['current-win32-x64.json', version].sort());
+  assert.equal(requests.length, requestCount, 'Cleanup should not query GitHub');
+});
+
+test('cleanup preserves other platforms, active download staging, and unrelated storage', async t => {
+  const { manager, storage } = await fixture(t);
+  const previous = await cachedServer(storage, 'v0.9.4');
+  const otherPlatform = await cachedServer(storage, 'v0.9.4', 'linux-arm64');
+  const staging = path.join(path.dirname(previous), '.download-active');
+  const unrelated = path.join(storage, 'servers', 'user-data', 'win32-x64');
+  const emptyVersion = path.join(storage, 'servers', 'v0.9.2');
+  for (const directory of [staging, unrelated, emptyVersion]) { await fs.mkdir(directory, { recursive: true }); }
+  for (const directory of [staging, unrelated]) { await fs.writeFile(path.join(directory, 'keep.txt'), 'keep'); }
+  const current = await manager.downloadServer();
+  assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), ['v0.9.4']);
+  await assert.rejects(fs.stat(previous), { code: 'ENOENT' });
+  assert.equal((await fs.stat(emptyVersion)).isDirectory(), true, 'Another download may be creating its staging directory');
+  assert.equal(await fs.readFile(path.join(otherPlatform, 'glsld'), 'utf8'), 'cached server fixture');
+  for (const directory of [staging, unrelated]) { assert.equal(await fs.readFile(path.join(directory, 'keep.txt'), 'utf8'), 'keep'); }
+});
+
+test('cleanup does not follow version or target junctions outside the managed server directory', async t => {
+  const { manager, storage } = await fixture(t);
+  const current = await manager.downloadServer();
+  const root = path.join(storage, 'servers');
+  const outside = path.join(storage, 'protected');
+  await fs.mkdir(outside);
+  await fs.writeFile(path.join(outside, 'keep.txt'), 'do not delete');
+  await fs.symlink(outside, path.join(root, 'v0.9.3'), 'junction');
+  await fs.mkdir(path.join(root, 'v0.9.4'));
+  await fs.symlink(outside, path.join(root, 'v0.9.4', 'win32-x64'), 'junction');
+  assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), []);
+  assert.equal(await fs.readFile(path.join(outside, 'keep.txt'), 'utf8'), 'do not delete');
+  assert.equal((await fs.lstat(path.join(root, 'v0.9.3'))).isSymbolicLink(), true);
+  assert.equal((await fs.lstat(path.join(root, 'v0.9.4', 'win32-x64'))).isSymbolicLink(), true);
+});
+
+test('cancelled cleanup preserves all installations', async t => {
+  const { manager, storage } = await fixture(t);
+  const previous = await cachedServer(storage, 'v0.9.4');
+  const current = await manager.downloadServer();
+  const abort = new AbortController();
+  abort.abort();
+  await assert.rejects(manager.cleanupOldVersions(current.executablePath, { signal: abort.signal }), /abort/i);
+  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.deepEqual(await manager.getInstalledServer(), current);
+});
+
+test('cleanup stops when another window selects a different version', async t => {
+  const { manager, storage } = await fixture(t);
+  const previous = await cachedServer(storage, 'v0.9.4');
+  const current = await manager.downloadServer();
+  const getInstalled = manager.getInstalledServer.bind(manager);
+  let reads = 0;
+  t.mock.method(manager, 'getInstalledServer', async (...args) => {
+    if (args.length === 0 && ++reads === 2) {
+      await fs.writeFile(path.join(storage, 'servers', 'current-win32-x64.json'), JSON.stringify({ version: 'v0.9.4' }));
+    }
+    return getInstalled(...args);
+  });
+  assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), []);
+  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(current.executablePath, 'utf8'), 'server fixture');
+});
+
+test('busy installations do not prevent other cleanup and partial deletion can be retried', async t => {
+  const { manager, storage } = await fixture(t);
+  await cachedServer(storage, 'v0.9.3');
+  const busyDirectory = await cachedServer(storage, 'v0.9.4');
+  const current = await manager.downloadServer();
+  const remove = fs.rm;
+  let busy = true;
+  t.mock.method(fs, 'rm', async (directory, options) => {
+    if (directory === busyDirectory && busy) {
+      await remove(path.join(directory, '.install.json'), { force: true });
+      throw Object.assign(new Error('Executable is busy'), { code: 'EBUSY' });
+    }
+    return remove(directory, options);
+  });
+  const errors = [];
+  assert.deepEqual(await manager.cleanupOldVersions(current.executablePath, { onError: (version, error) => errors.push({ version, code: error.code }) }), ['v0.9.3']);
+  assert.deepEqual(errors, [{ version: 'v0.9.4', code: 'EBUSY' }]);
+  assert.equal(await fs.readFile(path.join(busyDirectory, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  busy = false;
+  assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), ['v0.9.4']);
+  await assert.rejects(fs.stat(path.dirname(busyDirectory)), { code: 'ENOENT' });
+  assert.deepEqual(await manager.getInstalledServer(), current);
 });
 
 test('legacy installations and a damaged current-version record are usable offline', async t => {
