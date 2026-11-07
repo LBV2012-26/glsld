@@ -36,8 +36,12 @@ namespace glsld {
     }
 
     void ContextLocator::VisitMemberAccessExpression(MemberAccessExpressionNode* node) {
+        if (node->object != nullptr && node->object->begin <= target_ && target_ < node->object->end) {
+            Traverse(node->object);
+            return;
+        }
+
         best_match_ = node->object;
-        // AstVisitor::VisitMemberAccessExpression(node);
     }
 
     SignatureLocator::SignatureLocator(const Document& document, const SourceLocation& target)
