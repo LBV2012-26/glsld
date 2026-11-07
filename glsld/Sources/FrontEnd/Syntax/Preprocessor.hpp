@@ -30,7 +30,7 @@ namespace glsld {
                      const SourceFile* source_file,
                      IncludeLoader& include_loader,
                      IncludeDirectoryHandle include_dirs,
-                     std::span<const Token> raw_tokens,
+                     std::span<const Token> raw_tokens = {},
                      std::vector<std::string> parent_stack = {});
 
         std::vector<Token> Process();
@@ -79,6 +79,7 @@ namespace glsld {
         void ConsumeToken(std::ptrdiff_t count = 1);
         bool MatchAndConsume(TokenType type);
 
+        Document&                    document_;
         SourceTable&                 source_table_;
         const SourceFile*            source_file_;
         IncludeLoader&               include_loader_;
@@ -88,7 +89,6 @@ namespace glsld {
         std::optional<std::uint32_t> open_inactive_begin_line_;
         std::size_t                  token_index_{};
         std::span<const Token>       raw_tokens_;
-        Document&                    document_;
     };
 }
 

@@ -17,6 +17,7 @@
 #include <FrontEnd/Passes/TypeResolver.hpp>
 #include <FrontEnd/Syntax/Lexer.hpp>
 #include <FrontEnd/Syntax/Parser.hpp>
+#include <FrontEnd/Syntax/Preprocessor.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {
@@ -602,7 +603,12 @@ namespace glsld {
         Lexer lexer(source_file, document->source, include_loader_, include_dirs);
         document->raw_tokens = lexer.Tokenize();
 
-        Parser parser(*document, source_table_, source_file, include_loader_, include_dirs, 0, nullptr);
+        document->PrepareInjectedMacros(source_file);
+
+        Preprocessor processor(*document, source_table_, source_file, include_loader_, include_dirs);
+        document->expanded_tokens = processor.Process();
+
+        (void)Parser(*document, source_file, 0, nullptr);
 
         if (document->ast == nullptr) {
             return nullptr;
@@ -610,9 +616,9 @@ namespace glsld {
 
         document->FinalizeInjectedMacros();
 
-        SymbolLinker linker(*document, 0, nullptr);
-        TypeResolver resolver(*document, 0, nullptr);
-        MacroBinder binder(*document, 0, nullptr);
+        (void)SymbolLinker(*document, 0, nullptr);
+        (void)TypeResolver(*document, 0, nullptr);
+        (void)MacroBinder(*document, 0, nullptr);
 
         return document;
     }

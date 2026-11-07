@@ -25,6 +25,7 @@
 #include "FrontEnd/Syntax/Lexer.hpp"
 #include "FrontEnd/Syntax/MetadataManager.hpp"
 #include "FrontEnd/Syntax/Parser.hpp"
+#include "FrontEnd/Syntax/Preprocessor.hpp"
 #include "Server/LspServer.hpp"
 #include "Utils/Utils.hpp"
 
@@ -60,8 +61,16 @@ namespace {
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
+        document.PrepareInjectedMacros(source_file);
+
+        Preprocessor processor(document, source_table, source_file, loader, include_dirs);
+        auto preprocess_start    = std::chrono::high_resolution_clock::now();
+        document.expanded_tokens = processor.Process();
+        auto preprocess_end      = std::chrono::high_resolution_clock::now();;
+        auto preprocess_duration = preprocess_end - preprocess_start;
+
         auto parse_start    = std::chrono::high_resolution_clock::now();
-        (void)Parser(document, source_table, source_file, loader, include_dirs, 0, nullptr);
+        (void)Parser(document, source_file, 0, nullptr);
         auto parse_end      = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
@@ -86,15 +95,16 @@ namespace {
         }
 
         std::println("Benchmark completed for file: {}", filename.generic_string());
-        std::println("Lex time: {}ms, Metadata attach time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
+        std::println("Lex time: {}ms, Metadata attach time: {}ms, Preproces time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(preprocess_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
 
-        auto total_duration = lexer_duration + attach_duration + parse_duration + link_duration + resolve_duration + bind_duration;
+        auto total_duration = lexer_duration + attach_duration + preprocess_duration + parse_duration + link_duration + resolve_duration + bind_duration;
         std::println("Total time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(total_duration).count());
     }
 }

@@ -11,5 +11,6 @@
 	],
 	"C_Cpp.default.cppStandard": "c++26",
 	"C_Cpp.default.cStandard": "c23",
-	"C_Cpp.default.intelliSenseMode": "windows-msvc-x64"
+	"C_Cpp.default.intelliSenseMode": "windows-msvc-x64",
+	"glsld.server.path": "Z:\\Source\\glsld\\glsld\\Win64\\glsld.exe"
 }

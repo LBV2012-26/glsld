@@ -11,25 +11,17 @@
 #include <magic_enum/magic_enum_all.hpp>
 
 #include <FrontEnd/Syntax/MetadataManager.hpp>
-#include <FrontEnd/Syntax/Preprocessor.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {
-    Parser::Parser(Document& document,
-                   SourceTable& source_table,
-                   const SourceFile* source_file,
-                   IncludeLoader& include_loader,
-                   IncludeDirectoryHandle include_dirs,
-                   int version_replica,
-                   VersionPointer version_pointer)
-
-        : source_file_{ source_file }
+    Parser::Parser(Document& document, const SourceFile* source_file, int version_replica, VersionPointer version_pointer)
+        : document_{ document }
+        , source_file_{ source_file }
         , version_replica_{ version_replica }
         , version_pointer_{ version_pointer }
-        , document_{ document }
+        , expanded_tokens_{ document_.expanded_tokens }
     {
-        document_.PrepareInjectedMacros(source_file_);
-        Parse(source_table, include_loader, include_dirs);
+        Parse();
     }
 
     Parser::Precedence Parser::GetInfixPrecedence(TokenType type) {
@@ -149,14 +141,7 @@ namespace glsld {
         }
     }
 
-    void Parser::Parse(
-        SourceTable& source_table,
-        IncludeLoader& include_loader,
-        IncludeDirectoryHandle include_dirs)
-    {
-        Preprocessor processor(document_, source_table, source_file_, include_loader, include_dirs, document_.raw_tokens);
-        expanded_tokens_ = processor.Process();
-
+    void Parser::Parse() {
         document_.symbols.root_scope()->kind_ = ScopeKind::kGlobalTransparent;
         scope_stack_.push(document_.symbols.root_scope());
 
@@ -165,9 +150,8 @@ namespace glsld {
             return;
         }
 
-        document_.ast             = ast_root;
-        document_.ast->pprefs     = std::move(pprefs_);
-        document_.expanded_tokens = std::move(expanded_tokens_);
+        document_.ast         = ast_root;
+        document_.ast->pprefs = std::move(pprefs_);
     }
 
     template <typename NodeType, typename... Types>

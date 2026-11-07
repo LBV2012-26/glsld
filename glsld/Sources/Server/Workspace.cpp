@@ -19,6 +19,7 @@
 #include <FrontEnd/Syntax/Lexer.hpp>
 #include <FrontEnd/Syntax/MetadataManager.hpp>
 #include <FrontEnd/Syntax/Parser.hpp>
+#include <FrontEnd/Syntax/Preprocessor.hpp>
 #include <Utils/Utils.hpp>
 
 namespace glsld {
@@ -326,7 +327,12 @@ namespace glsld {
             }
         }
 
-        (void)Parser(document, source_table_, source_file, include_loader_, include_dirs_, version_replica, version_pointer);
+        document.PrepareInjectedMacros(source_file);
+
+        Preprocessor processor(document, source_table_, source_file, include_loader_, include_dirs_);
+        document.expanded_tokens = processor.Process();
+
+        (void)Parser(document, source_file, version_replica, version_pointer);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
                 GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",

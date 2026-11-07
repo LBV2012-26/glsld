@@ -443,13 +443,13 @@ namespace glsld {
                                std::span<const Token> raw_tokens,
                                std::vector<std::string> parent_stack)
 
-        : source_table_{ source_table }
+        : document_{ document }
+        , source_table_{ source_table }
         , source_file_{ source_file }
         , include_loader_{ include_loader }
         , include_dirs_{ include_dirs }
         , include_stack_{ std::move(parent_stack) }
-        , raw_tokens_{ raw_tokens }
-        , document_{ document }
+        , raw_tokens_{ raw_tokens.empty() ? document_.raw_tokens : raw_tokens }
     {
         if (include_stack_.empty()) {
             include_stack_.push_back(std::string(source_file_->filename()));

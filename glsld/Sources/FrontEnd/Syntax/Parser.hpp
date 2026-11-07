@@ -23,13 +23,7 @@
 namespace glsld {
     class Parser {
     public:
-        Parser(Document& document,
-               SourceTable& source_table,
-               const SourceFile* source_file,
-               IncludeLoader& include_loader,
-               IncludeDirectoryHandle include_dirs,
-               int version_replica,
-               VersionPointer version_pointer);
+        Parser(Document& document, const SourceFile* source_file, int version_replica, VersionPointer version_pointer);
 
     private:
         enum class Precedence : int {
@@ -68,9 +62,7 @@ namespace glsld {
 
         std::optional<NameProbe> ProbeName(std::int64_t offset = 0);
 
-        void Parse(SourceTable& source_table,
-                   IncludeLoader& include_loader,
-                   IncludeDirectoryHandle include_dirs);
+        void Parse();
 
         template <typename NodeType, typename... Types>
         NodeType* MakeNode(Types&&... args);
@@ -172,7 +164,7 @@ namespace glsld {
 
         Document&                               document_;
         const SourceFile*                       source_file_;
-        std::vector<Token>                      expanded_tokens_;
+        std::vector<Token>&                     expanded_tokens_;
         ArenaVector<PreprocessorNode*>          pprefs_{ ArenaAllocator<PreprocessorNode*>(*document_.arena) };
         std::stack<Scope*, std::vector<Scope*>> scope_stack_;
         std::size_t                             token_index_{};
