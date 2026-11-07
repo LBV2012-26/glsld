@@ -7,6 +7,7 @@
 #extension GL_EXT_debug_printf : require
 #extension GL_EXT_maximal_reconvergence : require
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+#extension GL_EXT_spirv_intrinsics : require
 #extension GL_EXT_subgroup_uniform_control_flow : require
 #extension GL_EXT_structured_descriptor_heap : require
 #extension GL_KHR_memory_scope_semantics : require
@@ -104,6 +105,77 @@ coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> CreateCooperativeMat
 #define WRAP(value) FORWARD(value)
 
 const float kX = WRAP(CLAMP_VALUE(sin(1.2), 0.0, 1.0));
+
+// SPIR-V intrinsics Hover cases.
+// Hover declarations and their references in TestSpirvHover().
+// Ordinary layout qualifiers stay in the declaration, without a Layout row.
+// SPIR-V Storage and Decorate rows should still show complete arguments.
+
+// Storage: Private = 6.
+spirv_storage_class(6) float hover_spirv_private;
+
+// Ordinary buffer block: no separate Layout/Storage rows.
+// Member decorations: Offset = 35 should still have a Decorate row.
+layout(std430, set = 3, binding = 0)
+buffer HoverSpirvBlock {
+    spirv_decorate(35, 0) vec4 color;
+    spirv_decorate(35, 16) float scale;
+} hover_spirv_block;
+
+// Literal decoration: Location = 30.
+spirv_decorate(30, 8) in vec4 hover_spirv_input;
+
+// ID decoration: HlslCounterBufferGOOGLE = 5634.
+// Hover the counted block: Decorate should retain the counter's name.
+// Manual Hover fixture: the SDK emits a forward buffer ID reference here,
+// which spirv-val rejects even though glslang accepts the declaration.
+layout(std430, set = 3, binding = 1) buffer HoverSpirvCounter {
+    uint count;
+} hover_spirv_counter;
+
+layout(std430, set = 3, binding = 2)
+spirv_decorate_id(
+    extensions = ["SPV_GOOGLE_hlsl_functionality1"],
+    5634, hover_spirv_counter)
+buffer HoverSpirvCountedBlock {
+    vec4 value;
+} hover_spirv_counted;
+
+// String decoration: HlslSemanticGOOGLE = 5635.
+layout(location = 9)
+spirv_decorate_string(
+    extensions = ["SPV_GOOGLE_decorate_string", "SPV_GOOGLE_hlsl_functionality1"],
+    5635, "HOVER_COLOR")
+in vec4 hover_spirv_semantic;
+
+// Direct and macro-aliased SPIR-V types: OpTypeFloat = 22, width = 32.
+spirv_type(id = 22, 32) hover_spirv_raw_float;
+#define HoverSpirvFloat spirv_type(id = 22, 32)
+HoverSpirvFloat hover_spirv_alias_float;
+
+// Extended instruction: GLSL.std.450 FAbs = 4.
+spirv_instruction(set = "GLSL.std.450", id = 4)
+float HoverSpirvAbs(float value);
+
+// Core instructions and parameter qualifiers: OpLoad = 61,
+// OpCompositeInsert = 82. Hover both the functions and their parameters.
+spirv_instruction(id = 61)
+float HoverSpirvLoad(spirv_by_reference float source);
+
+spirv_instruction(id = 82)
+vec4 HoverSpirvInsert(float component, vec4 value, spirv_literal uint index);
+
+void TestSpirvHover() {
+    hover_spirv_private = HoverSpirvAbs(-2.0);
+    float loaded = HoverSpirvLoad(hover_spirv_private);
+    vec4 inserted = HoverSpirvInsert(loaded, hover_spirv_input, 2u);
+    hover_spirv_counted.value = inserted + hover_spirv_semantic;
+    hover_spirv_block.color = hover_spirv_counted.value;
+    hover_spirv_block.scale = loaded;
+
+    HoverSpirvFloat local_alias_float;
+    spirv_type(id = 22, 32) local_raw_float;
+}
 
 void main() {
     coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix = CreateCooperativeMatrix();

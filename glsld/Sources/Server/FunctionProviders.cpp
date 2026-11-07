@@ -2057,7 +2057,7 @@ namespace glsld::Providers {
             }
 
             std::string result;
-            auto Append = [&result](std::string_view text, bool abbreviate_arguments) -> void {
+            auto Append = [&result](std::string_view text, bool abbreviate_arguments = false) -> void {
                 if (text.empty()) {
                     return;
                 }
@@ -2066,8 +2066,8 @@ namespace glsld::Providers {
                 if (abbreviate_arguments) {
                     const auto open_paren = text.find('(');
                     rendered = open_paren == std::string_view::npos
-                             ? std::string(text)
-                             : std::string(text.substr(0, open_paren)) + "(...)";
+                        ? std::string(text)
+                        : std::string(text.substr(0, open_paren)) + "(...)";
                 } else {
                     rendered = text;
                 }
@@ -2080,16 +2080,16 @@ namespace glsld::Providers {
             };
 
             for (const auto& layer : layer_exec_env)
-                Append(layer, true);
+                Append(layer);
 
-            Append(layer_layout, true);
+            Append(layer_layout);
 
             for (const auto& layer : layer_decorate)
                 Append(layer, true);
             for (const auto& layer : layer_storage)
                 Append(layer, true);
 
-            Append(BuildTypeText(node, snapshot), false);
+            Append(BuildTypeText(node, snapshot));
 
             if (result.contains("layout") && !result.contains("set")) {
                 if (auto pos = result.find("binding"); pos != std::string::npos) {
@@ -2516,12 +2516,6 @@ namespace glsld::Providers {
         std::string details;
         std::string declare;
 
-        auto AppendLayoutOnDetails = [&details](std::string_view layout) -> void {
-            if (!layout.empty()) {
-                details += std::format("**Layout**: `{}`\n", layout);
-            }
-        };
-
         auto AppendHitsCommit = [&details](std::span<const std::string> hits, std::string_view header) -> void {
             if (hits.empty()) {
                 return;
@@ -2538,18 +2532,8 @@ namespace glsld::Providers {
             details += "`\n";
         };
 
-        auto CollectAndAppendStorageHits = [&details, AppendHitsCommit](const auto* node) -> void {
+        auto CollectAndAppendStorageHits = [AppendHitsCommit](const auto* node) -> void {
             std::vector<std::string> storage_hits;
-            auto& metadata = MetadataManager::GetInstance();
-
-            for (const auto& spec : node->type_spec.specifiers) {
-                if (auto subtype = metadata.GetLexicalSubtype(spec.text);
-                    subtype.has_value() && subtype->contains("Qualifiers")) {
-                    if (spec.text != "layout") {
-                        storage_hits.push_back(std::string(spec.text));
-                    }
-                }
-            }
 
             for (const auto& spirv : node->type_spec.spirv_intrinsics) {
                 if (spirv != nullptr && spirv->keyword.text == "spirv_storage_class") {
@@ -2786,7 +2770,6 @@ namespace glsld::Providers {
             const auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclaration(symbol, full);
 
-            AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
             CollectAndAppendDecorateHits(node);
 
@@ -2913,7 +2896,6 @@ namespace glsld::Providers {
             const auto full = BuildHoverSpecifierLine(node, snapshot.get());
             BuildDefinedDeclaration(symbol, full);
 
-            AppendLayoutOnDetails(RenderMergedLayout(node->type_spec.layouts));
             CollectAndAppendStorageHits(node);
             CollectAndAppendDecorateHits(node);
 
@@ -2940,8 +2922,8 @@ namespace glsld::Providers {
             markdown += type_arrow + "\n";
         }
 
-        markdown += "\n---\n";
         if (details.size() > 11) {
+            markdown += "\n";
             markdown += details + "\n";
         }
 

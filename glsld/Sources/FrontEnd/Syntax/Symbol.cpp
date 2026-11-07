@@ -230,6 +230,9 @@ namespace glsld {
         } else {
             if (with_qualifiers) {
                 for (const auto& qualifier : qualifiers) {
+                    if (qualifier.text == "layout" || qualifier.type == TokenType::kSpirvIntrinsic) {
+                        continue;
+                    }
                     result += std::format("{} ", qualifier.text);
                 }
             }
