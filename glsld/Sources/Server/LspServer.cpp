@@ -127,6 +127,14 @@ namespace glsld {
                 break;
             }
 
+            if (!message->contains("method")) {
+                if (message->contains("id") && message->contains("error")) {
+                    GLSLD_LOG(warn, "Client response to server request {} failed: {}",
+                              message->at("id").dump(), message->at("error").dump());
+                }
+                continue;
+            }
+
             if (message->contains("method") && message->at("method") == "$/cancelRequest") {
                 CancelRequest(*message);
                 continue;
@@ -231,6 +239,8 @@ namespace glsld {
         router_.RegisterNotification("initialized", [this](Context& context) -> void {
             HandleInitialized(context);
         });
+
+        router_.RegisterNotification("$/setTrace", [](Context&) -> void {});
 
         router_.RegisterNotification("exit", [this](Context& context) -> void {
             HandleExit(context);
