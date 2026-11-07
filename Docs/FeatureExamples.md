@@ -20,7 +20,9 @@ Install the extension, open a folder containing GLSL source files, and configure
 }
 ```
 
-Use `${workspaceFolder}/Shaders` to index a subdirectory instead. If the list is empty or absent, background indexing is disabled. The index cache is stored at `${workspaceFolder}/.glsld/BlobIndex.idx`.
+You can also add your custom shader extension names for indexing using `glsld.backgroundIndex.extraExtensions`.
+
+Use `${workspaceFolder}/Shaders` to index a subdirectory instead. If the list is empty or absent, background indexing is disabled. The index cache is stored at `${workspaceFolder}/.glsld/Indexes/.idx`.
 
 The extension does not bundle the language server. On activation, it checks for an installed server and offers a **Download** notification if none is found, even when no GLSL document is open. Click **Download** to install the latest server from [GitHub Releases](https://github.com/LBV2012-26/glsld/releases) and start it automatically without reloading VS Code. Dismissing the notification leaves installation available through **glsld: Download Language Server** in the Command Palette. Use **Open Settings** to configure a local executable instead. First installation requires accepting the prompt or running the download command; subsequent updates are automatic.
 
