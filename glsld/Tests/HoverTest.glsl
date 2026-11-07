@@ -178,7 +178,7 @@ void TestSpirvHover() {
 }
 
 void main() {
-    coopmat<float16_t, gl_ScopeSubgroup, 16, 16, gl_MatrixUseA> matrix = CreateCooperativeMatrix();
+    auto matrix = CreateCooperativeMatrix();
     vector<float, 16> long_vector = {};
 
     InStruct local_input = input_struct;
