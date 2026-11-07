@@ -441,7 +441,8 @@ namespace glsld {
                                IncludeLoader& include_loader,
                                IncludeDirectoryHandle include_dirs,
                                std::span<const Token> raw_tokens,
-                               std::vector<std::string> parent_stack)
+                               std::vector<std::string> parent_stack,
+                               PreprocessMode mode)
 
         : document_{ document }
         , source_table_{ source_table }
@@ -450,6 +451,7 @@ namespace glsld {
         , include_dirs_{ include_dirs }
         , include_stack_{ std::move(parent_stack) }
         , raw_tokens_{ raw_tokens.empty() ? document_.raw_tokens : raw_tokens }
+        , mode_{ mode }
     {
         if (include_stack_.empty()) {
             include_stack_.push_back(std::string(source_file_->filename()));
@@ -458,7 +460,9 @@ namespace glsld {
 
     std::vector<Token> Preprocessor::Process() {
         std::vector<Token> expanded;
-        expanded.reserve(static_cast<std::size_t>(raw_tokens_.size() * 1.3));
+        if (mode_ == PreprocessMode::kFull) {
+            expanded.reserve(static_cast<std::size_t>(raw_tokens_.size() * 1.3));
+        }
 
         while (current_token().type != TokenType::kEndOfFile) {
             if (current_token().type == TokenType::kSharp) {
@@ -467,6 +471,11 @@ namespace glsld {
             }
 
             if (!IsCurrentBranchActive()) {
+                ConsumeToken();
+                continue;
+            }
+
+            if (mode_ == PreprocessMode::kCollectExtensions) {
                 ConsumeToken();
                 continue;
             }
@@ -482,9 +491,12 @@ namespace glsld {
             ConsumeToken();
         }
 
-        const auto& eof_token = current_token();
-        FinalizeInactiveRegions(eof_token.location.line());
-        expanded.push_back(eof_token); // push_back EOF token
+        if (mode_ == PreprocessMode::kFull) {
+            const auto& eof_token = current_token();
+            FinalizeInactiveRegions(eof_token.location.line());
+            expanded.push_back(eof_token); // push_back EOF token
+        }
+
         return expanded;
     }
 
@@ -780,6 +792,10 @@ namespace glsld {
         auto PushArgument = [&](const Token& token) -> void {
             arguments.back().push_back(token);
 
+            if (mode_ != PreprocessMode::kFull) {
+                return;
+            }
+
             MacroArgumentTrace trace{ token };
 
             auto macro_it = document_.macro_table.find(token.text);
@@ -898,7 +914,9 @@ namespace glsld {
         ConsumeToken();
 
         if (current_token().type == TokenType::kEndOfFile) {
-            output.push_back(sharp_token);
+            if (mode_ == PreprocessMode::kFull) {
+                output.push_back(sharp_token);
+            }
             return;
         }
 
@@ -927,6 +945,17 @@ namespace glsld {
 
         auto body = CaptureDirectiveBodyTokens(directive_line);
 
+        auto AppendDirective = [&]() -> void {
+            if (mode_ != PreprocessMode::kFull) {
+                return;
+            }
+
+            output.push_back(sharp_token);
+            output.push_back(directive_token);
+            ProcessLineSplicing(body);
+            output.append_range(body);
+        };
+
         if (directive_text == "if"   || directive_text == "ifdef" || directive_text == "ifndef" ||
             directive_text == "elif" || directive_text == "else"  || directive_text == "endif")
         {
@@ -934,14 +963,11 @@ namespace glsld {
             const bool handled    = HandleConditionalDirective(directive_text, body, sharp_token.location.line());
             const bool now_active = IsCurrentBranchActive();
 
-            if (handled) {
+            if (handled && mode_ == PreprocessMode::kFull) {
                 UpdateInactiveRegions(was_active, now_active, sharp_token.location.line());
             }
 
-            output.push_back(sharp_token);
-            output.push_back(directive_token);
-            ProcessLineSplicing(body);
-            output.append_range(body | std::views::as_rvalue);
+            AppendDirective();
             return;
         }
 
@@ -949,15 +975,24 @@ namespace glsld {
             return;
         }
 
-        if (directive_text == "include") {
-            output.push_back(sharp_token);
-            output.push_back(directive_token);
+        if (directive_text == "extension" && body.size() == 3 && body[1].type == TokenType::kColon) {
+            const auto behavior = body[2].text;
+            if (behavior == "enable" || behavior == "require" || behavior == "warn" || behavior == "disable") {
+                document_.extensions.push_back({
+                    .name     = body[0],
+                    .behavior = body[2]
+                });
+            }
+        }
 
-            ProcessLineSplicing(body);
+        if (directive_text == "include") {
+            AppendDirective();
 
             auto included = ExpandIncludeDirective(body);
-            output.append_range(body     | std::views::as_rvalue);
-            output.append_range(included | std::views::as_rvalue);
+            if (mode_ == PreprocessMode::kFull) {
+                output.append_range(included);
+            }
+
             return;
         }
 
@@ -971,10 +1006,7 @@ namespace glsld {
             }
         }
 
-        output.push_back(sharp_token);
-        output.push_back(directive_token);
-        ProcessLineSplicing(body);
-        output.append_range(body | std::views::as_rvalue);
+        AppendDirective();
     }
 
     void Preprocessor::ParseDefineFromBody(std::span<const Token> body_tokens) {
@@ -1284,10 +1316,12 @@ namespace glsld {
             return {};
         }
 
-        document_.dependencies.push_back(include_snapshot->uri);
+        if (mode_ == PreprocessMode::kFull) {
+            document_.dependencies.push_back(include_snapshot->uri);
+        }
 
         const auto* include_file = source_table_.Intern(include_snapshot->filename, include_snapshot->uri);
-        Preprocessor subprocessor(document_, source_table_, include_file, include_loader_, include_dirs_, include_snapshot->tokens, include_stack_);
+        Preprocessor subprocessor(document_, source_table_, include_file, include_loader_, include_dirs_, include_snapshot->tokens, include_stack_, mode_);
         auto expanded = subprocessor.Process();
 
         document_.StoreIncludeSource(std::move(include_snapshot));

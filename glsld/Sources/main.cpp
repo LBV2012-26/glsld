@@ -56,8 +56,26 @@ namespace {
         auto lexer_end      = std::chrono::high_resolution_clock::now();
         auto lexer_duration = lexer_end - lexer_start;
 
+        auto& metadata = MetadataManager::GetInstance();
+
+        const auto suffix = filename.extension().string();
+        const auto shader_stage = suffix.empty() ? std::string{} : suffix.substr(1);
+
+        metadata.PrepareBuiltinMacros(document, shader_stage);
+        document.PrepareInjectedMacros(source_file);
+
+        Document discovery;
+        discovery.arena = arena_pool.Acquire();
+        discovery.macro_table = document.macro_table;
+
+        Preprocessor collector(discovery, source_table, source_file, loader, include_dirs, document.raw_tokens, {}, PreprocessMode::kCollectExtensions);
+        auto discovery_start    = std::chrono::high_resolution_clock::now();
+        (void)collector.Process();
+        auto discovery_end      = std::chrono::high_resolution_clock::now();
+        auto discovery_duration = discovery_end - discovery_start;
+
         auto attach_start    = std::chrono::high_resolution_clock::now();
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, normalized, include_dirs);
+        metadata.AttachBuiltinMetadata(document, shader_stage, include_dirs, discovery.extensions);
         auto attach_end      = std::chrono::high_resolution_clock::now();
         auto attach_duration = attach_end - attach_start;
 
@@ -95,8 +113,9 @@ namespace {
         }
 
         std::println("Benchmark completed for file: {}", filename.generic_string());
-        std::println("Lex time: {}ms, Metadata attach time: {}ms, Preproces time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
+        std::println("Lex time: {}ms, Extension scan time: {}ms, Metadata attach time: {}ms, Preprocess time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(discovery_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(preprocess_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(parse_duration).count(),
@@ -104,7 +123,7 @@ namespace {
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
 
-        auto total_duration = lexer_duration + attach_duration + preprocess_duration + parse_duration + link_duration + resolve_duration + bind_duration;
+        auto total_duration = lexer_duration + discovery_duration + attach_duration + preprocess_duration + parse_duration + link_duration + resolve_duration + bind_duration;
         std::println("Total time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(total_duration).count());
     }
 }

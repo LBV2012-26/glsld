@@ -27,6 +27,11 @@ namespace glsld {
         std::vector<Token> params;
     };
 
+    struct ExtensionDirective {
+        Token name;
+        Token behavior;
+    };
+
     struct TemplateParameter {
         std::string_view type;
         std::string_view name;
@@ -83,6 +88,7 @@ namespace glsld {
         std::string                                 source;
         std::vector<Token>                          raw_tokens;
         std::vector<Token>                          expanded_tokens;
+        std::vector<ExtensionDirective>             extensions;
         InactiveRegionMap                           inactive_regions;
 
         std::vector<TemplateInfo>                   template_info;

@@ -3,7 +3,6 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
-#include <optional>
 #include <shared_mutex>
 #include <span>
 #include <string>
@@ -28,10 +27,13 @@ namespace glsld {
 
     class MetadataManager {
     public:
+        void PrepareBuiltinMacros(Document& target, const std::string& shader_stage);
+
         void AttachBuiltinMetadata(
             Document& target,
-            std::optional<std::string> shader_stage,
-            IncludeDirectoryHandle include_dirs);
+            const std::string& shader_stage,
+            IncludeDirectoryHandle include_dirs,
+            std::span<const ExtensionDirective> extensions);
 
         void InvalidateMetadata(Document& document);
 

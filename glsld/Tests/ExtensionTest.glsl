@@ -5,7 +5,9 @@
 #include "Include.glsl"
 #endif
 
-#extension GL_EXT_ray_tracing : require
+#ifdef UNIQUE_MACRO
+#include "ExtensionInclude.glsl"
+#endif
 
 #ifdef GL_RAY_GENERATION_SHADER_EXT
 const int kArraySize = 10;
@@ -26,4 +28,7 @@ void main() {
     vec3 direction = vec3(0.0, 0.0, -1.0);
     traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,
                 origin, 0.001, direction, 10000.0, 0);
+
+    rayQueryEXT rq;
+    rayQueryInitializeEXT(rq, tlas,)
 }

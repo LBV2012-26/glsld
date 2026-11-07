@@ -23,6 +23,11 @@ namespace glsld {
         std::uint32_t if_line{};
     };
 
+    enum class PreprocessMode {
+        kFull,
+        kCollectExtensions
+    };
+
     class Preprocessor {
     public:
         Preprocessor(Document& document,
@@ -31,7 +36,8 @@ namespace glsld {
                      IncludeLoader& include_loader,
                      IncludeDirectoryHandle include_dirs,
                      std::span<const Token> raw_tokens = {},
-                     std::vector<std::string> parent_stack = {});
+                     std::vector<std::string> parent_stack = {},
+                     PreprocessMode mode = PreprocessMode::kFull);
 
         std::vector<Token> Process();
 
@@ -89,6 +95,7 @@ namespace glsld {
         std::optional<std::uint32_t> open_inactive_begin_line_;
         std::size_t                  token_index_{};
         std::span<const Token>       raw_tokens_;
+        PreprocessMode               mode_;
     };
 }
 

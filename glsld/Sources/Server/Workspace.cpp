@@ -309,9 +309,10 @@ namespace glsld {
             }
         }
 
-        MetadataManager::GetInstance().AttachBuiltinMetadata(document, shader_stage, include_dirs_);
+        auto& metadata = MetadataManager::GetInstance();
+        metadata.PrepareBuiltinMacros(document, shader_stage);
 
-        {
+        auto InjectVariants = [&]() -> void {
             std::shared_lock lock(variant_mutex_);
             auto variant_it = active_variants_.find(source_file->uri());
             if (variant_it != active_variants_.end()) {
@@ -325,7 +326,35 @@ namespace glsld {
                     InjectVariantMacro(document, source_file, macro);
                 }
             }
+        };
+
+        InjectVariants();
+        document.PrepareInjectedMacros(source_file);
+
+        Document discovery;
+        discovery.arena = arena_pool_.Acquire();
+        discovery.macro_table = document.macro_table;
+
+        Preprocessor collector(
+            discovery, source_table_, source_file, include_loader_, include_dirs_, document.raw_tokens, {}, PreprocessMode::kCollectExtensions);
+        (void)collector.Process();
+
+        auto Cancelled = [version_replica, &version_pointer]() -> bool {
+            if (version_pointer != nullptr && version_replica != version_pointer->load()) {
+                GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling update.",
+                          version_replica, version_pointer->load());
+                return true;
+            }
+
+            return false;
+        };
+
+        if (Cancelled()) {
+            return;
         }
+
+        metadata.AttachBuiltinMetadata(document, shader_stage, include_dirs_, discovery.extensions);
+        InjectVariants();
 
         document.PrepareInjectedMacros(source_file);
 
@@ -341,16 +370,6 @@ namespace glsld {
 
             return;
         }
-
-        auto Cancelled = [version_replica, &version_pointer]() -> bool {
-            if (version_pointer != nullptr && version_replica != version_pointer->load()) {
-                GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling update.",
-                          version_replica, version_pointer->load());
-                return true;
-            }
-
-            return false;
-        };
 
         document.FinalizeInjectedMacros();
 
