@@ -1,16 +1,18 @@
 # glsld
 
-glsld is a language server and Visual Studio Code extension for GLSL. It provides preprocessing-aware completion, semantic analysis, navigation, diagnostics, formatting, background indexing, and SPIR-V compilation support for shader projects.
+glsld adds GLSL language support to Visual Studio Code, including completion, diagnostics, hover information, signature help, navigation, rename, and formatting.
 
-> [!WARNING]
-> glsld is still in early development. Features, configuration, and protocol details may change between releases.
+- Find definitions and references across shader files with background indexing.
+- Manage global and per-file preprocessor macros from the sidebar.
+- Compile shader groups to SPIR-V with `glslc`.
 
-> [!NOTE]
-> This extension is an independent project and is not affiliated with the other Visual Studio Code extension named `glsld` at https://github.com/daiyousei-qz/glsld. The name collision was discovered while preparing this extension for publication.
+[Feature examples and detailed documentation](https://github.com/LBV2012-26/glsld/blob/main/Docs/FeatureExamples.md)
 
 ## Getting started
 
-Install the extension, open a folder containing GLSL source files, and configure the directories that should be indexed:
+Install the extension and accept the **Download** prompt to install the language server. You can also run **glsld: Download Language Server**, or set `glsld.server.path` to a local executable. Downloaded servers update automatically.
+
+To enable workspace-wide navigation, configure the directories to index:
 
 ```json
 {
@@ -18,188 +20,10 @@ Install the extension, open a folder containing GLSL source files, and configure
 }
 ```
 
-Use `${workspaceFolder}/Shaders` to index a subdirectory instead. If the list is empty or absent, background indexing is disabled. The index cache is stored at `${workspaceFolder}/.glsld/BlobIndex.idx`.
+Diagnostics and SPIR-V compilation require `glslc` from the Vulkan SDK or your PATH. Formatting requires `clang-format`; set `glsld.clangFormat.path` if needed. Other options are available in VS Code Settings under **glsld**.
 
-The extension does not bundle the language server. On activation, it checks for an installed server and offers a **Download** notification if none is found, even when no GLSL document is open. Click **Download** to install the latest server from [GitHub Releases](https://github.com/LBV2012-26/glsld/releases) and start it automatically without reloading VS Code. Dismissing the notification leaves installation available through **glsld: Download Language Server** in the Command Palette. Use **Open Settings** to configure a local executable instead. First installation requires accepting the prompt or running the download command; subsequent updates are automatic.
-
-Servers are stored under VS Code's extension global storage (`context.globalStorageUri`), in `servers/<release-tag>/<platform>-<architecture>/`. On a default Windows installation this is typically `%APPDATA%/Code/User/globalStorage/lbv2012-26.glsld/servers/<release-tag>/win32-x64/Win64/glsld.exe`. SSH, WSL, and container sessions use the extension host's platform and storage directory.
-
-The extension starts the installed server, then checks GitHub's latest published release (`/releases/latest`) once per activation. When a different Latest release is available, it automatically downloads, verifies, and installs it, then restarts the language server without reloading VS Code. Run **glsld: Check for Language Server Updates** to check and update manually; this command also reports when the server is already up to date. Restarting the server checks for updates as well. Opening additional GLSL documents does not trigger another check. Concurrent checks and downloads share their in-progress tasks.
-
-Every download queries GitHub again. GitHub's Latest selection excludes drafts and prereleases. Server selection is independent of the extension version; there is no pinned server-version setting. A Latest release that is already installed is selected without downloading the ZIP again. Failed automatic update checks leave the current installation running offline, and cached versions survive extension updates. The downloader verifies SHA-256 before extracting and installing a release; failed or cancelled downloads preserve the current installation. Progress notifications allow cancelling a download. Custom executables configured through `glsld.server.path` are not automatically updated or replaced; the check command reports the latest release and offers to open settings instead.
-
-After the selected server starts successfully, the extension removes other cached versions for the current platform and architecture, keeping the running version and packages for other platforms. Cleanup runs after successful update checks and downloads, so existing accumulated versions are removed on the next successful startup check as well. Failed or cancelled updates and failed server launches preserve earlier versions. Cleanup failures, such as files still in use by another Windows process, are logged and retried on a later startup. Custom server paths are excluded from cleanup.
-
-For development or offline installation, set `glsld.server.path` to a local executable. A custom path takes priority over downloaded servers; relative custom paths are resolved from the extension directory. Changing the server path restarts the language client when the selected server is available. You can also run **glsld: Restart Language Server**. Syntax highlighting, configuration views, and SPIR-V compilation remain available before the language server is installed.
-
-### Server release assets
-
-Publish a GitHub Release tagged `v<version>` in `LBV2012-26/glsld`. For each supported target, attach a ZIP named `glsld-<platform>-<architecture>.zip`, such as `glsld-win32-x64.zip`. Windows archives should preserve `Win64/glsld.exe`, with required DLLs and other runtime files in their original locations. Flat archives with `glsld.exe` at the root are also supported for compatibility. Linux/macOS archives must contain `glsld` at the root. Recognized platforms are `win32`, `linux`, and `darwin`; recognized architectures are `x64` and `arm64`. A target is downloadable only when its matching asset is published.
-
-For Windows, run this from the directory containing `Win64` to include the directory itself:
-
-```powershell
-Compress-Archive -Path .\Win64 -DestinationPath .\glsld-win32-x64.zip
-```
-
-7-Zip can also create a supported ZIP archive with Deflate compression:
-
-```powershell
-7z a -tzip -mm=Deflate glsld-win32-x64.zip .\Win64
-```
-
-The `.7z` archive format is not supported by the downloader.
-
-The downloader uses GitHub's `sha256:` asset digest when available. Otherwise, attach a `SHA256SUMS` text file containing entries in this format:
-
-```text
-<64-character SHA-256 hash>  glsld-win32-x64.zip
-```
-
-An unpublished release, missing platform asset, or failed checksum produces an actionable error and can be retried using the download command. Downloads always target GitHub's current Latest release.
-
-## Completion
-
-glsld completes GLSL keywords, types, variables, functions, structure members, and other symbols available at the cursor.
-
-![Code completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CodeCompletion.gif)
-
-### Extension completion
-
-Extension names and behaviors are completed inside `#extension` directives.
-
-![Extension completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/ExtensionCompletion.gif)
-
-### Include completion
-
-Include paths are completed relative to the current file, workspace, and configured system include directories.
-
-![Include completion](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/IncludeCompletion.gif)
-
-### Function overloads
-
-When a function has multiple signatures, glsld presents the available overloads with their parameter and return types.
-
-![Function overloads](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionOverloads.png)
-
-### Signature help
-
-Signature help follows the active call, selects the matching overload, and highlights the parameter currently being entered.
-
-![Signature help](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SignatureHelp.gif)
-
-## Formatting
-
-glsld invokes `clang-format` to format GLSL source files. Formatting can be triggered manually or automatically on save. Need to configure the path to `clang-format` in `glsld.formatting.clangFormatPath` or install it separately.
-
-![Formatting](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Formatting.gif)
-
-## Diagnostics
-
-Syntax and semantic errors are reported while editing. Diagnostics can be enabled or disabled with `glsld.diagnostics.enabled`.
-
-![Diagnostics](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Diagnostics.png)
-
-## Navigation
-
-### Go to definition
-
-Jump from a symbol use to its declaration or definition, including symbols declared in included files.
-
-![Go to definition](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/GotoDefinition.gif)
-
-### Go to include
-
-Open an included shader directly from its `#include` directive.
-
-![Go to include](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/GotoInclude.gif)
-
-### Find references
-
-Find symbol references across the workspace. Background indexing includes references from files that have not been opened in the editor.
-
-![Find references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Reference.png)
-
-References are also tracked across include boundaries.
-
-![Cross-file references](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CrossReference.png)
-
-Also support rename symbols across the workspace.
-
-![Rename symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/Rename.gif)
-
-## Hover information
-
-Hovering over a symbol displays its declaration and relevant type information.
-
-### Variables and types
-
-![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/TypeHover.png)
-![Hover information for a symbol](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/SymbolHover.png)
-
-### Functions
-
-![Hover information for a function](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/FunctionHover.png)
-
-## Inlay hints
-
-Inlay hints expose parameter names and other information that makes shader code easier to read. They are controlled by VS Code's editor inlay-hint settings.
-
-![Inlay hints](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/InlayHints.png)
-
-## Document symbols
-
-The document outline lists declarations in the current shader and supports quick navigation through large files.
-
-![Document symbols](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/DocumentSymbols.png)
-
-## Preprocessor macros
-
-Global and per-file macros are managed from the glsld sidebar. Each macro has an independent checkbox, and enabled per-file macros are applied on top of enabled global macros. Changes are sent to the language server immediately so affected documents can be reprocessed.
-
-![Preprocessor macro configuration](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/MacroVariant.gif)
-
-## SPIR-V compilation
-
-Compile groups collect shaders using source patterns, command templates, output paths, macro variants, and concurrency settings. Groups can be compiled directly from the glsld sidebar, and their configuration is stored in `.glsld/config.json`.
-
-![Compile groups](https://raw.githubusercontent.com/LBV2012-26/glsld/main/glsld/Resources/ThumbNails/CompileGroups.png)
-
-## Configuration
-
-User-controlled settings belong in `.vscode/settings.json`:
-
-```json
-{
-    "glsld.backgroundIndex.roots": ["${workspaceFolder}/Shaders", "${workspaceFolder}/Include"],
-    "glsld.diagnostics.enabled": true
-}
-```
-
-Index paths may use `${workspaceFolder}` explicitly. System include directories, the language server executable, `glslc`, `clang-format`, mimalloc options, diagnostics, and language capabilities can also be configured through the Visual Studio Code Settings editor.
-
-The extension-generated `.glsld/config.json` stores shader overrides, macro state, and compile groups. It is separate from ordinary Visual Studio Code settings and should normally be managed through the glsld sidebar.
-
-## Building the extension
-
-Requires Node.js 22 or later and npm.
-
-The scoped `@azure/msal-node` override addresses [CVE-2026-109461](https://github.com/advisories/GHSA-xcx6-jx8p-x3h5) in the packaging tool's Azure authentication dependency. Revisit it when `@azure/identity` updates its MSAL dependency.
-
-```powershell
-cd VSCodeExtension
-npm ci
-npm test
-npm run compile
-npx @vscode/vsce package
-```
-
-## Current limitations
-
-- Server downloads require a published GitHub Release with the assets described above.
-- Linux builds are still in development.
-- The project is under active development, so incomplete behavior and breaking changes should be expected.
+The project is under active development. This extension is independent of [daiyousei-qz/glsld](https://github.com/daiyousei-qz/glsld).
 
 ## License
 
-glsld is licensed under the GNU General Public License v3.0 only (`GPL-3.0-only`). The Visual Studio Code extension is licensed under the MIT License.
+The VS Code extension is licensed under MIT. The glsld language server is licensed under GPL-3.0-only.

@@ -16,7 +16,7 @@ glsld is a language server for GLSL, accompanied by a Visual Studio Code extensi
 - Shared and per-file preprocessor variants
 - Shader compile groups in the Visual Studio Code extension
 
-Screenshots and extension-specific setup instructions are available in the [Visual Studio Code extension documentation](VSCodeExtension/README.md).
+Screenshots and detailed setup instructions are available in the [feature examples](Docs/FeatureExamples.md).
 
 ## Repository layout
 
