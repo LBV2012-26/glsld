@@ -10,6 +10,12 @@
 #include <Utils/Utils.hpp>
 
 namespace glsld {
+    AstDumper::AstDumper(Document& document)
+        : Base(0, nullptr)
+    {
+        Traverse(document.ast);
+    }
+
     void AstDumper::VisitTranslationUnit(TranslationUnitNode* node) {
         PrintIndent();
         std::println("TranslationUnit {}", FormatRange(node));

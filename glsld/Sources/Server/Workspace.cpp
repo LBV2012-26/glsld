@@ -326,7 +326,7 @@ namespace glsld {
             }
         }
 
-        Parser parser(document, source_table_, source_file, include_loader_, include_dirs_, version_replica, version_pointer);
+        (void)Parser(document, source_table_, source_file, include_loader_, include_dirs_, version_replica, version_pointer);
         if (document.ast == nullptr) { // 如果版本更改，会返回 nullptr
             if (version_pointer != nullptr) {
                 GLSLD_LOG(debug, "Version changed during document update (replica: {}, current: {}), cancelling parse.",
@@ -349,13 +349,13 @@ namespace glsld {
         document.FinalizeInjectedMacros();
 
         if (Cancelled()) return;
-        SymbolLinker linker(document, version_replica, version_pointer);
+        (void)SymbolLinker(document, version_replica, version_pointer);
 
         if (Cancelled()) return;
-        TypeResolver resolver(document, version_replica, version_pointer);
+        (void)TypeResolver(document, version_replica, version_pointer);
 
         if (Cancelled()) return;
-        MacroBinder binder(document, version_replica, version_pointer);
+        (void)MacroBinder(document, version_replica, version_pointer);
     }
 
     void Workspace::ConfigureVariant(

@@ -61,28 +61,27 @@ namespace {
         auto attach_duration = attach_end - attach_start;
 
         auto parse_start    = std::chrono::high_resolution_clock::now();
-        Parser parser(document, source_table, source_file, loader, include_dirs, 0, nullptr);
+        (void)Parser(document, source_table, source_file, loader, include_dirs, 0, nullptr);
         auto parse_end      = std::chrono::high_resolution_clock::now();
         auto parse_duration = parse_end - parse_start;
 
         auto link_start    = std::chrono::high_resolution_clock::now();
-        SymbolLinker linker(document, 0, nullptr);
+        (void)SymbolLinker(document, 0, nullptr);
         auto link_end      = std::chrono::high_resolution_clock::now();
         auto link_duration = link_end - link_start;
 
         auto resolve_start    = std::chrono::high_resolution_clock::now();
-        TypeResolver resolver(document, 0, nullptr);
+        (void)TypeResolver(document, 0, nullptr);
         auto resolve_end      = std::chrono::high_resolution_clock::now();
         auto resolve_duration = resolve_end - resolve_start;
 
         auto bind_start    = std::chrono::high_resolution_clock::now();
-        MacroBinder binder(document, 0, nullptr);
+        (void)MacroBinder(document, 0, nullptr);
         auto bind_end      = std::chrono::high_resolution_clock::now();
         auto bind_duration = bind_end - bind_start;
 
         if (dump_ast) {
-            AstDumper dumper(0, nullptr);
-            dumper.Traverse(document.ast);
+            (void)AstDumper(document);
             document.symbols.Dump();
         }
 

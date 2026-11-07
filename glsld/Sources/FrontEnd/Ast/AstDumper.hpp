@@ -3,12 +3,14 @@
 #include <string>
 #include <FrontEnd/Ast/Ast.hpp>
 #include <FrontEnd/Ast/AstVisitor.hpp>
+#include <FrontEnd/Syntax/Document.hpp>
 
 namespace glsld {
     class AstDumper final : public AstVisitor {
     public:
         using Base = AstVisitor;
-        using Base::Base;
+
+        AstDumper(Document& document);
 
     private:
         void VisitTranslationUnit(TranslationUnitNode* node) override;
