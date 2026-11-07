@@ -1,6 +1,6 @@
 # glsld
 
-glsld adds GLSL language support to Visual Studio Code, including completion, diagnostics, hover information, signature help, navigation, rename, and formatting.
+glsld adds GLSL language support to Visual Studio Code, including completion, diagnostics, hover information, signature help, navigation, rename, formatting, etc.
 
 - Find definitions and references across shader files with background indexing.
 - Manage global and per-file preprocessor macros from the sidebar.
@@ -19,6 +19,8 @@ To enable workspace-wide navigation, configure the directories to index:
     "glsld.backgroundIndex.roots": ["${workspaceFolder}"]
 }
 ```
+
+You can also add your custom shader extension names for indexing using `glsld.backgroundIndex.extraExtensions`.
 
 Diagnostics and SPIR-V compilation require `glslc` from the Vulkan SDK or your PATH. Formatting requires `clang-format`; set `glsld.clangFormat.path` if needed. Other options are available in VS Code Settings under **glsld**.
 
