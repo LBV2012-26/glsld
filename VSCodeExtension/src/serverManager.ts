@@ -347,11 +347,10 @@ export class ServerManager {
 }
 
 function serverExecutablePaths(target: ServerTarget): string[] {
-	// Preserve the Windows build directory and the DLLs next to its executable.
-	// Flat archives remain valid for previously installed releases.
-	return target.name.startsWith('win32-')
-		? [path.join('Win64', target.executable), target.executable]
-		: [target.executable];
+	// Preserve each platform's build directory and adjacent runtime files.
+	if (target.name.startsWith('win32-')) { return [path.join('Win64', target.executable)]; }
+	if (target.name.startsWith('linux-')) { return [path.join('Linux', target.executable)]; }
+	return [target.executable];
 }
 
 async function findServerExecutable(directory: string, target: ServerTarget): Promise<string | undefined> {

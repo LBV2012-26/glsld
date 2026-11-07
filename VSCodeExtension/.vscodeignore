@@ -4,4 +4,7 @@ tests/**
 scripts/**
 tsconfig.json
 eslint.config.mjs
-out/**/*.map
+node_modules/**
+out/**
+!out/extension.js
+*.vsix

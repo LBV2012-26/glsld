@@ -63,7 +63,7 @@ function zipArchive(files) {
 async function fixture(t, options = {}) {
   const storage = await fs.mkdtemp(path.join(os.tmpdir(), 'glsld-download-test-'));
   t.after(() => fs.rm(storage, { recursive: true, force: true }));
-  const archive = options.archive ?? zipArchive([{ name: 'glsld.exe' }, { name: 'runtime.dll', data: 'runtime fixture' }]);
+  const archive = options.archive ?? zipArchive([{ name: 'Win64/glsld.exe' }, { name: 'Win64/runtime.dll', data: 'runtime fixture' }]);
   const sha256 = createHash('sha256').update(archive).digest('hex');
   const release = {
     tag_name: version,
@@ -87,7 +87,9 @@ async function cachedServer(storage, tag, target = 'win32-x64') {
   const directory = path.join(storage, 'servers', tag, target);
   await fs.mkdir(directory, { recursive: true });
   await fs.writeFile(path.join(directory, '.install.json'), JSON.stringify({ version: tag, target }));
-  await fs.writeFile(path.join(directory, target.startsWith('win32') ? 'glsld.exe' : 'glsld'), 'cached server fixture');
+  const executable = target.startsWith('win32') ? path.join('Win64', 'glsld.exe') : path.join('Linux', 'glsld');
+  await fs.mkdir(path.dirname(path.join(directory, executable)), { recursive: true });
+  await fs.writeFile(path.join(directory, executable), 'cached server fixture');
   return directory;
 }
 
@@ -129,7 +131,7 @@ test('downloads, verifies, installs under global storage, and reuses the cache o
   const { manager, storage, requests } = await fixture(t);
   const progress = [];
   const installed = await manager.downloadServer({ onProgress: update => progress.push(update) });
-  assert.equal(installed.executablePath, path.join(storage, 'servers', version, 'win32-x64', 'glsld.exe'));
+  assert.equal(installed.executablePath, path.join(storage, 'servers', version, 'win32-x64', 'Win64', 'glsld.exe'));
   assert.equal(await fs.readFile(installed.executablePath, 'utf8'), 'server fixture');
   assert.equal(await fs.readFile(path.join(path.dirname(installed.executablePath), 'runtime.dll'), 'utf8'), 'runtime fixture');
   assert.ok(Math.abs(progress.reduce((total, item) => total + (item.increment ?? 0), 0) - 100) < 0.001);
@@ -168,6 +170,21 @@ test('a release containing only a 7z asset explains that ZIP is required', async
   await assert.rejects(manager.downloadServer(), /7z archives are not supported.*glsld-win32-x64.zip/);
 });
 
+test('Windows and Linux releases reject root-level executables', async t => {
+  for (const [platform, executable, folder] of [['win32', 'glsld.exe', 'Win64'], ['linux', 'glsld', 'Linux']]) {
+    const name = `glsld-${platform}-x64.zip`;
+    const { manager } = await fixture(t, {
+      archive: zipArchive([{ name: executable }]),
+      manager: { platform, architecture: 'x64' },
+      respond: (url, _init, { release, archive }) => url === releaseUrl
+        ? Response.json({ ...release, assets: [{ ...release.assets[0], name, browser_download_url: assetUrl.replace(assetName, name) }] })
+        : new Response(archive),
+    });
+    await assert.rejects(manager.downloadServer(), error => error.message.includes(`must contain ${path.join(folder, executable)}`));
+    assert.equal(await manager.getInstalledServer(), undefined);
+  }
+});
+
 test('SHA256SUMS is used when GitHub does not provide a digest', async t => {
   const { manager, release, requests } = await fixture(t);
   release.assets[0].digest = null;
@@ -200,7 +217,7 @@ test('checksum failures clean staging and preserve earlier versions', async t =>
   release.assets[0].browser_download_url = assetUrl.replace(version, 'v0.9.6');
   const failing = new ServerManager(storage, {
     platform: 'win32', architecture: 'x64',
-    fetch: async url => String(url).includes('api.github.com') ? Response.json(release) : new Response(zipArchive([{ name: 'glsld.exe' }, { name: 'runtime.dll', data: 'runtime fixture' }])),
+    fetch: async url => String(url).includes('api.github.com') ? Response.json(release) : new Response(zipArchive([{ name: 'Win64/glsld.exe' }, { name: 'Win64/runtime.dll', data: 'runtime fixture' }])),
   });
   await assert.rejects(failing.downloadServer(), /SHA-256 verification failed/);
   assert.deepEqual(await fs.readdir(path.join(storage, 'servers', 'v0.9.6')), []);
@@ -230,7 +247,7 @@ test('the release tag comes from GitHub and is not tied to the extension version
   release.assets[0].browser_download_url = assetUrl.replace(version, '9.9.9');
   const installed = await manager.downloadServer();
   assert.equal(installed.version, '9.9.9');
-  assert.equal(installed.executablePath, path.join(storage, 'servers', '9.9.9', 'win32-x64', 'glsld.exe'));
+  assert.equal(installed.executablePath, path.join(storage, 'servers', '9.9.9', 'win32-x64', 'Win64', 'glsld.exe'));
 });
 
 test('GitHub asset redirects are followed without allowing an HTTPS downgrade', async t => {
@@ -277,10 +294,10 @@ test('unsafe, duplicate, incomplete, and oversized ZIP contents are rejected and
   const cases = [
     [[{ name: '../escaped.exe' }], /invalid relative path|Unsafe/],
     [[{ name: 'C:/escaped.exe' }], /absolute path|Unsafe/],
-    [[{ name: 'glsld.exe', mode: 0o120777 }], /Unsafe entry/],
-    [[{ name: 'glsld.exe' }, { name: 'glsld.exe' }], /EEXIST/],
+    [[{ name: 'Win64/glsld.exe', mode: 0o120777 }], /Unsafe entry/],
+    [[{ name: 'Win64/glsld.exe' }, { name: 'Win64/glsld.exe' }], /EEXIST/],
     [[{ name: 'nested/glsld.exe' }], /must contain/],
-    [[{ name: 'glsld.exe', size: 2 * 1024 * 1024 * 1024 }], /size limit/],
+    [[{ name: 'Win64/glsld.exe', size: 2 * 1024 * 1024 * 1024 }], /size limit/],
   ];
   for (const [files, expected] of cases) {
     const { manager, storage } = await fixture(t, { archive: zipArchive(files) });
@@ -337,7 +354,7 @@ test('cleanup removes previous installations only when explicitly given the sele
   const oldest = await cachedServer(storage, 'v0.9.3');
   const previous = await cachedServer(storage, 'v0.9.4');
   const current = await manager.downloadServer();
-  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(path.join(previous, 'Win64', 'glsld.exe'), 'utf8'), 'cached server fixture');
   assert.deepEqual(await manager.cleanupOldVersions(path.join(storage, 'custom-server.exe')), []);
   const requestCount = requests.length;
   assert.deepEqual((await manager.cleanupOldVersions(current.executablePath)).sort(), ['v0.9.3', 'v0.9.4']);
@@ -363,7 +380,7 @@ test('cleanup preserves other platforms, active download staging, and unrelated 
   assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), ['v0.9.4']);
   await assert.rejects(fs.stat(previous), { code: 'ENOENT' });
   assert.equal((await fs.stat(emptyVersion)).isDirectory(), true, 'Another download may be creating its staging directory');
-  assert.equal(await fs.readFile(path.join(otherPlatform, 'glsld'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(path.join(otherPlatform, 'Linux', 'glsld'), 'utf8'), 'cached server fixture');
   for (const directory of [staging, unrelated]) { assert.equal(await fs.readFile(path.join(directory, 'keep.txt'), 'utf8'), 'keep'); }
 });
 
@@ -390,7 +407,7 @@ test('cancelled cleanup preserves all installations', async t => {
   const abort = new AbortController();
   abort.abort();
   await assert.rejects(manager.cleanupOldVersions(current.executablePath, { signal: abort.signal }), /abort/i);
-  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(path.join(previous, 'Win64', 'glsld.exe'), 'utf8'), 'cached server fixture');
   assert.deepEqual(await manager.getInstalledServer(), current);
 });
 
@@ -407,14 +424,14 @@ test('cleanup stops when another window selects a different version', async t =>
     return getInstalled(...args);
   });
   assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), []);
-  assert.equal(await fs.readFile(path.join(previous, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(path.join(previous, 'Win64', 'glsld.exe'), 'utf8'), 'cached server fixture');
   assert.equal(await fs.readFile(current.executablePath, 'utf8'), 'server fixture');
 });
 
 test('busy installations do not prevent other cleanup and partial deletion can be retried', async t => {
   const { manager, storage } = await fixture(t);
   await cachedServer(storage, 'v0.9.3');
-  const busyDirectory = await cachedServer(storage, 'v0.9.4');
+  const busyDirectory = await fs.realpath(await cachedServer(storage, 'v0.9.4'));
   const current = await manager.downloadServer();
   const remove = fs.rm;
   let busy = true;
@@ -428,7 +445,7 @@ test('busy installations do not prevent other cleanup and partial deletion can b
   const errors = [];
   assert.deepEqual(await manager.cleanupOldVersions(current.executablePath, { onError: (version, error) => errors.push({ version, code: error.code }) }), ['v0.9.3']);
   assert.deepEqual(errors, [{ version: 'v0.9.4', code: 'EBUSY' }]);
-  assert.equal(await fs.readFile(path.join(busyDirectory, 'glsld.exe'), 'utf8'), 'cached server fixture');
+  assert.equal(await fs.readFile(path.join(busyDirectory, 'Win64', 'glsld.exe'), 'utf8'), 'cached server fixture');
   busy = false;
   assert.deepEqual(await manager.cleanupOldVersions(current.executablePath), ['v0.9.4']);
   await assert.rejects(fs.stat(path.dirname(busyDirectory)), { code: 'ENOENT' });
@@ -489,8 +506,8 @@ test('separate VS Code windows can install the same version into shared global s
   assert.deepEqual(await fs.readdir(path.join(storage, 'servers', version)), ['win32-x64']);
 });
 
-test('Unix downloads use the requested host target and make the server executable', async t => {
-  const archive = zipArchive([{ name: 'glsld' }]);
+test('Linux releases preserve Linux/glsld and its runtime files and make the server executable', async t => {
+  const archive = zipArchive([{ name: 'Linux/glsld' }, { name: 'Linux/runtime.so', data: 'runtime fixture' }]);
   const sha256 = createHash('sha256').update(archive).digest('hex');
   const { storage } = await fixture(t);
   const manager = new ServerManager(storage, {
@@ -501,7 +518,7 @@ test('Unix downloads use the requested host target and make the server executabl
     }) : new Response(archive),
   });
   const installed = await manager.downloadServer();
-  assert.equal(installed.executablePath, path.join(storage, 'servers', version, 'linux-arm64', 'glsld'));
+  assert.equal(installed.executablePath, path.join(storage, 'servers', version, 'linux-arm64', 'Linux', 'glsld'));
   if (process.platform !== 'win32') assert.equal((await fs.stat(installed.executablePath)).mode & 0o777, 0o755);
   assert.equal(await manager.resolveServerPath('', storage), installed.executablePath);
 });
