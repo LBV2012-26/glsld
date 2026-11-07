@@ -6,7 +6,7 @@ glsld adds GLSL language support to Visual Studio Code, including completion, di
 - Manage global and per-file preprocessor macros from the sidebar.
 - Compile shader groups to SPIR-V with `glslc`.
 
-[Feature examples and detailed documentation](https://github.com/LBV2012-26/glsld/blob/main/Docs/FeatureExamples.md)
+[Feature examples and detailed documentation](https://github.com/LBV2012-26/glsld/blob/main/glsld/Resources/Docs/FeatureExamples.md)
 
 ## Getting started
 
