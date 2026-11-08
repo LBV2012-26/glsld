@@ -2313,9 +2313,8 @@ namespace glsld {
     }
 
     SymbolReference TypeResolver::ResolveOverload(SymbolListView candidates, std::vector<TypeInfo>&& call_arg_types) {
-        auto normalized_call_args = std::vector(std::from_range, call_arg_types | std::views::as_rvalue);
-        if (normalized_call_args.empty()) {
-            normalized_call_args.push_back(TypeInfo{
+        if (call_arg_types.empty()) {
+            call_arg_types.push_back(TypeInfo{
                 .typename_token = Token{
                     .text = "void",
                     .type = TokenType::kPrimitive
@@ -2328,15 +2327,15 @@ namespace glsld {
 
         for (const auto* symbol : candidates) {
             const auto& param_typeinfos = symbol->param_typeinfos;
-            if (param_typeinfos.size() != normalized_call_args.size()) {
+            if (param_typeinfos.size() != call_arg_types.size()) {
                 continue;
             }
 
             std::vector<MatchGrade> current_grades;
             bool match_failed = false;
 
-            for (auto i = 0uz; i != normalized_call_args.size(); ++i) {
-                const auto& call_type   = normalized_call_args[i];
+            for (auto i = 0uz; i != call_arg_types.size(); ++i) {
+                const auto& call_type   = call_arg_types[i];
                 const auto& target_type = param_typeinfos[i];
 
                 if (call_type.CompareWithoutQualifiers(target_type)) {
