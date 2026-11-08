@@ -15,10 +15,13 @@ glsld adds GLSL language support to Visual Studio Code, including completion, di
 > - To keep implementation complexity manageable, glsld does not track extension behavior by source region. Enabling an extension anywhere in a file or its includes enables it throughout that file's analysis; `disable` directives cannot turn an already enabled extension back off.
 > - glsld and your compiler may support constant evaluation for different sets of built-in functions. An expression that glsld successfully evaluates as a constant may still be rejected by your compiler where a constant expression is required.
 > - glsld does not perform any syntax diagnostics itself. glsld will automatic found VulkanSDK path, or you can configure `glsld.glslc.path` when setting up the extension, and rely on the error squiggles reported by `glslc` for compilation errors. `glslangValidator` is not currently supported as a diagnostic or compilation backend.
+> - glsld define `_GLSLD` macros by default but only for LSP static analysis.
 
 ## Getting started
 
 Install the extension and accept the **Download** prompt to install the language server. You can also run **glsld: Download Language Server**, or set `glsld.server.path` to a local executable. Downloaded servers update automatically.
+
+The glsld extension automatically checks for server updates at every startup. You can also check for updates manually using `glsld: Check for Language Server Updates`.
 
 To enable workspace-wide navigation, configure the directories to index:
 
