@@ -7,11 +7,18 @@
 #include <variant>
 
 #include <Base/Logger.hpp>
+#include <FrontEnd/Syntax/MetadataManager.hpp>
 
 namespace glsld {
     SymbolReference glsld::NamespaceInfo::Lookup(std::string_view name) const {
         auto it = members.find(name);
         return it != members.end() ? it->second : std::monostate{};
+    }
+
+    Document::~Document() {
+        if (!metadata_attachments.empty()) {
+            MetadataManager::GetInstance().InvalidateMetadata(*this);
+        }
     }
 
     SymbolReferenceView Document::ReferenceSymbol(const SymbolReference& reference) const {

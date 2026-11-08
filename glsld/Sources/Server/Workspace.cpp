@@ -174,8 +174,6 @@ namespace glsld {
 
         {
             std::lock_guard lock(document_mutex_);
-            auto& document = documents_.at(uri);
-            MetadataManager::GetInstance().InvalidateMetadata(*document);
             documents_.erase(uri);
         }
 
@@ -654,8 +652,6 @@ namespace glsld {
             if (document.ast == nullptr) {
                 return;
             }
-
-            MetadataManager::GetInstance().InvalidateMetadata(document);
 
             auto contributions = GlobalIndex::CollectContributions(document);
             GlobalIndex::NormalizeContributions(contributions);

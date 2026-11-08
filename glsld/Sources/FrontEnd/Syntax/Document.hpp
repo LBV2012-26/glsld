@@ -110,7 +110,7 @@ namespace glsld {
         Document()                = default;
         Document(const Document&) = delete;
         Document(Document&&)      = delete;
-        ~Document()               = default;
+        ~Document();
 
         Document& operator=(const Document&) = delete;
         Document& operator=(Document&&)      = delete;
