@@ -27,6 +27,7 @@ import { compileWorkspace } from './compile';
 import * as path from 'path';
 import { ShaderConfigProvider } from './shaderConfig';
 import { InstalledServer, ServerManager } from './serverManager';
+import { checkClangFormat, getClangFormatCommand } from './clangFormat';
 
 let client: LanguageClient;
 let inactiveDecorationDisposable: TextEditorDecorationType | undefined;
@@ -36,9 +37,11 @@ const runtimeDisposables: Disposable[] = [];
 let shuttingDown = false;
 let downloadAbort: AbortController | undefined;
 let updateAbort: AbortController | undefined;
+let clangFormatResolution: { configuredPath: string; baseDirectory: string; executablePath: string } | undefined;
 
 export async function activate(context: ExtensionContext) {
 	shuttingDown = false;
+	clangFormatResolution = undefined;
 	updateAbort = new AbortController();
 	const serverManager = new ServerManager(context.globalStorageUri.fsPath);
 	const serverOutput = window.createOutputChannel('glsld');
@@ -114,6 +117,41 @@ export async function activate(context: ExtensionContext) {
 				if (choice === 'Open Settings') { return openServerSettings(); }
 				if (choice === 'Show Output') { serverOutput.show(); }
 			});
+		}
+	};
+	let formatterCheckGeneration = 0;
+	let lastFormatterWarning: string | undefined;
+	const checkFormatter = async (forcePrompt = false): Promise<void> => {
+		const generation = ++formatterCheckGeneration;
+		const { configuredPath, baseDirectory } = getClangFormatConfiguration();
+		try {
+			const result = await checkClangFormat(configuredPath, { baseDirectory, signal: updateAbort?.signal });
+			if (shuttingDown || generation !== formatterCheckGeneration) { return; }
+			clangFormatResolution = result.available && result.executablePath
+				? { configuredPath, baseDirectory, executablePath: result.executablePath } : undefined;
+			await pushConfiguration();
+			if (shuttingDown || generation !== formatterCheckGeneration) { return; }
+			if (result.available) {
+				lastFormatterWarning = undefined;
+				serverOutput.appendLine(`[glsld] clang-format executable: ${result.executablePath}`);
+				return;
+			}
+			serverOutput.appendLine(`[glsld] clang-format is unavailable (${result.command}): ${result.error}`);
+			const warningKey = JSON.stringify([configuredPath, baseDirectory]);
+			if (!forcePrompt && lastFormatterWarning === warningKey) { return; }
+			lastFormatterWarning = warningKey;
+			const message = result.configured
+				? `glsld: clang-format could not be run using glsld.clangFormat.path (${configuredPath}). Check that this setting points to an accessible clang-format executable to enable formatting.`
+				: 'glsld: clang-format is unavailable in PATH. Install clang-format and add it to PATH, or set glsld.clangFormat.path to its executable, to enable formatting.';
+			void Promise.resolve(window.showWarningMessage(message, 'Open Settings', 'Check Again')).then(choice => {
+				if (shuttingDown) { return; }
+				if (choice === 'Open Settings') { return commands.executeCommand('workbench.action.openSettings', 'glsld.clangFormat.path'); }
+				if (choice === 'Check Again') { return checkFormatter(true); }
+			}).catch(error => serverOutput.appendLine(`[glsld] Could not handle the clang-format notification: ${error}`));
+		} catch (error) {
+			if (!shuttingDown && generation === formatterCheckGeneration) {
+				serverOutput.appendLine(`[glsld] Could not check clang-format: ${error}`);
+			}
 		}
 	};
 	const promptForMissingServer = (force = false) => {
@@ -323,10 +361,12 @@ export async function activate(context: ExtensionContext) {
 	context.subscriptions.push(
 		workspace.onDidChangeConfiguration(async (e) => {
 			if (e.affectsConfiguration('glsld')) {
+				const formatterChanged = e.affectsConfiguration('glsld.clangFormat.path');
+				if (formatterChanged) { await checkFormatter(); }
 				if (e.affectsConfiguration('glsld.server') || e.affectsConfiguration('glsld.mimalloc')) {
 					if (e.affectsConfiguration('glsld.server')) { await restartServer(); }
 					else { await startServer({ restart: 'always' }); }
-				} else {
+				} else if (!formatterChanged) {
 					await pushConfiguration();
 				}
 				shaderConfigProvider.refresh();
@@ -345,8 +385,9 @@ export async function activate(context: ExtensionContext) {
 		})
 	);
 
+	const formatterCheck = checkFormatter();
 	await startServer();
-	await checkForUpdates();
+	await Promise.all([checkForUpdates(), formatterCheck]);
 
 }
 
@@ -637,7 +678,11 @@ export async function pushConfiguration(): Promise<void> {
 	const shaderExtensions = getShaderConfigs(); // from .glsld/config.json
 	const diagnosticsEnabled = config.get<boolean>('diagnostics.enabled', true);
 	const glslcPath = config.get<string>('glslc.path', '').trim();
-	const clangFormatPath = config.get<string>('clangFormat.path', 'clang-format.exe').trim() || 'clang-format.exe';
+	const formatterConfig = getClangFormatConfiguration();
+	const clangFormatPath = clangFormatResolution?.configuredPath === formatterConfig.configuredPath &&
+		clangFormatResolution.baseDirectory === formatterConfig.baseDirectory
+		? clangFormatResolution.executablePath
+		: getClangFormatCommand(formatterConfig.configuredPath, formatterConfig.baseDirectory);
 	const backgroundIndexRoots = getBackgroundIndexRoots(config.get<string[]>('backgroundIndex.roots', []));
 	const backgroundIndexExtraExtensions = config.get<string[]>('backgroundIndex.extraExtensions', []);
 	const systemIncludeDirectories = getSystemIncludeDirectories();
@@ -668,6 +713,14 @@ export async function pushConfiguration(): Promise<void> {
 	}));
 	console.log('[glsld] pushConfiguration sending: %o', payload);
 	await client.sendNotification('workspace/didChangeConfiguration', payload);
+}
+
+function getClangFormatConfiguration(): { configuredPath: string; baseDirectory: string } {
+	const folder = workspace.workspaceFolders?.[0];
+	return {
+		configuredPath: workspace.getConfiguration('glsld', folder?.uri).get<string>('clangFormat.path', '').trim(),
+		baseDirectory: folder?.uri.fsPath ?? process.cwd(),
+	};
 }
 
 function getBackgroundIndexRoots(configuredRoots: string[]): string[] {

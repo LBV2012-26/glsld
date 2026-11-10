@@ -30,9 +30,12 @@ async function activateFixture(t, options = {}) {
     latestVersion: options.latestVersion ?? 'v0.9.5', currentVersion: options.currentVersion ?? 'v0.9.5', checks: 0,
     checkError: options.checkError, onCheck: options.onCheck, download: options.download,
     commands: new Map(), executedCommands: [], clients: [], sidebarClients: [], starts: [],
-    errors: [], information: [], informationActions: [], output: [], progress: [],
+    errors: [], information: [], informationActions: [], warnings: [], warningActions: [], output: [], progress: [],
     downloads: 0, restarts: 0, stops: 0, compilations: 0, cancelProgress: false,
     cleanupCalls: [], cleanupError: options.cleanupError,
+    formatterChecks: [], formatterAvailable: options.formatterAvailable ?? true,
+    formatterExecutable: options.formatterExecutable ?? path.join(root, 'tools', 'clang-format.exe'),
+    onFormatterCheck: options.onFormatterCheck,
     onConfiguration: event(), onOpenDocument: event(),
   };
   const disposableEvent = () => new Disposable();
@@ -65,6 +68,11 @@ async function activateFixture(t, options = {}) {
         return options.onInformation?.(message, actions, state);
       },
       showErrorMessage: async message => { state.errors.push(message); },
+      showWarningMessage: async (message, ...actions) => {
+        state.warnings.push(message);
+        state.warningActions.push(actions);
+        return options.onWarning?.(message, actions, state);
+      },
       withProgress: async (_options, callback) => callback({ report: progress => state.progress.push(progress) }, {
         isCancellationRequested: state.cancelProgress,
         onCancellationRequested: disposableEvent,
@@ -72,7 +80,7 @@ async function activateFixture(t, options = {}) {
     },
     workspace: {
       textDocuments: options.withGlsl ? [{ languageId: 'glsl', uri: { toString: () => 'file:///shader.glsl' } }] : [],
-      workspaceFolders: [],
+      workspaceFolders: options.workspaceFolders ?? [],
       getConfiguration: () => ({ get: (key, fallback) => state.config[key] ?? fallback }),
       createFileSystemWatcher: () => new Disposable(),
       onDidChangeConfiguration: callback => state.onConfiguration.subscribe(callback),
@@ -144,6 +152,22 @@ async function activateFixture(t, options = {}) {
     vscode,
     'vscode-languageclient/node': { LanguageClient, TransportKind: { stdio: 0 } },
     './serverManager': { ServerManager },
+    './clangFormat': {
+      getClangFormatCommand: extensionRequire('./clangFormat').getClangFormatCommand,
+      checkClangFormat: async (configuredPath, checkOptions) => {
+        checkOptions.signal.throwIfAborted();
+        state.formatterChecks.push({ configuredPath, baseDirectory: checkOptions.baseDirectory });
+        const result = {
+          command: extensionRequire('./clangFormat').getClangFormatCommand(configuredPath, checkOptions.baseDirectory),
+          configured: Boolean(configuredPath), available: state.formatterAvailable,
+          executablePath: state.formatterAvailable ? state.formatterExecutable : undefined,
+          error: state.formatterAvailable ? undefined : 'Formatter is not accessible',
+        };
+        await state.onFormatterCheck?.(configuredPath, state);
+        checkOptions.signal.throwIfAborted();
+        return result;
+      },
+    },
     './sidebar': {
       activateSidebar: (_context, client) => state.sidebarClients.push(client),
       getActiveVariants: () => ({}), getShaderConfigs: () => ({}),
@@ -154,7 +178,7 @@ async function activateFixture(t, options = {}) {
   const sandbox = {
     exports: {},
     require: name => mocks[name] ?? extensionRequire(name),
-    console: { log() {} }, process: { env: {} },
+    console: { log() {} }, process: { env: {}, cwd: () => path.join(__dirname, 'virtual-workspace') },
     setTimeout, clearTimeout, AbortController, Error,
   };
   vm.runInNewContext(extensionSource, sandbox, { filename: extensionFile });
@@ -543,6 +567,104 @@ test('a failed manual check reports the error and leaves the running version usa
   state.checkError = undefined;
   await vscode.commands.executeCommand('glsld.checkForUpdates');
   assert.equal(state.information.at(-1), 'glsld v0.9.5 is up to date.');
+});
+
+test('an unavailable formatter warns once without preventing the language server from starting', async t => {
+  const { state } = await activateFixture(t, { installed: 'local-server.exe', formatterAvailable: false });
+  assert.equal(state.clients[0].isRunning(), true);
+  assert.equal(state.errors.length, 0);
+  assert.equal(state.warnings.length, 1);
+  assert.match(state.warnings[0], /clang-format is unavailable in PATH.*glsld.clangFormat.path/);
+  assert.deepEqual(state.warningActions[0], ['Open Settings', 'Check Again']);
+  await state.onOpenDocument.fire({ languageId: 'glsl', uri: { toString: () => 'file:///shader.glsl' } });
+  assert.equal(state.formatterChecks.length, 1);
+  assert.equal(state.warnings.length, 1);
+});
+
+test('an invalid formatter setting warns with its setting name and can open the matching settings', async t => {
+  const { state } = await activateFixture(t, {
+    formatterAvailable: false, config: { 'clangFormat.path': 'missing-formatter.exe' },
+    onWarning: () => 'Open Settings',
+  });
+  assert.match(state.warnings[0], /glsld.clangFormat.path.*missing-formatter.exe/);
+  assert.ok(state.executedCommands.some(command => command.name === 'workbench.action.openSettings' && command.args[0] === 'glsld.clangFormat.path'));
+});
+
+test('the resolved formatter executable is sent to the language server without a warning', async t => {
+  const formatter = path.join(__dirname, 'LLVM tools', 'clang-format.exe');
+  const { state } = await activateFixture(t, { installed: 'local-server.exe', formatterExecutable: formatter });
+  assert.equal(state.warnings.length, 0);
+  assert.equal(state.formatterChecks.length, 1);
+  assert.equal(state.clients[0].notifications.at(-1).payload.settings.glsld.clangFormatPath, formatter);
+});
+
+test('fixing the formatter setting rechecks and updates the server configuration without restarting', async t => {
+  const { state } = await activateFixture(t, {
+    installed: 'local-server.exe', formatterAvailable: false, config: { 'clangFormat.path': 'missing.exe' },
+  });
+  state.config['clangFormat.path'] = 'working-formatter.exe';
+  state.formatterAvailable = true;
+  state.formatterExecutable = path.join(__dirname, 'tools', 'working-formatter.exe');
+  await state.onConfiguration.fire({ affectsConfiguration: name => ['glsld', 'glsld.clangFormat.path'].includes(name) });
+  assert.equal(state.formatterChecks.length, 2);
+  assert.equal(state.warnings.length, 1);
+  assert.equal(state.restarts, 0);
+  assert.equal(state.clients[0].notifications.at(-1).payload.settings.glsld.clangFormatPath, state.formatterExecutable);
+});
+
+test('Check Again retries after installing a formatter and sends its resolved path to the server', async t => {
+  const { state } = await activateFixture(t, {
+    installed: 'local-server.exe', formatterAvailable: false,
+    onWarning: (_message, _actions, state) => { state.formatterAvailable = true; return 'Check Again'; },
+  });
+  await new Promise(setImmediate);
+  assert.equal(state.formatterChecks.length, 2);
+  assert.equal(state.warnings.length, 1);
+  assert.equal(state.clients[0].notifications.at(-1).payload.settings.glsld.clangFormatPath, state.formatterExecutable);
+  assert.equal(state.restarts, 0);
+});
+
+test('a slow formatter check cannot overwrite the result of a more recent settings change', async t => {
+  const { state } = await activateFixture(t, { installed: 'local-server.exe' });
+  let entered;
+  let release;
+  const checking = new Promise(resolve => { entered = resolve; });
+  state.onFormatterCheck = configuredPath => configuredPath === 'old.exe'
+    ? new Promise(resolve => { release = resolve; entered(); }) : undefined;
+  state.formatterAvailable = false;
+  state.config['clangFormat.path'] = 'old.exe';
+  const oldChange = state.onConfiguration.fire({ affectsConfiguration: name => ['glsld', 'glsld.clangFormat.path'].includes(name) });
+  await checking;
+  state.formatterAvailable = true;
+  state.formatterExecutable = path.join(__dirname, 'new-formatter.exe');
+  state.config['clangFormat.path'] = 'new.exe';
+  await state.onConfiguration.fire({ affectsConfiguration: name => ['glsld', 'glsld.clangFormat.path'].includes(name) });
+  release();
+  await oldChange;
+  assert.equal(state.warnings.length, 0);
+  assert.equal(state.clients[0].notifications.at(-1).payload.settings.glsld.clangFormatPath, state.formatterExecutable);
+});
+
+test('formatter checks use the workspace directory and do not delay language server startup', async t => {
+  let serverStarted;
+  const folder = { uri: { fsPath: path.join(__dirname, 'project') } };
+  const { state } = await activateFixture(t, {
+    installed: 'local-server.exe', workspaceFolders: [folder],
+    onFormatterCheck: async (_configuredPath, state) => {
+      await new Promise(setImmediate);
+      serverStarted = state.clients[0].isRunning();
+    },
+  });
+  assert.equal(serverStarted, true);
+  assert.equal(state.formatterChecks[0].baseDirectory, folder.uri.fsPath);
+});
+
+test('deactivation prevents a pending formatter check from showing a notification', async t => {
+  const { state } = await activateFixture(t, {
+    formatterAvailable: false, onFormatterCheck: (_configuredPath, state) => state.extension.deactivate(),
+  });
+  assert.equal(state.warnings.length, 0);
+  assert.equal(state.errors.length, 0);
 });
 
 test('background index extra extensions are sent at startup, on changes, and when cleared', async t => {

@@ -1,4 +1,6 @@
 bin/**
+**/clang-format.exe
+**/clang-format
 src/**
 tests/**
 scripts/**

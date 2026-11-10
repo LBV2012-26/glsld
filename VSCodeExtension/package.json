@@ -133,9 +133,9 @@
 				},
 				"glsld.clangFormat.path": {
 					"type": "string",
-					"default": "clang-format.exe",
+					"default": "",
 					"scope": "resource",
-					"description": "Path to the clang-format executable. Leave empty to resolve clang-format.exe from PATH."
+					"description": "Path or command name of a separately installed clang-format executable. Leave empty to search PATH (clang-format.exe on Windows, clang-format elsewhere). Relative paths and ${workspaceFolder} are resolved from the first workspace folder. The extension checks availability on activation and when this setting changes."
 				},
 				"glsld.diagnostics.enabled": {
 					"type": "boolean",

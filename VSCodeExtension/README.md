@@ -35,7 +35,11 @@ You can also add your custom shader extension names for indexing using `glsld.ba
 
 Diagnostics and SPIR-V compilation require `glslc` from the Vulkan SDK or your PATH. Formatting requires `clang-format`; set `glsld.clangFormat.path` if needed. Other options are available in VS Code Settings under **glsld**.
 
-The project is under active development. This extension is independent of [daiyousei-qz/glsld](https://github.com/daiyousei-qz/glsld).
+clang-format is installed separately. Leave `glsld.clangFormat.path` empty to search the extension host's PATH (`clang-format.exe` on Windows, `clang-format` on Linux/macOS), or set an explicit path or command name. Relative paths and `${workspaceFolder}` are resolved from the first workspace folder. In SSH, WSL, and containers, install or configure clang-format on the remote extension host.
+
+On activation and when `glsld.clangFormat.path` changes, the extension checks access and runs `--version`. If clang-format is unavailable, a notification offers **Open Settings** and **Check Again**; other language features remain available. After changing the system PATH, reload VS Code so the extension host inherits it.
+
+The project is under active development.
 
 ## License
 
