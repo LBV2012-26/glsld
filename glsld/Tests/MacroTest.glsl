@@ -280,6 +280,14 @@ F12(G1(a, b), c
         REGISTER_INTEGER_OVERLOADS("bitfieldExtract", MathMeta::BitfieldExtract);
         REGISTER_INTEGER_OVERLOADS("bitfieldInsert", MathMeta::BitfieldInsert);
 
+#define vec4 int
+#define T vec4
+#ifdef vec4
+#endif
+
+#define ID(vec4) vec4
+auto xx = ID(1);
+
 #define _STD_BEGIN namespace std {
 #define _STD_END }
 

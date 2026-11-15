@@ -87,7 +87,7 @@ namespace glsld {
 
                     std::string name;
                     const auto& token = current_token();
-                    if (token.type == TokenType::kIdentifier) {
+                    if (IsPreprocessorIdentifier(token.type)) {
                         name = token.text;
                         ConsumeToken();
                     }
@@ -119,13 +119,7 @@ namespace glsld {
                     return Utils::ParseNumberLiteralToInteger(token.text);
                 }
 
-                if (token.type == TokenType::kSpirvIntrinsic  ||
-                    token.type == TokenType::kIdentifier      ||
-                    token.type == TokenType::kPrimitive       ||
-                    token.type == TokenType::kKeyword         ||
-                    token.type == TokenType::kBuiltInFunction ||
-                    token.type == TokenType::kBuiltInType)
-                {
+                if (IsPreprocessorIdentifier(token.type)) {
                     ConsumeToken();
                     return 0;
                 }
@@ -630,7 +624,7 @@ namespace glsld {
         for (auto i = 0uz; i != input.size(); ++i) {
             const auto& token = input[i];
 
-            if (token.type != TokenType::kIdentifier) {
+            if (!IsPreprocessorIdentifier(token.type)) {
                 PushToken(token);
                 continue;
             }
@@ -727,7 +721,7 @@ namespace glsld {
         std::vector<Token> replaced;
         for (auto i = 0uz; i != definition.replacement_list.size(); ++i) {
             const auto& token = definition.replacement_list[i];
-            if (token.type == TokenType::kIdentifier) {
+            if (IsPreprocessorIdentifier(token.type)) {
                 auto it = param_index.find(token.text);
                 if (it != param_index.end()) {
                     const auto& arg_index = it->second;
@@ -997,11 +991,11 @@ namespace glsld {
         }
 
         if (directive_text == "define") {
-            if (!body.empty() && body.front().type == TokenType::kIdentifier) {
+            if (!body.empty() && IsPreprocessorIdentifier(body.front().type)) {
                 ParseDefineFromBody(body);
             }
         } else if (directive_text == "undef") {
-            if (!body.empty() && body.front().type == TokenType::kIdentifier) {
+            if (!body.empty() && IsPreprocessorIdentifier(body.front().type)) {
                 document_.macro_table.erase(body.front().text);
             }
         }
@@ -1041,7 +1035,7 @@ namespace glsld {
                     continue;
                 }
 
-                if (token.type == TokenType::kIdentifier) {
+                if (IsPreprocessorIdentifier(token.type)) {
                     definition.params.push_back(token);
                     ++index;
                     continue;
@@ -1089,7 +1083,7 @@ namespace glsld {
         if (directive == "ifdef" || directive == "ifndef") {
             const bool parent_active = IsCurrentBranchActive();
             bool       macro_defined = false;
-            if (!body_tokens.empty() && body_tokens.front().type == TokenType::kIdentifier) {
+            if (!body_tokens.empty() && IsPreprocessorIdentifier(body_tokens.front().type)) {
                 macro_defined = document_.macro_table.contains(body_tokens.front().text);
             } // #ifdef 和 #ifndef 不看宏本身的数值，只要被定义就算
 
@@ -1182,15 +1176,6 @@ namespace glsld {
             };
         };
 
-        auto IsIdentifierLike = [](const Token& token) -> bool {
-            return token.type == TokenType::kIdentifier
-                || token.type == TokenType::kPrimitive
-                || token.type == TokenType::kKeyword
-                || token.type == TokenType::kPreprocessor
-                || token.type == TokenType::kBuiltInFunction
-                || token.type == TokenType::kBuiltInType;
-        };
-
         for (auto i = 0uz; i != input.size();) {
             const auto& token = input[i];
 
@@ -1206,7 +1191,7 @@ namespace glsld {
                     ++j;
                 }
 
-                if (j < input.size() && input[j].type == TokenType::kIdentifier) {
+                if (j < input.size() && IsPreprocessorIdentifier(input[j].type)) {
                     exists = document_.macro_table.contains(input[j].text);
                     valid  = true;
                     ++j;
@@ -1236,7 +1221,7 @@ namespace glsld {
         final_tokens.reserve(expanded.size());
 
         for (auto& token : expanded) {
-            if (IsIdentifierLike(token)) {
+            if (IsPreprocessorIdentifier(token.type)) {
                 token.text = "0";
                 token.type = TokenType::kNumberLiteral;
                 final_tokens.push_back(std::move(token));

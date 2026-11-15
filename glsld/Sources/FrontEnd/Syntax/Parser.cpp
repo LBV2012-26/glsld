@@ -286,7 +286,7 @@ namespace glsld {
         // current token is macro name after "define"
         const auto& macro_token = current_token();
 
-        if (macro_token.type != TokenType::kIdentifier ||
+        if (!IsPreprocessorIdentifier(macro_token.type) ||
             macro_token.location.filename() != target_file ||
             macro_token.location.line() != directive_physical_line)
         {
@@ -308,7 +308,7 @@ namespace glsld {
             ConsumeToken();
 
             while (current_token().type != TokenType::kEndOfFile && current_token().type != TokenType::kCloseParen) {
-                if (current_token().type == TokenType::kIdentifier) {
+                if (IsPreprocessorIdentifier(current_token().type)) {
                     node->params.push_back(current_token().text);
                     ConsumeToken();
                 }

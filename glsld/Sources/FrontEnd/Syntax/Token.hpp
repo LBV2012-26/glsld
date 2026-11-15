@@ -93,4 +93,19 @@ namespace glsld {
         SourceLocation   location;
         TokenType        type{ TokenType::kUnknown };
     };
+
+    constexpr bool IsPreprocessorIdentifier(TokenType type) {
+        switch (type) {
+        case TokenType::kIdentifier:
+        case TokenType::kPrimitive:
+        case TokenType::kKeyword:
+        case TokenType::kPreprocessor:
+        case TokenType::kBuiltInFunction:
+        case TokenType::kBuiltInType:
+        case TokenType::kSpirvIntrinsic:
+            return true;
+        default:
+            return false;
+        }
+    }
 }

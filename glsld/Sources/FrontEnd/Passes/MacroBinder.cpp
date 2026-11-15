@@ -81,7 +81,7 @@ namespace glsld {
         }
 
         auto BindActiveMacro = [this, &active_macros](const Token& token) -> bool {
-            if (token.type != TokenType::kIdentifier) {
+            if (!IsPreprocessorIdentifier(token.type)) {
                 return false;
             }
 
@@ -136,7 +136,7 @@ namespace glsld {
             }
 
             if (node->directive == "undef") {
-                if (node->tokens.empty() || node->tokens.front().type != TokenType::kIdentifier) {
+                if (node->tokens.empty() || !IsPreprocessorIdentifier(node->tokens.front().type)) {
                     continue;
                 }
 
