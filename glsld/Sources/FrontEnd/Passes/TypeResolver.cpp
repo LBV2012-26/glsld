@@ -1418,14 +1418,14 @@ namespace glsld {
         if (block_symbol != nullptr && block_symbol->internal_scope != nullptr && node->member != nullptr) {
             if (node->member->kind() == AstNodeKind::kVariableExpression) {
                 auto* member_node = static_cast<VariableExpressionNode*>(node->member);
-                const auto* member_symbol = block_symbol->internal_scope->FindSymbol(member_node->name);
+                const auto* member_symbol = block_symbol->internal_scope->FindSymbolInCurrentScope(member_node->name);
 
                 if (member_symbol != nullptr) {
                     member_node->linked_symbols = member_symbol;
                     member_node->evaluated_type = member_symbol->type_info;
                     node->evaluated_type = member_node->evaluated_type;
 
-                    document_.bindings.try_emplace(member_node->begin, member_symbol);
+                    document_.bindings.insert_or_assign(member_node->begin, member_symbol);
                 }
             } else { // node->member->kind() == AstNodeKind::kCallExpression
                 // do nothing, GLSL not support member function

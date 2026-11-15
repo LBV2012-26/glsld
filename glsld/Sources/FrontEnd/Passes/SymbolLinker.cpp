@@ -75,6 +75,10 @@ namespace glsld {
     void SymbolLinker::VisitVariableExpression(VariableExpressionNode* node) {
         BindResolvedNames(node->name_prefixes);
 
+        if (node->node_type == VariableExpressionNode::NodeType::kBlockMember) {
+            return;
+        } // 自定义类型此时还不知道，不绑定内部符号
+
         const Scope* scope = nullptr;
         if (node->internal_scope != nullptr) {
             scope = node->internal_scope;
