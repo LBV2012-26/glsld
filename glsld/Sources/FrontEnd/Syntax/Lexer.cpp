@@ -40,30 +40,43 @@ namespace glsld {
         auto token = ProduceToken();
         last_token_line_ = token.location.line();
 
-        const bool need_deep_paren = last_token_text_ == "layout"
-            || (last_token_text_.starts_with("spirv")) && (token.text != "spirv_id" && token.text != "spirv_by_reference");
+        const bool starts_qualifier = last_token_text_ == "layout"
+            || (last_token_text_.starts_with("spirv") && last_token_text_ != "spirv_id" && last_token_text_ != "spirv_by_reference");
 
-        if (token.type == TokenType::kSharp)
+        if (token.type == TokenType::kSharp) {
             preprocessor_line_ = true;
-        if (token.type == TokenType::kOpenParen && need_deep_paren)
-            ++qualifier_paren_depth_;
-        if (token.type == TokenType::kCloseParen && qualifier_paren_depth_ > 0)
-            --qualifier_paren_depth_;
-        if (token.type == TokenType::kIdentifier  ||
-            token.type == TokenType::kPrimitive   ||
-            token.type == TokenType::kBuiltInType ||
-            token.type == TokenType::kKeyword     ||
-            token.type == TokenType::kSpirvIntrinsic)
-        {
-            last_token_text_ = token.text;
         }
 
-        if (qualifier_paren_depth_ > 0 && token.type == TokenType::kEqual) {
-            qualifier_after_equal_ = true;
-        } else {
+        if (qualifier_delimiter_depth_ > 0) {
+            switch (token.type) {
+            case TokenType::kOpenParen:
+            case TokenType::kOpenBracket:
+            case TokenType::kOpenBrace:
+                ++qualifier_delimiter_depth_;
+                break;
+            case TokenType::kCloseParen:
+            case TokenType::kCloseBracket:
+            case TokenType::kCloseBrace:
+                if (--qualifier_delimiter_depth_ == 0)
+                    qualifier_after_equal_ = false;
+                break;
+            case TokenType::kEqual:
+                if (qualifier_delimiter_depth_ == 1)
+                    qualifier_after_equal_ = true;
+                break;
+            case TokenType::kComma:
+                if (qualifier_delimiter_depth_ == 1)
+                    qualifier_after_equal_ = false;
+                break;
+            default:
+                break;
+            }
+        } else if (token.type == TokenType::kOpenParen && starts_qualifier) {
+            qualifier_delimiter_depth_ = 1;
             qualifier_after_equal_ = false;
         }
 
+        last_token_text_ = token.text;
         return token;
     }
 
@@ -163,7 +176,7 @@ namespace glsld {
                 if (it->second == TokenType::kPrimitive) {
                     const auto subtype = MetadataManager::GetInstance().GetLexicalSubtype(word);
                     if (subtype.has_value() && (subtype->starts_with("Primitives.Layout") || subtype->starts_with("Primitives.Spirv"))) {
-                        if (qualifier_paren_depth_ == 0 || qualifier_after_equal_) {
+                        if (qualifier_delimiter_depth_ == 0 || qualifier_after_equal_) {
                             return {
                                 .text     = word,
                                 .location = location,
