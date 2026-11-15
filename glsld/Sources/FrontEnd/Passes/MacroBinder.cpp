@@ -6,6 +6,8 @@
 #include <utility>
 #include <variant>
 
+#include <FrontEnd/Syntax/Token.hpp>
+
 namespace glsld {
     MacroBinder::MacroBinder(Document& document, int version_replica, VersionPointer version_pointer)
         : document_{ document }
