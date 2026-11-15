@@ -8,11 +8,7 @@
 #include <Utils/Utils.hpp>
 
 namespace glsld {
-    Lexer::Lexer(const SourceFile* source_file,
-                 std::string_view source,
-                 IncludeLoader& include_loader,
-                 IncludeDirectoryHandle include_dirs)
-
+    Lexer::Lexer(const SourceFile* source_file, std::string_view source, IncludeLoader& include_loader, IncludeDirectoryHandle include_dirs)
         : source_file_{ source_file }
         , source_{ source }
         , include_loader_{ include_loader }

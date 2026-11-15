@@ -17,10 +17,7 @@
 namespace glsld {
     class Lexer {
     public:
-        Lexer(const SourceFile* source_file,
-              std::string_view source,
-              IncludeLoader& include_loader,
-              IncludeDirectoryHandle include_dirs);
+        Lexer(const SourceFile* source_file, std::string_view source, IncludeLoader& include_loader, IncludeDirectoryHandle include_dirs);
 
         std::vector<Token> Tokenize(int version_replica = 0, VersionPointer version_pointer = nullptr);
 
