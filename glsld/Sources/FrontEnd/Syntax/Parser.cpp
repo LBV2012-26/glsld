@@ -1922,6 +1922,7 @@ namespace glsld {
 
         auto* node  = MakeNode<DeclarationGroupNode>(current_scope());
         node->begin = type_spec.begin_location();
+        node->end   = GetPreviousTokenEnd();
 
         if (auto* first_node = ParseSingleDeclarer()) {
             node->declarations.push_back(first_node);
@@ -2482,6 +2483,7 @@ namespace glsld {
         if (is_struct) {
             auto* node = MakeNode<StructDeclarationNode>(current_scope());
             ParseBody(node);
+            node->type_spec = std::move(type_spec);
             return node;
         } else {
             auto* node = MakeNode<InterfaceDeclarationNode>(current_scope());

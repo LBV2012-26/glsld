@@ -300,6 +300,8 @@ namespace glsld {
     }
 
     void AstVisitor::VisitStructDeclaration(StructDeclarationNode* node) {
+        TraverseTypeSpec(node->type_spec);
+
         if (node->body != nullptr) {
             Traverse(node->body);
         }

@@ -446,6 +446,7 @@ namespace glsld {
     };
 
     struct StructDeclarationNode final : public DeclarationNode {
+        TypeSpec               type_spec{ arena };
         CompoundStatementNode* body{ nullptr };
         DeclarationGroupNode*  instances{ nullptr };
 
