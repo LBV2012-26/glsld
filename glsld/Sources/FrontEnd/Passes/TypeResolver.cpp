@@ -351,12 +351,10 @@ namespace glsld {
     }
 
     void TypeResolver::VisitFunctionDeclaration(FunctionDeclarationNode* node) {
+        TraverseTypeSpec(node->type_spec);
+
         if (node->declared_symbol == nullptr) {
             return;
-        }
-
-        for (auto& template_arg : node->type_spec.template_args) {
-            Traverse(template_arg);
         }
 
         auto* function_symbol = node->declared_symbol;
