@@ -65,7 +65,7 @@ namespace glsld {
             }
 
             const int current = [&]() -> int {
-                std::shared_lock lock(pending_mutex_);
+                std::shared_lock lock(version_mutex_);
                 auto it = document_versions_.find(uri);
                 return it != document_versions_.end() ? it->second->load(std::memory_order::relaxed) : -1;
             }();
@@ -464,22 +464,26 @@ namespace glsld {
         }
 
         const auto& key = params["id"];
-        std::lock_guard lock(cancellation_mutex_);
+        {
+            std::lock_guard lock(cancellation_mutex_);
 
-        auto it = cancellation_tokens_.find(key);
-        if (it != cancellation_tokens_.end()) {
-            it->second->store(true, std::memory_order::relaxed);
-            GLSLD_LOG(debug, "Cancelled request with params: {}.", params.dump());
-        } else {
-            GLSLD_LOG(debug, "Cancelled target {} not found.", key.dump());
-        }
+            auto it = cancellation_tokens_.find(key);
+            if (it != cancellation_tokens_.end()) {
+                it->second->store(true, std::memory_order::relaxed);
+                GLSLD_LOG(debug, "Cancelled request with params: {}.", params.dump());
+            } else {
+                GLSLD_LOG(debug, "Cancelled target {} not found.", key.dump());
+            }
 
 #ifdef _DEBUG
-        for (const auto& [id, token] : cancellation_tokens_) {
-            GLSLD_LOG(debug, "Pending cancellation token for request {}. Token status: {}.",
-                      id.dump(), token->load(std::memory_order::relaxed));
-        }
+            for (const auto& [id, token] : cancellation_tokens_) {
+                GLSLD_LOG(debug, "Pending cancellation token for request {}. Token status: {}.",
+                          id.dump(), token->load(std::memory_order::relaxed));
+            }
 #endif
+        }
+
+        NotifyDocumentStateChanged();
     }
 
     // Request Handlers
@@ -743,13 +747,20 @@ namespace glsld {
 
         PositionMapperCache mappers(workspace_);
 
-        for (const auto& symbol : symbols) {
+        for (const auto* symbol : symbols) {
             ABORT_IF_CANCELLED();
+
+            if (symbol == nullptr) {
+                continue;
+            }
+
             const auto start_line = symbol->location.line() - 1;
 
             std::string symbol_name;
             if (symbol->kind == SymbolKind::kFunctionDecl || symbol->kind == SymbolKind::kFunctionImpl) {
                 symbol_name = Utils::UnmangleFunctionName(symbol->name);
+            } else {
+                symbol_name = symbol->name;
             }
 
             const auto start_char = mappers.ToUtf16Character(symbol->location, symbol->location.column());
@@ -1096,6 +1107,12 @@ namespace glsld {
             return extension_items;
         }
 
+        if (auto fields = Providers::GetFieldCompletionItems(context, snapshot, target, workspace_.type_member_index());
+            !fields.empty())
+        {
+            return fields;
+        }
+
         return Providers::GetCompletionItems(context, snapshot, target);
     }
 
@@ -1294,7 +1311,6 @@ namespace glsld {
     void LspServer::HandleDidClose(Context& context) {
         const auto& origin_uri = context.params["textDocument"]["uri"];
         const auto  uri        = NormalizeUri(origin_uri.get<std::string_view>());
-        workspace_.CloseDocument(uri);
 
         {
             std::scoped_lock lock(pending_mutex_, version_mutex_);
@@ -1307,6 +1323,15 @@ namespace glsld {
             }
         }
 
+        workspace_.CloseDocument(uri);
+
+        {
+            std::lock_guard lock(affected_mutex_);
+            include_affected_uris_.erase(uri);
+        }
+
+        NotifyDocumentStateChanged();
+
         LspSubmitItem item{
             .payload = {
                 { "uri", uri },
@@ -1318,7 +1343,6 @@ namespace glsld {
 
         EnqueueSubmit(std::move(item));
         document_uris_.erase(uri);
-        include_affected_uris_.erase(uri);
     }
 
     void LspServer::HandleInitialized(Context& context) {
@@ -1727,7 +1751,7 @@ namespace glsld {
         GLSLD_LOG(trace, "Workspace::UpdateDocument for {} updated to version {} in {} ms",
                   uri, version_replica, std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
-        ready_condition_.notify_all();
+        NotifyDocumentStateChanged();
         SubmitDiagnositcTask(uri, text, Utils::UriToPath(uri).generic_string(), version_replica, version_pointer);
     }
 
@@ -1789,6 +1813,7 @@ namespace glsld {
 
         DiagnosticTask task{
             .uri             = std::string(uri),
+            .source          = std::string(source),
             .filename        = std::string(filename),
             .include_dirs    = workspace_.include_dirs(),
             .version_replica = version_replica,
@@ -1798,9 +1823,7 @@ namespace glsld {
         const auto& shader_configs = workspace_.shader_configs();
         auto it = shader_configs.find(uri);
 
-        if (StartsWithVersion(source) || it == shader_configs.end()) {
-            task.source = std::string(source);
-        } else if (it->second.version.has_value()) {
+        if (!StartsWithVersion(source) && it != shader_configs.end() && it->second.version.has_value()) {
             task.source = std::format("#version {}\n#line 1\n{}\n\nvoid main() {{}}\n", *it->second.version, source);
         }
 
@@ -1824,7 +1847,7 @@ namespace glsld {
         }
 
         if (need_update) {
-            PickupPendingUpdate(uri);
+            RefreshDocument(uri);
         }
 
         const auto stop_token = stop_source_.get_token();
@@ -1848,39 +1871,44 @@ namespace glsld {
 
             auto snapshot = workspace_.GetDocumentSnapshot(uri);
             GLSLD_LOG(debug, "Expected version of document {} is {}, snapshot version is {}. Request ID: {}.",
-                            uri, expected_version, snapshot != nullptr ? snapshot->version : -1919810, context.request_id->dump());
+                      uri, expected_version, snapshot != nullptr ? snapshot->version : -1919810, context.request_id->dump());
 
-            if (snapshot != nullptr && snapshot->version >= expected_version) {
-                GLSLD_LOG(debug, "Document {} is ready with version {}. Request ID: {}.", uri, snapshot->version, context.request_id->dump());
-                return snapshot;
-            } else if (expected_version == kDocumentClosedVersion) {
-                GLSLD_LOG(debug, "Document {} is closed. Request ID: {}.", uri, context.request_id->dump());
+            if (expected_version == kDocumentClosedVersion)
                 return nullptr;
-            }
+            if (snapshot != nullptr && snapshot->version >= expected_version)
+                return snapshot;
 
             std::unique_lock lock(ready_mutex_);
-            ready_condition_.wait(lock, stop_token, [this, &context, &uri, expected_version]() -> bool {
+            ready_condition_.wait(lock, stop_token, [this, &context, uri]() -> bool {
                 if (context.cancelled()) {
-                    GLSLD_LOG(debug, "Waiting for document {} exit because request {} cancelled while waiting.", uri, context.request_id->dump());
                     return true;
                 }
 
-                auto snapshot = workspace_.GetDocumentSnapshot(uri);
-                if (snapshot != nullptr && snapshot->version >= expected_version) {
-                    GLSLD_LOG(debug, "Document {} updated to version {}, expected version was {}. Waking up. Request ID: {}.",
-                              uri, snapshot->version, expected_version, context.request_id->dump());
+                int current_version = 0;
+                {
+                    std::shared_lock version_lock(version_mutex_);
+                    const auto it = document_versions_.find(uri);
+                    if (it == document_versions_.end()) {
+                        return true; // 已关闭，退出等待，让外层循环处理。
+                    }
+
+                    current_version = it->second->load(std::memory_order::relaxed);
+                }
+
+                if (current_version == kDocumentClosedVersion) {
                     return true;
                 }
 
-                if (expected_version == kDocumentClosedVersion) {
-                    GLSLD_LOG(debug, "Document {} is closed while waiting. Request ID: {}.", uri, context.request_id->dump());
-                    return true;
-                }
-
-                return false;
+                const auto snapshot = workspace_.GetDocumentSnapshot(uri);
+                return snapshot != nullptr && snapshot->version >= current_version;
             });
         }
 
         return nullptr;
+    }
+
+    void LspServer::NotifyDocumentStateChanged() {
+        std::lock_guard lock(ready_mutex_);
+        ready_condition_.notify_all();
     }
 }

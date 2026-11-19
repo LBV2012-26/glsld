@@ -48,30 +48,24 @@ namespace glsld {
             return;
         }
 
+        std::scoped_lock lock(document_mutex_, index_mutex_);
+
+        if (version_pointer != nullptr && version_pointer->load(std::memory_order::relaxed) != version_replica) {
+            return;
+        }
+
+        const auto current = documents_.find(uri);
+        if (current != documents_.end() && current->second->version > version_replica) {
+            return;
+        }
+
         UpdateDependencies(uri, next);
 
-        const auto index_update_start = std::chrono::high_resolution_clock::now();
-        {
-            std::lock_guard lock(index_mutex_);
+        global_index_.IndexDocument(uri, *next);
+        type_member_index_.RemoveDocument(uri);
+        type_member_index_.IndexDocument(uri, next->symbols);
 
-            global_index_.IndexDocument(uri, *next);
-            type_member_index_.RemoveDocument(uri);
-            type_member_index_.IndexDocument(uri, next->symbols);
-        }
-        const auto index_update_end = std::chrono::high_resolution_clock::now();
-
-        GLSLD_LOG(info, "Indexed document (with lock) {} in {} ms",
-                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(index_update_end - index_update_start).count());
-
-        const auto reconcile_start = std::chrono::high_resolution_clock::now();
-        {
-            std::lock_guard lock(document_mutex_);
-            documents_.insert_or_assign(uri, std::move(next));
-        }
-        const auto reconcile_end = std::chrono::high_resolution_clock::now();
-
-        GLSLD_LOG(info, "Reconciled document (with lock) {} in {} ms",
-                  uri, std::chrono::duration_cast<std::chrono::milliseconds>(reconcile_end - reconcile_start).count());
+        documents_.insert_or_assign(uri, std::move(next));
     }
 
     std::shared_ptr<Document> Workspace::GetDocumentSnapshot(std::string_view uri) const {
@@ -86,6 +80,8 @@ namespace glsld {
     }
 
     std::vector<std::string> Workspace::GetAffectedDocuments(std::string_view changed_uri) const {
+        std::lock_guard lock(dependency_mutex_);
+
         std::vector<std::string> results;
         auto it = reverse_dependencies_.find(changed_uri);
         if (it != reverse_dependencies_.end()) {

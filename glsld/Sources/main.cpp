@@ -12,6 +12,9 @@
 #ifdef _WIN64
 #include <fcntl.h>
 #include <Windows.h>
+#else
+#include <csignal>
+#include <unistd.h>
 #endif
 
 #include "Base/FileSystem/Source.hpp"
@@ -158,6 +161,13 @@ int main(int argc, const char* argv[]) { // --benchmark or --debug-ast
         return EXIT_SUCCESS;
     }
 
-    glsld::LspServer server;
-    return EXIT_SUCCESS;
+    glsld::LspServer _;
+
+#ifdef _WIN64
+    TerminateProcess(GetCurrentProcess(), 0);
+    __fastfail(1);
+#else
+    _exit(0);
+    std::raise(SIGKILL);
+#endif
 }

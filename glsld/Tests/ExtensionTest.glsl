@@ -24,6 +24,8 @@ void main() {
     DECLARE_STRUCT_ARRAY(vec3, kArraySize);
     vec3_buffer[kIncludeValue].data;
 
+    const auto kValue = kIncludeValue * 2;
+
     vec3 origin    = vec3(0.0);
     vec3 direction = vec3(0.0, 0.0, -1.0);
     traceRayEXT(tlas, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0,

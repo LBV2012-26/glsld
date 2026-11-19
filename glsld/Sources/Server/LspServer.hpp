@@ -64,6 +64,12 @@ namespace glsld {
         using MutableVersionPointer  = std::shared_ptr<std::atomic<int>>;
         using CancellationTokenTable = ankerl::unordered_dense::map<nlohmann::json, CancellationToken>; // [Request ID, Token]
 
+        struct PendingUpdate {
+            std::string                           text;
+            std::chrono::steady_clock::time_point deadline;
+            int                                   version_replica{};
+        };
+
         void Run();
         void RegisterHandlers();
         std::optional<nlohmann::json> ReadMessage();
@@ -124,12 +130,7 @@ namespace glsld {
             VersionPointer version_pointer);
 
         Snapshot ValidateAndGetDocument(const Context& context, std::string_view uri);
-
-        struct PendingUpdate {
-            std::string                           text;
-            std::chrono::steady_clock::time_point deadline;
-            int                                   version_replica{};
-        };
+        void NotifyDocumentStateChanged();
 
         std::stop_source                           stop_source_;
         std::atomic<int>                           server_request_id_{};
