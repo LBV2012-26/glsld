@@ -2437,7 +2437,13 @@ namespace glsld {
             name_location = current_token().location;
         }
 
-        const bool is_struct = type_spec.has_keyword("struct");
+        const bool is_struct      = type_spec.has_keyword("struct");
+        const bool is_buffer_type = type_spec.has_keyword("buffer") && std::ranges::any_of(type_spec.layouts, [](const auto* layout) -> bool {
+            return layout != nullptr && std::ranges::any_of(layout->params, [](const auto* param) -> bool {
+                return param != nullptr && param->arg_kind == QualifierArgumentKind::kIdentifier
+                    && (param->token.text == "buffer_reference" || param->token.text == "buffer_type");
+            });
+        });
 
         auto ParseBody = [&](auto& node) -> void {
             node->begin           = type_spec.begin_location();
@@ -2460,10 +2466,8 @@ namespace glsld {
                 MatchAndConsume(TokenType::kSemicolon);
             }
 
-            if (!is_struct && node->instances == nullptr) {
-                if (node->body != nullptr && node->body->internal_scope != nullptr) {
-                    node->body->internal_scope->kind_ = ScopeKind::kBlockTransparent;
-                }
+            if (!is_struct && !is_buffer_type && node->instances == nullptr && node->body != nullptr && node->body->internal_scope != nullptr) {
+                node->body->internal_scope->kind_ = ScopeKind::kBlockTransparent;
             }
 
             if (node->body != nullptr && node->declared_symbol != nullptr) {
