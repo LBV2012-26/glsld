@@ -1,7 +1,11 @@
 #ifndef GL_KHR_vulkan_glsl_defines
 #define GL_KHR_vulkan_glsl_defines
 
+// Sampler Types
 class sampler;
+class samplerShadow;
+
+// Floating-point Texture Types
 class texture1D;
 class texture2D;
 class texture3D;
@@ -13,6 +17,8 @@ class textureBuffer;
 class texture2DMS;
 class texture2DMSArray;
 class texture2DRect;
+
+// Signed Texture Types
 class itexture1D;
 class itexture2D;
 class itexture3D;
@@ -24,6 +30,8 @@ class itexture2DArray;
 class itexture2DMS;
 class itexture2DMSArray;
 class itexture2DRect;
+
+// Unsigned Texture Types
 class utexture1D;
 class utexture2D;
 class utexture3D;
@@ -35,6 +43,8 @@ class utexture2DArray;
 class utexture2DMS;
 class utexture2DMSArray;
 class utexture2DRect;
+
+// Subpass Input Types
 class subpassInput;
 class isubpassInput;
 class usubpassInput;
