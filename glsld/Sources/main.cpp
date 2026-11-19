@@ -115,8 +115,9 @@ namespace {
             document.symbols.Dump();
         }
 
+        std::println("-----------------------------------------------------------------------");
         std::println("Benchmark completed for file: {}", filename.generic_string());
-        std::println("Lex time: {}ms, Extension scan time: {}ms, Metadata attach time: {}ms, Preprocess time: {}ms, Parse time: {}ms, SymbolLink time: {}ms, TypeResolve time: {}ms, BindMacro time: {}ms",
+        std::println("  Lex time: {}ms\n  Extension scan time: {}ms\n  Metadata attach time: {}ms\n  Preprocess time: {}ms\n  Parse time: {}ms\n  SymbolLink time: {}ms\n  TypeResolve time: {}ms\n  BindMacro time: {}ms",
                      std::chrono::duration_cast<std::chrono::milliseconds>(lexer_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(discovery_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(attach_duration).count(),
@@ -125,9 +126,12 @@ namespace {
                      std::chrono::duration_cast<std::chrono::milliseconds>(link_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(resolve_duration).count(),
                      std::chrono::duration_cast<std::chrono::milliseconds>(bind_duration).count());
-
+        std::println("-----------------------------------------------------------------------");
         auto total_duration = lexer_duration + discovery_duration + attach_duration + preprocess_duration + parse_duration + link_duration + resolve_duration + bind_duration;
         std::println("Total time: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(total_duration).count());
+        auto total_without_metadata = total_duration - attach_duration;
+        std::println("Total time without metadata attach: {}ms", std::chrono::duration_cast<std::chrono::milliseconds>(total_without_metadata).count());
+        std::println("-----------------------------------------------------------------------");
     }
 }
 
@@ -142,14 +146,15 @@ int main(int argc, const char* argv[]) { // --benchmark or --debug-ast
     if (argc > 1 && std::string_view(argv[1]) == "--benchmark") {
         glsld::ArenaPool arena_pool;
 
-        std::println("-----------------------------------------------------------------------");
+        std::println("------------------------------- Warmup --------------------------------");
+        Benchmark(arena_pool, "Tests/EvaluatorTest.glsl");
+        Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
+        Benchmark(arena_pool, "Tests/HoverTest.glsl");
+        Benchmark(arena_pool, "Tests/MacroTest.glsl");
+        Benchmark(arena_pool, "Tests/OverloadTest.glsl");
+        std::println("--------------------------- Heavy benchmark ---------------------------");
         Benchmark(arena_pool, "Tests/Benchmark/BlackHole.glsl");
         Benchmark(arena_pool, "Tests/Benchmark/BlackHoleRepeated.glsl");
-        Benchmark(arena_pool, "Tests/OverloadTest.glsl");
-        Benchmark(arena_pool, "Tests/EvaluatorTest.glsl");
-        Benchmark(arena_pool, "Tests/HoverTest.glsl");
-        Benchmark(arena_pool, "Tests/ExtensionTest.glsl");
-        Benchmark(arena_pool, "Tests/MacroTest.glsl");
         std::println("-----------------------------------------------------------------------");
 
         return EXIT_SUCCESS;
