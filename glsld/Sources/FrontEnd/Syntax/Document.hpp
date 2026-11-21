@@ -105,6 +105,8 @@ namespace glsld {
         MacroExpansionMap                           macro_expansions;
         MacroTable                                  macro_table;
 
+        StringHeteroHashSet                         pragma_once_files;
+
         int                                         version{};
 
         Document()                = default;

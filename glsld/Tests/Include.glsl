@@ -1,5 +1,4 @@
-#ifndef INCLUDE_GLSL_
-#define INCLUDE_GLSL_
+#pragma once
 
 const int kIncludeValue = 42;
 
@@ -8,5 +7,3 @@ struct type##Buffer {                    \
     type data;                           \
     type member;                         \
 } type##_buffer[size];
-
-#endif

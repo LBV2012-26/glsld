@@ -969,6 +969,10 @@ namespace glsld {
             return;
         }
 
+        if (directive_text == "pragma" && body.size() == 1 && body.front().text == "once") {
+            document_.pragma_once_files.emplace(source_file_->filename());
+        }
+
         if (directive_text == "extension" && body.size() == 3 && body[1].type == TokenType::kColon) {
             const auto behavior = body[2].text;
             if (behavior == "enable" || behavior == "require" || behavior == "warn" || behavior == "disable") {
@@ -1303,6 +1307,10 @@ namespace glsld {
 
         if (mode_ == PreprocessMode::kFull) {
             document_.dependencies.push_back(include_snapshot->uri);
+        }
+
+        if (document_.pragma_once_files.contains(include_snapshot->filename)) {
+            return {}; // skip #pragma once
         }
 
         const auto* include_file = source_table_.Intern(include_snapshot->filename, include_snapshot->uri);
