@@ -1,5 +1,6 @@
 invocations
 max_vertices
+max_primitives
 stream
 vertices
 xfb_buffer
