@@ -367,8 +367,12 @@ namespace glsld::Providers {
         std::uint32_t last_char = 0;
 
         auto EmitSemanticData = [&](int type_index, int modifiers, const Token& token) -> void {
-            if (type_index == -1 && modifiers == 0) {
+            if (token.text.empty() || (type_index == -1 && modifiers == 0)) {
                 return;
+            }
+
+            if (type_index == -1) {
+                type_index = 21; // operator: retain inactive modifiers with a valid token type
             }
 
             const auto line       = static_cast<std::size_t>(token.location.line() - 1);
@@ -1570,18 +1574,14 @@ namespace glsld::Providers {
         }
 
         SymbolList fields;
-        if (type_info.block_symbol != nullptr && !type_info.block_symbol->name.empty()) {
-            fields = type_member_index.GetMembers(type_info.block_symbol->name);
-        }
-
-        if (fields.empty() && type_info.block_symbol != nullptr &&
-            type_info.block_symbol->internal_scope != nullptr)
-        {
+        if (type_info.block_symbol != nullptr && type_info.block_symbol->internal_scope != nullptr) {
             const auto* scope = type_info.block_symbol->internal_scope;
             for (const auto& symbol : scope->symbols()) {
                 ABORT_IF_CANCELLED();
                 fields.push_back(symbol.second.get());
             }
+        } else if (type_info.block_symbol != nullptr && !type_info.block_symbol->name.empty()) {
+            fields = type_member_index.GetMembers(type_info.block_symbol->name);
         }
 
         StringHeteroHashSet existing_labels;
