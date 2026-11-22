@@ -258,6 +258,10 @@ namespace glsld {
             }
 
             for (const auto& contribution : record.contributions) {
+                if (open_uris.contains(contribution.reference.uri)) {
+                    continue;
+                }
+
                 if (IsSameLocation(contribution.definition, stored_definition)) {
                     result.push_back(RestoreLocation(this, contribution.reference));
                 }

@@ -71,6 +71,17 @@ namespace glsld {
 
             for (const auto& [location, ref_count] : it->second) {
                 if (ref_count > 0) {
+                    // Prefer the referenced file's own index over copies from includers.
+                    const auto owner = document_contributions_.find(location.uri());
+                    if (owner != document_contributions_.end() &&
+                        !std::ranges::binary_search(owner->second, Contribution{
+                            .definition = definition,
+                            .reference  = location
+                        }, ContributionLess))
+                    {
+                        continue;
+                    }
+
                     result.push_back(location);
                 }
             }
