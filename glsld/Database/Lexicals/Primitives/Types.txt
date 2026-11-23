@@ -1,5 +1,8 @@
 atomic_uint
-bool int uint float double
-fixed superp
-void auto
+
+auto void bool int uint float double
+
+fixed
+superp
+
 _Func

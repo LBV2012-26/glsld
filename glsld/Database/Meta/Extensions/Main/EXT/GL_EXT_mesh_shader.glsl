@@ -1,5 +1,8 @@
 #define __GLSLD_EXTENSION_ENABLED_GL_EXT_mesh_shader 1
 
+#define taskPayloadSharedEXT spirv_storage_class(extensions = ["SPV_EXT_mesh_shader"], capabilities = [5283], 5402)
+#define perprimitiveEXT spirv_decorate(extensions = ["SPV_EXT_mesh_shader"], capabilities = [5283], 5271)
+
 in    uvec3 gl_NumWorkGroups;
 const uvec3 gl_WorkGroupSize;
 

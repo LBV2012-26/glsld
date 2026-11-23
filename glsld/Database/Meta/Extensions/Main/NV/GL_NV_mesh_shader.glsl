@@ -1,5 +1,8 @@
 #define __GLSLD_EXTENSION_ENABLED_GL_NV_mesh_shader 1
 
+#define perprimitiveNV spirv_decorate(extensions = ["SPV_NV_mesh_shader"], capabilities = [5266], 5271)
+#define perviewNV spirv_decorate(extensions = ["SPV_NV_mesh_shader"], capabilities = [5266], 5272)
+
 const uvec3 gl_WorkGroupSize;
 in    uvec3 gl_WorkGroupID;
 in    uvec3 gl_LocalInvocationID;

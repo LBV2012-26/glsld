@@ -1,5 +1,13 @@
 #define __GLSLD_EXTENSION_ENABLED_GL_NV_ray_tracing 1
 
+#define accelerationStructureNV spirv_type(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], id = 5341)
+
+#define callableDataInNV spirv_storage_class(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], 5329)
+#define callableDataNV   spirv_storage_class(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], 5328)
+#define hitAttributeNV   spirv_storage_class(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], 5339)
+#define rayPayloadInNV   spirv_storage_class(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], 5342)
+#define rayPayloadNV     spirv_storage_class(extensions = ["SPV_NV_ray_tracing"], capabilities = [5340], 5338)
+
 in uvec3 gl_LaunchIDNV;
 in uvec3 gl_LaunchSizeNV;
 
@@ -31,8 +39,6 @@ const uint gl_RayFlagsCullBackFacingTrianglesNV  = 16U;
 const uint gl_RayFlagsCullFrontFacingTrianglesNV = 32U;
 const uint gl_RayFlagsCullOpaqueNV               = 64U;
 const uint gl_RayFlagsCullNoOpaqueNV             = 128U;
-
-class accelerationStructureNV;
 
 void traceNV(accelerationStructureNV _TopLevel, uint _RayFlags, uint _CullMask, uint _SbtRecordOffset, uint _SbtRecordStride, uint _MissIndex, vec3 _Origin, float _Tmin, vec3 _Direction, float _Tmax, int _Payload);
 bool reportIntersectionNV(float _HitT, uint _HitKind);
