@@ -95,13 +95,9 @@ namespace glsld {
             auto* node = arena->Construct<PreprocessorNode>(arena.get(), root);
 
             node->directive = "define";
-            node->begin     = definition_location;
-
-            node->end       = SourceLocation(
-                definition_location.source_file(),
-                definition_location.line(),
-                definition_location.column() + static_cast<std::uint32_t>(name.size()));
-
+            // Injected macros are active before user source; symbols retain their real definition locations.
+            node->begin     = SourceLocation(definition_location.source_file(), 0, 0);
+            node->end       = SourceLocation(definition_location.source_file(), 0, static_cast<std::uint32_t>(name.size()));
             node->symbol    = symbols.AddMacroSymbol(node, name, definition_location);
 
             node->tokens.assign_range(definition.replacement_list);
