@@ -16,6 +16,7 @@
 #include <ankerl/unordered_dense.h>
 
 #include <Base/Hash.hpp>
+#include <Base/Logger.hpp>
 #include <FrontEnd/Ast/Ast.hpp>
 #include <FrontEnd/Passes/ConstantEvaluator.hpp>
 #include <FrontEnd/Passes/NodeLocator.hpp>
@@ -52,6 +53,14 @@ namespace glsld::Providers {
             }
 
             const auto index = static_cast<std::size_t>(std::distance(tokens.begin(), std::prev(it)));
+            // At a name's end, prefer that name over the adjacent punctuation token.
+            if (index > 0 && tokens[index].location == location &&
+                IsPreprocessorIdentifier(tokens[index - 1].type) &&
+                IsPositionInToken(tokens[index - 1], location))
+            {
+                return index - 1;
+            }
+
             if (!IsPositionInToken(tokens[index], location)) {
                 return std::nullopt;
             }
@@ -737,12 +746,16 @@ namespace glsld::Providers {
 
         const auto index = FindCursorTokenIndex(snapshot->raw_tokens, location);
         if (!index.has_value()) {
+            GLSLD_LOG(info, "{}: no token at {}:{}:{} (snapshot {}).",
+                      context.method, location.uri(), location.line(), location.column(), snapshot->version);
             return {};
         }
 
         const auto& cursor_token = snapshot->raw_tokens[*index];
         auto it = snapshot->bindings.find(cursor_token.location);
         if (it == snapshot->bindings.end()) {
+            GLSLD_LOG(info, "{}: no binding for '{}' at {}:{}:{} (snapshot {}).",
+                      context.method, cursor_token.text, location.uri(), location.line(), location.column(), snapshot->version);
             return {};
         }
 
@@ -757,11 +770,18 @@ namespace glsld::Providers {
         }
 
         if (symbol == nullptr) {
+            GLSLD_LOG(info, "{}: empty binding for '{}' at {}:{}:{} (snapshot {}).",
+                      context.method, cursor_token.text, location.uri(), location.line(), location.column(), snapshot->version);
             return {};
         }
 
         ABORT_IF_CANCELLED();
         auto locations = query(symbol->location);
+        if (locations.empty()) {
+            GLSLD_LOG(info, "{}: no references for '{}' defined at {}:{}:{} (snapshot {}, cancelled {}).",
+                      context.method, symbol->name, symbol->location.uri(), symbol->location.line(),
+                      symbol->location.column(), snapshot->version, context.cancelled());
+        }
 
         return {
             .locations = std::move(locations),
