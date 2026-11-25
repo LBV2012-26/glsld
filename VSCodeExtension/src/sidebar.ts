@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { ConfigFolderNode, configFileChildren, configFileName, configFileParent } from './configFileTree';
+import { shaderStages } from './compilePlan';
 
 // ============================================================
 // Storage types
@@ -40,6 +42,8 @@ export interface CompileGroup {
 	include: string[];
 	/** Optional per-group macro variants. */
 	variants?: CompileVariant[];
+	/** Stages selected for individual files in this group. */
+	fileStages?: Record<string, string[]>;
 }
 
 interface ConfigFile {
@@ -558,7 +562,10 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 // Compile group provider
 // ============================================================
 
-type CompileGroupNode = CompileGroupEntry | CompileGroupProperty;
+type CompileGroupNode = CompileGroupEntry | CompileGroupProperty
+	| (ConfigFolderNode & { groupIndex: number })
+	| { kind: 'compileGroupFile'; groupIndex: number; key: string }
+	| { kind: 'compileGroupStage'; groupIndex: number; fileKey: string; stage: string };
 
 interface CompileGroupEntry {
 	kind: 'compileGroup';
@@ -572,7 +579,7 @@ interface CompileGroupProperty {
 	value: string;
 }
 
-const DEFAULT_COMPILE_COMMAND = 'glslc --target-env=vulkan1.3 {defines} -o "{}.spv" "{}"';
+const DEFAULT_COMPILE_COMMAND = 'glslc --target-env=vulkan1.3 {defines} -o "{output}" "{}"';
 
 function splitCompilePatterns(value: string): string[] {
 	return value
@@ -636,6 +643,25 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 	public refresh(): void { this.onDidChangeTreeDataEmitter.fire(); }
 
 	public getTreeItem(element: CompileGroupNode): vscode.TreeItem {
+		if (element.kind === 'configFolder') {
+			const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
+			item.id = `group:${element.groupIndex}:folder:${element.folderPath}`;
+			item.iconPath = new vscode.ThemeIcon('folder');
+			return item;
+		}
+		if (element.kind === 'compileGroupFile' || element.kind === 'compileGroupStage') {
+			const key = element.kind === 'compileGroupFile' ? element.key : element.fileKey;
+			const item = new vscode.TreeItem(element.kind === 'compileGroupFile' ? configFileName(key) : element.stage,
+				element.kind === 'compileGroupFile' ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+			item.contextValue = element.kind;
+			item.command = { command: 'glsld.editCompileStages', title: 'Edit File Stages', arguments: [element] };
+			if (element.kind === 'compileGroupFile') {
+				item.iconPath = vscode.ThemeIcon.File;
+				item.tooltip = key;
+				item.description = getCompileGroups()[element.groupIndex]?.fileStages?.[key]?.join(', ');
+			} else { item.description = shaderStages.find(stage => stage.stage === element.stage)?.macro; }
+			return item;
+		}
 		if (element.kind === 'compileGroup') {
 			const group = getCompileGroups()[element.index];
 			const item = new vscode.TreeItem(
@@ -668,10 +694,17 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		if (!element) {
 			return getCompileGroups().map((_, index) => ({ kind: 'compileGroup' as const, index }));
 		}
-		if (element.kind !== 'compileGroup') { return []; }
-
-		const group = getCompileGroups()[element.index];
+		if (element.kind === 'compileGroupProperty' || element.kind === 'compileGroupStage') { return []; }
+		const groupIndex = element.kind === 'compileGroup' ? element.index : element.groupIndex;
+		const group = getCompileGroups()[groupIndex];
 		if (!group) { return []; }
+		if (element.kind === 'compileGroupFile') {
+			return (group.fileStages?.[element.key] ?? []).map(stage => ({ kind: 'compileGroupStage', groupIndex, fileKey: element.key, stage }));
+		}
+		const files: CompileGroupNode[] = configFileChildren(Object.keys(group.fileStages ?? {}).map(key => ({ key, displayPath: key })),
+			element.kind === 'configFolder' ? element.folderPath : '').map(child => child.kind === 'configFolder'
+				? { ...child, groupIndex } : { kind: 'compileGroupFile', groupIndex, key: child.key });
+		if (element.kind === 'configFolder') { return files; }
 
 		const children: CompileGroupProperty[] = [{
 			kind: 'compileGroupProperty', groupIndex: element.index,
@@ -689,7 +722,73 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 				label: 'Variants', value: formatCompileVariants(group.variants),
 			});
 		}
-		return children;
+		return [...children, ...files];
+	}
+
+	public getParent(node: CompileGroupNode): CompileGroupNode | undefined {
+		if (node.kind === 'compileGroup') { return undefined; }
+		if (node.kind === 'compileGroupStage') { return { kind: 'compileGroupFile', groupIndex: node.groupIndex, key: node.fileKey }; }
+		if (node.kind === 'configFolder' || node.kind === 'compileGroupFile') {
+			const folder = configFileParent(node.kind === 'configFolder' ? node.folderPath : node.key);
+			if (folder) { return { ...folder, groupIndex: node.groupIndex }; }
+		}
+		return { kind: 'compileGroup', index: node.groupIndex };
+	}
+
+	private async pickGroup(node?: CompileGroupNode): Promise<number | undefined> {
+		const index = node?.kind === 'compileGroup' ? node.index : node?.groupIndex;
+		if (index !== undefined) { return getCompileGroups()[index] ? index : undefined; }
+		return (await vscode.window.showQuickPick(getCompileGroups().map((group, groupIndex) => ({ label: group.name, groupIndex })),
+			{ placeHolder: 'Select a compile group' }))?.groupIndex;
+	}
+
+	public async addFileStages(node?: CompileGroupNode): Promise<void> {
+		const groupIndex = await this.pickGroup(node);
+		if (groupIndex === undefined) { return; }
+		const document = vscode.window.activeTextEditor?.document;
+		let key = document?.languageId === 'glsl' ? vscode.workspace.asRelativePath(document.uri) : undefined;
+		if (!key) {
+			const files = await vscode.window.showOpenDialog({ canSelectMany: false, title: 'Select a shader file' });
+			if (!files?.length) { return; }
+			key = vscode.workspace.asRelativePath(files[0]);
+		}
+		await this.editFileStages({ kind: 'compileGroupFile', groupIndex, key });
+	}
+
+	public async editFileStages(node?: CompileGroupNode): Promise<void> {
+		const groupIndex = await this.pickGroup(node);
+		if (groupIndex === undefined) { return; }
+		const group = getCompileGroups()[groupIndex];
+		const key = node?.kind === 'compileGroupFile' ? node.key : node?.kind === 'compileGroupStage' ? node.fileKey
+			: await vscode.window.showQuickPick(Object.keys(group.fileStages ?? {}), { placeHolder: 'Select a file' });
+		if (!key) { return; }
+		const current = group.fileStages?.[key] ?? [];
+		const selected = await vscode.window.showQuickPick(shaderStages.map(stage => ({
+			label: stage.stage, description: stage.macro, picked: current.includes(stage.stage),
+		})), { canPickMany: true, title: `${group.name}: stages for ${key}`, placeHolder: 'Select all stages to compile' });
+		if (selected === undefined) { return; }
+		const groups = [...getCompileGroups()];
+		const fileStages = { ...groups[groupIndex].fileStages };
+		if (selected.length) { fileStages[key] = selected.map(stage => stage.label); }
+		else { delete fileStages[key]; }
+		groups[groupIndex] = { ...groups[groupIndex], fileStages };
+		putCompileGroups(groups);
+		this.refresh();
+	}
+
+	public async removeFileStages(node?: CompileGroupNode): Promise<void> {
+		const groupIndex = await this.pickGroup(node);
+		if (groupIndex === undefined) { return; }
+		const group = getCompileGroups()[groupIndex];
+		const key = node?.kind === 'compileGroupFile' ? node.key : node?.kind === 'compileGroupStage' ? node.fileKey
+			: await vscode.window.showQuickPick(Object.keys(group.fileStages ?? {}), { placeHolder: 'Select a file' });
+		if (!key || await vscode.window.showWarningMessage(`Remove file stages for "${key}" from "${group.name}"?`, { modal: true }, 'Remove') !== 'Remove') { return; }
+		const groups = [...getCompileGroups()];
+		const fileStages = { ...groups[groupIndex].fileStages };
+		delete fileStages[key];
+		groups[groupIndex] = { ...groups[groupIndex], fileStages };
+		putCompileGroups(groups);
+		this.refresh();
 	}
 
 	public async addGroup(): Promise<void> {
@@ -779,7 +878,7 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 
 		const command = await vscode.window.showInputBox({
 			title: 'Compile Group Command',
-			prompt: 'Command template. Supports {}, {defines}, {variant}, {dir}, and {name}.',
+			prompt: 'Supports {}, {defines}, {variant}, {dir}, {name}, {stage} (configured per file), and {output}.',
 			value: existing?.command ?? DEFAULT_COMPILE_COMMAND,
 			validateInput: value => value.trim().length > 0 ? undefined : 'Command cannot be empty.',
 		});
@@ -802,6 +901,7 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		if (variantsText === undefined) { return undefined; }
 
 		return {
+			...existing,
 			name: name.trim(),
 			include: splitCompilePatterns(includeText),
 			command: command.trim(),
@@ -881,6 +981,9 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		}),
 
 		// --- Compile groups ---
+		vscode.commands.registerCommand('glsld.addCompileStages', node => compileProvider.addFileStages(node)),
+		vscode.commands.registerCommand('glsld.editCompileStages', node => compileProvider.editFileStages(node)),
+		vscode.commands.registerCommand('glsld.removeCompileStages', node => compileProvider.removeFileStages(node)),
 		vscode.commands.registerCommand('glsld.addCompileGroup', () => compileProvider.addGroup()),
 		vscode.commands.registerCommand('glsld.editCompileGroup', (node?: CompileGroupEntry) =>
 			compileProvider.editGroup(node),

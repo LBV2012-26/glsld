@@ -320,6 +320,22 @@
 				"category": "glsld"
 			},
 			{
+				"command": "glsld.addCompileStages",
+				"title": "Configure File Stages in Compile Group",
+				"category": "glsld",
+				"icon": "$(add)"
+			},
+			{
+				"command": "glsld.editCompileStages",
+				"title": "Edit File Stages in Compile Group",
+				"category": "glsld"
+			},
+			{
+				"command": "glsld.removeCompileStages",
+				"title": "Remove File Stages from Compile Group",
+				"category": "glsld"
+			},
+			{
 				"command": "glsld.addCompileGroup",
 				"title": "Add Compile Group",
 				"category": "glsld",
@@ -423,6 +439,19 @@
 				{
 					"command": "glsld.removeShaderConfig",
 					"when": "viewItem == fileConfig"
+				},
+				{
+					"command": "glsld.addCompileStages",
+					"when": "viewItem == compileGroup",
+					"group": "inline@1"
+				},
+				{
+					"command": "glsld.editCompileStages",
+					"when": "viewItem == compileGroupFile || viewItem == compileGroupStage"
+				},
+				{
+					"command": "glsld.removeCompileStages",
+					"when": "viewItem == compileGroupFile"
 				},
 				{
 					"command": "glsld.editCompileGroup",

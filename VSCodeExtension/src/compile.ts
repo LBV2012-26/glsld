@@ -13,6 +13,7 @@ import {
 	getCompileGroups,
 	getFileMacrosData,
 } from './sidebar';
+import { CompileCommand, createCompileCommands, findCompileOutputConflict } from './compilePlan';
 
 // ============================================================
 // Compile job / result
@@ -22,7 +23,7 @@ interface CompileJob {
 	groupName: string;
 	variantName: string;
 	fileUri: vscode.Uri;
-	command: string;
+	command: CompileCommand;
 }
 
 interface CompileResult {
@@ -54,29 +55,6 @@ function findGlslc(): string {
 		}
 	}
 	return 'glslc.exe'; // fallback to PATH
-}
-
-// ============================================================
-// Placeholder expansion
-// ============================================================
-
-function expandPlaceholders(template: string, fileUri: vscode.Uri, variantName: string, defines: Record<string, string>): string {
-	const fp = fileUri.fsPath;
-	const dir = path.dirname(fp);
-	const ext = path.extname(fp);
-	const baseName = path.basename(fp, ext);
-
-	// Build -D flags
-	const defineFlags = Object.entries(defines)
-		.map(([k, v]) => `-D ${k}=${v}`)
-		.join(' ');
-
-	return template
-		.replace(/\{defines\}/g, defineFlags)
-		.replace(/\{variant\}/g, variantName)
-		.replace(/\{dir\}/g, dir)
-		.replace(/\{name\}/g, baseName)
-		.replace(/\{\}/g, fp);
 }
 
 // ============================================================
@@ -112,77 +90,16 @@ async function runParallel<T, R>(
 // Single file compilation
 // ============================================================
 
-function compileOne(glslcPath: string, job: CompileJob): Promise<CompileResult> {
-	const start = Date.now();
-
-	return new Promise<CompileResult>((resolve) => {
-		cp.execFile(glslcPath, [], {
-			env: { ...process.env },
-			cwd: path.dirname(job.fileUri.fsPath),
-		}, (error, stdout, stderr) => {
-			// Hmm, execFile doesn't take a command string — we need the args separately.
-			// Let me use a different approach below.
-		});
-	});
-}
-
-// Actually, we get a full command string from expandPlaceholders, not args.
-// Better to use cp.exec() and parse the executable + args from the command string.
-// Or: the user's template is ALREADY a full command like:
-//   "glslc --target-env=vulkan1.3 -o {}.spv {}"
-// So we parse out the exe and args.
-
-function parseCommand(cmd: string): { exe: string; args: string[] } {
-	// Simple split respecting quotes
-	const args: string[] = [];
-	let current = '';
-	let inQuote = false;
-	let quoteChar = '';
-
-	for (const ch of cmd) {
-		if (inQuote) {
-			if (ch === quoteChar) {
-				inQuote = false;
-			} else {
-				current += ch;
-			}
-		} else if (ch === '"' || ch === "'") {
-			inQuote = true;
-			quoteChar = ch;
-		} else if (ch === ' ' || ch === '\t') {
-			if (current.length > 0) {
-				args.push(current);
-				current = '';
-			}
-		} else {
-			current += ch;
-		}
-	}
-	if (current.length > 0) {
-		args.push(current);
-	}
-
-	if (args.length === 0) {
-		return { exe: 'glslc.exe', args: [] };
-	}
-
-	return { exe: args[0], args: args.slice(1) };
-}
-
-function executeCompile(glslcPath: string, fullCommand: string, cwd: string): Promise<{ success: boolean; stdout: string; stderr: string }> {
+function executeCompile(glslcPath: string, command: CompileCommand, cwd: string): Promise<{ success: boolean; stdout: string; stderr: string }> {
 	return new Promise((resolve) => {
-		// If the user's command starts with something else (not glslc),
-		// use the full shell command. Otherwise, use glslcPath as exe.
-		const { exe: templateExe, args } = parseCommand(fullCommand);
+		const { executable: templateExe, args } = command;
 
 		// If template starts with "glslc" (any path variant), use our detected glslc
 		const exeName = path.basename(templateExe).toLowerCase();
 		const isGlslc = exeName === 'glslc' || exeName === 'glslc.exe';
 
 		const exe = isGlslc ? glslcPath : templateExe;
-		const finalArgs = isGlslc ? args : args; // use all args from template
-
-		cp.execFile(exe, finalArgs, {
+		cp.execFile(exe, args, {
 			cwd,
 			maxBuffer: 16 * 1024 * 1024, // 16 MB
 			timeout: 120_000,            // 2 min per file
@@ -241,7 +158,7 @@ export async function compileWorkspace(): Promise<void> {
 	channel.appendLine('Expanding glob patterns...\n');
 
 	const jobs: CompileJob[] = [];
-	let totalGlobMatches = 0;
+	let preparationFailures = 0;
 
 	for (const group of groups) {
 		if (!group.include || group.include.length === 0) { continue; }
@@ -256,12 +173,8 @@ export async function compileWorkspace(): Promise<void> {
 			continue;
 		}
 
-		totalGlobMatches += uris.length;
-		const groupVariants = (group.variants && group.variants.length > 0)
-			? group.variants
-			: [{ name: '', defines: {} }];
-
-		channel.appendLine(`  ${group.name}: ${uris.length} file(s) × ${groupVariants.length} variant(s) = ${uris.length * groupVariants.length}`);
+		const variantCount = group.variants?.length || 1;
+		channel.appendLine(`  ${group.name}: ${uris.length} file(s) × ${variantCount} variant(s)`);
 
 		for (const uri of uris) {
 			const perFileDefines = fileMacros[uri.toString()] ?? {};
@@ -270,24 +183,35 @@ export async function compileWorkspace(): Promise<void> {
 				if (v.enabled) { enabledPerFile[k] = v.value; }
 			}
 
-			for (const variant of groupVariants) {
-				// Merge: active global macros + per-file macros + variant defines
-				// (later layers override earlier ones)
-				const merged = { ...activeMacros, ...enabledPerFile, ...variant.defines };
-				const cmd = expandPlaceholders(group.command, uri, variant.name, merged);
-
-				jobs.push({
-					groupName: group.name,
-					variantName: variant.name,
-					fileUri: uri,
-					command: cmd,
-				});
+			try {
+				const stages = group.fileStages?.[vscode.workspace.asRelativePath(uri)] ?? group.fileStages?.[uri.toString()] ?? group.fileStages?.[uri.fsPath];
+				const commands = createCompileCommands(group.command, uri.fsPath,
+					{ ...activeMacros, ...enabledPerFile }, group.variants, stages);
+				if (stages?.length) {
+					const names = [...new Set(commands.map(command => command.stage))];
+					channel.appendLine(`    ${vscode.workspace.asRelativePath(uri)}: ${names.length} stage(s): ${names.join(', ')}`);
+				}
+				for (const command of commands) {
+					jobs.push({ groupName: group.name, fileUri: uri, command,
+						variantName: [command.variantName, command.stage].filter(Boolean).join('/') });
+				}
+			} catch (error) {
+				preparationFailures++;
+				channel.appendLine(`    Could not prepare ${uri.fsPath}: ${error instanceof Error ? error.message : error}`);
 			}
 		}
 	}
 
 	if (jobs.length === 0) {
 		channel.appendLine('\nNo files to compile.');
+		if (preparationFailures) { vscode.window.showWarningMessage(`SPIR-V: ${preparationFailures} file(s) could not be prepared — check Output for details.`); }
+		return;
+	}
+	const conflictingOutput = findCompileOutputConflict(jobs.map(job => job.command));
+	if (conflictingOutput) {
+		const message = `Multiple compilation jobs would overwrite ${conflictingOutput}. Use -o "{output}" or include {stage} and {variant} in the output path.`;
+		channel.appendLine(message);
+		vscode.window.showWarningMessage(message);
 		return;
 	}
 
@@ -328,11 +252,11 @@ export async function compileWorkspace(): Promise<void> {
 
 	// Report
 	const succeeded = results.filter(r => r.success).length;
-	const failed = results.filter(r => !r.success).length;
+	const failed = results.filter(r => !r.success).length + preparationFailures;
 	const totalDuration = Date.now() - startTime;
 
 	channel.appendLine('\n──────────────────────────────────────');
-	channel.appendLine(`  Done: ${succeeded} succeeded, ${failed} failed, ${jobs.length} total`);
+	channel.appendLine(`  Done: ${succeeded} succeeded, ${failed} failed, ${jobs.length + preparationFailures} total`);
 	channel.appendLine(`  Time:  ${(totalDuration / 1000).toFixed(1)}s`);
 	channel.appendLine('──────────────────────────────────────\n');
 
