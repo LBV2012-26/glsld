@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { getShaderConfigs, putShaderConfigs, getTemplates, putTemplates } from './sidebar';
 import { pushConfiguration, notifyRemoveConfig } from './extension';
+import { ConfigFolderNode, configFileChildren, configFileName, configFileParent } from './configFileTree';
 
 // ============================================================
 // Types
@@ -43,7 +44,7 @@ const PROPERTY_OPTIONS: Record<string, { values: string[]; isEnum: boolean }> = 
 // Tree node types
 // ============================================================
 
-type ShaderConfigNode = FileConfigNode | PropertyNode;
+type ShaderConfigNode = ConfigFolderNode | FileConfigNode | PropertyNode;
 
 interface FileConfigNode {
 	kind: 'fileConfig';
@@ -68,8 +69,16 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 	public refresh(): void { this._onDidChangeTreeData.fire(); }
 
 	public getTreeItem(element: ShaderConfigNode): vscode.TreeItem {
+		if (element.kind === 'configFolder') {
+			const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
+			item.id = `shaderConfig:folder:${element.folderPath}`;
+			item.iconPath = new vscode.ThemeIcon('folder');
+			return item;
+		}
 		if (element.kind === 'fileConfig') {
-			const item = new vscode.TreeItem(element.key, vscode.TreeItemCollapsibleState.Expanded);
+			const item = new vscode.TreeItem(configFileName(element.key), vscode.TreeItemCollapsibleState.Expanded);
+			item.id = `shaderConfig:file:${element.key}`;
+			item.tooltip = element.key;
 			item.iconPath = vscode.ThemeIcon.File;
 			item.contextValue = 'fileConfig';
 
@@ -100,9 +109,9 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 	}
 
 	public getChildren(element?: ShaderConfigNode): ShaderConfigNode[] {
-		if (!element) {
-			const sc = getShaderConfigs();
-			return Object.keys(sc).map(key => ({ kind: 'fileConfig' as const, key }));
+		if (!element || element.kind === 'configFolder') {
+			return configFileChildren(Object.keys(getShaderConfigs()).map(key => ({ key, displayPath: key })),
+				element?.folderPath).map(child => child.kind === 'configFolder' ? child : { kind: 'fileConfig', key: child.key });
 		}
 		if (element.kind === 'fileConfig') {
 			const sc = getShaderConfigs()[element.key];
@@ -123,7 +132,7 @@ export class ShaderConfigProvider implements vscode.TreeDataProvider<ShaderConfi
 		if (element.kind === 'configProp') {
 			return { kind: 'fileConfig', key: element.fileKey };
 		}
-		return null;
+		return configFileParent(element.kind === 'configFolder' ? element.folderPath : element.key);
 	}
 
 	// ---- Actions ----

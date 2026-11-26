@@ -21,7 +21,7 @@ import { CompileCommand, createCompileCommands, findCompileOutputConflict } from
 
 interface CompileJob {
 	groupName: string;
-	variantName: string;
+	stage: string;
 	fileUri: vscode.Uri;
 	command: CompileCommand;
 }
@@ -29,7 +29,7 @@ interface CompileJob {
 interface CompileResult {
 	uri: string;
 	groupName: string;
-	variantName: string;
+	stage: string;
 	success: boolean;
 	stdout: string;
 	stderr: string;
@@ -90,17 +90,12 @@ async function runParallel<T, R>(
 // Single file compilation
 // ============================================================
 
-function executeCompile(glslcPath: string, command: CompileCommand, cwd: string): Promise<{ success: boolean; stdout: string; stderr: string }> {
+async function executeCompile(glslcPath: string, command: CompileCommand): Promise<{ success: boolean; stdout: string; stderr: string }> {
+	await fs.promises.mkdir(path.dirname(command.outputPath), { recursive: true });
 	return new Promise((resolve) => {
-		const { executable: templateExe, args } = command;
-
-		// If template starts with "glslc" (any path variant), use our detected glslc
-		const exeName = path.basename(templateExe).toLowerCase();
-		const isGlslc = exeName === 'glslc' || exeName === 'glslc.exe';
-
-		const exe = isGlslc ? glslcPath : templateExe;
-		cp.execFile(exe, args, {
-			cwd,
+		cp.execFile(glslcPath, command.args, {
+			cwd: command.cwd,
+			windowsHide: true,
 			maxBuffer: 16 * 1024 * 1024, // 16 MB
 			timeout: 120_000,            // 2 min per file
 		}, (error, stdout, stderr) => {
@@ -111,6 +106,17 @@ function executeCompile(glslcPath: string, command: CompileCommand, cwd: string)
 			});
 		});
 	});
+}
+
+function resolveGroupFile(key: string): vscode.Uri {
+	if (key.startsWith('file:')) { return vscode.Uri.parse(key); }
+	if (path.isAbsolute(key)) { return vscode.Uri.file(key); }
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders?.length) { throw new Error(`Open a workspace or use an absolute file path: ${key}`); }
+	const normalized = key.replace(/\\/g, '/');
+	// asRelativePath prefixes the folder name when more than one workspace folder is open.
+	const folder = folders.length > 1 ? folders.find(folder => normalized.startsWith(`${folder.name}/`)) : undefined;
+	return vscode.Uri.file(path.resolve((folder ?? folders[0]).uri.fsPath, folder ? normalized.slice(folder.name.length + 1) : normalized));
 }
 
 // ============================================================
@@ -129,12 +135,8 @@ export async function compileWorkspace(): Promise<void> {
 	}
 
 	// Validate that at least one group has files
-	let hasFiles = false;
-	for (const g of groups) {
-		if (g.include && g.include.length > 0) { hasFiles = true; break; }
-	}
-	if (!hasFiles) {
-		vscode.window.showWarningMessage('No glob patterns in compile groups. Add include patterns.');
+	if (!groups.some(group => Object.keys(group.fileStages ?? {}).length > 0)) {
+		vscode.window.showWarningMessage('No files in compile groups. Use the + action on a Compile Group to add a file and select its stages.');
 		return;
 	}
 
@@ -154,50 +156,34 @@ export async function compileWorkspace(): Promise<void> {
 	// Resolve per-file macros (from sidebar)
 	const fileMacros = getFileMacrosData();
 
-	// Expand globs → build job list
-	channel.appendLine('Expanding glob patterns...\n');
+	// Only explicitly added files are compiled.
+	channel.appendLine('Preparing Compile Group files...\n');
 
 	const jobs: CompileJob[] = [];
 	let preparationFailures = 0;
 
 	for (const group of groups) {
-		if (!group.include || group.include.length === 0) { continue; }
-		if (!group.command) { continue; }
-
-		// Build VSCode glob pattern: {**/*.vert,**/*.frag}
-		const pattern = `{${group.include.join(',')}}`;
-		const uris = await vscode.workspace.findFiles(pattern, null, 10000);
-
-		if (uris.length === 0) {
-			channel.appendLine(`  ${group.name}: no files matched`);
-			continue;
-		}
-
-		const variantCount = group.variants?.length || 1;
-		channel.appendLine(`  ${group.name}: ${uris.length} file(s) × ${variantCount} variant(s)`);
-
-		for (const uri of uris) {
-			const perFileDefines = fileMacros[uri.toString()] ?? {};
-			const enabledPerFile: Record<string, string> = {};
-			for (const [k, v] of Object.entries(perFileDefines)) {
-				if (v.enabled) { enabledPerFile[k] = v.value; }
-			}
-
+		const files = Object.entries(group.fileStages ?? {});
+		channel.appendLine(`  ${group.name}: ${files.length} file(s)`);
+		for (const [key, stages] of files) {
 			try {
-				const stages = group.fileStages?.[vscode.workspace.asRelativePath(uri)] ?? group.fileStages?.[uri.toString()] ?? group.fileStages?.[uri.fsPath];
-				const commands = createCompileCommands(group.command, uri.fsPath,
-					{ ...activeMacros, ...enabledPerFile }, group.variants, stages);
-				if (stages?.length) {
-					const names = [...new Set(commands.map(command => command.stage))];
-					channel.appendLine(`    ${vscode.workspace.asRelativePath(uri)}: ${names.length} stage(s): ${names.join(', ')}`);
+				const uri = resolveGroupFile(key);
+				const perFileDefines = fileMacros[uri.toString()] ?? {};
+				const enabledPerFile: Record<string, string> = {};
+				for (const [name, entry] of Object.entries(perFileDefines)) {
+					if (entry.enabled) { enabledPerFile[name] = entry.value; }
 				}
+				const workspaceDirectory = vscode.workspace.workspaceFolders?.[0].uri.fsPath ?? path.dirname(uri.fsPath);
+				const commands = createCompileCommands(group, uri.fsPath,
+					{ ...activeMacros, ...enabledPerFile }, stages, workspaceDirectory);
+				const names = commands.map(command => command.stage);
+				channel.appendLine(`    ${vscode.workspace.asRelativePath(uri)}: ${names.length} stage(s): ${names.join(', ')}`);
 				for (const command of commands) {
-					jobs.push({ groupName: group.name, fileUri: uri, command,
-						variantName: [command.variantName, command.stage].filter(Boolean).join('/') });
+					jobs.push({ groupName: group.name, fileUri: uri, command, stage: command.stage });
 				}
 			} catch (error) {
 				preparationFailures++;
-				channel.appendLine(`    Could not prepare ${uri.fsPath}: ${error instanceof Error ? error.message : error}`);
+				channel.appendLine(`    Could not prepare ${key}: ${error instanceof Error ? error.message : error}`);
 			}
 		}
 	}
@@ -209,7 +195,7 @@ export async function compileWorkspace(): Promise<void> {
 	}
 	const conflictingOutput = findCompileOutputConflict(jobs.map(job => job.command));
 	if (conflictingOutput) {
-		const message = `Multiple compilation jobs would overwrite ${conflictingOutput}. Use -o "{output}" or include {stage} and {variant} in the output path.`;
+		const message = `Multiple compilation jobs would overwrite ${conflictingOutput}. Set a different output directory for each group that compiles the same file and stage.`;
 		channel.appendLine(message);
 		vscode.window.showWarningMessage(message);
 		return;
@@ -228,23 +214,19 @@ export async function compileWorkspace(): Promise<void> {
 		maxConcurrency,
 		(job, i) => {
 			const relPath = vscode.workspace.asRelativePath(job.fileUri);
-			const label = job.variantName ? `${relPath}[${job.variantName}]` : relPath;
+			const label = `${job.groupName}: ${relPath}[${job.stage}]`;
 			channel.appendLine(`[${i + 1}/${jobs.length}] ${label} ...`);
 		},
 		async (job) => {
 			const start = Date.now();
-			const { success, stdout, stderr } = await executeCompile(
-				glslcPath,
-				job.command,
-				path.dirname(job.fileUri.fsPath),
-			);
+			let result: { success: boolean; stdout: string; stderr: string };
+			try { result = await executeCompile(glslcPath, job.command); }
+			catch (error) { result = { success: false, stdout: '', stderr: error instanceof Error ? error.message : String(error) }; }
 			return {
 				uri: job.fileUri.toString(),
 				groupName: job.groupName,
-				variantName: job.variantName,
-				success,
-				stdout,
-				stderr,
+				stage: job.stage,
+				...result,
 				durationMs: Date.now() - start,
 			};
 		},
@@ -264,7 +246,7 @@ export async function compileWorkspace(): Promise<void> {
 	for (let i = 0; i < results.length; i++) {
 		const r = results[i];
 		const relPath = vscode.workspace.asRelativePath(vscode.Uri.parse(r.uri));
-		const label = r.variantName ? `${relPath} [${r.variantName}]` : relPath;
+		const label = `${r.groupName}: ${relPath} [${r.stage}]`;
 		const status = r.success ? '✓' : '✗';
 		channel.appendLine(`${status} ${label}  (${r.durationMs}ms)`);
 

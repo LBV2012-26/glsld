@@ -30,125 +30,101 @@ for (const [alias, shortName] of Object.entries({
 	closest: 'rchit', closesthit: 'rchit', miss: 'rmiss', intersect: 'rint', intersection: 'rint', callable: 'rcall',
 })) { byName.set(alias, byName.get(shortName)!); }
 
-export interface CompileCommand {
-	executable: string;
-	args: string[];
-	variantName: string;
-	stage?: string;
-	outputPath?: string;
+export interface CompileSettings {
+	/** Output directory, absolute or relative to the workspace folder. */
+	outputPath: string;
+	options?: string;
+	targetEnv?: string;
+	targetSpv?: string;
 }
 
-export function parseCompileCommand(command: string): { executable: string; args: string[] } {
+export const targetEnvironments = ['vulkan1.0', 'vulkan1.1', 'vulkan1.2', 'vulkan1.3', 'vulkan1.4', 'opengl'];
+export const targetSpirvVersions = ['spv1.0', 'spv1.1', 'spv1.2', 'spv1.3', 'spv1.4', 'spv1.5', 'spv1.6'];
+export const defaultTargetEnv = 'vulkan1.3';
+export const defaultOutputPath = 'build/shaders';
+
+export interface CompileCommand {
+	args: string[];
+	stage: string;
+	outputPath: string;
+	cwd: string;
+}
+
+/** Split options into argv without running a shell or changing Windows path separators. */
+export function parseCompileOptions(options: string): string[] {
 	const args: string[] = [];
 	let current = '';
 	let quote: string | undefined;
-	for (const character of command) {
+	let started = false;
+	for (const character of options) {
 		if (quote) {
 			if (character === quote) { quote = undefined; }
 			else { current += character; }
-		} else if (character === '"' || character === "'") { quote = character; }
+		} else if (character === '"' || character === "'") { quote = character; started = true; }
 		else if (/\s/.test(character)) {
-			if (current) { args.push(current); current = ''; }
-		} else { current += character; }
+			if (started) { args.push(current); current = ''; started = false; }
+		} else { current += character; started = true; }
 	}
-	if (current) { args.push(current); }
-	return { executable: args.shift() ?? 'glslc.exe', args };
-}
-
-function outputArgument(args: string[]): { value: string; index: number; joined: boolean } | undefined {
-	let output;
-	for (let index = 0; index < args.length; index++) {
-		if (args[index] === '-o' && index + 1 < args.length) { output = { value: args[++index], index, joined: false }; }
-		else if (args[index].startsWith('-o') && args[index].length > 2) { output = { value: args[index].slice(2), index, joined: true }; }
+	if (quote) { throw new Error('Unclosed quote in compiler options.'); }
+	if (started) { args.push(current); }
+	for (const arg of args) {
+		if (arg.startsWith('-o') || /^(-fshader-stage|--target-env|--target-spv)(=|$)/.test(arg)) {
+			throw new Error(`Set ${arg.split('=')[0]} using the group's output/target settings or the file's stages.`);
+		}
 	}
-	return output;
+	return args;
 }
 
 export function createCompileCommands(
-	template: string,
+	settings: CompileSettings,
 	filename: string,
 	defines: Record<string, string>,
-	variants: { name: string; defines: Record<string, string> }[] = [],
-	selectedStages?: string[],
+	selectedStages: string[],
+	workspaceDirectory: string,
 ): CompileCommand[] {
-	if (selectedStages !== undefined && !Array.isArray(selectedStages)) { throw new Error('File compile stages must be an array.'); }
-	const stages: (ShaderStage | undefined)[] = [...new Set(selectedStages ?? [])].map(name => {
+	if (!settings.outputPath?.trim()) { throw new Error('Edit this Compile Group and set its output directory.'); }
+	if (!Array.isArray(selectedStages) || !selectedStages.length) { throw new Error('Select at least one stage for this file in its Compile Group.'); }
+	const stages = [...new Set(selectedStages.map(name => {
 		const stage = typeof name === 'string' ? byName.get(name) : undefined;
 		if (!stage) { throw new Error(`Unknown compile stage: ${name}`); }
 		return stage;
+	}))];
+	const targetEnv = settings.targetEnv || defaultTargetEnv;
+	if (!targetEnvironments.includes(targetEnv)) { throw new Error(`Unknown target environment: ${targetEnv}`); }
+	if (settings.targetSpv && !targetSpirvVersions.includes(settings.targetSpv)) { throw new Error(`Unknown SPIR-V target: ${settings.targetSpv}`); }
+	const options = parseCompileOptions(settings.options ?? '');
+	const isolatedOptions: string[] = [];
+	for (let index = 0; index < options.length; index++) {
+		const arg = options[index];
+		const definition = arg === '-D' || arg === '-U' ? options[index + 1] : /^-[DU]/.test(arg) ? arg.slice(2) : undefined;
+		if (definition && byMacro.has(definition.split('=')[0])) {
+			if (arg === '-D' || arg === '-U') { index++; }
+		} else { isolatedOptions.push(arg); }
+	}
+	const commonDefines = Object.entries(defines).filter(([name]) => !byMacro.has(name)).map(([name, value]) => `-D${name}=${value}`);
+	const outputDirectory = path.resolve(workspaceDirectory,
+		settings.outputPath.trim().replace(/\$\{workspaceFolder\}/g, () => workspaceDirectory));
+	const relative = path.relative(workspaceDirectory, filename);
+	const insideWorkspace = !path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`);
+	const source = path.parse(insideWorkspace ? relative : path.basename(filename));
+	const extension = options.includes('-S') ? 'spvasm' : 'spv';
+	return stages.map(stage => {
+		const outputPath = path.join(outputDirectory, source.dir, `${source.name}.${stage.stage}.${extension}`);
+		return {
+			stage: stage.stage, outputPath, cwd: workspaceDirectory,
+			args: [`-fshader-stage=${stage.stage}`, `--target-env=${targetEnv}`,
+				...(settings.targetSpv ? [`--target-spv=${settings.targetSpv}`] : []),
+				...commonDefines, ...isolatedOptions, `-D${stage.macro}=1`, filename, '-o', outputPath],
+		};
 	});
-	if (!stages.length) {
-		if (template.includes('{stage}')) { throw new Error('Select stages for this file inside its Compile Group before using {stage}.'); }
-		stages.push(undefined);
-	}
-	const outputTemplate = outputArgument(parseCompileCommand(template).args)?.value ?? '';
-	const commands: CompileCommand[] = [];
-	for (const variant of variants.length ? variants : [{ name: '', defines: {} }]) {
-		for (const stage of stages) {
-			const merged = { ...defines, ...variant.defines };
-			if (stage) {
-				for (const macro of byMacro.keys()) { delete merged[macro]; }
-				merged[stage.macro] = '1';
-			}
-			const directory = path.dirname(filename);
-			const name = path.basename(filename, path.extname(filename));
-			const output = stage || variant.name
-				? path.join(directory, [name, variant.name, stage?.stage, 'spv'].filter(Boolean).join('.')) : `${filename}.spv`;
-			const values: Record<string, string> = {
-				'': filename, dir: directory, name, variant: variant.name, stage: stage?.stage ?? '', output,
-				defines: Object.entries(merged).map(([key, value]) => `-D ${key}=${value}`).join(' '),
-			};
-			const parsed = parseCompileCommand(template.replace(/\{(defines|variant|stage|output|dir|name|)\}/g, (_match, key: string) => values[key]));
-			if (stage) {
-				// Stage options must precede the input. Isolate stage defines even if written literally in the template.
-				const args: string[] = [];
-				for (let index = 0; index < parsed.args.length; index++) {
-					const arg = parsed.args[index];
-					if (arg.startsWith('-fshader-stage=')) {
-						if (byName.get(arg.slice('-fshader-stage='.length))?.stage !== stage.stage) {
-							throw new Error('The fixed -fshader-stage conflicts with this file\'s stages. Remove the fixed flag or use -fshader-stage={stage}.');
-						}
-						continue;
-					}
-					const definition = arg === '-D' ? parsed.args[index + 1] : arg.startsWith('-D') ? arg.slice(2) : undefined;
-					if (definition && byMacro.has(definition.split('=')[0])) {
-						if (arg === '-D') { index++; }
-						continue;
-					}
-					args.push(arg);
-				}
-				parsed.args = [`-fshader-stage=${stage.stage}`, `-D${stage.macro}=1`, ...args];
-			}
-			let destination = outputArgument(parsed.args);
-			if (stage && !destination) {
-				parsed.args.push('-o', output);
-				destination = outputArgument(parsed.args);
-			} else if (stage && destination && destination.value !== '-' && !outputTemplate.includes('{output}')) {
-				// Existing group commands also get a distinct output for each configured stage/variant.
-				const suffix = [
-					variants.length > 1 && !outputTemplate.includes('{variant}') ? variant.name : '',
-					!outputTemplate.includes('{stage}') ? stage.stage : '',
-				].filter(Boolean);
-				if (suffix.length) {
-					const file = path.parse(destination.value);
-					destination.value = path.join(file.dir, `${file.name}.${suffix.join('.')}${file.ext}`);
-					parsed.args[destination.index] = (destination.joined ? '-o' : '') + destination.value;
-				}
-			}
-			commands.push({ ...parsed, variantName: variant.name, stage: stage?.stage,
-				outputPath: destination && destination.value !== '-' ? path.resolve(directory, destination.value) : undefined });
-		}
-	}
-	return commands;
 }
 
 export function findCompileOutputConflict(commands: CompileCommand[]): string | undefined {
 	const outputs = new Map<string, CompileCommand>();
 	for (const command of commands) {
-		if (!command.outputPath) { continue; }
 		const key = process.platform === 'win32' ? command.outputPath.toLowerCase() : command.outputPath;
 		const previous = outputs.get(key);
-		if (previous && (previous.stage || command.stage)) { return command.outputPath; }
+		if (previous) { return command.outputPath; }
 		outputs.set(key, command);
 	}
 	return undefined;

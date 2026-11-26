@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LanguageClient } from 'vscode-languageclient/node';
 import { ConfigFolderNode, configFileChildren, configFileName, configFileParent } from './configFileTree';
-import { shaderStages } from './compilePlan';
+import { CompileSettings, defaultOutputPath, defaultTargetEnv, parseCompileOptions, shaderStages, targetEnvironments, targetSpirvVersions } from './compilePlan';
 
 // ============================================================
 // Storage types
@@ -26,23 +26,10 @@ interface FileMacrosMap {
 	[fileUri: string]: { [macroName: string]: MacroEntry };
 }
 
-export interface CompileVariant {
-	/** Short name inserted by the {variant} command placeholder. */
-	name: string;
-	/** Macro defines for this compilation variant. */
-	defines: Record<string, string>;
-}
-
-export interface CompileGroup {
+export interface CompileGroup extends CompileSettings {
 	/** Display name shown in the Compile Groups view. */
 	name: string;
-	/** glslc command template; see the Compile Groups UI for supported placeholders. */
-	command: string;
-	/** Workspace glob patterns for the source files in this group. */
-	include: string[];
-	/** Optional per-group macro variants. */
-	variants?: CompileVariant[];
-	/** Stages selected for individual files in this group. */
+	/** Manually added source files and their selected compile stages. */
 	fileStages?: Record<string, string[]>;
 }
 
@@ -202,7 +189,7 @@ interface GlobalMacroNode {
 	enabled: boolean;
 }
 
-type FileMacroNode = FileNode | MacroNode;
+type FileMacroNode = ConfigFolderNode | FileNode | MacroNode;
 
 interface FileNode {
 	kind: 'file';
@@ -383,11 +370,20 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 
 	public refresh(): void { this._onDidChangeTreeData.fire(); }
 	public getTreeItem(element: FileMacroNode): vscode.TreeItem {
+		if (element.kind === 'configFolder') {
+			const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Collapsed);
+			item.id = `fileMacros:folder:${element.folderPath}`;
+			item.iconPath = new vscode.ThemeIcon('folder');
+			return item;
+		}
 		if (element.kind === 'file') {
+			const displayPath = vscode.workspace.asRelativePath(element.uri);
 			const item = new vscode.TreeItem(
-				vscode.workspace.asRelativePath(element.uri),
+				configFileName(displayPath),
 				vscode.TreeItemCollapsibleState.Expanded,
 			);
+			item.id = `fileMacros:file:${element.uri.toString()}`;
+			item.tooltip = displayPath;
 			item.resourceUri = element.uri;
 			item.iconPath = vscode.ThemeIcon.File;
 			item.contextValue = 'fileMacroFile';
@@ -421,16 +417,11 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 	}
 
 	public getChildren(element?: FileMacroNode): FileMacroNode[] {
-		if (!element) {
-			// Root: list all files that have per-file macros
-			const fm = getFileMacros();
-			const uris = Object.keys(fm);
-			if (uris.length === 0) { return []; }
-
-			return uris.map(uri => ({
-				kind: 'file' as const,
-				uri: vscode.Uri.parse(uri),
-			}));
+		if (!element || element.kind === 'configFolder') {
+			return configFileChildren(Object.keys(getFileMacros()).map(key => ({
+				key, displayPath: vscode.workspace.asRelativePath(vscode.Uri.parse(key)),
+			})), element?.folderPath).map(child => child.kind === 'configFolder'
+				? child : { kind: 'file', uri: vscode.Uri.parse(child.key) });
 		}
 
 		if (element.kind === 'file') {
@@ -454,7 +445,7 @@ class FileMacroProvider implements vscode.TreeDataProvider<FileMacroNode> {
 		if (element.kind === 'macro') {
 			return { kind: 'file', uri: element.fileUri };
 		}
-		return null;
+		return configFileParent(element.kind === 'configFolder' ? element.folderPath : vscode.workspace.asRelativePath(element.uri));
 	}
 
 	/** Add a macro to a file */
@@ -575,66 +566,17 @@ interface CompileGroupEntry {
 interface CompileGroupProperty {
 	kind: 'compileGroupProperty';
 	groupIndex: number;
+	setting: keyof CompileSettings;
 	label: string;
 	value: string;
 }
 
-const DEFAULT_COMPILE_COMMAND = 'glslc --target-env=vulkan1.3 {defines} -o "{output}" "{}"';
-
-function splitCompilePatterns(value: string): string[] {
-	return value
-		.split(/[\n,]/)
-		.map(pattern => pattern.trim())
-		.filter(pattern => pattern.length > 0);
-}
-
-function formatCompileVariants(variants: CompileVariant[] | undefined): string {
-	if (!variants || variants.length === 0) { return ''; }
-	return variants
-		.map(variant => {
-			const defines = Object.entries(variant.defines)
-				.map(([name, value]) => `${name}=${value}`)
-				.join(', ');
-			return `${variant.name}: ${defines}`;
-		})
-		.join('; ');
-}
-
-function parseCompileVariants(value: string): CompileVariant[] {
-	if (value.trim().length === 0) { return []; }
-
-	return value.split(';').map(rawVariant => {
-		const variantText = rawVariant.trim();
-		const colon = variantText.indexOf(':');
-		if (colon <= 0) {
-			throw new Error('Each variant must use the form name: MACRO=value, OTHER=value.');
-		}
-
-		const name = variantText.substring(0, colon).trim();
-		if (name.length === 0) {
-			throw new Error('Variant name cannot be empty.');
-		}
-
-		const defines: Record<string, string> = {};
-		const rawDefines = variantText.substring(colon + 1).trim();
-		if (rawDefines.length > 0) {
-			for (const rawDefine of rawDefines.split(',')) {
-				const define = rawDefine.trim();
-				const equals = define.indexOf('=');
-				if (equals <= 0) {
-					throw new Error(`Invalid define "${define}" in variant "${name}".`);
-				}
-				const macro = define.substring(0, equals).trim();
-				if (macro.length === 0) {
-					throw new Error(`Invalid define in variant "${name}".`);
-				}
-				defines[macro] = define.substring(equals + 1).trim();
-			}
-		}
-
-		return { name, defines };
-	});
-}
+const compileGroupSettings: { setting: keyof CompileSettings; label: string }[] = [
+	{ setting: 'outputPath', label: 'Output Directory' },
+	{ setting: 'options', label: 'Compiler Options' },
+	{ setting: 'targetEnv', label: 'Target Environment' },
+	{ setting: 'targetSpv', label: 'Target SPIR-V' },
+];
 
 class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> {
 	private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<CompileGroupNode | undefined | void>();
@@ -672,12 +614,11 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 			item.contextValue = 'compileGroup';
 			item.command = { command: 'glsld.editCompileGroup', title: 'Edit Compile Group', arguments: [element] };
 			if (group) {
-				const variantCount = group.variants?.length ?? 0;
-				item.description = `${group.include?.length ?? 0} pattern(s)${variantCount > 0 ? ` · ${variantCount} variant(s)` : ''}`;
+				item.description = `${Object.keys(group.fileStages ?? {}).length} file(s)`;
 				item.tooltip = [
-					`Command: ${group.command}`,
-					`Include: ${(group.include ?? []).join(', ')}`,
-					variantCount > 0 ? `Variants: ${formatCompileVariants(group.variants)}` : 'Variants: none',
+					`Output directory: ${group.outputPath || '(edit group to set) '}`,
+					`Compiler options: ${group.options || '(none)'}`,
+					`Target: ${group.targetEnv || defaultTargetEnv} / ${group.targetSpv || 'Auto'}`,
 				].join('\n');
 			}
 			return item;
@@ -687,6 +628,7 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		item.description = element.value || '(none)';
 		item.iconPath = new vscode.ThemeIcon('symbol-property');
 		item.contextValue = 'compileGroupProperty';
+		item.command = { command: 'glsld.editCompileGroup', title: `Edit ${element.label}`, arguments: [element] };
 		return item;
 	}
 
@@ -706,22 +648,10 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 				? { ...child, groupIndex } : { kind: 'compileGroupFile', groupIndex, key: child.key });
 		if (element.kind === 'configFolder') { return files; }
 
-		const children: CompileGroupProperty[] = [{
-			kind: 'compileGroupProperty', groupIndex: element.index,
-			label: 'Command', value: group.command,
-		}];
-		for (const pattern of group.include ?? []) {
-			children.push({
-				kind: 'compileGroupProperty', groupIndex: element.index,
-				label: 'Include', value: pattern,
-			});
-		}
-		if (group.variants && group.variants.length > 0) {
-			children.push({
-				kind: 'compileGroupProperty', groupIndex: element.index,
-				label: 'Variants', value: formatCompileVariants(group.variants),
-			});
-		}
+		const children: CompileGroupProperty[] = compileGroupSettings.map(({ setting, label }) => ({
+			kind: 'compileGroupProperty', groupIndex, setting, label,
+			value: group[setting] || (setting === 'targetEnv' ? defaultTargetEnv : setting === 'targetSpv' ? 'Auto' : ''),
+		}));
 		return [...children, ...files];
 	}
 
@@ -752,6 +682,14 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 			if (!files?.length) { return; }
 			key = vscode.workspace.asRelativePath(files[0]);
 		}
+		const inferred = shaderStages.find(stage => stage.stage === path.extname(key).slice(1).toLowerCase());
+		if (inferred) {
+			// Re-adding a file must preserve any stages the user explicitly selected.
+			if (!getCompileGroups()[groupIndex].fileStages?.[key]?.length) {
+				this.saveFileStages(groupIndex, key, [inferred.stage]);
+			}
+			return;
+		}
 		await this.editFileStages({ kind: 'compileGroupFile', groupIndex, key });
 	}
 
@@ -767,9 +705,13 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 			label: stage.stage, description: stage.macro, picked: current.includes(stage.stage),
 		})), { canPickMany: true, title: `${group.name}: stages for ${key}`, placeHolder: 'Select all stages to compile' });
 		if (selected === undefined) { return; }
+		this.saveFileStages(groupIndex, key, selected.map(stage => stage.label));
+	}
+
+	private saveFileStages(groupIndex: number, key: string, stages: string[]): void {
 		const groups = [...getCompileGroups()];
 		const fileStages = { ...groups[groupIndex].fileStages };
-		if (selected.length) { fileStages[key] = selected.map(stage => stage.label); }
+		if (stages.length) { fileStages[key] = stages; }
 		else { delete fileStages[key]; }
 		groups[groupIndex] = { ...groups[groupIndex], fileStages };
 		putCompileGroups(groups);
@@ -782,7 +724,7 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		const group = getCompileGroups()[groupIndex];
 		const key = node?.kind === 'compileGroupFile' ? node.key : node?.kind === 'compileGroupStage' ? node.fileKey
 			: await vscode.window.showQuickPick(Object.keys(group.fileStages ?? {}), { placeHolder: 'Select a file' });
-		if (!key || await vscode.window.showWarningMessage(`Remove file stages for "${key}" from "${group.name}"?`, { modal: true }, 'Remove') !== 'Remove') { return; }
+		if (!key || await vscode.window.showWarningMessage(`Remove "${key}" from "${group.name}"?`, { modal: true }, 'Remove') !== 'Remove') { return; }
 		const groups = [...getCompileGroups()];
 		const fileStages = { ...groups[groupIndex].fileStages };
 		delete fileStages[key];
@@ -801,14 +743,14 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		vscode.window.showInformationMessage(`Compile group "${group.name}" saved to .glsld/config.json.`);
 	}
 
-	public async editGroup(node?: CompileGroupEntry): Promise<void> {
+	public async editGroup(node?: CompileGroupEntry | CompileGroupProperty): Promise<void> {
 		const groups = [...getCompileGroups()];
-		let index = node?.kind === 'compileGroup' ? node.index : undefined;
+		let index = node?.kind === 'compileGroup' ? node.index : node?.groupIndex;
 		if (index === undefined) {
 			const selected = await vscode.window.showQuickPick(
 				groups.map((group, groupIndex) => ({
 					label: group.name,
-					description: `${group.include?.length ?? 0} pattern(s)`,
+					description: `${Object.keys(group.fileStages ?? {}).length} file(s)`,
 					groupIndex,
 				})),
 				{ placeHolder: 'Select a compile group to edit' },
@@ -817,7 +759,12 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		}
 		if (index === undefined || !groups[index]) { return; }
 
-		const group = await this.inputGroup(groups[index], index);
+		let group: CompileGroup | undefined;
+		if (node?.kind === 'compileGroupProperty') {
+			const value = await this.inputSetting(node.setting, groups[index]);
+			if (value === undefined) { return; }
+			group = { ...groups[index], [node.setting]: value };
+		} else { group = await this.inputGroup(groups[index], index); }
 		if (!group) { return; }
 		groups[index] = group;
 		putCompileGroups(groups);
@@ -866,47 +813,39 @@ class CompileGroupProvider implements vscode.TreeDataProvider<CompileGroupNode> 
 		});
 		if (name === undefined) { return undefined; }
 
-		const includeText = await vscode.window.showInputBox({
-			title: 'Compile Group Source Files',
-			prompt: 'Glob patterns, separated by commas',
-			placeHolder: '**/*.vert, **/*.frag, **/*.comp',
-			value: (existing?.include ?? []).join(', '),
-			validateInput: value => splitCompilePatterns(value).length > 0
-				? undefined : 'At least one source glob is required.',
-		});
-		if (includeText === undefined) { return undefined; }
+		const settings: CompileSettings = { outputPath: existing?.outputPath ?? defaultOutputPath };
+		for (const { setting } of compileGroupSettings) {
+			const value = await this.inputSetting(setting, { ...existing, ...settings });
+			if (value === undefined) { return undefined; }
+			settings[setting] = value;
+		}
+		return { name: name.trim(), ...settings, fileStages: existing?.fileStages ?? {} };
+	}
 
-		const command = await vscode.window.showInputBox({
-			title: 'Compile Group Command',
-			prompt: 'Supports {}, {defines}, {variant}, {dir}, {name}, {stage} (configured per file), and {output}.',
-			value: existing?.command ?? DEFAULT_COMPILE_COMMAND,
-			validateInput: value => value.trim().length > 0 ? undefined : 'Command cannot be empty.',
-		});
-		if (command === undefined) { return undefined; }
-
-		const variantsText = await vscode.window.showInputBox({
-			title: 'Compile Group Variants',
-			prompt: 'Optional: name: MACRO=value, OTHER=value; second: MACRO=value',
-			placeHolder: 'debug: DEBUG=1; release: OPTIMIZED=1',
-			value: formatCompileVariants(existing?.variants),
+	private async inputSetting(setting: keyof CompileSettings, existing: Partial<CompileSettings>): Promise<string | undefined> {
+		const title = `Compile Group: ${compileGroupSettings.find(item => item.setting === setting)!.label}`;
+		if (setting === 'targetEnv' || setting === 'targetSpv') {
+			const current = existing[setting] ?? (setting === 'targetEnv' ? defaultTargetEnv : '');
+			const values = setting === 'targetEnv' ? targetEnvironments : ['', ...targetSpirvVersions];
+			const items = values.map(value => ({ label: value || 'Auto', value,
+				description: value === current ? 'Current' : undefined }));
+			items.sort((a, b) => Number(b.value === current) - Number(a.value === current));
+			return (await vscode.window.showQuickPick(items, { title,
+				placeHolder: setting === 'targetEnv' ? 'Select target environment' : 'Auto uses the target environment default' }))?.value;
+		}
+		const value = await vscode.window.showInputBox({
+			title,
+			prompt: setting === 'outputPath' ? 'Output directory (absolute or relative to the workspace folder)'
+				: 'Additional glslc options; output, target and stages use their own settings',
+			placeHolder: setting === 'outputPath' ? defaultOutputPath : '-O -g -I "Shaders/Includes"',
+			value: existing[setting] ?? (setting === 'outputPath' ? defaultOutputPath : ''),
 			validateInput: value => {
-				try {
-					parseCompileVariants(value);
-					return undefined;
-				} catch (error) {
-					return error instanceof Error ? error.message : 'Invalid variant list.';
-				}
+				if (setting === 'outputPath') { return value.trim() ? undefined : 'Output directory cannot be empty.'; }
+				try { parseCompileOptions(value); return undefined; }
+				catch (error) { return error instanceof Error ? error.message : String(error); }
 			},
 		});
-		if (variantsText === undefined) { return undefined; }
-
-		return {
-			...existing,
-			name: name.trim(),
-			include: splitCompilePatterns(includeText),
-			command: command.trim(),
-			variants: parseCompileVariants(variantsText),
-		};
+		return value?.trim();
 	}
 }
 
@@ -985,7 +924,7 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		vscode.commands.registerCommand('glsld.editCompileStages', node => compileProvider.editFileStages(node)),
 		vscode.commands.registerCommand('glsld.removeCompileStages', node => compileProvider.removeFileStages(node)),
 		vscode.commands.registerCommand('glsld.addCompileGroup', () => compileProvider.addGroup()),
-		vscode.commands.registerCommand('glsld.editCompileGroup', (node?: CompileGroupEntry) =>
+		vscode.commands.registerCommand('glsld.editCompileGroup', (node?: CompileGroupEntry | CompileGroupProperty) =>
 			compileProvider.editGroup(node),
 		),
 		vscode.commands.registerCommand('glsld.removeCompileGroup', (node?: CompileGroupEntry) =>
@@ -1006,7 +945,11 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		}),
 
 		// --- Add current file to File view ---
-		vscode.commands.registerCommand('glsld.addFileMacro', async () => {
+		vscode.commands.registerCommand('glsld.addFileMacro', async (node?: FileNode) => {
+			if (node?.kind === 'file') {
+				await fileProvider.addMacro(node.uri);
+				return;
+			}
 			const editor = vscode.window.activeTextEditor;
 			if (!editor || editor.document.languageId !== 'glsl') {
 				vscode.window.showWarningMessage('Open a GLSL file first.');
@@ -1018,21 +961,21 @@ export function activateSidebar(context: vscode.ExtensionContext, client: Langua
 		// --- Edit a file macro (context menu) ---
 		vscode.commands.registerCommand('glsld.editFileMacro', (node: MacroNode) => {
 			if (node && node.kind === 'macro') {
-				fileProvider.editMacro(node);
+				return fileProvider.editMacro(node);
 			}
 		}),
 
 		// --- Delete a file macro (context menu) ---
 		vscode.commands.registerCommand('glsld.deleteFileMacro', (node: MacroNode) => {
 			if (node && node.kind === 'macro') {
-				fileProvider.deleteMacro(node);
+				return fileProvider.deleteMacro(node);
 			}
 		}),
 
 		// --- Remove a file from File view ---
 		vscode.commands.registerCommand('glsld.removeFileFromList', (node: FileNode) => {
 			if (node && node.kind === 'file') {
-				fileProvider.removeFile(node);
+				return fileProvider.removeFile(node);
 			}
 		}),
 

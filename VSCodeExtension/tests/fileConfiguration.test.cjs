@@ -16,16 +16,17 @@ function fixture() {
   };
   const paths = ['Shaders/Lighting/shared.glsl', 'Shaders/Post/shared.glsl', 'root.glsl'];
   const state = {
-    commands: new Map(), views: new Map(), picks: [], dialogs: [], inputs: [], pickRequests: [], writes: [],
+    commands: new Map(), views: new Map(), checkboxHandlers: new Map(), picks: [], dialogs: [], inputs: [], pickRequests: [], inputRequests: [], writes: [],
+    removedConfigs: [], configurationPushes: 0,
     data: {
       globalMacros: { KEEP: { value: '1', enabled: true } },
       fileMacros: Object.fromEntries(paths.map(key => [uri(key).toString(), { TEST: { value: '2', enabled: true } }])),
       shaderConfigs: Object.fromEntries(paths.map(key => [key, { shaderStage: 'frag' }])),
       compileGroups: [
-        { name: 'Main', command: 'glslc -o "{output}" "{}"', include: ['**/*.glsl'], fileStages: {
+        { name: 'Main', outputPath: 'build/shaders', options: '-O', targetEnv: 'vulkan1.3', targetSpv: '', fileStages: {
           'Shaders/Lighting/shared.glsl': ['mesh', 'frag'], 'Shaders/Post/shared.glsl': ['comp'], 'root.glsl': ['vert'],
         } },
-        { name: 'Other', command: 'glslc -o "{output}" "{}"', include: ['**/*.glsl'], fileStages: { 'Shaders/Lighting/shared.glsl': ['vert'] } },
+        { name: 'Other', outputPath: 'other', options: '-g', targetEnv: 'vulkan1.2', fileStages: { 'Shaders/Lighting/shared.glsl': ['vert'] } },
       ],
     },
   };
@@ -48,16 +49,19 @@ function fixture() {
       registerTreeDataProvider: (name, provider) => { state.views.set(name, provider); return disposable(); },
       createTreeView: (name, options) => {
         state.views.set(name, options.treeDataProvider);
-        return { dispose() {}, onDidChangeCheckboxState: disposable };
+        return { dispose() {}, onDidChangeCheckboxState: callback => {
+          state.checkboxHandlers.set(name, callback);
+          return disposable();
+        } };
       },
-      showInformationMessage() {}, showWarningMessage: async () => 'Remove',
+      showInformationMessage() {}, showWarningMessage: async (_message, _options, action) => action,
       showQuickPick: async (items, options) => {
         state.pickRequests.push({ items, options });
         const next = state.picks.shift();
         return typeof next === 'function' ? next(items, options) : next;
       },
       showOpenDialog: async () => state.dialogs.shift(),
-      showInputBox: async () => state.inputs.shift(),
+      showInputBox: async options => { state.inputRequests.push(options); return state.inputs.shift(); },
     },
     workspace: {
       workspaceFolders: [{ uri: uri(root) }], textDocuments: [],
@@ -80,7 +84,10 @@ function fixture() {
         readFileSync: () => JSON.stringify(state.data),
         writeFileSync: (_file, value) => { state.data = JSON.parse(value); state.writes.push(state.data); },
       },
-      './extension': { pushConfiguration() {}, notifyRemoveConfig() {} },
+      './extension': {
+        pushConfiguration() { state.configurationPushes++; },
+        notifyRemoveConfig(key) { state.removedConfigs.push(key); },
+      },
     };
     vm.runInNewContext(fs.readFileSync(file, 'utf8'), {
       exports,
@@ -113,10 +120,10 @@ test('directory entries group Windows/POSIX separators and sort folders before f
   assert.equal(configFileParent('root.glsl'), undefined);
 });
 
-test('folders and file stages are contained inside Compile Groups without changing other views', () => {
+test('all file configuration views group files into folders and retain their property children and parents', () => {
   const { state } = fixture();
   assert.equal(state.views.has('glsld.compileStages'), false);
-  for (const view of ['glsld.compileGroups']) {
+  for (const view of ['glsld.compileGroups', 'glsld.fileVariant', 'glsld.shaderConfig']) {
     const provider = state.views.get(view);
     const roots = view === 'glsld.compileGroups' ? provider.getChildren({ kind: 'compileGroup', index: 0 }) : provider.getChildren();
     const shaders = roots.find(node => node.kind === 'configFolder');
@@ -133,13 +140,119 @@ test('folders and file stages are contained inside Compile Groups without changi
     if (view === 'glsld.compileGroups') { assert.deepEqual(plain(provider.getParent(shaders)), { kind: 'compileGroup', index: 0 }); }
     else { assert.equal(provider.getParent(shaders), undefined); }
   }
-  for (const view of ['glsld.fileVariant', 'glsld.shaderConfig']) {
-    const provider = state.views.get(view);
-    const roots = provider.getChildren();
-    assert.equal(roots.length, 3);
-    assert.equal(roots.some(node => node.kind === 'configFolder'), false);
-  }
   assert.equal(state.writes.length, 0, 'Rendering directory trees must not rewrite stored file keys');
+});
+
+test('nested macro files retain URI keys, context actions and checkbox toggles even with matching basenames', async () => {
+  const { state, uri } = fixture();
+  const originalConfigs = plain(state.data.shaderConfigs);
+  const originalGroups = plain(state.data.compileGroups);
+  const provider = state.views.get('glsld.fileVariant');
+  const shaders = provider.getChildren().find(node => node.kind === 'configFolder');
+  const folders = provider.getChildren(shaders);
+  const lighting = provider.getChildren(folders.find(node => node.label === 'Lighting'))[0];
+  const post = provider.getChildren(folders.find(node => node.label === 'Post'))[0];
+  const lightingKey = uri('Shaders/Lighting/shared.glsl').toString();
+  const postKey = uri('Shaders/Post/shared.glsl').toString();
+  assert.equal(provider.getTreeItem(lighting).label, provider.getTreeItem(post).label);
+  assert.notEqual(provider.getTreeItem(lighting).id, provider.getTreeItem(post).id);
+  assert.equal(provider.getTreeItem(lighting).contextValue, 'fileMacroFile');
+  assert.equal(provider.getTreeItem(lighting).tooltip, 'Shaders/Lighting/shared.glsl');
+
+  state.inputs.push('EXTRA', '9');
+  await state.commands.get('glsld.addFileMacro')(post);
+  assert.deepEqual(state.data.fileMacros[postKey].EXTRA, { value: '9', enabled: true });
+  assert.equal(state.data.fileMacros[lightingKey].EXTRA, undefined);
+  const testMacro = provider.getChildren(lighting)[0];
+  assert.equal(provider.getTreeItem(testMacro).contextValue, 'macro');
+  state.inputs.push('RENAMED', '4');
+  await state.commands.get('glsld.editFileMacro')(testMacro);
+  assert.equal(state.data.fileMacros[lightingKey].TEST, undefined);
+  assert.deepEqual(state.data.fileMacros[lightingKey].RENAMED, { value: '4', enabled: true });
+  const renamed = provider.getChildren(lighting)[0];
+  state.checkboxHandlers.get('glsld.fileVariant')({ items: [[renamed, 0]] });
+  assert.equal(state.data.fileMacros[lightingKey].RENAMED.enabled, false);
+  assert.equal(provider.getTreeItem(provider.getChildren(lighting)[0]).checkboxState, 0);
+  await state.commands.get('glsld.deleteFileMacro')(renamed);
+  assert.equal(state.data.fileMacros[lightingKey], undefined);
+  await state.commands.get('glsld.removeFileFromList')(post);
+  assert.equal(state.data.fileMacros[postKey], undefined);
+  assert.equal(Object.keys(state.data.fileMacros).length, 1);
+  assert.deepEqual(state.data.shaderConfigs, originalConfigs);
+  assert.deepEqual(state.data.compileGroups, originalGroups);
+});
+
+test('nested shader configuration properties edit and remove the original keys, independently of matching basenames', async () => {
+  const { state } = fixture();
+  const originalMacros = plain(state.data.fileMacros);
+  const originalGroups = plain(state.data.compileGroups);
+  const provider = state.views.get('glsld.shaderConfig');
+  const shaders = provider.getChildren().find(node => node.kind === 'configFolder');
+  const folders = provider.getChildren(shaders);
+  const lighting = provider.getChildren(folders.find(node => node.label === 'Lighting'))[0];
+  const post = provider.getChildren(folders.find(node => node.label === 'Post'))[0];
+  assert.equal(provider.getTreeItem(lighting).label, provider.getTreeItem(post).label);
+  assert.notEqual(provider.getTreeItem(lighting).id, provider.getTreeItem(post).id);
+  assert.equal(provider.getTreeItem(lighting).contextValue, 'fileConfig');
+  assert.equal(provider.getTreeItem(lighting).tooltip, lighting.key);
+  const stage = provider.getChildren(lighting)[0];
+  assert.equal(provider.getTreeItem(stage).contextValue, 'configProp');
+  state.picks.push('mesh');
+  await provider.editProperty(stage);
+  assert.deepEqual(state.data.shaderConfigs[lighting.key], { shaderStage: 'mesh' });
+  assert.deepEqual(state.data.shaderConfigs[post.key], { shaderStage: 'frag' });
+  await provider.removeConfig(post);
+  assert.equal(state.data.shaderConfigs[post.key], undefined);
+  assert.deepEqual(state.removedConfigs, [post.key]);
+  assert.equal(state.configurationPushes, 2);
+  assert.deepEqual(state.data.fileMacros, originalMacros);
+  assert.deepEqual(state.data.compileGroups, originalGroups);
+});
+
+test('stage suffixes skip the stage picker for both the current editor and browsed files', async () => {
+  for (const mode of ['editor', 'browse']) {
+    const { state, vscode, uri } = fixture();
+    const otherGroup = plain(state.data.compileGroups[1]);
+    for (const stage of ['vert', 'frag', 'comp', 'geom', 'tesc', 'tese', 'mesh', 'task', 'rgen', 'rahit', 'rchit', 'rmiss', 'rint', 'rcall']) {
+      const key = 'Shaders/New/shader.' + stage.toUpperCase();
+      if (mode === 'editor') vscode.window.activeTextEditor.document.uri = uri(key);
+      else {
+        vscode.window.activeTextEditor = undefined;
+        state.dialogs.push([uri(key)]);
+      }
+      await state.commands.get('glsld.addCompileStages')({ kind: 'compileGroup', index: 0 });
+      assert.deepEqual(state.data.compileGroups[0].fileStages[key], [stage]);
+    }
+    assert.equal(state.pickRequests.length, 0);
+    assert.deepEqual(state.data.compileGroups[1], otherGroup);
+  }
+});
+
+test('inferred stages remain editable and re-adding a file preserves explicit stage selections', async () => {
+  const { state, vscode, uri } = fixture();
+  const key = 'Shaders/New/shader.frag';
+  vscode.window.activeTextEditor.document.uri = uri(key);
+  await state.commands.get('glsld.addCompileStages')({ kind: 'compileGroup', index: 0 });
+  state.picks.push(items => {
+    assert.deepEqual(items.filter(item => item.picked).map(item => item.label), ['frag']);
+    return items.filter(item => ['frag', 'mesh'].includes(item.label));
+  });
+  await state.commands.get('glsld.editCompileStages')({ kind: 'compileGroupFile', groupIndex: 0, key });
+  const writes = state.writes.length;
+  await state.commands.get('glsld.addCompileStages')({ kind: 'compileGroup', index: 0 });
+  assert.deepEqual(state.data.compileGroups[0].fileStages[key], ['frag', 'mesh']);
+  assert.equal(state.pickRequests.length, 1);
+  assert.equal(state.writes.length, writes);
+});
+
+test('only the final extension is used for inference and glsl files still allow multiple stages', async () => {
+  const { state, vscode, uri } = fixture();
+  const key = 'Shaders/New/shader.frag.glsl';
+  vscode.window.activeTextEditor.document.uri = uri(key);
+  state.picks.push(items => items.filter(item => ['mesh', 'frag'].includes(item.label)));
+  await state.commands.get('glsld.addCompileStages')({ kind: 'compileGroup', index: 0 });
+  assert.deepEqual(state.data.compileGroups[0].fileStages[key], ['frag', 'mesh']);
+  assert.equal(state.pickRequests.length, 1);
 });
 
 test('adding/editing file stages persists a multi-selection and preserves all other configuration', async () => {
@@ -209,8 +322,76 @@ test('editing group settings preserves its file stages and folders have group-sp
   const second = provider.getChildren({ kind: 'compileGroup', index: 1 }).find(node => node.kind === 'configFolder');
   assert.notEqual(provider.getTreeItem(first).id, provider.getTreeItem(second).id);
   assert.equal(provider.getParent(second).index, 1);
-  state.inputs.push('Renamed', '**/*.glsl', 'glslc -o "{output}" "{}"', '');
+  state.inputs.push('Renamed', 'new output', '-O -g');
+  state.picks.push(items => items.find(item => item.value === 'vulkan1.4'), items => items.find(item => item.value === 'spv1.6'));
   await state.commands.get('glsld.editCompileGroup')({ kind: 'compileGroup', index: 0 });
   assert.equal(state.data.compileGroups[0].name, 'Renamed');
+  assert.equal(state.data.compileGroups[0].outputPath, 'new output');
+  assert.equal(state.data.compileGroups[0].options, '-O -g');
+  assert.equal(state.data.compileGroups[0].targetEnv, 'vulkan1.4');
+  assert.equal(state.data.compileGroups[0].targetSpv, 'spv1.6');
   assert.deepEqual(state.data.compileGroups[0].fileStages, original);
+});
+
+test('adding a group saves only output, compiler and target settings and starts with an empty file list', async () => {
+  const { state } = fixture();
+  state.inputs.push('New Group', 'build/new', '-O');
+  state.picks.push(items => items.find(item => item.value === 'vulkan1.3'), items => items.find(item => item.value === ''));
+  await state.commands.get('glsld.addCompileGroup')();
+  assert.deepEqual(state.data.compileGroups[2], {
+    name: 'New Group', outputPath: 'build/new', options: '-O', targetEnv: 'vulkan1.3', targetSpv: '', fileStages: {},
+  });
+  assert.equal(state.inputRequests[1].value, 'build/shaders');
+  assert.ok(state.inputRequests[1].validateInput(' '));
+  assert.equal(state.inputRequests[2].validateInput('-O -g'), undefined);
+  assert.ok(state.inputRequests[2].validateInput('-o ignored.spv'));
+  const provider = state.views.get('glsld.compileGroups');
+  const properties = provider.getChildren({ kind: 'compileGroup', index: 2 });
+  assert.deepEqual(plain(properties.map(item => item.label)), ['Output Directory', 'Compiler Options', 'Target Environment', 'Target SPIR-V']);
+});
+
+test('cancelling any step in group setup does not save a partial group', async () => {
+  for (let step = 0; step < 5; step++) {
+    const { state } = fixture();
+    state.inputs.push(...['New Group', 'build/new', '-O'].slice(0, step));
+    if (step >= 3) state.picks.push(...Array.from({ length: step - 3 }, () => items => items[0]));
+    await state.commands.get('glsld.addCompileGroup')();
+    assert.equal(state.writes.length, 0, 'No save when cancelling step ' + step);
+    assert.equal(state.data.compileGroups.length, 2);
+  }
+});
+
+test('clicking a group property edits just that setting and retains its files and other groups', async () => {
+  const { state } = fixture();
+  const provider = state.views.get('glsld.compileGroups');
+  const properties = provider.getChildren({ kind: 'compileGroup', index: 0 });
+  const output = properties.find(item => item.setting === 'outputPath');
+  const original = plain(state.data);
+  state.inputs.push('generated/shaders');
+  const command = provider.getTreeItem(output).command;
+  await state.commands.get(command.command)(...command.arguments);
+  original.compileGroups[0].outputPath = 'generated/shaders';
+  assert.deepEqual(state.data, original);
+  assert.equal(state.inputRequests.length, 1);
+  assert.equal(state.pickRequests.length, 0);
+  const spv = properties.find(item => item.setting === 'targetSpv');
+  state.picks.push(items => items.find(item => item.value === 'spv1.5'));
+  await state.commands.get('glsld.editCompileGroup')(spv);
+  assert.equal(state.data.compileGroups[0].targetSpv, 'spv1.5');
+  state.picks.push(items => items.find(item => item.value === ''));
+  await state.commands.get('glsld.editCompileGroup')(spv);
+  assert.equal(state.data.compileGroups[0].targetSpv, '');
+});
+
+test('editing a legacy group retains its manually added files and replaces the old command model', async () => {
+  const { state } = fixture();
+  const files = plain(state.data.compileGroups[0].fileStages);
+  state.data.compileGroups[0] = { name: 'Legacy', include: ['**/*.glsl'], command: 'glslc "{}"', variants: [], fileStages: files };
+  state.commands.get('glsld.refreshCompileGroups')();
+  state.inputs.push('Legacy', 'build/legacy', '-g');
+  state.picks.push(items => items.find(item => item.value === 'vulkan1.3'), items => items.find(item => item.value === ''));
+  await state.commands.get('glsld.editCompileGroup')({ kind: 'compileGroup', index: 0 });
+  assert.deepEqual(state.data.compileGroups[0], {
+    name: 'Legacy', outputPath: 'build/legacy', options: '-g', targetEnv: 'vulkan1.3', targetSpv: '', fileStages: files,
+  });
 });

@@ -229,7 +229,7 @@
 			},
 			{
 				"view": "glsld.compileGroups",
-				"contents": "No compile groups configured.\n[Add Compile Group](command:glsld.addCompileGroup)\nCompile groups define source globs, the glslc command template, and optional build variants. They are saved in `.glsld/config.json`.",
+				"contents": "No compile groups configured.\n[Add Compile Group](command:glsld.addCompileGroup)\nSet an output directory, compiler options and target environment, then use the + action on the group to add files and select their stages. Groups are saved in `.glsld/config.json`.",
 				"when": "workbenchState != empty"
 			}
 		],
@@ -321,7 +321,7 @@
 			},
 			{
 				"command": "glsld.addCompileStages",
-				"title": "Configure File Stages in Compile Group",
+				"title": "Add File to Compile Group",
 				"category": "glsld",
 				"icon": "$(add)"
 			},
@@ -332,7 +332,7 @@
 			},
 			{
 				"command": "glsld.removeCompileStages",
-				"title": "Remove File Stages from Compile Group",
+				"title": "Remove File from Compile Group",
 				"category": "glsld"
 			},
 			{
