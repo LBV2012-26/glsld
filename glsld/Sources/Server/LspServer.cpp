@@ -1637,6 +1637,13 @@ namespace glsld {
             return;
         }
 
+        if (snapshot->version != version_replica) {
+            // A newer edit is pending or being parsed; never relabel the old source.
+            std::lock_guard lock(affected_mutex_);
+            include_affected_uris_.emplace(uri);
+            return;
+        }
+
         Update(uri, snapshot->source, version_replica, version_pointer);
 
         LspSubmitItem item{
@@ -1676,7 +1683,12 @@ namespace glsld {
             update_pool_.Submit([this, counter, total, uri, version_replica, version_pointer]() -> void {
                 auto snapshot = workspace_.GetDocumentSnapshot(uri);
                 if (snapshot != nullptr) {
-                    Update(uri, snapshot->source, version_replica, version_pointer);
+                    if (snapshot->version == version_replica) {
+                        Update(uri, snapshot->source, version_replica, version_pointer);
+                    } else {
+                        std::lock_guard lock(affected_mutex_);
+                        include_affected_uris_.emplace(uri);
+                    }
                 }
 
                 if (counter->fetch_add(1, std::memory_order::relaxed) + 1 == total) {
